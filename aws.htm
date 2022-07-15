@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>AES</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+  <script type="text/javascript">
+    var key = ""
+
+    function initKey() {
+      key = CryptoJS.enc.Utf8.parse(btoa(document.getElementById('pass').value))
+      return true;
+    }
+
+    function Decrypt() {
+      if (initKey()) {
+        encryptedHexStr = CryptoJS.enc.Hex.parse('970c754a4476c0bb519d844a5937ddca77acfeaf917ef75f9ab14794034564d57b196d65194a30946aa1041b57336b495c994953427acd1839227b9f7cd456d22982b16110b7ec54bda174e1379fd7fd2398e696b8efb6be5a5feca1e940906a6f51c2a732b1a0d92bfbeb73c8b233f350dab88846faa68fc2a68f1810426573e67f1197f50e0695a179e3360acab01898e1631b7eb2818cbfd2ae4ef1c2b56e7a51a8f24b1d11e33583ca458c2891f32b99ef5a1a429eca3a1b0a70e878d30fff2ef4ada3168ec1de5ac302da2baadc869835032cf6f1126884db2510336323e95fdb8dab15e8cc55e692bea611a95082885a0f8708fdad09aeec7923d476d92e67985de2b4a30bee01f73494b8d81151ecc0da67f558f05bfaf7aa58d81bc5f98cd4e4e434e67ecddd29f9c0c1f4402c243826cfead28f0c55a514c92f535d346a8457b4aeca667b3d80638c157e2e42b6ce148bce187387038b47bb5f4695452f476b765a235bc66f71d391bc4a29a3747993c9959468bd6839e9614cc7e22398e696b8efb6be5a5feca1e940906adfd63375967443afe098d2e74f92d2e8674d2e8c870ddcc86f799b12a2574236db52d40845092f72a258738afcbefb82c52708edf676d8524af64538b7e14eb07833d9c3b6a90d016327bd4cbef36757fc0c49c8ed940d652b0d902f54ec334f6fa5daf831733d2f8928be9fe496707fe0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a75d993165c5231e0248c9df3ed49a3c62a28366b8c97ff96a47b70d9e54f5ee0fe3ac94c846dceeffe32677a467d6c573bed0b0dc62e976ad39c8f8a1c69cedbc83ce86b78a05b66283d00f0c8efdf05cc4fd7de1aa1d2144d06257d66e0f518920d813d77324a25c3e77df052dee70f7c54997076dc03d1c973729f1751171371469aed68ac2d9713d81d085408f03898aded6c886a6e1bfe0b92443dfebf779470c4051b8611fcf732205d3d1127b9cbb6bc7effd8a08797c395e0cdd49ee6d7c7fcd2e4623d557f08376c4d8d64bcdf8c7ca01cab30698f9d1029c0c4106d2805b16624bb09b3e8b17a815028806d3a4b33c2912c2af437a3a2f0d628cd93d7b191e72bcd91c2be8e71005aaad78be7abd896885240558ed4f32af856a676ebba81dbc383f9af975820f716a2a2b43a62ff91d68ef94d01004aa38bd3d242b85070d3ca76803e5727251cf9b80b9e5f3c5b176f900e10f38688e25734bc06fd351650ca53ebf3d068bded5e47f27db397e26cd49102959fb3c04a45188a0f395245741f0f0c59743ee7bc151c4db2d9abf344cafef4c3ee79efabd9273d7ab79d0f25f425da36c45d650c1e2c0f988d190f9c58c10a2e9fe0b894e507de6ada6ce0859417276f175aa5f823dbfce3054b1da1f19613c658b464a62e6676c905d2262a089cc355c8e0dc85fa9ad98120fe288acef5dac7a8c63ff48e24afc15fce9ad7893284a483f9472d7af35d51b61eb6f6940eb0878d658ae7ce16f57779aa4119ce10a557916fd34b6ba9de0dee0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a7e0eb5a7d2683a8b21566e374941f74a775dbd0efaddf1af11fe11f4ce6ec83fb8d5aafd4565323a60e9eed9b43ea9978c9a442283ea0ab0f69e8248b4658372a28f95f5bc0c1b1853dd6c97b728198925b6a67989faa3c253608758406256dc462eb23cab7f3ae54a16b8013a1518702d8648e5963267e89d4fd2dd92c2acb2fa7e4e647028ff3a9123be0d1f58b9fa4eaed353a23c3bbb41c742ddc37e0fcd5250a378eb551f06dbe6ef858889941f0b4e110b4b5c6c16c811d00539c2a8735')
+        encryptedBase64Str = CryptoJS.enc.Base64.stringify(encryptedHexStr)
+        var decryptedData = CryptoJS.AES.decrypt(encryptedBase64Str, key, {
+          mode: CryptoJS.mode.ECB,
+          padding: CryptoJS.pad.Pkcs7
+        })
+        document.getElementById('output').value = decryptedData.toString(CryptoJS.enc.Utf8)
+      }
+    }
+
+  </script>
+  <div class="flex flex-wrap">
+    <div class="flex-grow mx-5">
+      <textarea rows="40" cols="50"
+        class="bg-gray-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        type="text" id="output" readonly=""></textarea>
+    </div>
+  </div>
+  <div class="mx-4 mt-4">
+    <label aria-placeholder="pass">Secret Key:</label>
+    <input id="pass" type="password" class="border-b-2 ml-2">
+  </div>
+  <div class="mx-4 mt-4">
+    <a href="javascript:Decrypt()"
+      class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">解密</a>
+  </div>
+</body>
+
+</html>

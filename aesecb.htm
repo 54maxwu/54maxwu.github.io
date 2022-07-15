@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>AES/ECB</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script type="text/javascript">
+    var key = ""
+
+    function initKey() {
+      if (document.getElementById('input').value == "") {
+        return false;
+      }
+      key = document.getElementById('pass').value
+      return true;
+    }
+
+    function Encrypt() {
+      if (initKey()) {
+        let json = document.getElementById('input').value;
+        let k = CryptoJS.enc.Utf8.parse(key);
+        let cypher = CryptoJS.AES.encrypt(json, k, { mode: CryptoJS.mode.ECB });
+        document.getElementById('output').value = CryptoJS.enc.Base64.stringify(cypher.ciphertext);
+      }
+    }
+
+    function Decrypt() {
+      if (initKey()) {
+        let enctxt = document.getElementById('input').value;
+        let k = CryptoJS.enc.Utf8.parse(key)
+        let r = CryptoJS.AES.decrypt(enctxt, k, {mode: CryptoJS.mode.ECB})
+        var str = r.toString(CryptoJS.enc.Utf8);
+        document.getElementById('output').value = str
+      }
+    }
+
+    function Copy() {
+      var target = document.getElementById("output");
+      target.select();
+      document.execCommand("Copy");
+    }
+
+    function Clear() {
+      document.getElementById('input').value = ""
+      document.getElementById('output').value = ""
+    }
+  </script>
+  <div class="flex flex-wrap">
+    <div class="flex-grow mx-5">
+      <label class="block text-gray-600 text-sm font-semibold my-2">Ori message</label>
+      <textarea rows="10" cols="50"
+        class="bg-gray-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        type="text" id="input"></textarea>
+    </div>
+    <div class="flex-grow mx-5">
+      <label class="block text-gray-600 text-sm font-semibold my-2">Result</label>
+      <textarea rows="10" cols="50"
+        class="bg-gray-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        type="text" id="output" readonly=""></textarea>
+    </div>
+  </div>
+  <div class="mx-4 mt-4">
+    <label aria-placeholder="pass">Secret Key:</label>
+    <input id="pass" type="password" class="border-b-2 ml-2">
+  </div>
+  <div class="mx-4 mt-4">
+    <a href="javascript:Encrypt()"
+      class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Encrypt</a>
+    <a href="javascript:Decrypt()"
+      class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Decrypt</a>
+    <a href="javascript:Clear()"
+      class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Clear</a>
+    <a href="javascript:Copy()"
+      class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Copy</a>
+  </div>
+</body>
+
+</html>

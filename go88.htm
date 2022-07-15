@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>AES</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+  <script type="text/javascript">
+    var key = ""
+
+    function initKey() {
+      key = CryptoJS.enc.Utf8.parse(btoa(document.getElementById('pass').value))
+      return true;
+    }
+
+    function Decrypt() {
+      if (initKey()) {
+        encryptedHexStr = CryptoJS.enc.Hex.parse('bd42281b60dadc8310000b8443a91ab40fd967d8281e723b50292c21ff398ca17842d66847ebbe2895c25a53517ee486ac7e8f63c3ce0e346449db23e6c023c2a5e09122ce799990a1ea54f80c3fd313f43fead0e42a9ec7bda2bf7998e65067a1e128f02f8507337169002abeaa900de90ce0c59bf4c5724eed56b13c7862af346ece137a03b67cccde7b20a5b1573ee56ea0e6a5b164467c80126b3238702e6d2c24ce8d872664e15e1a81332f28d7ff41d5759546ebbd144f70946bb7241ea124e19554a010fcdffb57fad39a68529e951f9ae678622504c5425b758fe26e2a2206ec1bd642e231cec0609944afc897e188af0dd6a9acf4c6a93f881f495000511c75ffe69094fe9268039ec4928977526b50a01dd41872d1764e93249dff554875ad1b0fb95b724b145109f0e5bacc4d1fefe0345f5fff06c65442438af22f7a08fadd113536a18a0dd7e60e1d8739c73dc1c363aaae4b3ec085e73c6169dac052b43a6922c310c8b637971f0ec98937cb47bdf4dd5fb5df6c9e5455e46136cd2bc2ac589da2d0c12977573afa4dc32fe801ce3512aaf7c6f2803e80b9d02f58420e86de372c8b40c64d964686ea770d9d8a9f3eb3e5689fa27a69931555a2026de83687306735a8f9d0d8889d30da01a026b791319ee869cb16113e8d8eaf3b4f5e335ba1dd2c3a872d4297acd1872d0e651ebc705c2b63a628adaff8ae727fdd736beecc56cceec251099b7178734ad0bad1859c578ef6d2b9cd8c5e3a9ed14c3ba7915499c214ff738e0cf4d190c6b3682e9e65991afd3eba40fdc83f264fb5f8549ec1eac9cb0a8154f0dc1d14f2feab253245a5949aa712520b1ca7f3f76c060f2639aed2f738eb6b02090072720447c6d02a9874480c6977ed7c02eb57a825492049d4edb8e4070f9846157c15e65187c8c0c8f88e91d3e7066963a97f39f1076bd62283a1217813d654f1205c634307866c2577927ed1a850909d68cc745e0aa1c0e6aa117bebadd3b3b3bcdeb54dd8f2d919a49f8868e09f8eeb9e130b774fd4ac0e8e53b9f16c4d911df888566fdc1e78e51e31f94a1009b5d26ec0c51aa779c703afd95516c86f582d')
+        encryptedBase64Str = CryptoJS.enc.Base64.stringify(encryptedHexStr)
+        var decryptedData = CryptoJS.AES.decrypt(encryptedBase64Str, key, {
+          mode: CryptoJS.mode.ECB,
+          padding: CryptoJS.pad.Pkcs7
+        })
+        document.getElementById('output').value = decryptedData.toString(CryptoJS.enc.Utf8)
+      }
+    }
+
+  </script>
+  <div class="flex flex-wrap">
+    <div class="flex-grow mx-5">
+      <textarea rows="40" cols="50"
+        class="bg-gray-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        type="text" id="output" readonly=""></textarea>
+    </div>
+  </div>
+  <div class="mx-4 mt-4">
+    <label aria-placeholder="pass">Secret Key:</label>
+    <input id="pass" type="password" class="border-b-2 ml-2">
+  </div>
+  <div class="mx-4 mt-4">
+    <a href="javascript:Decrypt()"
+      class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">解密</a>
+  </div>
+</body>
+
+</html>
