@@ -6,7 +6,10 @@
     <script type="text/javascript">
         (function () {
             var fragment = location.pathname.split('/').pop();
-            location.href = fragment + ".htm";
+            const response = fetch(fragment + ".htm");
+            if(response.status == 200){
+                location.href = fragment + ".htm";
+            }
         })();
     </script>
 </head>
