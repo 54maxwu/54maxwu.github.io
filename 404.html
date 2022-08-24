@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Redirect</title>
+    <script type="text/javascript">
+        (function () {
+            var fragment = location.pathname.split('/').pop();
+            location.href = fragment + ".htm";
+        })();
+    </script>
+</head>
+</html>
