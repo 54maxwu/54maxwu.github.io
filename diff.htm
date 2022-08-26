@@ -32,29 +32,38 @@
             $("#diff").on('click', $("body"), function(event) {
                 $("#result1").html("");
                 $("#result2").html("");
+                $("#result3").html("");
+                $("#result4").html("");
                 var left = $('#c1').val().split('\n');
                 var right = $('#c2').val().split('\n');
+                var left_set = new Set();
+                var right_set = new Set();
                 $.each(left, function(i, v) {
                     if(v.length != 0){
-                        if($.inArray( v, right)<0){
-                            $("#result1").html($("#result1").html()+v+'\n');
-                        }
+                        left_set.add(v);
                     }
                 });
                 $.each(right, function(i, v) {
                     if(v.length != 0){
-                        if($.inArray( v, left)<0){
-                            $("#result2").html($("#result2").html()+v+'\n');
-                        }
+                        right_set.add(v);
                     }
                 });
-                $.each(right, function(i, v) {
-                    if(v.length != 0){
-                        if($.inArray( v, left)>0){
-                            $("#result3").html($("#result3").html()+v+'\n');
-                        }
-                    }
-                });
+                //left差集
+                let leftdiff = new Set([...right_set].filter(x=>!left_set.has(x)));
+                $("#result1").html(Array.from(leftdiff).join("\n"));
+
+                //right差集
+                let rightdiff = new Set([...left_set].filter(x=>!right_set.has(x)));
+                $("#result2").html(Array.from(rightdiff).join("\n"));
+
+                //交集
+                let intersect = new Set([...right_set].filter(x=>left_set.has(x)));
+                $("#result3").html(Array.from(intersect).join("\n"));
+
+                //聯集
+                let union = new Set([...left_set,...right_set]);
+                $("#result4").html(Array.from(union).join("\n"));
+
                 event.preventDefault();
                 /* Act on the event */
             });
@@ -64,7 +73,7 @@
                 var tmpset = new Set();
                 $.each(left, function(i, v) {
                     if(v.length != 0){
-                        tmpset.add(v)
+                        tmpset.add(v);
                     }
                 });
                 var right_arr = Array.from(tmpset);
@@ -114,15 +123,19 @@
         <tr>
             <td>
                 <p>左框沒有</p>
-                <textarea id="result2" readonly rows="20" cols="35"></textarea>
-            </td>
-            <td>
-                <p>右框沒有</p>
                 <textarea id="result1" readonly rows="20" cols="35"></textarea>
             </td>
             <td>
-                <p>兩框都有</p>
+                <p>右框沒有</p>
+                <textarea id="result2" readonly rows="20" cols="35"></textarea>
+            </td>
+            <td>
+                <p>兩框交集</p>
                 <textarea id="result3" readonly rows="20" cols="35"></textarea>
+            </td>
+            <td>
+                <p>兩框聯集</p>
+                <textarea id="result4" readonly rows="20" cols="35"></textarea>
             </td>
         </tr>
     </table>
