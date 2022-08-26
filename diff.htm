@@ -2,37 +2,129 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Document</title>
+    <title>Diff</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <style>
+        .bgcolor {
+          background: linear-gradient(to bottom, #D5DEE7 0%, #E8EBF2 50%, #E2E7ED 100%), linear-gradient(to bottom, rgba(0,0,0,0.02) 50%, rgba(255,255,255,0.02) 61%, rgba(0,0,0,0.02) 73%), linear-gradient(33deg, rgba(255,255,255,0.20) 0%, rgba(0,0,0,0.20) 100%);
+          background-blend-mode: normal,color-burn;
+        }
+        .special_text{
+          text-shadow: 1px 1px 4px black, 0 0 25px rgb(211, 211, 211), 0 0 5px rgb(70, 158, 240);
+          font-weight: bolder;
+        }
+        .glass-container {
+          gap: 20px;
+          border-radius: 10px;
+          backdrop-filter: blur(5px);
+          background-color: rgba(0,191,255, 0.075);
+          box-shadow: rgba(0, 0, 0, 0.3) 2px 8px 8px;
+          border: 2px rgba(255,255,255,0.4) solid;
+          border-bottom: 2px rgba(40,40,40,0.35) solid;
+          border-right: 2px rgba(40,40,40,0.35) solid;
+        }
+    </style>
 </head>
-<body>
+<body class="bgcolor">
     <script>
         $(function(){
             $("#diff").on('click', $("body"), function(event) {
                 $("#result1").html("");
                 $("#result2").html("");
-                var left = $('#left').val().split('\n');
-                var right = $('#right').val().split('\n');
+                var left = $('#c1').val().split('\n');
+                var right = $('#c2').val().split('\n');
                 $.each(left, function(i, v) {
-                     if($.inArray( v, right)<0){
-                        $("#result1").html($("#result1").html()+'右邊沒有: '+v+'\n');
-                     }
+                    if(v.length != 0){
+                        if($.inArray( v, right)<0){
+                            $("#result1").html($("#result1").html()+v+'\n');
+                        }
+                    }
                 });
                 $.each(right, function(i, v) {
-                     if($.inArray( v, left)<0){
-                        $("#result2").html($("#result2").html()+'左邊沒有: '+v+'\n');
-                     }
+                    if(v.length != 0){
+                        if($.inArray( v, left)<0){
+                            $("#result2").html($("#result2").html()+v+'\n');
+                        }
+                    }
+                });
+                $.each(right, function(i, v) {
+                    if(v.length != 0){
+                        if($.inArray( v, left)>0){
+                            $("#result3").html($("#result3").html()+v+'\n');
+                        }
+                    }
+                });
+                event.preventDefault();
+                /* Act on the event */
+            });
+            $("#unique").on('click', $("body"), function(event) {
+                $("#u2").html("");
+                var left = $('#u1').val().split('\n');
+                var tmpset = new Set();
+                $.each(left, function(i, v) {
+                    if(v.length != 0){
+                        tmpset.add(v)
+                    }
+                });
+                var right_arr = Array.from(tmpset);
+                $.each(right_arr, function(i, v) {
+                  $("#u2").html($("#u2").html()+v+'\n');
                 });
                 event.preventDefault();
                 /* Act on the event */
             });
         });
     </script>
-    <textarea id="left" rows="40" cols="50" style="background:#ffcece"></textarea>
-    <textarea id="right" rows="40" cols="50" style="background:#cfceff"></textarea>
-    <button id="diff">比对</button>
+    <div style="display:flex">
+        <div style="display:flex">
+            <textarea id="c1" rows="30" cols="50"></textarea>
+            <textarea id="c2" rows="30" cols="50"></textarea>
+            <button id="diff">
+                <p>比對</p>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-git-compare" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <circle cx="6" cy="6" r="2" />
+                <circle cx="18" cy="18" r="2" />
+                <path d="M11 6h5a2 2 0 0 1 2 2v8" />
+                <polyline points="14 9 11 6 14 3" />
+                <path d="M13 18h-5a2 2 0 0 1 -2 -2v-8" />
+                <polyline points="10 15 13 18 10 21" />
+              </svg>
+            </button>
+        </div>
+        <div style="display:flex;margin-left:50px">
+            <textarea id="u1" rows="30" cols="50"></textarea>
+            <textarea id="u2" rows="30" cols="50" style="background-color:ghostwhite" readonly></textarea>
+            <button id="unique">
+                <p>不重複</p>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-layers-difference" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M16 16v2a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2h2v-2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-2" />
+                    <polyline points="10 8 8 8 8 10" />
+                    <polyline points="8 14 8 16 10 16" />
+                    <polyline points="14 8 16 8 16 10" />
+                    <polyline points="16 14 16 16 14 16" />
+                  </svg>
+            </button>
+        </div>
+    </div>
     <hr>
-    <textarea id="result2" readonly rows="15" cols="50" style="background:#ffcece"></textarea>
-    <textarea id="result1" readonly rows="15" cols="50" style="background:#cfceff"></textarea>
+    <table>
+        <tr>
+            <td>
+                <p>左框沒有</p>
+                <textarea id="result2" readonly rows="20" cols="35"></textarea>
+            </td>
+            <td>
+                <p>右框沒有</p>
+                <textarea id="result1" readonly rows="20" cols="35"></textarea>
+            </td>
+            <td>
+                <p>兩框都有</p>
+                <textarea id="result3" readonly rows="20" cols="35"></textarea>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
