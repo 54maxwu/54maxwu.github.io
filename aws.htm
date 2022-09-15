@@ -25,7 +25,13 @@
           mode: CryptoJS.mode.ECB,
           padding: CryptoJS.pad.Pkcs7
         })
-        document.getElementById('output').value = decryptedData.toString(CryptoJS.enc.Utf8)
+        try {
+          document.getElementById('output').value = decryptedData.toString(CryptoJS.enc.Utf8)
+        } catch (error) {
+          if(error.message === 'Malformed UTF-8 data'){
+            alert('解密失敗')
+          }
+        }
       }
     }
 
