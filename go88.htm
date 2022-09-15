@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>AES</title>
+  <title>加密文件</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet">
 </head>
@@ -10,11 +10,12 @@
 <body>
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
   <script type="text/javascript">
+
     var key = ""
 
     function initKey() {
       key = CryptoJS.enc.Utf8.parse(btoa(document.getElementById('pass').value))
-      return true;
+      return true
     }
 
     function Decrypt() {
@@ -27,6 +28,8 @@
         })
         try {
           document.getElementById('output').value = decryptedData.toString(CryptoJS.enc.Utf8)
+          document.getElementsByClassName('inputpw')[0].style.display = 'none'
+          document.getElementsByClassName('result')[0].style.display = 'block'
         } catch (error) {
           if(error.message === 'Malformed UTF-8 data'){
             alert('解密失敗')
@@ -36,20 +39,20 @@
     }
 
   </script>
-  <div class="flex flex-wrap">
-    <div class="flex-grow mx-5">
-      <textarea rows="40" cols="50"
-        class="bg-gray-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-        type="text" id="output" readonly=""></textarea>
+  <div class="inputpw flex h-screen items-center justify-center ">
+    <div class="mx-4 mt-4">
+      <label aria-placeholder="pass">Secret Key:</label>
+      <input id="pass" type="password" class="border-b-2 ml-2">
+    </div>
+    <div class="mx-4 mt-4">
+      <a href="javascript:Decrypt()"
+        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">解密</a>
     </div>
   </div>
-  <div class="mx-4 mt-4">
-    <label aria-placeholder="pass">Secret Key:</label>
-    <input id="pass" type="password" class="border-b-2 ml-2">
-  </div>
-  <div class="mx-4 mt-4">
-    <a href="javascript:Decrypt()"
-      class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">解密</a>
+  <div class="result flex flex-wrap h-screen hidden">
+      <textarea rows="40" cols="50"
+        class="px-4 bg-gray-100 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-screen"
+        type="text" id="output" readonly=""></textarea>
   </div>
 </body>
 
