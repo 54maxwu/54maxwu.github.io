@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FP</title>
+</head>
+<body>
+    <script>
+        // Initialize the agent at application startup.
+        // You can also use https://openfpcdn.io/fingerprintjs/v3/esm.min.js
+        const fpPromise = import('./v3.js')
+          .then(FingerprintJS => FingerprintJS.load())
+        // Get the visitor identifier when you need it.
+        fpPromise
+          .then(fp => fp.get())
+          .then(result => document.write(result.visitorId))
+      </script>
+</body>
+</html>
