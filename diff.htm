@@ -70,16 +70,9 @@
             $("#unique").on('click', $("body"), function(event) {
                 $("#u2").html("");
                 var left = $('#u1').val().split('\n');
-                var tmpset = new Set();
-                $.each(left, function(i, v) {
-                    if(v.length != 0){
-                        tmpset.add(v);
-                    }
-                });
-                var right_arr = Array.from(tmpset);
-                $.each(right_arr, function(i, v) {
-                  $("#u2").html($("#u2").html()+v+'\n');
-                });
+                var right = [...new Set(left)];
+                right.map(d=>$("#u2").html($("#u2").html()+d+'\n'))
+
                 event.preventDefault();
                 /* Act on the event */
             });
