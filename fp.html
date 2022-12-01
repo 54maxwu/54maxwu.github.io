@@ -1,6 +1,6 @@
 <script>
     // Initialize the agent at application startup.
-    const fpPromise = import('https://openfpcdn.io/fingerprintjs/v3')
+    const fpPromise = import('lib/v3.js')
       .then(FingerprintJS => FingerprintJS.load())
   
     // Get the visitor identifier when you need it.
