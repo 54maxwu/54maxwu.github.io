@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src='https://cdn.jsdelivr.net/npm/big.js@6.2.1/big.min.js'></script>
+</head>
+
+<body>
+    <style>
+        body {
+            font-size: 26pt;
+        }
+    </style>
+    <script>
+        const printOp = (op) => {
+            document.body.innerHTML += `<br>${op}`;
+            document.body.innerHTML += "<font color='blue'>// " + eval(op) + "</font>";
+        }
+
+        (function() {
+            document.body.innerHTML += "引入 https://cdn.jsdelivr.net/npm/big.js@6.2.1/big.min.js";
+            let op = '';
+
+            op = "parseFloat(new Big(0.1).plus(0.2))"
+            document.body.innerHTML += "<br><br>加法: 0.1+0.2 <font color='red'>0.1+0.2</font>";
+            printOp(op)
+
+            op = "parseFloat(new Big(0.3).minus(0.1))"
+            document.body.innerHTML += "<br><br>減法: 0.3-0.1 <font color='red'>0.3-0.1</font>";
+            printOp(op)
+
+            op = "parseFloat(new Big(0.6).times(0.3))"
+            document.body.innerHTML += "<br><br>乘法: 0.6*0.3 <font color='red'>0.6*0.3</font>";
+            printOp(op)
+
+            op = "parseFloat(new Big(0.3).times(0.1))"
+            document.body.innerHTML += "<br><br>除法: 0.3*0.1 <font color='red'>0.3/0.1</font>";
+            printOp(op)
+
+            op = "parseFloat(new Big(-0.3).abs())"
+            document.body.innerHTML += "<br><br>絕對值 -0.3 <font color='red'>Math.abs(-0.3)</font>";
+            printOp(op)
+
+            op = "parseFloat(new Big(0.7).pow(2))"
+            document.body.innerHTML += "<br><br>次方 0.7^2 <font color='red'>Math.pow(0.7, 2)</font>";
+            printOp(op)
+
+            op = "parseFloat(new Big(-45.567).toFixed(2))"
+            document.body.innerHTML += "<br><br>四捨五入第2位 -45.567 <font color='red'>Math.round(-45.567* 100) / 100</font>";
+            printOp(op)
+
+        })();
+
+
+    </script>
+</body>
+
+</html>
