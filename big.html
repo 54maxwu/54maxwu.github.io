@@ -20,43 +20,115 @@
             document.body.innerHTML += `<br>${op}`;
             document.body.innerHTML += "<font color='blue'>// " + eval(op) + "</font>";
         }
+        const printOri = (op) => {
+            document.body.innerHTML += "<font color='red'>" + op + "</font><font color='blue'>// " + eval(op) + "</font>";
+        }
 
         (function() {
+
             document.body.innerHTML += "引入 https://cdn.jsdelivr.net/npm/big.js@6.2.1/big.min.js";
             let op = '';
 
             op = "parseFloat(new Big(0.1).plus(0.2))"
-            document.body.innerHTML += "<br><br>加法: 0.1+0.2 <font color='red'>0.1+0.2</font>";
+            document.body.innerHTML += "<br><br>加法: "
+            printOri("0.1+0.2");
             printOp(op)
 
             op = "parseFloat(new Big(0.3).minus(0.1))"
-            document.body.innerHTML += "<br><br>減法: 0.3-0.1 <font color='red'>0.3-0.1</font>";
+            document.body.innerHTML += "<br><br>減法: "
+            printOri("0.3-0.1");
             printOp(op)
 
-            op = "parseFloat(new Big(0.6).times(0.3))"
-            document.body.innerHTML += "<br><br>乘法: 0.6*0.3 <font color='red'>0.6*0.3</font>";
+            op = "parseFloat(new Big(0.6).times(3))"
+            document.body.innerHTML += "<br><br>乘法: "
+            printOri("0.6*3")
             printOp(op)
 
-            op = "parseFloat(new Big(0.3).times(0.1))"
-            document.body.innerHTML += "<br><br>除法: 0.3*0.1 <font color='red'>0.3/0.1</font>";
+            op = "parseFloat(new Big(0.3).div(0.1))"
+            document.body.innerHTML += "<br><br>除法: "
+            printOri("0.3/0.1")
+            printOp(op)
+
+            op = "parseFloat(new Big(1).mod(0.9))"
+            document.body.innerHTML += "<br><br>取餘數: "
+            printOri("1%0.9")
             printOp(op)
 
             op = "parseFloat(new Big(-0.3).abs())"
-            document.body.innerHTML += "<br><br>絕對值 -0.3 <font color='red'>Math.abs(-0.3)</font>";
+            document.body.innerHTML += "<br><br>絕對值 "
+            printOri("Math.abs(-0.3)")
             printOp(op)
 
             op = "parseFloat(new Big(0.7).pow(2))"
-            document.body.innerHTML += "<br><br>次方 0.7^2 <font color='red'>Math.pow(0.7, 2)</font>";
+            document.body.innerHTML += "<br><br>次方 "
+            printOri("Math.pow(0.7, 2)")
             printOp(op)
 
             op = "parseFloat(new Big(-45.567).toFixed(2))"
-            document.body.innerHTML += "<br><br>四捨五入第2位 -45.567 <font color='red'>Math.round(-45.567* 100) / 100</font>";
+            document.body.innerHTML += "<br><br>四捨五入第2位 "
+            printOri("Math.round(-45.567* 100)/100")
             printOp(op)
 
         })();
 
-
+        const m = {
+            plus(a,b){
+                return parseFloat(new Big(a).plus(b))
+            },
+            minus(a,b){
+                return parseFloat(new Big(a).minus(b))
+            },
+            times(a,b){
+                 return parseFloat(new Big(a).times(b))
+            },
+            div(a,b){
+                 return parseFloat(new Big(a).div(b))
+            },
+            mod(a,b){
+                 return parseFloat(new Big(a).mod(b))
+            },
+            abs(a){
+                 return parseFloat(new Big(a).abs())
+            },
+            pow(a,b){
+                 return parseFloat(new Big(a).pow(b))
+            },
+            fixed(a,b){
+                 return parseFloat(new Big(a).toFixed(b))
+            },
+        }
     </script>
+    <hr>
+    <pre style="font-size: 12pt;">
+        自訂FUN
+        const m = {
+            plus(a,b){
+                return parseFloat(new Big(a).plus(b))
+            },
+            minus(a,b){
+                return parseFloat(new Big(a).minus(b))
+            },
+            times(a,b){
+                 return parseFloat(new Big(a).times(b))
+            },
+            div(a,b){
+                 return parseFloat(new Big(a).div(b))
+            },
+            mod(a,b){
+                 return parseFloat(new Big(a).mod(b))
+            },
+            abs(a){
+                 return parseFloat(new Big(a).abs())
+            },
+            pow(a,b){
+                 return parseFloat(new Big(a).pow(b))
+            },
+            fixed(a,b){
+                 return parseFloat(new Big(a).toFixed(b))
+            },
+        }
+    </pre>
+
 </body>
 
 </html>
