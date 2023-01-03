@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        html {
+            font-size: xx-large;
+        }
+    </style>
+</head>
+<body onload="init()">
+    <center>
+        <input type="text" id="tt" size="100" onkeyup="p()">
+        <div id="result"></div>
+        <div id="ans"></div>
+        <div id="ans2"></div>
+    </center>
+    <script>
+        var r = document.getElementById("result");
+        var a = document.getElementById("ans");
+        var a2 = document.getElementById("ans2");
+        var t = document.getElementById("tt");
+        var tmp = {}
+        var tmp2 = {}
+        const init = () => {
+            t.focus();
+            let n1 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-=() 0123456789';
+            let m1 = 'ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖᵠʳˢᵗᵘᵛʷˣʸᶻᴬᴮᶜᴰᴱᶠᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾᵠᴿˢᵀᵁⱽᵂᵡᵞᶻ⁺⁻⁼⁽⁾ ⁰¹²³⁴⁵⁶⁷⁸⁹';
+            let m2 = 'ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖᵠʳˢᵗᵘᵛʷˣʸᶻᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ⁺⁻⁼⁽⁾ ₀₁₂₃₄₅₆₇₈₉'
+            for (let i = 0; i < n1.length; i++) {
+                tmp[n1[i].codePointAt(0)] = m1[i].codePointAt(0);
+                tmp2[n1[i].codePointAt(0)] = m2[i].codePointAt(0);
+            }
+            console.log(tmp)
+        }
+
+        const p = () => {
+            let str = "";
+            let str2 = "";
+            for (let j = 0; j < tt.value.length; j++) {
+                str += String.fromCodePoint(tmp[tt.value[j].codePointAt(0)]);
+                str2 += String.fromCodePoint(tmp2[tt.value[j].codePointAt(0)]);
+            }
+            a.innerHTML = str;
+            a2.innerHTML = str2;
+        }
+    </script>
+</body>
+</html>
