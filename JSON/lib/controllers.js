@@ -217,6 +217,14 @@ jsonSqlControllers.controller('QueryDBCtrl', ['$scope', '$location', 'appContext
 		return $scope.csv;
   };
   
+  $scope.excelFile = function(){
+	var data = document.getElementById('mytab');
+	 var excelFile = XLSX.utils.table_to_book(data, {sheet: "sheet1"});
+	 XLSX.write(excelFile, { bookType: 'xlsx', bookSST: true, type: 'base64' });
+	 XLSX.writeFile(excelFile, 'excelFile' + '.xlsx');
+	 return $scope.queryResult;
+	};
+
   $scope.jsonFile = function(){
     downloadFile('jsonFile.json',
       JSON.stringify($scope.queryResult.map(m => _.omit(m, ['$$hashKey'])), null, '\t'),
