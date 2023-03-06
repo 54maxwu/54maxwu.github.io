@@ -1,0 +1,73 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>二維碼生成工具</title>
+    <link rel="stylesheet" href="index.css?v=05843bc3">
+    <script type="text/javascript" src="vue.js?v=b6ac71fa"></script>
+    <script type="text/javascript" src="require.js?v=234d4a65"></script>
+</head>
+
+<body>
+    <div class="wrapper" id="pageContainer">
+        <div class="panel panel-default" style="margin-bottom: 0px;">
+            <div class="panel-heading">
+                <h3 class="panel-title">二維碼{{qrEncodeMode? '生成':'解碼'}}器 <span class="x-switch ui-fl-r" ref="btnSwitch"
+                        @click="trans">切換為{{!qrEncodeMode? ' 二維碼生成器 ' : ' 解碼/掃碼 '}}模式&gt;&gt;</span></h3>
+            </div>
+        </div>
+        <div class="panel-body mod-json">
+            <div v-if="qrEncodeMode">
+                <div class="row"><textarea class="form-control mod-textarea" id="codeSource" ref="codeSource"
+                        v-model="textContent" placeholder="在這裡填寫需要生成二維碼的任意內容"></textarea></div>
+                <div class="row ui-mt-10">
+                    <div class="ui-d-ib x-sizes">尺寸：<input name="opt_width" type="text" id="opt_width" v-model="qrSize"
+                            size="4" maxlength="4"></div>
+                    <div class="ui-d-ib x-colors">顏色：<input type="text" id="opt_fc" v-model="qrColor" size="10"></div>
+                    <div class="radio ui-d-ib x-icons">圖示：<label><input id="remove_icon" name="qr_icon" type="radio"
+                                value="no" v-model="useIcon" @click="convert()">不要</label></div>
+                    <div class="radio ui-d-ib ui-ml-10"><label><input id="default_icon" name="qr_icon" type="radio"
+                                value="default" v-model="useIcon" @click="convert()">默認</label></div>
+                    <div class="radio ui-d-ib ui-ml-10"><label><input id="upload_icon" name="qr_icon" type="radio"
+                                value="custom" v-model="useIcon" @click="$refs.fileBox.click()">上傳</label>
+                        (提示:支援直接拖拽一個圖示到頁面)</div><button id="confirm_button" class="btn btn-success ui-fl-r"
+                        @click="convert()">生成QR圖</button>
+                </div>
+                <div class="row ui-mt-20" v-if="showResult">
+                    <h4>結果</h4>
+                    <hr class="x-hr">
+                    <div id="preview"></div>
+                </div>
+            </div>
+            <div class="row" v-if="!qrEncodeMode">
+                <table>
+                    <tr>
+                        <td>
+                            <div class="x-panel" ref="panelBox"><img id="decodePreview" alt="" :src="previewSrc"
+                                    v-show="!!previewSrc.length">
+                                <div class="x-tips"><a id="upload" href="#" ref="uploadBox"
+                                        @click="$refs.fileBox.click()">選擇圖片</a><br>或者選擇一張圖片拖拽圖片到這裡來</div>
+                            </div>
+                            <div class="tips">1、支援<i>螢幕截圖</i>後直接在此處粘貼進行解碼<br>2、支持<i>複製檔、複製圖片</i>線上位址在此處直接粘貼進行解碼</div>
+                        </td>
+                        <td><textarea id="decodeResult" title="點擊自動選擇" placeholder="內容會自動生成..." readonly="readonly"
+                                ref="resultBox" @click="select()" v-model="resultContent"
+                                class="form-control"></textarea></td>
+                    </tr>
+                </table><img id="img" alt="">
+            </div>
+        </div>
+        <div class="x-logo">
+            <form action="#"><input type="file" id="file" ref="fileBox" accept=".jpg,.jpeg,.gif,.png,.bmp"
+                    @change="fileChanged($event)"></form>
+        </div>
+    </div>
+    <script type="text/javascript" src="jquery-3.3.1.min.js?v=3a46a439"></script>
+    <script type="text/javascript" src="jquery.colorpicker.js?v=1b037024"></script>
+    <script type="text/javascript" src="jquery.qrcode.min.js?v=32cb3d6b"></script>
+    <script type="text/javascript" src="zxing.min.js?v=d7862832"></script>
+    <script type="text/javascript" src="content-script.js?v=f0705236"></script>
+    <script type="text/javascript" src="index.js?v=3f78b8e0"></script>
+</body>
+
+</html>
