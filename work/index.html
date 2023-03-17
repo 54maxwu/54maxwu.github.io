@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>process telephone</title>
+  <style>
+    .box {
+      display: flex;
+      justify-content: center;
+      margin: 30px;
+    }
+  </style>
+</head>
+<body>
+  <center>
+    <label>Input data</label>
+    <hr>
+    <textarea id="mydb" cols="30" rows="10"></textarea>
+  </center>
+  <hr>
+  <div class="box">
+    <div>
+      <label>Global</label>
+      <hr>
+      <textarea id="global" cols="30" rows="10"></textarea>
+    </div>
+    <div style="margin-left:100px">
+      <label>None Global</label>
+      <hr>
+      <textarea id="noneglobal" cols="30" rows="10"></textarea>
+    </div>
+  </div>
+  <hr>
+  <center>
+    <button onclick="startWorker()">process</button>
+    <hr>
+    Log:
+    <div id="log"></div>
+  </center>
+  <br /><br />
+
+
+  <script>
+    var w;
+
+    function startWorker() {
+      document.getElementById("global").innerHTML = ''
+      document.getElementById("noneglobal").innerHTML = ''
+      if (typeof (Worker) !== "undefined")
+      {
+        w = new Worker("demo_workers.js")
+        obj = document.getElementById("mydb").value.split('\n')
+        w.postMessage(obj)
+        w.onmessage = function (event) {
+          switch (event.data.type) {
+            case 'global':
+              document.getElementById("global").innerHTML += event.data.data+"\n"
+              break;
+            case 'noneglobal':
+              document.getElementById("noneglobal").innerHTML += event.data.data+"\n"
+              break;
+            case 'finished':
+              document.getElementById("log").innerHTML += "<br><font color='blue'>" + 'Finished. </font>'
+              w.terminate();
+              break;
+            case 'summary':
+              document.getElementById("log").innerHTML += "<br><font color='red'>" + event.data.data+"</font>"
+              break;
+            default:
+              document.getElementById("log").innerHTML += event.data
+              break;
+          }
+        };
+      } else {
+        alert('Browser not support worker!')
+      }
+    }
+  </script>
+
+</body>
+
+</html>
