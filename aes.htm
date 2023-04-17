@@ -7,25 +7,26 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet">
   <style>
     .bgcolor {
-      background: linear-gradient(to bottom, #D5DEE7 0%, #E8EBF2 50%, #E2E7ED 100%), linear-gradient(to bottom, rgba(0,0,0,0.02) 50%, rgba(255,255,255,0.02) 61%, rgba(0,0,0,0.02) 73%), linear-gradient(33deg, rgba(255,255,255,0.20) 0%, rgba(0,0,0,0.20) 100%);
+      background: #F2F2F2;
       background-blend-mode: normal,color-burn;
     }
     .special_text{
-      text-shadow: 1px 1px 4px black, 0 0 25px rgb(211, 211, 211), 0 0 5px rgb(70, 158, 240);
+      text-shadow: 1px 1px 4px black, 0 0 25px #2C3E50, 0 0 5px #57687c;
       font-weight: bolder;
     }
     .glass-container {
+      color: #b4c7dd;
       gap: 20px;
       border-radius: 10px;
       backdrop-filter: blur(5px);
-      background-color: rgba(0,191,255, 0.075);
+      background-color: #2C3E50;
       box-shadow: rgba(0, 0, 0, 0.3) 2px 8px 8px;
       border: 2px rgba(255,255,255,0.4) solid;
       border-bottom: 2px rgba(40,40,40,0.35) solid;
       border-right: 2px rgba(40,40,40,0.35) solid;
     }
     #pass {
-      border-bottom: 2px solid rgb(22, 146, 223);
+      border-bottom: 2px solid #bfbfbf;
     }
   </style>
 </head>
@@ -77,13 +78,13 @@
     }
   </script>
   <div class="flex flex-wrap">
-    <div class="flex-grow mx-5">
+    <div class="flex-grow mx-5 mt-5">
       <label class="block text-white text-xl font-semibold my-2 special_text">Type a message</label>
       <textarea rows="10" cols="50"
         class="bg-blue-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline glass-container"
         type="text" id="input"></textarea>
     </div>
-    <div class="flex-grow mx-5">
+    <div class="flex-grow mx-5 mt-5">
       <label class="block text-white text-xl font-semibold my-2 special_text">Encrypt message</label>
       <textarea rows="10" cols="50"
         class="bg-gray-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -119,7 +120,7 @@
           <path d="M12 10l4 4m0 -4l-4 4" />
         </svg>
       </div>
-      <div class="bg-yellow-500 hover:bg-yellow-700 w-14 h-14 rounded cursor-pointer justify-center items-center flex rounded-2xl" onclick="Copy()">
+      <div class="bg-yellow-500 hover:bg-yellow-700 w-14 h-14 rounded cursor-pointer justify-center items-center flex rounded-2xl mb-16" onclick="Copy()">
         <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copy" width="32" height="32" viewBox="0 0 24 24" stroke-width="1" stroke="#ffffff" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
           <rect x="8" y="8" width="12" height="12" rx="2" />
