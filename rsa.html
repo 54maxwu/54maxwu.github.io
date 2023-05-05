@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/2.3.1/jsencrypt.min.js"></script>
+    <title>RSA</title>
+</head>
+<body onload="init()">
+    <script>
+        const init = () => {
+            let encryptor = new JSEncrypt()  // 创建加密对象实例
+            //之前ssl生成的公钥，复制的时候要小心不要有空格
+            let pubKey = '-----BEGIN PUBLIC KEY-----MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALzKjGNoQ7aaLMxrjaEI7yskDlc8Snz+t/995KQKrM+fln3zDCUYwORQ6R1fMKZpXFzGG6WwRoR0Gfo/GnsqUYMCAwEAAQ==-----END PUBLIC KEY-----'
+            encryptor.setPublicKey(pubKey)//设置公钥
+            let crypt = encryptor.encrypt('max999')  // 对内容进行加密
+            document.getElementById("result_enc").innerHTML = crypt
+
+            let decrypt = new JSEncrypt();
+            decrypt.setPrivateKey('-----BEGIN RSA PRIVATE KEY-----MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAvMqMY2hDtposzGuNoQjvKyQOVzxKfP63/33kpAqsz5+WffMMJRjA5FDpHV8wpmlcXMYbpbBGhHQZ+j8aeypRgwIDAQABAkEAq0y5r2Ums6QW6/DXFHvvz1wq6vqYt+vDdj573GCXRtb8s5DUo5rVRuCJI/UrGzoLgGZLAXyzv2Z+snsI94ks+QIhAPVK9gBoxafhyny2MRBsNYafGgb4HYlc6UFr5+hZ7aO3AiEAxQg09GZ/POgZ+qTpzwhHyj6Xmqx7IQOYGLFb67xGOJUCIGlWd65VUAx4emx0ET3sOlBFove7NXP34nOl00GE3PihAiEAsn6T0pEEVb4CwwEhW1AqETsRBquYxDjIUh5iorWme90CIEOu+URPP90q24l5MZSb+WSa7lQh+dDlEPMCSQJwsKXY-----END RSA PRIVATE KEY-----');
+            let uncrypted = decrypt.decrypt(crypt);
+            document.getElementById("result_desc").innerHTML = uncrypted
+        }
+
+    </script>
+    <div id="result_enc">
+    </div>
+    <hr>
+    <div id="result_desc">
+    </div>
+</body>
+</html>
