@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>process FB</title>
+  <style>
+    #result {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    table {
+      border-style: double;
+    }
+    td {
+      text-align: center;
+    }
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 6px
+    }
+    ::-webkit-scrollbar-track {
+        background-color: transparent;
+        -webkit-border-radius: 2em;
+        -moz-border-radius: 2em;
+        border-radius: 2em
+    }
+    ::-webkit-scrollbar-thumb {
+        background-color: #c5c5c5;
+        background-image: -webkit-linear-gradient(45deg,rgba(255,255,255,.4) 100%,transparent 100%,transparent 50%,rgba(255,255,255,.4) 50%,rgba(255,255,255,.4) 75%,transparent 75%,transparent);
+        -webkit-border-radius: 2em;
+        -moz-border-radius: 2em;
+        border-radius: 2em
+    }
+  </style>
+</head>
+<body>
+  <center>
+    <label>Input data</label>
+    <hr>
+    <textarea id="mydb" cols="30" rows="10"></textarea>
+  </center>
+  <hr>
+  <center>
+    <button onclick="process()">process</button>
+    <hr>
+    <div id="result"></div>
+  </center>
+  <br /><br />
+
+
+  <script>
+    const process = () => {
+      ori = JSON.parse(document.getElementById("mydb").value)
+      ori.forEach(d=>{
+        if(d.node.id){
+          write(d.node.name,d.node.profile_picture.uri,d.node.id)
+        }
+      })
+    }
+    const write = (name,pic,id) => {
+      let str = ""
+      str += "<table><tbody><tr><td colspan='2'>"+name+"</td></tr><tr><td colspan='2'><img src='"+pic+"'></img></td></tr><tr><td>ID</td><td><a href='https://www.facebook.com/profile.php?id="+id+"'>"+id+"</a></td></tr></tbody></table>"
+      document.getElementById("result").innerHTML+=str
+    }
+  </script>
+
+</body>
+
+</html>
