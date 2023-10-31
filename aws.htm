@@ -7,7 +7,7 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet">
 </head>
 
-<body>
+<body class="h-screen bg-black overflow-hidden" onload="init()">
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
   <script type="text/javascript">
 
@@ -38,21 +38,24 @@
       }
     }
 
+    function init() {
+      document.getElementById("pass").focus();
+    }
+
+    function handleKeyPress(event) {
+      if (event.key === "Enter") {
+        Decrypt();
+      }
+    }
+
   </script>
   <div class="inputpw flex h-screen items-center justify-center ">
-    <div class="mx-4 mt-4">
-      <label aria-placeholder="pass">Secret Key:</label>
-      <input id="pass" type="password" class="border-b-2 ml-2">
-    </div>
-    <div class="mx-4 mt-4">
-      <a href="javascript:Decrypt()"
-        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">解密</a>
+    <div class="mx-1 mt-4 p-2">
+      <input id="pass" type="password" class="border-b-2 ml-2 text-center" onkeydown="handleKeyPress(event)">
     </div>
   </div>
-  <div class="result flex flex-wrap h-screen hidden">
-      <textarea rows="40" cols="50"
-        class="px-4 bg-gray-100 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-screen"
-        type="text" id="output" readonly=""></textarea>
+  <div class="result flex flex-wrap h-full hidden">
+      <textarea class="px-4 bg-black appearance-none border rounded text-gray-100 leading-tight focus:outline-none focus:shadow-outline resize-none w-full h-full" type="text" id="output" readonly=""></textarea>
   </div>
 </body>
 
