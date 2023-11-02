@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>加解密</title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+</head>
+<body>
+    <div id="dropArea" style="padding: 20px; text-align: center;background:#a75213;color:white;">
+       將檔案拖放到此處
+    </div>
+    <textarea id="fileContent" style="width:100%;border:2px;height: 80vh;"></textarea>
+    <div style="margin: auto; display: flex; align-items: center; justify-content: center;">
+        <input type="password" id="pwd" name="pwd" placeholder="輸入你的密碼" style="text-align: center;">
+        <button id="download" type="button">下載文件</button>
+    </div>
+    <script>
+        var dropArea = document.getElementById('dropArea');
+        var fileContent = document.getElementById('fileContent');
+        var downloadButton = document.getElementById('download');
+        var pwd = document.getElementById('pwd');
+        var filename = "";
+        var key = "";
+        dropArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        dropArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+        });
+
+        dropArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var files = e.dataTransfer.files;
+            if (files.length > 0 && pwd.value != "") {
+                var file = files[0];
+                filename = file.name;
+                var reader = new FileReader();
+
+                reader.onload = function(e) {
+                    var fileContentText = e.target.result;
+                    key = CryptoJS.enc.Utf8.parse(btoa(pwd.value))
+                    encryptedHexStr = CryptoJS.enc.Hex.parse(fileContentText)
+                    encryptedBase64Str = CryptoJS.enc.Base64.stringify(encryptedHexStr)
+                    var decryptedData = CryptoJS.AES.decrypt(encryptedBase64Str, key, {
+                      mode: CryptoJS.mode.ECB,
+                      padding: CryptoJS.pad.Pkcs7
+                    })
+                    try {
+                        fileContent.value = decryptedData.toString(CryptoJS.enc.Utf8)
+                    } catch (error) {
+                      if(error.message === 'Malformed UTF-8 data'){
+                        alert('解密失敗')
+                      }
+                    }
+                };
+
+                reader.readAsText(file);
+            }else {
+                alert('密碼不得為空');
+            }
+        });
+
+        downloadButton.addEventListener('click', function() {
+            var textContent = fileContent.value;
+
+            if (textContent && filename != "" && pwd.value != "") {
+                key = CryptoJS.enc.Utf8.parse(btoa(pwd.value))
+                var encryptedData = CryptoJS.AES.encrypt(textContent, key, {
+                  mode: CryptoJS.mode.ECB,
+                  padding: CryptoJS.pad.Pkcs7
+                })
+                textContent = encryptedData.ciphertext.toString();
+                var blob = new Blob([textContent], { type: 'text/plain' });
+                var url = URL.createObjectURL(blob);
+
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+
+                URL.revokeObjectURL(url);
+            } else {
+                alert('檔案/內容/密碼都不得為空');
+            }
+        });
+    </script>
+</body>
+</html>
