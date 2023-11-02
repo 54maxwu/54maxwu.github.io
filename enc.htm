@@ -3,6 +3,7 @@
 <head>
     <title>加解密</title>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+    <script type="text/javascript" src="https://kd88.com/lib/sweetalert2.js"></script>
 </head>
 <body onload="focusbtn()" style="background: #323e82;">
     <div id="init" style="display: flex; height: 98vh; width: 100%; background: #323e82; justify-content: center; align-items: center;">
@@ -21,6 +22,7 @@
         var dropArea = document.getElementById('dropArea');
         var fileContent = document.getElementById('fileContent');
         var downloadButton = document.getElementById('download');
+        var newfileButton = document.getElementById('newfile');
         var pwd = document.getElementById('pwd');
         var filename = "";
         var key = "";
@@ -50,10 +52,13 @@
                       padding: CryptoJS.pad.Pkcs7
                     })
                     try {
-                        fileContent.value = decryptedData.toString(CryptoJS.enc.Utf8)
+                        fileContent.value = decryptedData.toString(CryptoJS.enc.Utf8);
+                        if(fileContent.value == ""){
+                            alert('不符合該密碼');
+                        }
                     } catch (error) {
                       if(error.message === 'Malformed UTF-8 data'){
-                        alert('不符合該密碼')
+                        alert('不符合該密碼');
                       }
                     }
                 };
@@ -67,28 +72,46 @@
         downloadButton.addEventListener('click', function() {
             var textContent = fileContent.value;
 
-            if (textContent && filename != "" && pwd.value != "") {
-                key = CryptoJS.enc.Utf8.parse(btoa(pwd.value))
-                var encryptedData = CryptoJS.AES.encrypt(textContent, key, {
-                  mode: CryptoJS.mode.ECB,
-                  padding: CryptoJS.pad.Pkcs7
-                })
-                textContent = encryptedData.ciphertext.toString();
-                var blob = new Blob([textContent], { type: 'text/plain' });
-                var url = URL.createObjectURL(blob);
-
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-
-                URL.revokeObjectURL(url);
+            if (textContent && pwd.value != "") {
+                if(filename == "") {
+                    Swal.fire({
+                        title: "輸入儲存的檔名",
+                        input: "text",
+                        inputAttributes: { autocapitalize: "off" },
+                        showCancelButton: !0,
+                        confirmButtonText: "確定",
+                        allowOutsideClick: () => !Swal.isLoading(),
+                      }).then((e) => {
+                        filename = e.value;
+                        save(textContent,filename);
+                      });
+                }else {
+                    save(textContent,filename);
+                }
             } else {
-                alert('檔案/內容/密碼都不得為空');
+                alert('內容不得為空');
             }
         });
+
+        function save(textContent,filename) {
+            key = CryptoJS.enc.Utf8.parse(btoa(pwd.value))
+            var encryptedData = CryptoJS.AES.encrypt(textContent, key, {
+              mode: CryptoJS.mode.ECB,
+              padding: CryptoJS.pad.Pkcs7
+            })
+            textContent = encryptedData.ciphertext.toString();
+            var blob = new Blob([textContent], { type: 'text/plain' });
+            var url = URL.createObjectURL(blob);
+
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+
+            URL.revokeObjectURL(url);
+        }
 
         function handleKeyPress(event) {
           if (event.key === "Enter") {
