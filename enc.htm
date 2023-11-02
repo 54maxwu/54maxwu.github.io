@@ -4,14 +4,18 @@
     <title>加解密</title>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
 </head>
-<body>
-    <div id="dropArea" style="padding: 20px; text-align: center;background:#a75213;color:white;">
-       將檔案拖放到此處
+<body onload="focusbtn()" style="background: #323e82;">
+    <div id="init" style="display: flex; height: 98vh; width: 100%; background: #323e82; justify-content: center; align-items: center;">
+        <input type="password" id="pwd" name="pwd" placeholder="輸入你的密碼" style="text-align: center;color: #323e82;" onkeydown="handleKeyPress(event)">
     </div>
-    <textarea id="fileContent" style="width:100%;border:2px;height: 80vh;"></textarea>
-    <div style="margin: auto; display: flex; align-items: center; justify-content: center;">
-        <input type="password" id="pwd" name="pwd" placeholder="輸入你的密碼" style="text-align: center;">
-        <button id="download" type="button">下載文件</button>
+    <div id="ans" style="display: none;">
+        <div id="dropArea" style="padding: 20px; text-align: center; background: #243075; color: white; border: aliceblue double 2px;">
+           將檔案拖放到此處
+        </div>
+        <textarea id="fileContent" style="width:99.8%;border:2px;height: 80vh;"></textarea>
+        <div style="margin: auto; display: flex; align-items: center; justify-content: center;">
+            <button id="download" type="button">下載文件</button>
+        </div>
     </div>
     <script>
         var dropArea = document.getElementById('dropArea');
@@ -49,7 +53,7 @@
                         fileContent.value = decryptedData.toString(CryptoJS.enc.Utf8)
                     } catch (error) {
                       if(error.message === 'Malformed UTF-8 data'){
-                        alert('解密失敗')
+                        alert('不符合該密碼')
                       }
                     }
                 };
@@ -85,6 +89,17 @@
                 alert('檔案/內容/密碼都不得為空');
             }
         });
+
+        function handleKeyPress(event) {
+          if (event.key === "Enter") {
+            init.style.display="none";
+            ans.style.display="block";
+          }
+        }
+
+        function focusbtn() {
+            pwd.focus();
+        }
     </script>
 </body>
 </html>
