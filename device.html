@@ -1,0 +1,287 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      h1 {
+        font-size: 2.5em;
+      }
+      h2 {
+        font-size: 1.875em;
+      }
+      sessionBlock {
+        border: 2px solid black;
+        border-radius: 15px;
+        display: block;
+        padding: 0px 5px 10px 5px;
+      }
+      dataHolder {
+        padding: 5px 0px 5px 0px;
+        display: block;
+      }
+      dataTitle {
+        float: left;
+        color: grey;
+        display: inline-block;
+        width: 20%;
+        font-size: 1.25em;
+      }
+      dataDetail {
+        display: inline-block;
+        width: 80%;
+        font-size: 1.25em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Device Diagnosis Page</h1>
+
+    <!-- network -->
+    <sessionBlock>
+      <h2>Network</h2>
+      <dataHolder
+        ><dataTitle>Public IP:</dataTitle><dataDetail id="publicIP"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>DNS addresses:</dataTitle
+        ><dataDetail id="addressesDNS"></dataDetail
+      ></dataHolder>
+    </sessionBlock>
+    <br />
+
+    <!-- system -->
+    <sessionBlock>
+      <h2>Software</h2>
+      <dataHolder
+        ><dataTitle>Device:</dataTitle><dataDetail id="device"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>OS:</dataTitle><dataDetail id="os"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>Browser:</dataTitle><dataDetail id="browser"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>Engine:</dataTitle><dataDetail id="engine"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>User Agent:</dataTitle
+        ><dataDetail id="uaString"></dataDetail
+      ></dataHolder>
+    </sessionBlock>
+    <br />
+
+    <!-- software -->
+    <sessionBlock>
+      <h2>Browser Configuration</h2>
+      <dataHolder
+        ><dataTitle>Javascript:</dataTitle
+        ><dataDetail id="jsVersion"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>Local Storage:</dataTitle
+        ><dataDetail id="localStorage"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>Cookies:</dataTitle><dataDetail id="cookie"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>WebAudio:</dataTitle><dataDetail id="webAudio"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>WebGL:</dataTitle><dataDetail id="webgl"></dataDetail
+      ></dataHolder>
+    </sessionBlock>
+    <br />
+
+    <!-- hardware -->
+    <sessionBlock>
+      <h2>Device Specification</h2>
+      <dataHolder id="gpuHolder"
+        ><dataTitle>GPU:</dataTitle><dataDetail id="gpu"></dataDetail
+      ></dataHolder>
+      <dataHolder id="ramHolder"
+        ><dataTitle>RAM:</dataTitle><dataDetail id="ram"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>Screen Resolution:</dataTitle
+        ><dataDetail id="screenResolution"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>Aspect Ratio:</dataTitle
+        ><dataDetail id="screenRatio"></dataDetail
+      ></dataHolder>
+      <dataHolder
+        ><dataTitle>Orientation:</dataTitle
+        ><dataDetail id="orientation"></dataDetail
+      ></dataHolder>
+    </sessionBlock>
+
+    <script src="https://cdn.jsdelivr.net/npm/dohjs@0.3.3/dist/doh.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ua-parser-js@2.0.0-alpha.3/dist/ua-parser.pack.min.js"></script>
+    <script type="text/javascript">
+      function getVersionOfJS() {
+        this.jsv = {
+          versions: [
+            '1.1',
+            '1.2',
+            '1.3',
+            '1.4',
+            '1.5',
+            '1.6',
+            '1.7',
+            '1.8',
+            '1.9',
+            '2.0'
+          ],
+          version: ''
+        }
+
+        for (i = 0, l = jsv.versions.length; i < l; i++) {
+          const g = document.createElement('script'),
+            s = document.getElementsByTagName('script')[0]
+
+          g.setAttribute('language', 'JavaScript' + jsv.versions[i])
+          g.text = "this.jsv.version='" + jsv.versions[i] + "';"
+          document
+            .getElementsByTagName('script')[0]
+            .parentNode.insertBefore(g, s)
+        }
+        return jsv.version
+      }
+
+      function gcd(a, b) {
+        return b == 0 ? a : gcd(b, a % b)
+      }
+      function isLandscape() {
+        const angle = screen.orientation.angle
+        return angle === 90 || angle === -90
+      }
+      function updateScreenDetail() {
+        const screenWidth = window.screen.width * window.devicePixelRatio
+        const screenHeight = window.screen.height * window.devicePixelRatio
+        const ratio = gcd(screenWidth, screenHeight)
+
+        document.getElementById(
+          'screenResolution'
+        ).innerHTML = `${screenWidth} x ${screenHeight}`
+        document.getElementById('screenRatio').innerHTML = `${
+          screenWidth / ratio
+        } : ${screenHeight / ratio}`
+        document.getElementById('orientation').innerHTML = `${
+          isLandscape() ? 'Landscape' : 'Portrait'
+        }`
+      }
+
+      function getIP(data) {
+        document.getElementById('publicIP').innerHTML = `${data.ip}`
+      }
+
+      function getVideoCardInfo(gl) {
+        const dbgRenderInfo = gl.getExtension('WEBGL_debug_renderer_info')
+        return dbgRenderInfo !== null
+          ? {
+              renderer: gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL),
+              vendor: gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL)
+            }
+          : undefined
+      }
+
+      function getRAM() {
+        const ram = navigator.deviceMemory
+        if (ram === 0.25) {
+          return '256MB or less'
+        } else if (ram === 0.5) {
+          return '512MB'
+        } else if (ram === 8) {
+          return '8GB or more'
+        } else {
+          return `${ram}GB`
+        }
+      }
+
+      const uaResult = new UAParser().getResult()
+      document.getElementById('uaString').innerHTML = `${uaResult.ua}`
+      document.getElementById(
+        'browser'
+      ).innerHTML = `${uaResult.browser.name} ${uaResult.browser.version}`
+      document.getElementById(
+        'os'
+      ).innerHTML = `${uaResult.os.name} ${uaResult.os.version}`
+      document.getElementById(
+        'engine'
+      ).innerHTML = `${uaResult.engine.name} ${uaResult.engine.version}`
+      document.getElementById('device').innerHTML = uaResult.device.type
+        ? `${uaResult.device.model} (${uaResult.device.type})`
+        : `${uaResult.device.model}`
+
+      screen.orientation.onchange = () => {
+        updateScreenDetail()
+      }
+      updateScreenDetail()
+
+      document.getElementById(
+        'jsVersion'
+      ).innerHTML = `Enabled (v${getVersionOfJS()})`
+      document.getElementById('localStorage').innerHTML = `${
+        typeof Storage !== 'undefined' ? 'Enabled' : 'Disabled'
+      }`
+      document.getElementById('cookie').innerHTML = `${
+        navigator.cookieEnabled ? 'Enabled' : 'Disabled'
+      }`
+
+      let canvas = document.createElement('canvas')
+      const gl =
+        !!window.WebGLRenderingContext &&
+        (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+      document.getElementById('webgl').innerHTML = `${
+        gl ? 'Enabled' : 'Disabled'
+      }`
+      canvas = undefined
+
+      if (gl && getVideoCardInfo(gl)) {
+        document.getElementById('gpu').innerHTML = `${
+          getVideoCardInfo(gl).renderer
+        }`
+      } else {
+        document.getElementById('gpuHolder').remove()
+      }
+
+      if (navigator.deviceMemory) {
+        document.getElementById('ram').innerHTML = getRAM()
+      } else {
+        document.getElementById('ramHolder').remove()
+      }
+
+      const contextClass =
+        window.AudioContext ||
+        window.webkitAudioContext ||
+        window.mozAudioContext ||
+        window.oAudioContext ||
+        window.msAudioContext
+      document.getElementById('webAudio').innerHTML = `${
+        contextClass ? 'Enabled' : 'Disabled'
+      }`
+
+      const resolver = new doh.DohResolver('https://1.1.1.1/dns-query')
+      resolver
+        .query(window.location.hostname)
+        .then(response => {
+          if (response.answers.length > 0) {
+            let msg = ''
+            response.answers.forEach(ans => {
+              ans.type === 'A' &&
+                (msg += `${msg === '' ? '' : ', '}${ans.data}`)
+            })
+            document.getElementById('addressesDNS').innerHTML = `${msg}`
+          } else {
+            document.getElementById(
+              'addressesDNS'
+            ).innerHTML = `${window.location.hostname}`
+          }
+        })
+        .catch(err => console.error(err))
+    </script>
+    <script src="https://api.ipify.org?format=jsonp&callback=getIP" crossorigin="anonymous"></script>
+  </body>
+</html>
