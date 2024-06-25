@@ -275,24 +275,30 @@
         try {
             let host = location.search.replace("?","");
             if(host != "") {
-                const resolver = new doh.DohResolver('https://1.1.1.1/dns-query')
-                resolver
-                    .query(host)
-                    .then(response => {
-                        if (response.answers.length > 0) {
-                            let msg = ''
-                            response.answers.forEach(ans => {
-                                ans.type === 'A' &&
-                                    (msg += `${msg === '' ? '' : ', '}${ans.data}`)
-                            })
-                            document.getElementById('addressesDNS').innerHTML = `${msg}`
-                        }
-                    })
-                    .catch(err => {
-                        Swal.showValidationMessage(`
-                            Request failed: ${err}
-                          `);
-                    })
+                fetch(`https://dns.google/resolve?name=${host}&type=A`).then((rsp) => rsp.json()).then(data => {
+                    if(data.Status == 0) {
+                        document.getElementById('addressesDNS').innerHTML = "";
+                        data.Answer.forEach(e => {
+                            document.getElementById('addressesDNS').innerHTML += JSON.stringify(e)
+                        });
+                    }
+                })
+                // const resolver = new doh.DohResolver('https://1.1.1.1/dns-query')
+                // resolver
+                //     .query(host)
+                //     .then(response => {
+                //         if (response.answers.length > 0) {
+                //             let msg = ''
+                //             response.answers.forEach(ans => {
+                //                 ans.type === 'A' &&
+                //                     (msg += `${msg === '' ? '' : ', '}${ans.data}`)
+                //             })
+                //             document.getElementById('addressesDNS').innerHTML = `${msg}`
+                //         }
+                //     })
+                //     .catch(err => {
+                //         //console.log(err);
+                //     })
             }
         } catch (error) {
             console.log(error);
