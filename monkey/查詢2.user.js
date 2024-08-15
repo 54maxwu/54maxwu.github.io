@@ -5,6 +5,7 @@
 // @description  查詢2
 // @author       Max
 // @match        https://admin.supergo88.com/*
+// @match        https://admin.jilibee.org/*
 // @grant        none
 // @icon         https://kd88.com/favicon.ico
 // ==/UserScript==
