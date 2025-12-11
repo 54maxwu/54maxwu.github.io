@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賠率轉換器</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2b2b2b; /* 深色背景 */
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #3c3c3c;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 300px;
+        }
+
+        h2 { margin-top: 0; color: #4fc3f7; }
+
+        .input-group { margin-bottom: 20px; }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 1.2rem;
+            border: 2px solid #555;
+            border-radius: 6px;
+            background-color: #222;
+            color: #fff;
+            box-sizing: border-box; /* 讓 padding 不會撐開寬度 */
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus { border-color: #4fc3f7; }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #222;
+            border-radius: 8px;
+            border: 1px dashed #555;
+        }
+
+        .result-label { font-size: 0.8rem; color: #888; }
+        
+        .result-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #69f0ae; /* 類似您截圖中的綠色 */
+            margin-top: 5px;
+            min-height: 38px; /* 避免沒字時高度塌陷 */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>賠率轉換器</h2>
+    
+    <div class="input-group">
+        <label for="oddsInput">輸入小數賠率 (Decimal)</label>
+        <input id="oddsInput" placeholder="">
+    </div>
+
+    <div class="result-box">
+        <div class="result-label">分數賠率 (Fractional)</div>
+        <div class="result-value" id="resultDisplay">-</div>
+    </div>
+</div>
+
+<script>
+    // 您的核心演算法
+    function decimalToFraction(decimal) {
+        // 排除無效輸入或小於1的賠率
+        if (isNaN(decimal) || decimal < 1) return "無效賠率";
+        if (decimal === 1) return "0/1"; // 平手盤或其他特殊情況
+
+        // 1. 先處理小數點誤差
+        let val = parseFloat((decimal - 1).toFixed(6));
+
+        // 如果減掉本金後已經是整數
+        if (Number.isInteger(val)) {
+            return `${val}/1`;
+        }
+
+        // 2. 把小數轉成字串來計算位數
+        let valStr = val.toString();
+        // 防呆：確保真的有小數點才 split，雖然前面的 isInteger 擋過一次，但以防萬一
+        let decimalPart = valStr.split('.')[1];
+        let decimalPlaces = decimalPart ? decimalPart.length : 0;
+        
+        // 3. 建立分子與分母
+        let denominator = Math.pow(10, decimalPlaces);
+        let numerator = Math.round(val * denominator);
+
+        // 4. 最大公因數 (GCD)
+        let gcd = function(a, b) {
+            return !b ? a : gcd(b, a % b);
+        };
+
+        let common = gcd(numerator, denominator);
+
+        return `${numerator / common}/${denominator / common}`;
+    }
+
+    // DOM 操作
+    const inputEl = document.getElementById('oddsInput');
+    const resultEl = document.getElementById('resultDisplay');
+
+    // 監聽 'input' 事件 (每打一個字都會觸發，不用等離開輸入框)
+    inputEl.addEventListener('input', function(e) {
+        const val = parseFloat(e.target.value);
+        
+        if (!e.target.value) {
+            resultEl.innerText = "-"; // 清空時回復預設
+            return;
+        }
+
+        const fraction = decimalToFraction(val);
+        resultEl.innerText = fraction;
+    });
+</script>
+
+</body>
+</html>
