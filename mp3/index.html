@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MP3 壓縮</title>
+<script src="lame.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:#fff;color:#222;
+    max-width:520px;margin:0 auto;padding:24px 16px 60px;
+    font-size:15px;line-height:1.5;
+  }
+  h1{font-size:20px;font-weight:600;margin-bottom:4px}
+  .sub{color:#888;font-size:13px;margin-bottom:24px}
+
+  .drop{
+    border:1.5px dashed #ccc;border-radius:8px;
+    padding:32px 16px;text-align:center;cursor:pointer;
+    background:#fafafa;transition:.15s;
+  }
+  .drop:hover,.drop.over{border-color:#222;background:#f0f0f0}
+  .drop p{color:#666;font-size:14px}
+  .drop p b{color:#222}
+  .drop input{display:none}
+
+  .panel{margin-top:20px;display:none}
+  .panel.show{display:block}
+
+  .fileinfo{
+    background:#f5f5f5;padding:12px;border-radius:6px;margin-bottom:20px;
+    font-size:13px;display:flex;justify-content:space-between;gap:10px;
+  }
+  .fileinfo .n{word-break:break-all;flex:1}
+  .fileinfo .s{color:#888;white-space:nowrap}
+
+  label.lbl{font-size:13px;color:#666;margin-bottom:8px;display:block}
+
+  .brs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:20px}
+  .br{
+    padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;
+    cursor:pointer;font:inherit;font-size:14px;color:#222;
+  }
+  .br:hover{border-color:#999}
+  .br.on{background:#222;color:#fff;border-color:#222}
+
+  .go{
+    width:100%;padding:12px;background:#222;color:#fff;border:none;
+    border-radius:6px;font:inherit;font-size:15px;font-weight:500;cursor:pointer;
+  }
+  .go:hover:not(:disabled){background:#000}
+  .go:disabled{opacity:.5;cursor:not-allowed}
+
+  .prog{margin-top:16px;display:none}
+  .prog.show{display:block}
+  .prog .row{display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px}
+  .bar-wrap{height:4px;background:#eee;border-radius:2px;overflow:hidden;position:relative}
+  .bar{height:100%;background:#222;width:0;transition:width .15s ease;position:relative}
+  .bar-wrap.indet .bar{width:100%!important;background:#eee;transition:none}
+  .bar-wrap.indet .bar::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,#222,transparent);
+    animation:slide 1.4s ease-in-out infinite;
+  }
+  @keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .pulse{animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.4}}
+
+  .done{margin-top:16px;display:none;padding:16px;background:#f5f5f5;border-radius:6px}
+  .done.show{display:block}
+  .stats{display:flex;gap:16px;font-size:13px;margin-bottom:12px;flex-wrap:wrap}
+  .stats div{color:#666}
+  .stats b{color:#222;font-weight:600;margin-left:4px}
+  .stats .save b{color:#2a8a4f}
+  .dl{
+    display:block;text-align:center;padding:12px;background:#2a8a4f;color:#fff;
+    text-decoration:none;border-radius:6px;font-weight:500;font-size:14px;
+  }
+  .dl:hover{background:#206b3c}
+
+  .err{margin-top:12px;padding:10px;background:#fee;color:#c33;border-radius:6px;font-size:13px;display:none}
+  .err.show{display:block}
+
+  .note{margin-top:24px;font-size:11px;color:#aaa;text-align:center}
+</style>
+</head>
+<body>
+
+<h1>MP3 壓縮</h1>
+<p class="sub">檔案完全在本地處理，不會上傳</p>
+
+<label class="drop" id="drop">
+  <p><b>點此選擇檔案</b> 或拖曳到這裡</p>
+  <p style="margin-top:4px;font-size:12px">MP3 / WAV / M4A / FLAC / OGG（WAV 支援大檔串流）</p>
+  <input type="file" id="file" accept="audio/*">
+</label>
+
+<div class="err" id="err"></div>
+
+<div class="panel" id="panel">
+  <div class="fileinfo">
+    <span class="n" id="fname">—</span>
+    <span class="s" id="fsize">—</span>
+  </div>
+
+  <label class="lbl">位元率（kbps）</label>
+  <div class="brs" id="brs">
+    <button class="br" data-br="64">64</button>
+    <button class="br" data-br="96">96</button>
+    <button class="br on" data-br="128">128</button>
+    <button class="br" data-br="160">160</button>
+    <button class="br" data-br="192">192</button>
+    <button class="br" data-br="256">256</button>
+  </div>
+
+  <button class="go" id="go">開始壓縮</button>
+
+  <div class="prog" id="pwrap">
+    <div class="row"><span id="pstage">處理中...</span><span id="ppct">0%</span></div>
+    <div class="bar-wrap" id="barWrap"><div class="bar" id="pbar"></div></div>
+  </div>
+
+  <div class="done" id="result">
+    <div class="stats">
+      <div>原始 <b id="sOrig">—</b></div>
+      <div>壓縮後 <b id="sNew">—</b></div>
+      <div class="save">節省 <b id="sSave">—</b></div>
+    </div>
+    <a class="dl" id="dl" download>下載</a>
+  </div>
+</div>
+
+<p class="note">100% 本地處理 · 使用 lamejs</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const drop = $('drop'), file = $('file'), panel = $('panel'), err = $('err');
+const fname = $('fname'), fsize = $('fsize');
+const brs = $('brs');
+const go = $('go'), pwrap = $('pwrap'), pbar = $('pbar'), ppct = $('ppct'), pstage = $('pstage');
+const barWrap = $('barWrap');
+const result = $('result'), sOrig = $('sOrig'), sNew = $('sNew'), sSave = $('sSave'), dl = $('dl');
+
+let currentFile = null, currentBitrate = 128, lastUrl = null;
+
+const fmtSize = b => {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(2) + ' MB';
+};
+
+const showErr = m => { err.textContent = '⚠ ' + m; err.classList.add('show'); };
+const clearErr = () => err.classList.remove('show');
+
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+file.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(f) {
+  clearErr();
+  if (!f.type.startsWith('audio/') && !/\.(mp3|wav|m4a|flac|ogg|aac)$/i.test(f.name)) {
+    showErr('請選擇音訊檔案'); return;
+  }
+  if (f.size === 0) {
+    showErr('檔案是空的'); return;
+  }
+  currentFile = f;
+  fname.textContent = f.name;
+  fsize.textContent = fmtSize(f.size);
+  panel.classList.add('show');
+  result.classList.remove('show');
+  pwrap.classList.remove('show');
+  // Reset progress visual state from any previous run
+  barWrap.classList.remove('indet');
+  ppct.classList.remove('pulse');
+  pbar.style.width = '0%';
+  // Allow re-selecting the same file (change event won't fire otherwise)
+  file.value = '';
+}
+
+brs.addEventListener('click', e => {
+  const btn = e.target.closest('.br');
+  if (!btn) return;
+  brs.querySelectorAll('.br').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  currentBitrate = parseInt(btn.dataset.br);
+});
+
+go.addEventListener('click', async () => {
+  if (!currentFile) return;
+  clearErr();
+  result.classList.remove('show');
+  pwrap.classList.add('show');
+  // Reset progress to clean state
+  barWrap.classList.remove('indet');
+  ppct.classList.remove('pulse');
+  pbar.style.width = '0%';
+  ppct.textContent = '0%';
+  pstage.textContent = '準備中...';
+  go.disabled = true;
+
+  try {
+    const blob = await compressMP3(currentFile, currentBitrate, (stage, pct, indeterminate) => {
+      pstage.textContent = stage;
+      if (indeterminate) {
+        barWrap.classList.add('indet');
+        ppct.textContent = '...';
+        ppct.classList.add('pulse');
+      } else {
+        barWrap.classList.remove('indet');
+        ppct.classList.remove('pulse');
+        pbar.style.width = pct + '%';
+        ppct.textContent = pct + '%';
+      }
+    });
+
+    if (!blob || blob.size === 0) {
+      throw new Error('輸出檔案為空，可能來源音訊沒有有效內容');
+    }
+
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    lastUrl = URL.createObjectURL(blob);
+    dl.href = lastUrl;
+    const baseName = currentFile.name.replace(/\.[^.]+$/, '');
+    dl.download = baseName + '_' + currentBitrate + 'kbps.mp3';
+
+    sOrig.textContent = fmtSize(currentFile.size);
+    sNew.textContent = fmtSize(blob.size);
+    const saved = ((1 - blob.size / currentFile.size) * 100);
+    sSave.textContent = (saved >= 0 ? '' : '+') + Math.abs(saved).toFixed(0) + '%';
+    result.classList.add('show');
+  } catch (e) {
+    console.error(e);
+    showErr('壓縮失敗：' + (e.message || e));
+    // Clean up progress visual state
+    barWrap.classList.remove('indet');
+    ppct.classList.remove('pulse');
+    pwrap.classList.remove('show');
+  } finally {
+    go.disabled = false;
+  }
+});
+
+// Router: WAV files use streaming (low memory), others use AudioContext decoder
+async function compressMP3(file, bitrate, onProgress) {
+  if (typeof lamejs === 'undefined' || !lamejs.Mp3Encoder) {
+    throw new Error('MP3 編碼器未載入，請檢查網路後重新整理頁面');
+  }
+  if (isWAV(file)) {
+    return compressWAVStreaming(file, bitrate, onProgress);
+  }
+  return compressViaDecoder(file, bitrate, onProgress);
+}
+
+function isWAV(file) {
+  return /\.wave?$/i.test(file.name) ||
+         /^audio\/(wav|x-wav|wave|vnd\.wave)$/i.test(file.type);
+}
+
+// Non-WAV path: load entire file into memory and use browser decoder
+async function compressViaDecoder(file, bitrate, onProgress) {
+  const arrayBuffer = await readFileWithProgress(file, pct => {
+    onProgress('讀取檔案...', Math.round(pct * 0.15));
+  });
+
+  onProgress('解碼音訊...', 0, true);
+  await new Promise(r => setTimeout(r, 50));
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC();
+  const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+  ctx.close();
+
+  const channels = Math.min(2, audioBuffer.numberOfChannels);
+  const sampleRate = audioBuffer.sampleRate;
+
+  const supportedRates = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+  let useBuffer = audioBuffer, useRate = sampleRate;
+  if (!supportedRates.includes(sampleRate)) {
+    onProgress('重新取樣...', 0, true);
+    await new Promise(r => setTimeout(r, 50));
+    useBuffer = await resample(audioBuffer, 44100);
+    useRate = 44100;
+  }
+
+  onProgress('準備樣本...', 20);
+  await new Promise(r => setTimeout(r, 0));
+  const left = floatToInt16(useBuffer.getChannelData(0));
+  const right = channels > 1 ? floatToInt16(useBuffer.getChannelData(1)) : null;
+
+  onProgress('編碼 MP3...', 22);
+  await new Promise(r => setTimeout(r, 0));
+  const encoder = new lamejs.Mp3Encoder(channels, useRate, bitrate);
+  const blockSize = 1152;
+  const total = left.length;
+  const chunks = [];
+  let lastYield = performance.now();
+
+  for (let i = 0; i < total; i += blockSize) {
+    const leftChunk = left.subarray(i, i + blockSize);
+    let buf;
+    if (right) {
+      const rightChunk = right.subarray(i, i + blockSize);
+      buf = encoder.encodeBuffer(leftChunk, rightChunk);
+    } else {
+      buf = encoder.encodeBuffer(leftChunk);
+    }
+    if (buf.length > 0) chunks.push(new Int8Array(buf));
+
+    if (performance.now() - lastYield > 50) {
+      const pct = 22 + Math.floor((i / total) * 76);
+      onProgress('編碼 MP3...', pct);
+      await new Promise(r => setTimeout(r, 0));
+      lastYield = performance.now();
+    }
+  }
+
+  const final = encoder.flush();
+  if (final.length > 0) chunks.push(new Int8Array(final));
+
+  onProgress('完成', 100);
+  return new Blob(chunks, { type: 'audio/mpeg' });
+}
+
+function readFileWithProgress(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = e => {
+      if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
+    };
+    reader.onload = () => { onProgress(100); resolve(reader.result); };
+    reader.onerror = () => reject(reader.error || new Error('讀取失敗'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ============ WAV STREAMING PATH ============
+// Reads WAV in 1MB chunks; never loads full file. Handles 500MB+ files on mobile.
+
+async function compressWAVStreaming(file, bitrate, onProgress) {
+  onProgress('讀取 WAV 標頭...', 1);
+  const h = await parseWavHeader(file);
+
+  if (h.format !== 1 && h.format !== 3) {
+    throw new Error('不支援的 WAV 編碼格式 (code=' + h.format + ')');
+  }
+  if (![8, 16, 24, 32, 64].includes(h.bitsPerSample)) {
+    throw new Error('不支援的位元深度: ' + h.bitsPerSample + '-bit');
+  }
+
+  // Map sample rate (lamejs only accepts specific rates; decimate high-res audio)
+  const supported = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+  let outRate = h.sampleRate, decim = 1;
+  if (!supported.includes(h.sampleRate)) {
+    const map = { 88200: 2, 96000: 2, 176400: 4, 192000: 4 };
+    if (map[h.sampleRate]) {
+      decim = map[h.sampleRate];
+      outRate = h.sampleRate / decim;
+    } else {
+      throw new Error('不支援的取樣率: ' + h.sampleRate + ' Hz');
+    }
+  }
+
+  const outChannels = Math.min(2, h.channels);
+  const encoder = new lamejs.Mp3Encoder(outChannels, outRate, bitrate);
+  const bps = h.bitsPerSample / 8;
+  const frameSize = bps * h.channels;
+  const CHUNK = 1024 * 1024; // 1MB read chunks
+
+  const mp3Parts = [];
+  let pos = h.dataOffset;
+  const dataEnd = h.dataOffset + h.dataSize;
+  let leftover = new Uint8Array(0);
+  let lastYield = performance.now();
+
+  while (pos < dataEnd) {
+    const readEnd = Math.min(pos + CHUNK, dataEnd);
+    const slice = new Uint8Array(await file.slice(pos, readEnd).arrayBuffer());
+
+    // Stitch leftover bytes (partial frame from previous chunk)
+    let combined;
+    if (leftover.length > 0) {
+      combined = new Uint8Array(leftover.length + slice.length);
+      combined.set(leftover, 0);
+      combined.set(slice, leftover.length);
+    } else {
+      combined = slice;
+    }
+
+    const wholeFrames = Math.floor(combined.length / frameSize);
+    const usable = wholeFrames * frameSize;
+    leftover = combined.slice(usable);
+
+    if (wholeFrames > 0) {
+      const { left, right } = wavBytesToInt16(
+        combined.buffer, combined.byteOffset, usable, h, outChannels, decim
+      );
+
+      // Feed encoder in MP3-frame-sized blocks
+      const blockSize = 1152;
+      for (let i = 0; i < left.length; i += blockSize) {
+        const l = left.subarray(i, i + blockSize);
+        const r = right ? right.subarray(i, i + blockSize) : null;
+        const buf = r ? encoder.encodeBuffer(l, r) : encoder.encodeBuffer(l);
+        if (buf.length > 0) mp3Parts.push(new Int8Array(buf));
+      }
+    }
+
+    pos = readEnd;
+
+    if (performance.now() - lastYield > 50) {
+      const pct = Math.max(2, Math.round(((pos - h.dataOffset) / h.dataSize) * 97) + 2);
+      onProgress('編碼 MP3 (串流模式)...', Math.min(99, pct));
+      await new Promise(r => setTimeout(r, 0));
+      lastYield = performance.now();
+    }
+  }
+
+  const final = encoder.flush();
+  if (final.length > 0) mp3Parts.push(new Int8Array(final));
+
+  onProgress('完成', 100);
+  return new Blob(mp3Parts, { type: 'audio/mpeg' });
+}
+
+async function parseWavHeader(file) {
+  if (file.size < 44) throw new Error('檔案太小，不是有效的 WAV');
+
+  // Read up to 64KB for header (handles WAVs with large LIST/INFO chunks)
+  const headerBytes = Math.min(64 * 1024, file.size);
+  const buf = await file.slice(0, headerBytes).arrayBuffer();
+  const view = new DataView(buf);
+  const bufLen = buf.byteLength;
+
+  const getStr = (o, n) => {
+    if (o + n > bufLen) return '';
+    let s = '';
+    for (let i = 0; i < n; i++) s += String.fromCharCode(view.getUint8(o + i));
+    return s;
+  };
+
+  if (getStr(0, 4) !== 'RIFF' || getStr(8, 4) !== 'WAVE') {
+    throw new Error('不是有效的 WAV 檔');
+  }
+
+  let offset = 12;
+  let fmt = null, dataOffset = -1, dataSize = -1;
+
+  while (offset + 8 <= bufLen) {
+    const id = getStr(offset, 4);
+    const size = view.getUint32(offset + 4, true);
+
+    if (id === 'fmt ') {
+      // fmt chunk needs at least 16 bytes of data
+      if (size < 16 || offset + 8 + 24 > bufLen) {
+        throw new Error('WAV fmt 區塊損毀');
+      }
+      let format = view.getUint16(offset + 8, true);
+      const channels = view.getUint16(offset + 10, true);
+      const sampleRate = view.getUint32(offset + 12, true);
+      const bitsPerSample = view.getUint16(offset + 22, true);
+
+      // WAVEFORMATEXTENSIBLE — real format code is in SubFormat GUID
+      if (format === 0xFFFE && size >= 40 && offset + 8 + 26 <= bufLen) {
+        format = view.getUint16(offset + 8 + 24, true);
+      }
+      fmt = { format, channels, sampleRate, bitsPerSample };
+    } else if (id === 'data') {
+      dataOffset = offset + 8;
+      // Some WAVs have wrong size; clamp to file end
+      dataSize = Math.min(size > 0 ? size : (file.size - dataOffset), file.size - dataOffset);
+      break;
+    }
+
+    // Chunks padded to even bytes. Guard against malformed sizes.
+    const next = offset + 8 + size + (size & 1);
+    if (next <= offset) throw new Error('WAV 區塊大小異常');
+    offset = next;
+  }
+
+  if (!fmt) throw new Error('WAV 缺少格式區塊（fmt）');
+  if (dataOffset < 0) throw new Error('WAV 標頭過大（超過 64KB）或缺少 data 區塊');
+
+  // Validate field sanity
+  if (fmt.channels < 1 || fmt.channels > 8) {
+    throw new Error('WAV 聲道數異常: ' + fmt.channels);
+  }
+  if (fmt.sampleRate < 8000 || fmt.sampleRate > 384000) {
+    throw new Error('WAV 取樣率異常: ' + fmt.sampleRate);
+  }
+  if (dataSize <= 0) {
+    throw new Error('WAV 沒有音訊資料');
+  }
+
+  return Object.assign(fmt, { dataOffset, dataSize });
+}
+
+function wavBytesToInt16(buffer, byteOffset, byteLength, header, outChannels, decim) {
+  const { bitsPerSample, format, channels: inChannels } = header;
+  const view = new DataView(buffer, byteOffset, byteLength);
+  const bps = bitsPerSample / 8;
+  const frameSize = bps * inChannels;
+  const totalFrames = Math.floor(byteLength / frameSize);
+  const outFrames = Math.floor(totalFrames / decim);
+
+  const left = new Int16Array(outFrames);
+  const right = outChannels >= 2 && inChannels >= 2 ? new Int16Array(outFrames) : null;
+
+  let readSample;
+  if (format === 1) {
+    // PCM integer
+    if (bitsPerSample === 8) readSample = o => (view.getUint8(o) - 128) << 8;
+    else if (bitsPerSample === 16) readSample = o => view.getInt16(o, true);
+    else if (bitsPerSample === 24) readSample = o => {
+      const b0 = view.getUint8(o), b1 = view.getUint8(o + 1), b2 = view.getInt8(o + 2);
+      return ((b2 << 16) | (b1 << 8) | b0) >> 8;
+    };
+    else if (bitsPerSample === 32) readSample = o => view.getInt32(o, true) >> 16;
+  } else if (format === 3) {
+    // IEEE float
+    if (bitsPerSample === 32) readSample = o => {
+      const f = view.getFloat32(o, true);
+      const s = f < 0 ? f * 32768 : f * 32767;
+      return Math.max(-32768, Math.min(32767, s | 0));
+    };
+    else if (bitsPerSample === 64) readSample = o => {
+      const f = view.getFloat64(o, true);
+      const s = f < 0 ? f * 32768 : f * 32767;
+      return Math.max(-32768, Math.min(32767, s | 0));
+    };
+  }
+  if (!readSample) throw new Error('不支援的樣本格式');
+
+  for (let i = 0; i < outFrames; i++) {
+    const fo = (i * decim) * frameSize;
+    left[i] = readSample(fo);
+    if (right) right[i] = readSample(fo + bps);
+  }
+
+  return { left, right };
+}
+
+// ============ END WAV STREAMING ============
+
+function floatToInt16(f32) {
+  const out = new Int16Array(f32.length);
+  for (let i = 0; i < f32.length; i++) {
+    const s = Math.max(-1, Math.min(1, f32[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return out;
+}
+
+async function resample(audioBuffer, targetRate) {
+  const length = Math.ceil(audioBuffer.duration * targetRate);
+  const offline = new OfflineAudioContext(audioBuffer.numberOfChannels, length, targetRate);
+  const src = offline.createBufferSource();
+  src.buffer = audioBuffer;
+  src.connect(offline.destination);
+  src.start();
+  return await offline.startRendering();
+}
+</script>
+</body>
+</html>
