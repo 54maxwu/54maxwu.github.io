@@ -39,6 +39,7 @@
   label.lbl{font-size:13px;color:#666;margin-bottom:8px;display:block}
 
   .brs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:20px}
+  .grs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:20px}
   .br{
     padding:10px;border:1px solid #ddd;background:#fff;border-radius:6px;
     cursor:pointer;font:inherit;font-size:14px;color:#222;
@@ -115,6 +116,14 @@
     <button class="br" data-br="256">256</button>
   </div>
 
+  <label class="lbl">音量增益 <span style="color:#aaa;font-size:11px">（補回 MP3 變小聲的部分）</span></label>
+  <div class="grs" id="gains">
+    <button class="br on" data-gain="0">0 dB</button>
+    <button class="br" data-gain="3">+3 dB</button>
+    <button class="br" data-gain="6">+6 dB</button>
+    <button class="br" data-gain="9">+9 dB</button>
+  </div>
+
   <button class="go" id="go">開始壓縮</button>
 
   <div class="prog" id="pwrap">
@@ -138,12 +147,12 @@
 const $ = id => document.getElementById(id);
 const drop = $('drop'), file = $('file'), panel = $('panel'), err = $('err');
 const fname = $('fname'), fsize = $('fsize');
-const brs = $('brs');
+const brs = $('brs'), gains = $('gains');
 const go = $('go'), pwrap = $('pwrap'), pbar = $('pbar'), ppct = $('ppct'), pstage = $('pstage');
 const barWrap = $('barWrap');
 const result = $('result'), sOrig = $('sOrig'), sNew = $('sNew'), sSave = $('sSave'), dl = $('dl');
 
-let currentFile = null, currentBitrate = 128, lastUrl = null;
+let currentFile = null, currentBitrate = 128, currentGain = 1.0, lastUrl = null;
 
 const fmtSize = b => {
   if (b < 1024) return b + ' B';
@@ -192,6 +201,15 @@ brs.addEventListener('click', e => {
   currentBitrate = parseInt(btn.dataset.br);
 });
 
+gains.addEventListener('click', e => {
+  const btn = e.target.closest('.br');
+  if (!btn) return;
+  gains.querySelectorAll('.br').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const db = parseFloat(btn.dataset.gain);
+  currentGain = Math.pow(10, db / 20); // dB → linear multiplier
+});
+
 go.addEventListener('click', async () => {
   if (!currentFile) return;
   clearErr();
@@ -206,7 +224,7 @@ go.addEventListener('click', async () => {
   go.disabled = true;
 
   try {
-    const blob = await compressMP3(currentFile, currentBitrate, (stage, pct, indeterminate) => {
+    const blob = await compressMP3(currentFile, currentBitrate, currentGain, (stage, pct, indeterminate) => {
       pstage.textContent = stage;
       if (indeterminate) {
         barWrap.classList.add('indet');
@@ -248,14 +266,14 @@ go.addEventListener('click', async () => {
 });
 
 // Router: WAV files use streaming (low memory), others use AudioContext decoder
-async function compressMP3(file, bitrate, onProgress) {
+async function compressMP3(file, bitrate, gain, onProgress) {
   if (typeof lamejs === 'undefined' || !lamejs.Mp3Encoder) {
     throw new Error('MP3 編碼器未載入，請檢查網路後重新整理頁面');
   }
   if (isWAV(file)) {
-    return compressWAVStreaming(file, bitrate, onProgress);
+    return compressWAVStreaming(file, bitrate, gain, onProgress);
   }
-  return compressViaDecoder(file, bitrate, onProgress);
+  return compressViaDecoder(file, bitrate, gain, onProgress);
 }
 
 function isWAV(file) {
@@ -264,7 +282,7 @@ function isWAV(file) {
 }
 
 // Non-WAV path: load entire file into memory and use browser decoder
-async function compressViaDecoder(file, bitrate, onProgress) {
+async function compressViaDecoder(file, bitrate, gain, onProgress) {
   const arrayBuffer = await readFileWithProgress(file, pct => {
     onProgress('讀取檔案...', Math.round(pct * 0.15));
   });
@@ -290,8 +308,8 @@ async function compressViaDecoder(file, bitrate, onProgress) {
 
   onProgress('準備樣本...', 20);
   await new Promise(r => setTimeout(r, 0));
-  const left = floatToInt16(useBuffer.getChannelData(0));
-  const right = channels > 1 ? floatToInt16(useBuffer.getChannelData(1)) : null;
+  const left = floatToInt16(useBuffer.getChannelData(0), gain);
+  const right = channels > 1 ? floatToInt16(useBuffer.getChannelData(1), gain) : null;
 
   onProgress('編碼 MP3...', 22);
   await new Promise(r => setTimeout(r, 0));
@@ -342,7 +360,7 @@ function readFileWithProgress(file, onProgress) {
 // ============ WAV STREAMING PATH ============
 // Reads WAV in 1MB chunks; never loads full file. Handles 500MB+ files on mobile.
 
-async function compressWAVStreaming(file, bitrate, onProgress) {
+async function compressWAVStreaming(file, bitrate, gain, onProgress) {
   onProgress('讀取 WAV 標頭...', 1);
   const h = await parseWavHeader(file);
 
@@ -398,7 +416,7 @@ async function compressWAVStreaming(file, bitrate, onProgress) {
 
     if (wholeFrames > 0) {
       const { left, right } = wavBytesToInt16(
-        combined.buffer, combined.byteOffset, usable, h, outChannels, decim
+        combined.buffer, combined.byteOffset, usable, h, outChannels, decim, gain
       );
 
       // Feed encoder in MP3-frame-sized blocks
@@ -500,8 +518,9 @@ async function parseWavHeader(file) {
   return Object.assign(fmt, { dataOffset, dataSize });
 }
 
-function wavBytesToInt16(buffer, byteOffset, byteLength, header, outChannels, decim) {
+function wavBytesToInt16(buffer, byteOffset, byteLength, header, outChannels, decim, gain) {
   const { bitsPerSample, format, channels: inChannels } = header;
+  const g = gain || 1.0;
   const view = new DataView(buffer, byteOffset, byteLength);
   const bps = bitsPerSample / 8;
   const frameSize = bps * inChannels;
@@ -525,21 +544,22 @@ function wavBytesToInt16(buffer, byteOffset, byteLength, header, outChannels, de
     // IEEE float
     if (bitsPerSample === 32) readSample = o => {
       const f = view.getFloat32(o, true);
-      const s = f < 0 ? f * 32768 : f * 32767;
-      return Math.max(-32768, Math.min(32767, s | 0));
+      return f < 0 ? f * 32768 : f * 32767;
     };
     else if (bitsPerSample === 64) readSample = o => {
       const f = view.getFloat64(o, true);
-      const s = f < 0 ? f * 32768 : f * 32767;
-      return Math.max(-32768, Math.min(32767, s | 0));
+      return f < 0 ? f * 32768 : f * 32767;
     };
   }
   if (!readSample) throw new Error('不支援的樣本格式');
 
+  // Apply gain + clamp to int16 range
+  const clamp = v => v < -32768 ? -32768 : (v > 32767 ? 32767 : (v | 0));
+
   for (let i = 0; i < outFrames; i++) {
     const fo = (i * decim) * frameSize;
-    left[i] = readSample(fo);
-    if (right) right[i] = readSample(fo + bps);
+    left[i] = clamp(readSample(fo) * g);
+    if (right) right[i] = clamp(readSample(fo + bps) * g);
   }
 
   return { left, right };
@@ -547,10 +567,11 @@ function wavBytesToInt16(buffer, byteOffset, byteLength, header, outChannels, de
 
 // ============ END WAV STREAMING ============
 
-function floatToInt16(f32) {
+function floatToInt16(f32, gain) {
+  const g = gain || 1.0;
   const out = new Int16Array(f32.length);
   for (let i = 0; i < f32.length; i++) {
-    const s = Math.max(-1, Math.min(1, f32[i]));
+    const s = Math.max(-1, Math.min(1, f32[i] * g));
     out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
   }
   return out;
