@@ -1,310 +1,443 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="zh-TW">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>裝置診斷</title>
     <style>
-        h1 {
-            font-size: 2.5em;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            padding: 0;
+            color: #1e293b;
         }
 
-        h2 {
-            font-size: 1.875em;
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
         }
 
-        sessionBlock {
-            border: 2px solid black;
-            border-radius: 15px;
-            display: block;
-            padding: 0px 5px 10px 5px;
+        .page-content {
+            padding: 24px;
         }
 
-        dataHolder {
-            padding: 5px 0px 5px 0px;
-            display: block;
+        .page-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
         }
 
-        dataTitle {
-            float: left;
-            color: grey;
+        /* ── CARD ── */
+        .card {
+            border-radius: 10px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            padding: 18px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .card-icon {
+            width: 28px; height: 28px;
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.88rem;
+            flex-shrink: 0;
+        }
+        .icon-net  { background: #dbeafe; color: #2563eb; }
+        .icon-sw   { background: #ede9fe; color: #7c3aed; }
+        .icon-cfg  { background: #dcfce7; color: #16a34a; }
+        .icon-hw   { background: #ffedd5; color: #ea580c; }
+
+        /* ── DATA ROW ── */
+        .data-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            min-height: 34px;
+        }
+        .data-row:last-child { border-bottom: none; }
+
+        .data-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            flex-shrink: 0;
+            width: 120px;
+            line-height: 1.4;
+        }
+
+        .data-val {
+            font-size: 0.82rem;
+            color: #1e293b;
+            flex: 1;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+        .data-val.mono {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.77rem;
+        }
+
+        /* ── STATUS BADGE ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .badge-on   { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-off  { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        .badge-info { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+        /* ── DNS RESULT ── */
+        .dns-record {
             display: inline-block;
-            width: 20%;
-            font-size: 1.25em;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 5px;
+            padding: 2px 8px;
+            margin: 2px 2px 2px 0;
+            font-family: 'Consolas', monospace;
+            font-size: 0.75rem;
+            color: #1d4ed8;
         }
 
-        dataDetail {
+        /* ── LOADING SHIMMER ── */
+        .loading {
             display: inline-block;
-            width: 80%;
-            font-size: 1.25em;
+            width: 80px; height: 13px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            vertical-align: middle;
+        }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* ── DNS INPUT ── */
+        .dns-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .dns-input {
+            flex: 1;
+            padding: 7px 11px;
+            border: 1px solid #e2e8f0;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            background: #f8fafc;
+            color: #1e293b;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            font-family: inherit;
+        }
+        .dns-input:focus { outline: none; border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+        .dns-btn {
+            padding: 7px 14px;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: #3b82f6;
+            color: #fff;
+            transition: background 0.15s;
+            font-family: inherit;
+        }
+        .dns-btn:hover { background: #2563eb; }
+
+        /* ── FULL WIDTH CARD ── */
+        .card.full { grid-column: 1 / -1; }
+
+        @media (max-width: 720px) {
+            .page-content { padding: 16px; }
+            .page-grid { grid-template-columns: 1fr; }
+            .card.full { grid-column: 1; }
+            .data-label { width: 100px; font-size: 0.72rem; }
         }
     </style>
 </head>
-
 <body>
-    <h1>Device Diagnosis Page</h1>
+    <div class="app-header">
+        <h1>裝置診斷</h1>
+    </div>
 
-    <!-- network -->
-    <sessionBlock>
-        <h2>Network</h2>
-        <dataHolder>
-            <dataTitle>Public IP:</dataTitle>
-            <dataDetail id="publicIP"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>DNS addresses:</dataTitle>
-            <dataDetail id="addressesDNS"></dataDetail>
-        </dataHolder>
-    </sessionBlock>
-    <br />
+    <div class="page-content">
+    <div class="page-grid">
 
-    <!-- system -->
-    <sessionBlock>
-        <h2>Software</h2>
-        <dataHolder>
-            <dataTitle>Device:</dataTitle>
-            <dataDetail id="device"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>OS:</dataTitle>
-            <dataDetail id="os"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>Browser:</dataTitle>
-            <dataDetail id="browser"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>Engine:</dataTitle>
-            <dataDetail id="engine"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>User Agent:</dataTitle>
-            <dataDetail id="uaString"></dataDetail>
-        </dataHolder>
-    </sessionBlock>
-    <br />
+        <!-- ── NETWORK ── -->
+        <div class="card">
+            <div class="card-title">
+                <div class="card-icon icon-net">&#127760;</div>
+                網路
+            </div>
+            <div class="data-row">
+                <span class="data-label">Public IP</span>
+                <span class="data-val mono" id="publicIP"><span class="loading"></span></span>
+            </div>
+            <div style="margin-top:10px">
+                <div class="dns-row">
+                    <input class="dns-input" id="dns-input" type="text" placeholder="輸入域名查詢 DNS（例：google.com）">
+                    <button class="dns-btn" onclick="queryDNS()">查詢</button>
+                </div>
+                <div class="data-row" style="border:none;padding-top:0">
+                    <span class="data-label">DNS 結果</span>
+                    <span class="data-val" id="addressesDNS">—</span>
+                </div>
+            </div>
+        </div>
 
-    <!-- software -->
-    <sessionBlock>
-        <h2>Browser Configuration</h2>
-        <dataHolder>
-            <dataTitle>Javascript:</dataTitle>
-            <dataDetail id="jsVersion"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>Local Storage:</dataTitle>
-            <dataDetail id="localStorage"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>Cookies:</dataTitle>
-            <dataDetail id="cookie"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>WebAudio:</dataTitle>
-            <dataDetail id="webAudio"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>WebGL:</dataTitle>
-            <dataDetail id="webgl"></dataDetail>
-        </dataHolder>
-    </sessionBlock>
-    <br />
+        <!-- ── SOFTWARE ── -->
+        <div class="card">
+            <div class="card-title">
+                <div class="card-icon icon-sw">&#128187;</div>
+                軟體資訊
+            </div>
+            <div class="data-row">
+                <span class="data-label">裝置</span>
+                <span class="data-val" id="device">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">作業系統</span>
+                <span class="data-val" id="os">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">瀏覽器</span>
+                <span class="data-val" id="browser">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">引擎</span>
+                <span class="data-val" id="engine">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">User Agent</span>
+                <span class="data-val mono" id="uaString" style="font-size:0.7rem;word-break:break-all">—</span>
+            </div>
+        </div>
 
-    <!-- hardware -->
-    <sessionBlock>
-        <h2>Device Specification</h2>
-        <dataHolder id="gpuHolder">
-            <dataTitle>GPU:</dataTitle>
-            <dataDetail id="gpu"></dataDetail>
-        </dataHolder>
-        <dataHolder id="ramHolder">
-            <dataTitle>RAM:</dataTitle>
-            <dataDetail id="ram"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>Screen Resolution:</dataTitle>
-            <dataDetail id="screenResolution"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>Aspect Ratio:</dataTitle>
-            <dataDetail id="screenRatio"></dataDetail>
-        </dataHolder>
-        <dataHolder>
-            <dataTitle>Orientation:</dataTitle>
-            <dataDetail id="orientation"></dataDetail>
-        </dataHolder>
-    </sessionBlock>
+        <!-- ── BROWSER CONFIG ── -->
+        <div class="card">
+            <div class="card-title">
+                <div class="card-icon icon-cfg">&#9881;</div>
+                瀏覽器設定
+            </div>
+            <div class="data-row">
+                <span class="data-label">JavaScript</span>
+                <span class="data-val" id="jsVersion">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Local Storage</span>
+                <span class="data-val" id="localStorage">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Cookies</span>
+                <span class="data-val" id="cookie">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Web Audio</span>
+                <span class="data-val" id="webAudio">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">WebGL</span>
+                <span class="data-val" id="webgl">—</span>
+            </div>
+        </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/dohjs@0.3.3/dist/doh.min.js"></script>
+        <!-- ── HARDWARE ── -->
+        <div class="card">
+            <div class="card-title">
+                <div class="card-icon icon-hw">&#128269;</div>
+                裝置規格
+            </div>
+            <div class="data-row" id="gpuHolder">
+                <span class="data-label">GPU</span>
+                <span class="data-val mono" id="gpu">—</span>
+            </div>
+            <div class="data-row" id="ramHolder">
+                <span class="data-label">RAM</span>
+                <span class="data-val" id="ram">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">螢幕解析度</span>
+                <span class="data-val mono" id="screenResolution">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">長寬比</span>
+                <span class="data-val mono" id="screenRatio">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">方向</span>
+                <span class="data-val" id="orientation">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">DPR</span>
+                <span class="data-val mono" id="dpr">—</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">CPU 執行緒</span>
+                <span class="data-val" id="cpu">—</span>
+            </div>
+        </div>
+
+    </div>
+    </div><!-- /.page-content -->
+
     <script src="https://cdn.jsdelivr.net/npm/ua-parser-js@2.0.0-alpha.3/dist/ua-parser.pack.min.js"></script>
-    <script type="text/javascript">
-        function getVersionOfJS() {
-            this.jsv = {
-                versions: [
-                    '1.1',
-                    '1.2',
-                    '1.3',
-                    '1.4',
-                    '1.5',
-                    '1.6',
-                    '1.7',
-                    '1.8',
-                    '1.9',
-                    '2.0'
-                ],
-                version: ''
-            }
+    <script>
+    // ── Helpers ──
+    function badge(enabled, onLabel, offLabel) {
+        return enabled
+            ? `<span class="badge badge-on">&#10003; ${onLabel || '啟用'}</span>`
+            : `<span class="badge badge-off">&#10005; ${offLabel || '停用'}</span>`;
+    }
+    function infoBadge(text) {
+        return `<span class="badge badge-info">${text}</span>`;
+    }
+    function setText(id, html) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+    }
 
-            for (i = 0, l = jsv.versions.length; i < l; i++) {
-                const g = document.createElement('script'),
-                    s = document.getElementsByTagName('script')[0]
+    // ── UA Parser ──
+    const ua = new UAParser().getResult();
+    setText('uaString', ua.ua || '—');
+    setText('browser', `${ua.browser.name || ''} ${ua.browser.version || ''}`.trim() || '—');
+    setText('os', `${ua.os.name || ''} ${ua.os.version || ''}`.trim() || '—');
+    setText('engine', `${ua.engine.name || ''} ${ua.engine.version || ''}`.trim() || '—');
+    setText('device', ua.device.type
+        ? `${ua.device.model || ua.device.vendor || ''} <span class="badge badge-info">${ua.device.type}</span>`
+        : (ua.device.model || '<span class="badge badge-info">Desktop</span>'));
 
-                g.setAttribute('language', 'JavaScript' + jsv.versions[i])
-                g.text = "this.jsv.version='" + jsv.versions[i] + "';"
-                document
-                    .getElementsByTagName('script')[0]
-                    .parentNode.insertBefore(g, s)
-            }
-            return jsv.version
+    // ── Screen ──
+    function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+    function isLandscape() {
+        try { const a = screen.orientation.angle; return a === 90 || a === 270 || a === -90; }
+        catch { return window.innerWidth > window.innerHeight; }
+    }
+    function updateScreen() {
+        const w = Math.round(window.screen.width  * window.devicePixelRatio);
+        const h = Math.round(window.screen.height * window.devicePixelRatio);
+        const g = gcd(w, h);
+        setText('screenResolution', `${w} × ${h} px`);
+        setText('screenRatio', `${w/g} : ${h/g}`);
+        setText('orientation', isLandscape()
+            ? '<span class="badge badge-info">&#8596; 橫向</span>'
+            : '<span class="badge badge-info">&#8597; 直向</span>');
+        setText('dpr', `${window.devicePixelRatio}x`);
+    }
+    updateScreen();
+    try { screen.orientation.addEventListener('change', updateScreen); } catch {}
+
+    // ── CPU ──
+    const threads = navigator.hardwareConcurrency;
+    setText('cpu', threads ? infoBadge(threads + ' 執行緒') : '—');
+
+    // ── GPU ──
+    const cvs = document.createElement('canvas');
+    const gl = window.WebGLRenderingContext && (cvs.getContext('webgl') || cvs.getContext('experimental-webgl'));
+    setText('webgl', badge(!!gl, 'WebGL 支援', 'WebGL 不支援'));
+    if (gl) {
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        if (dbg) {
+            setText('gpu', gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL));
+        } else {
+            document.getElementById('gpuHolder').style.display = 'none';
         }
+    } else {
+        document.getElementById('gpuHolder').style.display = 'none';
+    }
 
-        function gcd(a, b) {
-            return b == 0 ? a : gcd(b, a % b)
-        }
-        function isLandscape() {
-            const angle = screen.orientation.angle
-            return angle === 90 || angle === -90
-        }
-        function updateScreenDetail() {
-            const screenWidth = window.screen.width * window.devicePixelRatio
-            const screenHeight = window.screen.height * window.devicePixelRatio
-            const ratio = gcd(screenWidth, screenHeight)
+    // ── RAM ──
+    if (navigator.deviceMemory) {
+        const ram = navigator.deviceMemory;
+        const label = ram === 0.25 ? '256MB 以下' : ram === 0.5 ? '512MB' : ram >= 8 ? '8GB+' : `${ram}GB`;
+        setText('ram', infoBadge(label));
+    } else {
+        document.getElementById('ramHolder').style.display = 'none';
+    }
 
-            document.getElementById(
-                'screenResolution'
-            ).innerHTML = `${screenWidth} x ${screenHeight}`
-            document.getElementById('screenRatio').innerHTML = `${screenWidth / ratio
-                } : ${screenHeight / ratio}`
-            document.getElementById('orientation').innerHTML = `${isLandscape() ? 'Landscape' : 'Portrait'
-                }`
-        }
+    // ── Browser Config ──
+    setText('jsVersion', badge(true, 'JavaScript 已啟用'));
+    setText('localStorage', badge(typeof Storage !== 'undefined', 'Local Storage 已啟用'));
+    setText('cookie', badge(navigator.cookieEnabled, 'Cookies 已啟用'));
+    const AudioCtx = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+    setText('webAudio', badge(!!AudioCtx, 'Web Audio 支援'));
 
-        function getIP(data) {
-            document.getElementById('publicIP').innerHTML = `${data.ip}`
-        }
+    // ── Public IP (ipify JSONP) ──
+    window.__ipCb = data => setText('publicIP', `<span class="badge badge-info">&#127760; ${data.ip}</span>`);
+    const s = document.createElement('script');
+    s.src = 'https://api.ipify.org?format=jsonp&callback=__ipCb';
+    document.head.appendChild(s);
 
-        function getVideoCardInfo(gl) {
-            const dbgRenderInfo = gl.getExtension('WEBGL_debug_renderer_info')
-            return dbgRenderInfo !== null
-                ? {
-                    renderer: gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL),
-                    vendor: gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL)
+    // ── DNS Query ──
+    // Pre-fill from URL query string if present
+    const urlHost = location.search.replace('?','').trim();
+    if (urlHost) {
+        document.getElementById('dns-input').value = urlHost;
+        queryDNS();
+    }
+
+    function queryDNS() {
+        const host = document.getElementById('dns-input').value.trim().toLowerCase();
+        if (!host) return;
+        const out = document.getElementById('addressesDNS');
+        out.innerHTML = '<span class="loading"></span>';
+        fetch(`https://dns.google/resolve?name=${encodeURIComponent(host)}&type=A`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
+                    const ips = [...new Set(data.Answer.filter(a => a.type === 1).map(a => a.data))];
+                    out.innerHTML = ips.length
+                        ? ips.map(ip => `<span class="dns-record">${ip}</span>`).join('')
+                        : '無 A 記錄';
+                } else {
+                    out.textContent = '查無結果 (Status: ' + data.Status + ')';
                 }
-                : undefined
-        }
+            })
+            .catch(() => { out.textContent = '查詢失敗'; });
+    }
 
-        function getRAM() {
-            const ram = navigator.deviceMemory
-            if (ram === 0.25) {
-                return '256MB or less'
-            } else if (ram === 0.5) {
-                return '512MB'
-            } else if (ram === 8) {
-                return '8GB or more'
-            } else {
-                return `${ram}GB`
-            }
-        }
-
-        const uaResult = new UAParser().getResult()
-        document.getElementById('uaString').innerHTML = `${uaResult.ua}`
-        document.getElementById(
-            'browser'
-        ).innerHTML = `${uaResult.browser.name} ${uaResult.browser.version}`
-        document.getElementById(
-            'os'
-        ).innerHTML = `${uaResult.os.name} ${uaResult.os.version}`
-        document.getElementById(
-            'engine'
-        ).innerHTML = `${uaResult.engine.name} ${uaResult.engine.version}`
-        document.getElementById('device').innerHTML = uaResult.device.type
-            ? `${uaResult.device.model} (${uaResult.device.type})`
-            : `${uaResult.device.model}`
-
-        screen.orientation.onchange = () => {
-            updateScreenDetail()
-        }
-        updateScreenDetail()
-
-        document.getElementById(
-            'jsVersion'
-        ).innerHTML = `Enabled (v${getVersionOfJS()})`
-        document.getElementById('localStorage').innerHTML = `${typeof Storage !== 'undefined' ? 'Enabled' : 'Disabled'
-            }`
-        document.getElementById('cookie').innerHTML = `${navigator.cookieEnabled ? 'Enabled' : 'Disabled'
-            }`
-
-        let canvas = document.createElement('canvas')
-        const gl =
-            !!window.WebGLRenderingContext &&
-            (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
-        document.getElementById('webgl').innerHTML = `${gl ? 'Enabled' : 'Disabled'
-            }`
-        canvas = undefined
-
-        if (gl && getVideoCardInfo(gl)) {
-            document.getElementById('gpu').innerHTML = `${getVideoCardInfo(gl).renderer
-                }`
-        } else {
-            document.getElementById('gpuHolder').remove()
-        }
-
-        if (navigator.deviceMemory) {
-            document.getElementById('ram').innerHTML = getRAM()
-        } else {
-            document.getElementById('ramHolder').remove()
-        }
-
-        const contextClass =
-            window.AudioContext ||
-            window.webkitAudioContext ||
-            window.mozAudioContext ||
-            window.oAudioContext ||
-            window.msAudioContext
-        document.getElementById('webAudio').innerHTML = `${contextClass ? 'Enabled' : 'Disabled'
-            }`
-
-        try {
-            let host = location.search.replace("?","");
-            if(host != "") {
-                fetch(`https://dns.google/resolve?name=${host}&type=A`).then((rsp) => rsp.json()).then(data => {
-                    if(data.Status == 0) {
-                        document.getElementById('addressesDNS').innerHTML = "";
-                        data.Answer.forEach(e => {
-                            document.getElementById('addressesDNS').innerHTML += JSON.stringify(e)
-                        });
-                    }
-                })
-                // const resolver = new doh.DohResolver('https://1.1.1.1/dns-query')
-                // resolver
-                //     .query(host)
-                //     .then(response => {
-                //         if (response.answers.length > 0) {
-                //             let msg = ''
-                //             response.answers.forEach(ans => {
-                //                 ans.type === 'A' &&
-                //                     (msg += `${msg === '' ? '' : ', '}${ans.data}`)
-                //             })
-                //             document.getElementById('addressesDNS').innerHTML = `${msg}`
-                //         }
-                //     })
-                //     .catch(err => {
-                //         //console.log(err);
-                //     })
-            }
-        } catch (error) {
-            console.log(error);
-        }
+    document.getElementById('dns-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') queryDNS();
+    });
     </script>
-    <script src="https://api.ipify.org?format=jsonp&callback=getIP" crossorigin="anonymous"></script>
 </body>
-
 </html>

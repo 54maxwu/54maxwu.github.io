@@ -1,68 +1,103 @@
 <!DOCTYPE HTML>
-<html>
-
+<html lang="zh-TW">
 <head>
     <title>圖片Base64工具（DataURI資料）</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="index.css">
     <script type="text/javascript" src="evalCore.min.js"></script>
     <script type="text/javascript" src="vue.js"></script>
 </head>
-
 <body>
-    <div class="wrapper" id="pageContainer">
-        <div class="panel panel-default" style="margin-bottom: 0px;">
-            <div class="panel-heading">
-                <h3 class="panel-title">{{ toolName[curType] }} <span class="x-switch ui-fl-r" ref="btnSwitch"
-                        @click="trans">切換為{{toolName[nextType]}}</span></h3>
-            </div>
-        </div>
-        <div class="panel-body mod-imagebase64" ref="imageBase64" v-show="curType=='image'">
-            <div class="row">
-                <table>
-                    <tr>
-                        <td>
-                            <div class="x-panel" ref="panelBox"><img id="preview" alt="" :src="previewSrc"
-                                    v-show="!!previewSrc.length">
-                                <div class="x-tips"><a id="upload" href="#" ref="uploadBox"
-                                        @click="upload($event)">選擇圖片</a><br>或者選擇一張圖片拖拽圖片到這裡來</div>
+    <div class="app-wrapper" id="pageContainer">
+
+        <header class="app-header">
+            <span class="app-title">{{ toolName[curType] }}</span>
+            <button class="switch-btn" ref="btnSwitch" @click="trans">切換為{{toolName[nextType]}}</button>
+        </header>
+
+        <!-- 圖片轉Base64 -->
+        <main class="app-body" ref="imageBase64" v-show="curType=='image'">
+            <div class="pane-grid">
+                <div class="pane">
+                    <div class="upload-zone" ref="panelBox">
+                        <img id="preview" alt="" :src="previewSrc" v-show="!!previewSrc.length">
+                        <div class="upload-placeholder" v-show="!previewSrc.length">
+                            <div class="upload-icon">
+                                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="2" y="2" width="36" height="36" rx="8" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 3"/>
+                                    <path d="M13 27l5-6 4 4 5-7 6 9H13z" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" fill="none"/>
+                                    <circle cx="27" cy="15" r="3" stroke="#94a3b8" stroke-width="1.5"/>
+                                </svg>
                             </div>
-                            <div class="tips">1、支援<i>螢幕截圖</i>後直接在此處粘貼進行轉化<br>2、支持<i>複製檔、複製圖片</i>線上位址在此處直接粘貼進行轉化</div>
-                        </td>
-                        <td><textarea id="base64Result" title="點擊自動選擇" placeholder="內容會自動生成..." readonly="readonly"
-                                ref="resultBox" @click="select()" v-model="resultContent"
-                                class="form-control"></textarea>
-                            <div class="x-result-info">
-                                <div class="x-item"><span class="x-title">原始圖片大小：</span><span
-                                        id="sizeOri">{{sizeOri}}</span></div>
-                                <div class="x-item"><span class="x-title">DataUri&nbsp;&nbsp;大小：</span><span
-                                        id="sizeBase">{{sizeBase}}</span></div>
+                            <a href="#" class="upload-btn" ref="uploadBox" @click="upload($event)">選擇圖片</a>
+                            <p class="upload-hint">或將圖片拖曳至此處</p>
+                        </div>
+                    </div>
+                    <div class="upload-tips">
+                        <p>支援 <strong>螢幕截圖</strong> 後直接貼上轉化</p>
+                        <p>支援 <strong>複製圖片連結</strong> 直接貼上轉化</p>
+                    </div>
+                </div>
+                <div class="pane">
+                    <textarea id="base64Result"
+                        class="result-textarea"
+                        title="點擊自動選擇"
+                        placeholder="內容會自動生成..."
+                        readonly="readonly"
+                        ref="resultBox"
+                        @click="select()"
+                        v-model="resultContent"></textarea>
+                    <div class="result-info">
+                        <div class="info-item">
+                            <span class="info-label">原始圖片大小</span>
+                            <span class="info-value" id="sizeOri">{{sizeOri}}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">DataUri 大小</span>
+                            <span class="info-value" id="sizeBase">{{sizeBase}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <form action="#" style="display:none">
+                <input type="file" id="file" accept=".jpg,.jpeg,.gif,.png,.bmp" ref="fileBox" @change="convert()">
+            </form>
+            <img id="img" alt="" style="display:none">
+        </main>
+
+        <!-- Base64轉圖片 -->
+        <main class="app-body" ref="base64Image" v-show="curType=='base64'">
+            <div class="pane-grid">
+                <div class="pane">
+                    <textarea id="base64Input"
+                        class="result-textarea"
+                        title="點擊自動選擇"
+                        placeholder="在這裡貼上 DataURI 資料..."
+                        v-model="txtBase64Input"></textarea>
+                </div>
+                <div class="pane">
+                    <div class="upload-zone preview-zone">
+                        <img id="base64Image" alt="" :src="txtBase64Output"
+                            v-show="!!txtBase64Input.length" @error="loadError">
+                        <div class="upload-placeholder" v-show="!txtBase64Input.length">
+                            <div class="upload-icon">
+                                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="2" y="2" width="36" height="36" rx="8" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 3"/>
+                                    <path d="M13 27l5-6 4 4 5-7 6 9H13z" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round" fill="none"/>
+                                    <circle cx="27" cy="15" r="3" stroke="#94a3b8" stroke-width="1.5"/>
+                                </svg>
                             </div>
-                        </td>
-                    </tr>
-                </table>
-                <form action="#"><input type="file" id="file" accept=".jpg,.jpeg,.gif,.png,.bmp" ref="fileBox"
-                        @change="convert()"></form><img id="img" alt="">
+                            <p class="upload-hint">圖片預覽會顯示在這裡</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="panel-body mod-base64image" ref="base64Image" v-show="curType=='base64'">
-            <div class="row">
-                <table>
-                    <tr>
-                        <td><textarea id="base64Input" class="form-control" title="點擊自動選擇"
-                                placeholder="在這裡粘貼DataURI資料..." v-model="txtBase64Input"></textarea></td>
-                        <td>
-                            <div class="x-panel"><img id="base64Image" alt="" :src="txtBase64Output"
-                                    v-show="!!txtBase64Input.length" @error="loadError"></div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-        <div v-show="!!error.length" v-cloak class="x-error" v-html="error"></div>
+        </main>
+
+        <div v-show="!!error.length" v-cloak class="error-banner" v-html="error"></div>
+
     </div>
     <script type="text/javascript" src="index.js"></script>
-    <script src="jquery-3.3.1.min.js"></script>
 </body>
-
 </html>

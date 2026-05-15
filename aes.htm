@@ -1,134 +1,366 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="zh-TW">
 <head>
-  <title>AES</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet">
-  <style>
-    .bgcolor {
-      background: #F2F2F2;
-      background-blend-mode: normal,color-burn;
-    }
-    .special_text{
-      text-shadow: 1px 1px 4px black, 0 0 25px #2C3E50, 0 0 5px #57687c;
-      font-weight: bolder;
-    }
-    .glass-container {
-      color: #b4c7dd;
-      gap: 20px;
-      border-radius: 10px;
-      backdrop-filter: blur(5px);
-      background-color: #2C3E50;
-      box-shadow: rgba(0, 0, 0, 0.3) 2px 8px 8px;
-      border: 2px rgba(255,255,255,0.4) solid;
-      border-bottom: 2px rgba(40,40,40,0.35) solid;
-      border-right: 2px rgba(40,40,40,0.35) solid;
-    }
-    #pass {
-      border-bottom: 2px solid #bfbfbf;
-    }
-  </style>
-</head>
+    <meta charset="UTF-8">
+    <title>AES 加密工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-<body class="bgcolor h-screen">
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
-  <script type="text/javascript">
-    var key = ""
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            padding: 0;
+            color: #2c3e50;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+        }
+        .mode-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #dbeafe;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+        .key-tip {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #fef9c3;
+            color: #854d0e;
+            border: 1px solid #fde68a;
+        }
+
+        .page-content { padding: 20px; }
+
+        .glass {
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.12) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 20px;
+        }
+
+        /* ── TWO COLUMN ── */
+        .col-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .field-wrap { display: flex; flex-direction: column; gap: 6px; }
+
+        .field-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #4a6070;
+        }
+
+        textarea {
+            width: 100%;
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.82rem;
+            background: rgba(255,255,255,0.8);
+            resize: vertical;
+            min-height: 220px;
+            line-height: 1.55;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            color: #1e293b;
+        }
+        textarea:focus { outline: none; border-color: rgba(0,160,220,0.5); box-shadow: 0 0 0 3px rgba(0,160,220,0.1); }
+        textarea[readonly] { background: rgba(248,250,252,0.9); cursor: default; }
+        .input-ta  { border-left: 4px solid #2980b9 !important; }
+        .output-ta { border-left: 4px solid #8e44ad !important; }
+
+        /* ── KEY ROW ── */
+        .key-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .key-input {
+            flex: 1;
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-left: 4px solid #f59e0b;
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.84rem;
+            background: rgba(255,255,255,0.8);
+            color: #1e293b;
+            transition: border-color 0.2s;
+        }
+        .key-input:focus { outline: none; border-color: rgba(0,160,220,0.5); box-shadow: 0 0 0 3px rgba(0,160,220,0.1); }
+
+        .key-len-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .len-ok  { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+        .len-bad { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+        .len-na  { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+
+        .eye-btn {
+            padding: 7px 12px;
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.8);
+            color: #555;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .eye-btn:hover { background: rgba(255,255,255,1); }
+
+        /* ── ACTION BUTTONS ── */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.84rem;
+            font-weight: 700;
+            transition: all 0.18s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .btn:hover { transform: scale(1.03); }
+        .btn:active { transform: scale(0.97); }
+
+        .btn-enc  { background: linear-gradient(135deg,#22c55e,#16a34a); color:#fff; }
+        .btn-dec  { background: linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; }
+        .btn-clr  { background: linear-gradient(135deg,#f87171,#ef4444); color:#fff; }
+        .btn-copy { background: linear-gradient(135deg,#a78bfa,#7c3aed); color:#fff; }
+
+        .btn-enc:hover  { box-shadow: 0 4px 14px rgba(34,197,94,0.4); }
+        .btn-dec:hover  { box-shadow: 0 4px 14px rgba(59,130,246,0.4); }
+        .btn-clr:hover  { box-shadow: 0 4px 14px rgba(239,68,68,0.4); }
+        .btn-copy:hover { box-shadow: 0 4px 14px rgba(124,58,237,0.4); }
+
+        /* ── COPY BTN inline ── */
+        .copy-btn {
+            padding: 3px 9px;
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.68rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.6);
+            color: #555;
+            transition: all 0.15s;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,1); }
+        .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
+
+        /* ── ERR ── */
+        .err-msg {
+            font-size: 0.75rem;
+            color: #b91c1c;
+            background: rgba(239,68,68,0.08);
+            border-radius: 6px;
+            padding: 6px 12px;
+            display: none;
+            margin-top: 8px;
+        }
+        .err-msg.show { display: block; }
+
+        .hint { font-size: 0.7rem; color: #94a3b8; margin-top: 10px; text-align: center; }
+
+        @media (max-width: 720px) {
+            .col-row { grid-template-columns: 1fr; }
+            .key-row { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>AES 加密工具</h1>
+        <span class="mode-badge">ECB · Hex 輸出</span>
+        <span class="key-tip">&#9888; 金鑰需 16 / 24 / 32 字元</span>
+    </div>
+
+    <div class="page-content">
+    <div class="glass">
+
+        <div class="col-row">
+            <div class="field-wrap">
+                <div class="field-label">
+                    <span>&#9632; 輸入（明文 / Hex 密文）</span>
+                </div>
+                <textarea id="input" class="input-ta" placeholder="輸入要加密的文字，或貼入 Hex 密文進行解密..."></textarea>
+            </div>
+            <div class="field-wrap">
+                <div class="field-label">
+                    <span>&#9632; 輸出結果</span>
+                    <button class="copy-btn" id="copy-inline-btn">複製</button>
+                </div>
+                <textarea id="output" class="output-ta" readonly placeholder=""></textarea>
+            </div>
+        </div>
+
+        <div class="field-label" style="margin-bottom:5px">
+            <span>&#128273; Secret Key</span>
+            <span class="key-len-badge len-na" id="key-len-badge">0 字元</span>
+        </div>
+        <div class="key-row">
+            <input id="pass" class="key-input" type="password" placeholder="輸入金鑰（16 / 24 / 32 字元）" oninput="updateKeyLen()">
+            <button class="eye-btn" id="eye-btn">顯示</button>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn btn-enc" onclick="Encrypt()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><circle cx="12" cy="16" r="1"/><path d="M8 11v-4a4 4 0 0 1 8 0v4"/></svg>
+                加密
+            </button>
+            <button class="btn btn-dec" onclick="Decrypt()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><circle cx="12" cy="16" r="1"/><path d="M8 11v-5a4 4 0 0 1 8 0"/></svg>
+                解密
+            </button>
+            <button class="btn btn-clr" onclick="Clear()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 6a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-11l-5-5a1.5 1.5 0 0 1 0-2l5-5z"/><path d="M12 10l4 4m0-4l-4 4"/></svg>
+                清除
+            </button>
+            <button class="btn btn-copy" onclick="CopyOutput()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8v-2a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                複製結果
+            </button>
+        </div>
+
+        <div class="err-msg" id="err-msg"></div>
+        <p class="hint">AES-ECB / PKCS7 · 金鑰直接作為 Secret Key · 輸出為 Hex 字串</p>
+    </div>
+    </div>
+
+    <script>
+    function updateKeyLen() {
+        const len = document.getElementById('pass').value.length;
+        const badge = document.getElementById('key-len-badge');
+        badge.textContent = len + ' 字元';
+        badge.className = 'key-len-badge ' + ([16,24,32].includes(len) ? 'len-ok' : len === 0 ? 'len-na' : 'len-bad');
+    }
 
     function initKey() {
-      if (document.getElementById('input').value == "") {
-        return false;
-      }
-      key = CryptoJS.enc.Utf8.parse(btoa(document.getElementById('pass').value))
-      return true;
+        const input = document.getElementById('input').value;
+        const pass  = document.getElementById('pass').value;
+        hideErr();
+        if (!input) { showErr('請輸入明文或密文'); return null; }
+        if (!pass)  { showErr('請輸入金鑰'); return null; }
+        if (![16,24,32].includes(pass.length)) {
+            showErr(`金鑰長度必須為 16、24 或 32 字元（目前 ${pass.length} 字元）`);
+            return null;
+        }
+        return CryptoJS.enc.Utf8.parse(pass);
     }
 
     function Encrypt() {
-      if (initKey()) {
-        var encryptedData = CryptoJS.AES.encrypt(document.getElementById('input').value, key, {
-          mode: CryptoJS.mode.ECB,
-          padding: CryptoJS.pad.Pkcs7
-        })
-        document.getElementById('output').value = encryptedData.ciphertext.toString()
-      }
+        const k = initKey();
+        if (!k) return;
+        try {
+            const enc = CryptoJS.AES.encrypt(document.getElementById('input').value, k, {
+                mode: CryptoJS.mode.ECB,
+                padding: CryptoJS.pad.Pkcs7
+            });
+            document.getElementById('output').value = enc.ciphertext.toString();
+        } catch(e) { showErr('加密失敗：' + e.message); }
     }
 
     function Decrypt() {
-      if (initKey()) {
-        encryptedHexStr = CryptoJS.enc.Hex.parse(document.getElementById('input').value)
-        encryptedBase64Str = CryptoJS.enc.Base64.stringify(encryptedHexStr)
-        var decryptedData = CryptoJS.AES.decrypt(encryptedBase64Str, key, {
-          mode: CryptoJS.mode.ECB,
-          padding: CryptoJS.pad.Pkcs7
-        })
-        document.getElementById('output').value = decryptedData.toString(CryptoJS.enc.Utf8)
-      }
+        const k = initKey();
+        if (!k) return;
+        try {
+            const hexStr = CryptoJS.enc.Hex.parse(document.getElementById('input').value);
+            const b64Str = CryptoJS.enc.Base64.stringify(hexStr);
+            const dec    = CryptoJS.AES.decrypt(b64Str, k, {
+                mode: CryptoJS.mode.ECB,
+                padding: CryptoJS.pad.Pkcs7
+            });
+            const result = dec.toString(CryptoJS.enc.Utf8);
+            if (!result) { showErr('解密失敗：金鑰錯誤或密文格式不正確'); return; }
+            document.getElementById('output').value = result;
+        } catch(e) { showErr('解密失敗：' + e.message); }
     }
 
-    function Copy() {
-      var target = document.getElementById("output");
-      target.select();
-      document.execCommand("Copy");
+    function CopyOutput() {
+        const val = document.getElementById('output').value;
+        if (!val) return;
+        navigator.clipboard.writeText(val);
     }
 
     function Clear() {
-      document.getElementById('input').value = ""
-      document.getElementById('output').value = ""
+        document.getElementById('input').value  = '';
+        document.getElementById('output').value = '';
+        hideErr();
     }
-  </script>
-  <div class="flex flex-wrap">
-    <div class="flex-grow mx-5 mt-5">
-      <label class="block text-white text-xl font-semibold my-2 special_text">Type a message</label>
-      <textarea rows="10" cols="50"
-        class="bg-blue-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline glass-container"
-        type="text" id="input"></textarea>
-    </div>
-    <div class="flex-grow mx-5 mt-5">
-      <label class="block text-white text-xl font-semibold my-2 special_text">Encrypt message</label>
-      <textarea rows="10" cols="50"
-        class="bg-gray-100 p-1 appearance-none border rounded w-full text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-        type="text" id="output" readonly=""></textarea>
-    </div>
-  </div>
-  <div class="justify-center grid">
-    <div class="text-white text-xl font-semibold mx-5 my-2">
-      <label class="special_text">Set a password: </label>
-      <input id="pass" type="password" class="outline-none bg-transparent py-2 border-black ml-2 text-gray-700 focus:outline-none">
-    </div>
-    <div class="mx-4 mt-4 flex space-x-5 justify-center">
-      <div class="bg-green-500 hover:bg-green-700 w-14 h-14 rounded cursor-pointer justify-center items-center flex rounded-2xl" onclick="Encrypt()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-lock" width="30" height="30" viewBox="0 0 24 24" stroke-width="1" stroke="#ffffff" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-          <rect x="5" y="11" width="14" height="10" rx="2" />
-          <circle cx="12" cy="16" r="1" />
-          <path d="M8 11v-4a4 4 0 0 1 8 0v4" />
-        </svg>
-      </div>
-      <div class="bg-blue-500 hover:bg-blue-700 w-14 h-14 rounded cursor-pointer justify-center items-center flex rounded-2xl" onclick="Decrypt()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-lock-open" width="32" height="32" viewBox="0 0 24 24" stroke-width="1" stroke="#ffffff" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-          <rect x="5" y="11" width="14" height="10" rx="2" />
-          <circle cx="12" cy="16" r="1" />
-          <path d="M8 11v-5a4 4 0 0 1 8 0" />
-        </svg>
-      </div>
-      <div class="bg-red-500 hover:bg-red-700 w-14 h-14 rounded cursor-pointer justify-center items-center flex rounded-2xl" onclick="Clear()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-backspace" width="32" height="32" viewBox="0 0 24 24" stroke-width="1" stroke="#ffffff" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-          <path d="M20 6a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-11l-5 -5a1.5 1.5 0 0 1 0 -2l5 -5z" />
-          <path d="M12 10l4 4m0 -4l-4 4" />
-        </svg>
-      </div>
-      <div class="bg-yellow-500 hover:bg-yellow-700 w-14 h-14 rounded cursor-pointer justify-center items-center flex rounded-2xl mb-16" onclick="Copy()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copy" width="32" height="32" viewBox="0 0 24 24" stroke-width="1" stroke="#ffffff" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-          <rect x="8" y="8" width="12" height="12" rx="2" />
-          <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" />
-        </svg>
-      </div>
-    </div>
-  </div>
-</body>
 
+    function showErr(msg) { const el = document.getElementById('err-msg'); el.textContent = msg; el.classList.add('show'); }
+    function hideErr()    { document.getElementById('err-msg').classList.remove('show'); }
+
+    // Show/hide password
+    document.getElementById('eye-btn').addEventListener('click', function() {
+        const inp = document.getElementById('pass');
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        this.textContent = show ? '隱藏' : '顯示';
+    });
+
+    // Inline copy button
+    document.getElementById('copy-inline-btn').addEventListener('click', function() {
+        const val = document.getElementById('output').value;
+        if (!val) return;
+        navigator.clipboard.writeText(val).then(() => {
+            this.textContent = '✓ 已複製'; this.classList.add('copied');
+            setTimeout(() => { this.textContent = '複製'; this.classList.remove('copied'); }, 1500);
+        });
+    });
+    </script>
+</body>
 </html>

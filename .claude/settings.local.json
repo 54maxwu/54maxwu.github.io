@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const fs = require\\(''fs''\\); const c = fs.readFileSync\\(''d:/54maxwu.github.io/JSON/lib/json-formatter.min.js'',''utf8''\\); const idx = c.indexOf\\(''ng-init=''\\); console.log\\(c.substring\\(idx-10, idx+120\\)\\);\")",
+      "Bash(tail -c 200 \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
+      "Bash(grep -o \"import\\\\.meta[^;\"\"'''']\\\\{0,30\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
+      "Bash(grep -o \"__vite[^;\"\"'''']\\\\{0,60\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
+      "Bash(wc -c \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(head -c 2000 \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(grep -o \"background-color:[^;}\\\\\\)]\\\\{1,40\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(grep -o \"\\\\.ql-[^{]\\\\{1,40\\\\}{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(grep -o \"body[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(grep -o \"#app[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(grep -o \"\\\\.el-card[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(grep -o \"\\\\-\\\\-el-bg-color[^;}\\\\\\)]\\\\{0,50\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")"
+    ]
+  }
+}
