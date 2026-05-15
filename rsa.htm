@@ -1,33 +1,744 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>RSA 加密 / 簽章工具</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/2.3.1/jsencrypt.min.js"></script>
-    <title>RSA</title>
-</head>
-<body onload="init()">
-    <script>
-        const init = () => {
-            let encryptor = new JSEncrypt()  // 创建加密对象实例
-            //之前ssl生成的公钥，复制的时候要小心不要有空格
-            let pubKey = '-----BEGIN PUBLIC KEY-----MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALzKjGNoQ7aaLMxrjaEI7yskDlc8Snz+t/995KQKrM+fln3zDCUYwORQ6R1fMKZpXFzGG6WwRoR0Gfo/GnsqUYMCAwEAAQ==-----END PUBLIC KEY-----'
-            encryptor.setPublicKey(pubKey)//设置公钥
-            let crypt = encryptor.encrypt('max999')  // 对内容进行加密
-            document.getElementById("result_enc").innerHTML = crypt
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-            let decrypt = new JSEncrypt();
-            decrypt.setPrivateKey('-----BEGIN RSA PRIVATE KEY-----MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAvMqMY2hDtposzGuNoQjvKyQOVzxKfP63/33kpAqsz5+WffMMJRjA5FDpHV8wpmlcXMYbpbBGhHQZ+j8aeypRgwIDAQABAkEAq0y5r2Ums6QW6/DXFHvvz1wq6vqYt+vDdj573GCXRtb8s5DUo5rVRuCJI/UrGzoLgGZLAXyzv2Z+snsI94ks+QIhAPVK9gBoxafhyny2MRBsNYafGgb4HYlc6UFr5+hZ7aO3AiEAxQg09GZ/POgZ+qTpzwhHyj6Xmqx7IQOYGLFb67xGOJUCIGlWd65VUAx4emx0ET3sOlBFove7NXP34nOl00GE3PihAiEAsn6T0pEEVb4CwwEhW1AqETsRBquYxDjIUh5iorWme90CIEOu+URPP90q24l5MZSb+WSa7lQh+dDlEPMCSQJwsKXY-----END RSA PRIVATE KEY-----');
-            let uncrypted = decrypt.decrypt(crypt);
-            document.getElementById("result_desc").innerHTML = uncrypted
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            padding: 0;
+            color: #2c3e50;
         }
 
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .page-content { padding: 20px; }
+
+        .glass {
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.45);
+            box-shadow: rgba(0,0,0,0.15) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.2);
+            border-right: 1.5px solid rgba(40,40,40,0.2);
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+
+        /* ── TABS ── */
+        .tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+        .tab-btn {
+            padding: 7px 22px;
+            border: 1.5px solid rgba(0,191,255,0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.4);
+            color: #667;
+        }
+        .tab-btn.active {
+            background: rgba(0,160,220,0.2);
+            color: #0a4a70;
+            border-color: rgba(0,160,220,0.5);
+            box-shadow: 0 2px 8px rgba(0,160,220,0.15);
+        }
+        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.65); }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* ── KEY CARD ── */
+        .key-card {
+            border-radius: 10px;
+            background: rgba(0,160,220,0.06);
+            border: 1.5px solid rgba(0,160,220,0.2);
+            padding: 14px 16px;
+            margin-bottom: 16px;
+        }
+
+        .key-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .key-card-title {
+            font-weight: 800;
+            font-size: 0.85rem;
+            color: #0a4a70;
+        }
+
+        select {
+            padding: 5px 10px;
+            border: 1.5px solid rgba(0,160,220,0.3);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.6);
+            color: #2c3e50;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .keygen-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, rgba(0,160,220,0.4), rgba(0,80,160,0.4));
+            color: #0a3050;
+            transition: all 0.18s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        .keygen-btn:hover { transform: scale(1.04); box-shadow: 0 4px 14px rgba(0,160,220,0.3); }
+        .keygen-btn:active { transform: scale(0.97); }
+        .keygen-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid rgba(0,80,160,0.3);
+            border-top-color: #0a5090;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .key-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .key-field { display: flex; flex-direction: column; gap: 5px; }
+
+        .field-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #4a6070;
+        }
+
+        /* ── TEXTAREAS ── */
+        textarea {
+            width: 100%;
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: rgba(255,255,255,0.72);
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            line-height: 1.5;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: rgba(0,160,220,0.55);
+            box-shadow: 0 0 0 3px rgba(0,160,220,0.12);
+        }
+        textarea[readonly] { background: rgba(255,255,255,0.45); cursor: default; }
+        .pubkey-ta  { border-left: 4px solid #27ae60 !important; }
+        .privkey-ta { border-left: 4px solid #e74c3c !important; }
+        .plain-ta   { border-left: 4px solid #2980b9 !important; }
+        .cipher-ta  { border-left: 4px solid #8e44ad !important; }
+        .sig-ta     { border-left: 4px solid #e67e22 !important; }
+
+        /* ── COPY BTN ── */
+        .copy-btn {
+            padding: 3px 9px;
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.68rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.6);
+            color: #555;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.9); }
+        .copy-btn.copied { color: #27ae60; border-color: #27ae60; }
+
+        /* ── OPERATION GRID ── */
+        .op-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .op-card {
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .op-card.encrypt { background: rgba(142,68,173,0.08); border: 2px solid rgba(142,68,173,0.35); }
+        .op-card.decrypt { background: rgba(41,128,185,0.08); border: 2px solid rgba(41,128,185,0.35); }
+        .op-card.sign    { background: rgba(230,126,34,0.08); border: 2px solid rgba(230,126,34,0.35); }
+        .op-card.verify  { background: rgba(39,174,96,0.08);  border: 2px solid rgba(39,174,96,0.35); }
+
+        .op-title {
+            font-size: 0.88rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .op-card.encrypt .op-title { color: #622a90; }
+        .op-card.decrypt .op-title { color: #1a5880; }
+        .op-card.sign    .op-title { color: #904010; }
+        .op-card.verify  .op-title { color: #1a7a40; }
+
+        /* ── ACTION BTN ── */
+        .action-btn {
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 700;
+            transition: all 0.18s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        .action-btn:hover { transform: scale(1.04); }
+        .action-btn:active { transform: scale(0.97); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-encrypt { background: linear-gradient(135deg, rgba(142,68,173,0.35), rgba(80,20,120,0.35)); color: #3a0060; }
+        .btn-decrypt { background: linear-gradient(135deg, rgba(41,128,185,0.35), rgba(20,60,120,0.35)); color: #0a3050; }
+        .btn-sign    { background: linear-gradient(135deg, rgba(230,126,34,0.35), rgba(150,60,0,0.35));  color: #6a2000; }
+        .btn-verify  { background: linear-gradient(135deg, rgba(39,174,96,0.35),  rgba(20,100,50,0.35)); color: #0a4020; }
+        .btn-encrypt:hover { box-shadow: 0 4px 14px rgba(142,68,173,0.3); }
+        .btn-decrypt:hover { box-shadow: 0 4px 14px rgba(41,128,185,0.3); }
+        .btn-sign:hover    { box-shadow: 0 4px 14px rgba(230,126,34,0.3); }
+        .btn-verify:hover  { box-shadow: 0 4px 14px rgba(39,174,96,0.3); }
+
+        /* ── RESULT OUTPUT ── */
+        .result-row {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        /* ── VERIFY RESULT INDICATOR ── */
+        .verify-result {
+            display: none;
+            border-radius: 10px;
+            padding: 14px 18px;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.03em;
+        }
+        .verify-result.ok {
+            display: block;
+            background: rgba(39,174,96,0.15);
+            border: 2px solid #27ae60;
+            color: #1a7a40;
+        }
+        .verify-result.fail {
+            display: block;
+            background: rgba(231,76,60,0.12);
+            border: 2px solid #e74c3c;
+            color: #b03020;
+        }
+
+        /* ── ERROR ── */
+        .err-msg {
+            font-size: 0.75rem;
+            color: #c0392b;
+            background: rgba(231,76,60,0.1);
+            border-radius: 6px;
+            padding: 6px 10px;
+            display: none;
+        }
+        .err-msg.show { display: block; }
+
+        .divider {
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(0,160,220,0.25), transparent);
+            margin: 14px 0;
+        }
+
+        .hint { font-size: 0.7rem; color: #8a9aaa; margin-top: 4px; }
+
+        /* ── KEY SIZE BADGE ── */
+        .keybadge {
+            font-size: 0.68rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(0,160,220,0.15);
+            color: #1a6a8a;
+            font-weight: 700;
+        }
+
+        @media (max-width: 820px) {
+            .op-grid, .key-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header"><h1>RSA 加密 / 簽章工具</h1></div>
+    <div class="page-content">
+    <div class="glass">
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="enc">&#128274; 加密 / 解密</button>
+            <button class="tab-btn" data-tab="sign">&#9999; 數位簽章</button>
+        </div>
+
+        <!-- ══════════════ ENCRYPT / DECRYPT ══════════════ -->
+        <div id="enc-section" class="section active">
+            <!-- Key Generation -->
+            <div class="key-card">
+                <div class="key-card-header">
+                    <span class="key-card-title">&#128273; 加解密金鑰對（RSA-OAEP + AES-GCM 混合加密）</span>
+                    <select id="enc-keysize">
+                        <option value="2048">2048 位元</option>
+                        <option value="4096">4096 位元</option>
+                    </select>
+                    <button class="keygen-btn" id="enc-keygen-btn" onclick="generateEncKey()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                        隨機生成金鑰
+                    </button>
+                    <span class="keybadge" id="enc-keybadge" style="display:none"></span>
+                </div>
+                <div class="key-grid">
+                    <div class="key-field">
+                        <div class="field-label">
+                            <span style="color:#1a7a40">&#9632; 公鑰（可公開，用於加密）</span>
+                            <button class="copy-btn" onclick="copyField('enc-pubkey', this)">複製</button>
+                        </div>
+                        <textarea id="enc-pubkey" class="pubkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label">
+                            <span style="color:#b03020">&#9632; 私鑰（請妥善保存，用於解密）</span>
+                            <button class="copy-btn" onclick="copyField('enc-privkey', this)">複製</button>
+                        </div>
+                        <textarea id="enc-privkey" class="privkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operations -->
+            <div class="op-grid">
+                <!-- ENCRYPT -->
+                <div class="op-card encrypt">
+                    <div class="op-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        加密（公鑰）
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>公鑰</span><button class="copy-btn" onclick="pasteFromField('enc-pubkey','enc-pub-input')">貼入生成的公鑰</button></div>
+                        <textarea id="enc-pub-input" class="pubkey-ta" rows="3" placeholder="貼入公鑰（-----BEGIN PUBLIC KEY-----...）"></textarea>
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>明文</span></div>
+                        <textarea id="enc-plaintext" class="plain-ta" rows="4" placeholder="輸入要加密的文字..."></textarea>
+                    </div>
+                    <button class="action-btn btn-encrypt" onclick="doEncrypt()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                        加密
+                    </button>
+                    <div class="result-row">
+                        <div class="field-label"><span>密文</span><button class="copy-btn" onclick="copyField('enc-ciphertext', this)">複製</button></div>
+                        <textarea id="enc-ciphertext" class="cipher-ta" readonly rows="4"></textarea>
+                    </div>
+                    <div class="err-msg" id="enc-err"></div>
+                </div>
+
+                <!-- DECRYPT -->
+                <div class="op-card decrypt">
+                    <div class="op-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                        解密（私鑰）
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>私鑰</span><button class="copy-btn" onclick="pasteFromField('enc-privkey','dec-priv-input')">貼入生成的私鑰</button></div>
+                        <textarea id="dec-priv-input" class="privkey-ta" rows="3" placeholder="貼入私鑰（-----BEGIN PRIVATE KEY-----...）"></textarea>
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>密文</span><button class="copy-btn" onclick="pasteFromField('enc-ciphertext','dec-ciphertext')">貼入加密結果</button></div>
+                        <textarea id="dec-ciphertext" class="cipher-ta" rows="4" placeholder="貼入密文..."></textarea>
+                    </div>
+                    <button class="action-btn btn-decrypt" onclick="doDecrypt()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></svg>
+                        解密
+                    </button>
+                    <div class="result-row">
+                        <div class="field-label"><span>明文</span><button class="copy-btn" onclick="copyField('dec-plaintext', this)">複製</button></div>
+                        <textarea id="dec-plaintext" class="plain-ta" readonly rows="4"></textarea>
+                    </div>
+                    <div class="err-msg" id="dec-err"></div>
+                </div>
+            </div>
+            <p class="hint" style="margin-top:10px;text-align:center">混合加密（RSA-OAEP + AES-256-GCM），支援任意長度明文</p>
+        </div>
+
+        <!-- ══════════════ SIGN / VERIFY ══════════════ -->
+        <div id="sign-section" class="section">
+            <!-- Key Generation -->
+            <div class="key-card">
+                <div class="key-card-header">
+                    <span class="key-card-title">&#9999; 簽章金鑰對（RSA-PSS + SHA-256）</span>
+                    <select id="sign-keysize">
+                        <option value="2048">2048 位元</option>
+                        <option value="4096">4096 位元</option>
+                    </select>
+                    <button class="keygen-btn" id="sign-keygen-btn" onclick="generateSignKey()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                        隨機生成金鑰
+                    </button>
+                    <span class="keybadge" id="sign-keybadge" style="display:none"></span>
+                </div>
+                <div class="key-grid">
+                    <div class="key-field">
+                        <div class="field-label">
+                            <span style="color:#1a7a40">&#9632; 公鑰（可公開，用於驗章）</span>
+                            <button class="copy-btn" onclick="copyField('sign-pubkey', this)">複製</button>
+                        </div>
+                        <textarea id="sign-pubkey" class="pubkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label">
+                            <span style="color:#b03020">&#9632; 私鑰（請妥善保存，用於簽章）</span>
+                            <button class="copy-btn" onclick="copyField('sign-privkey', this)">複製</button>
+                        </div>
+                        <textarea id="sign-privkey" class="privkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="op-grid">
+                <!-- SIGN -->
+                <div class="op-card sign">
+                    <div class="op-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        簽章（私鑰）
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>私鑰</span><button class="copy-btn" onclick="pasteFromField('sign-privkey','sig-priv-input')">貼入生成的私鑰</button></div>
+                        <textarea id="sig-priv-input" class="privkey-ta" rows="3" placeholder="貼入私鑰（-----BEGIN PRIVATE KEY-----...）"></textarea>
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>原始訊息</span></div>
+                        <textarea id="sig-message" class="plain-ta" rows="5" placeholder="輸入要簽章的原始內容..."></textarea>
+                    </div>
+                    <button class="action-btn btn-sign" onclick="doSign()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        產生簽章
+                    </button>
+                    <div class="result-row">
+                        <div class="field-label"><span>簽章值（Base64）</span><button class="copy-btn" onclick="copyField('sig-output', this)">複製</button></div>
+                        <textarea id="sig-output" class="sig-ta" readonly rows="4"></textarea>
+                    </div>
+                    <div class="err-msg" id="sign-err"></div>
+                </div>
+
+                <!-- VERIFY -->
+                <div class="op-card verify">
+                    <div class="op-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        驗章（公鑰）
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>公鑰</span><button class="copy-btn" onclick="pasteFromField('sign-pubkey','ver-pub-input')">貼入生成的公鑰</button></div>
+                        <textarea id="ver-pub-input" class="pubkey-ta" rows="3" placeholder="貼入公鑰（-----BEGIN PUBLIC KEY-----...）"></textarea>
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>原始訊息</span><button class="copy-btn" onclick="pasteFromField('sig-message','ver-message')">貼入原文</button></div>
+                        <textarea id="ver-message" class="plain-ta" rows="3" placeholder="貼入原始內容..."></textarea>
+                    </div>
+                    <div class="key-field">
+                        <div class="field-label"><span>簽章值</span><button class="copy-btn" onclick="pasteFromField('sig-output','ver-sig-input')">貼入簽章</button></div>
+                        <textarea id="ver-sig-input" class="sig-ta" rows="3" placeholder="貼入 Base64 簽章值..."></textarea>
+                    </div>
+                    <button class="action-btn btn-verify" onclick="doVerify()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        驗證簽章
+                    </button>
+                    <div class="verify-result" id="verify-result"></div>
+                    <div class="err-msg" id="verify-err"></div>
+                </div>
+            </div>
+            <p class="hint" style="margin-top:10px;text-align:center">RSA-PSS + SHA-256 數位簽章，私鑰簽章 / 公鑰驗證，不可偽造</p>
+        </div>
+    </div>
+    </div><!-- /.page-content -->
+
+    <script>
+    // ══════════════════════════════════════════════
+    // TABS
+    // ══════════════════════════════════════════════
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab + '-section').classList.add('active');
+        });
+    });
+
+    // ══════════════════════════════════════════════
+    // PEM HELPERS
+    // ══════════════════════════════════════════════
+    function arrayBufferToBase64(buf) {
+        return btoa(String.fromCharCode(...new Uint8Array(buf)));
+    }
+    function base64ToArrayBuffer(b64) {
+        const bin = atob(b64);
+        const buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        return buf.buffer;
+    }
+    function toPem(b64, label) {
+        return `-----BEGIN ${label}-----\n` + b64.match(/.{1,64}/g).join('\n') + `\n-----END ${label}-----`;
+    }
+    function fromPem(pem) {
+        return pem.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
+    }
+
+    async function exportPubKey(key) {
+        const spki = await crypto.subtle.exportKey('spki', key);
+        return toPem(arrayBufferToBase64(spki), 'PUBLIC KEY');
+    }
+    async function exportPrivKey(key) {
+        const pkcs8 = await crypto.subtle.exportKey('pkcs8', key);
+        return toPem(arrayBufferToBase64(pkcs8), 'PRIVATE KEY');
+    }
+
+    async function importRsaOaepPub(pem) {
+        const der = base64ToArrayBuffer(fromPem(pem));
+        return crypto.subtle.importKey('spki', der, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+    }
+    async function importRsaOaepPriv(pem) {
+        const der = base64ToArrayBuffer(fromPem(pem));
+        return crypto.subtle.importKey('pkcs8', der, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+    }
+    async function importRsaPssPub(pem) {
+        const der = base64ToArrayBuffer(fromPem(pem));
+        return crypto.subtle.importKey('spki', der, { name: 'RSA-PSS', hash: 'SHA-256' }, false, ['verify']);
+    }
+    async function importRsaPssPriv(pem) {
+        const der = base64ToArrayBuffer(fromPem(pem));
+        return crypto.subtle.importKey('pkcs8', der, { name: 'RSA-PSS', hash: 'SHA-256' }, false, ['sign']);
+    }
+
+    // ══════════════════════════════════════════════
+    // KEY GENERATION
+    // ══════════════════════════════════════════════
+    async function generateEncKey() {
+        const btn = document.getElementById('enc-keygen-btn');
+        const size = parseInt(document.getElementById('enc-keysize').value);
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> 生成中...';
+        try {
+            const pair = await crypto.subtle.generateKey(
+                { name: 'RSA-OAEP', modulusLength: size, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' },
+                true, ['encrypt', 'decrypt']
+            );
+            document.getElementById('enc-pubkey').value  = await exportPubKey(pair.publicKey);
+            document.getElementById('enc-privkey').value = await exportPrivKey(pair.privateKey);
+            const badge = document.getElementById('enc-keybadge');
+            badge.textContent = size + ' bit'; badge.style.display = '';
+        } catch(e) { alert('金鑰生成失敗：' + e.message); }
+        btn.disabled = false;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> 隨機生成金鑰';
+    }
+
+    async function generateSignKey() {
+        const btn = document.getElementById('sign-keygen-btn');
+        const size = parseInt(document.getElementById('sign-keysize').value);
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> 生成中...';
+        try {
+            const pair = await crypto.subtle.generateKey(
+                { name: 'RSA-PSS', modulusLength: size, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' },
+                true, ['sign', 'verify']
+            );
+            document.getElementById('sign-pubkey').value  = await exportPubKey(pair.publicKey);
+            document.getElementById('sign-privkey').value = await exportPrivKey(pair.privateKey);
+            const badge = document.getElementById('sign-keybadge');
+            badge.textContent = size + ' bit'; badge.style.display = '';
+        } catch(e) { alert('金鑰生成失敗：' + e.message); }
+        btn.disabled = false;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> 隨機生成金鑰';
+    }
+
+    // ══════════════════════════════════════════════
+    // HYBRID ENCRYPT (RSA-OAEP wraps AES-256-GCM key)
+    // ══════════════════════════════════════════════
+    async function doEncrypt() {
+        const errEl = document.getElementById('enc-err');
+        errEl.classList.remove('show');
+        const pubPem   = document.getElementById('enc-pub-input').value.trim();
+        const plaintext = document.getElementById('enc-plaintext').value;
+        if (!pubPem || !plaintext) { showErr(errEl, '請填入公鑰與明文'); return; }
+        try {
+            const pubKey = await importRsaOaepPub(pubPem);
+
+            // Random AES-256 key
+            const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+
+            // Encrypt plaintext with AES-GCM
+            const enc = new TextEncoder();
+            const cipherBody = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, enc.encode(plaintext));
+
+            // Export raw AES key and encrypt with RSA-OAEP
+            const rawAes = await crypto.subtle.exportKey('raw', aesKey);
+            const encAes = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pubKey, rawAes);
+
+            // Pack: [4 bytes encAes length][encAes][12 bytes iv][cipherBody]
+            const encAesArr = new Uint8Array(encAes);
+            const cipherBodyArr = new Uint8Array(cipherBody);
+            const lenBuf = new Uint8Array(4);
+            new DataView(lenBuf.buffer).setUint32(0, encAesArr.length, false);
+
+            const packed = new Uint8Array(4 + encAesArr.length + 12 + cipherBodyArr.length);
+            packed.set(lenBuf, 0);
+            packed.set(encAesArr, 4);
+            packed.set(iv, 4 + encAesArr.length);
+            packed.set(cipherBodyArr, 4 + encAesArr.length + 12);
+
+            document.getElementById('enc-ciphertext').value = arrayBufferToBase64(packed.buffer);
+        } catch(e) { showErr(errEl, '加密失敗：' + e.message); }
+    }
+
+    async function doDecrypt() {
+        const errEl = document.getElementById('dec-err');
+        errEl.classList.remove('show');
+        const privPem  = document.getElementById('dec-priv-input').value.trim();
+        const cipherB64 = document.getElementById('dec-ciphertext').value.trim();
+        if (!privPem || !cipherB64) { showErr(errEl, '請填入私鑰與密文'); return; }
+        try {
+            const privKey = await importRsaOaepPriv(privPem);
+            const packed = new Uint8Array(base64ToArrayBuffer(cipherB64));
+
+            // Unpack
+            const encAesLen = new DataView(packed.buffer, 0, 4).getUint32(0, false);
+            const encAes    = packed.slice(4, 4 + encAesLen);
+            const iv        = packed.slice(4 + encAesLen, 4 + encAesLen + 12);
+            const cipherBody = packed.slice(4 + encAesLen + 12);
+
+            // Decrypt AES key with RSA
+            const rawAes = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privKey, encAes);
+            const aesKey = await crypto.subtle.importKey('raw', rawAes, { name: 'AES-GCM' }, false, ['decrypt']);
+
+            // Decrypt body with AES-GCM
+            const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, cipherBody);
+            document.getElementById('dec-plaintext').value = new TextDecoder().decode(plain);
+        } catch(e) { showErr(errEl, '解密失敗：金鑰不符或密文損毀'); }
+    }
+
+    // ══════════════════════════════════════════════
+    // SIGN / VERIFY (RSA-PSS)
+    // ══════════════════════════════════════════════
+    async function doSign() {
+        const errEl = document.getElementById('sign-err');
+        errEl.classList.remove('show');
+        const privPem = document.getElementById('sig-priv-input').value.trim();
+        const message = document.getElementById('sig-message').value;
+        if (!privPem || !message) { showErr(errEl, '請填入私鑰與訊息'); return; }
+        try {
+            const privKey = await importRsaPssPriv(privPem);
+            const enc = new TextEncoder();
+            const sig = await crypto.subtle.sign(
+                { name: 'RSA-PSS', saltLength: 32 },
+                privKey,
+                enc.encode(message)
+            );
+            document.getElementById('sig-output').value = arrayBufferToBase64(sig);
+        } catch(e) { showErr(errEl, '簽章失敗：' + e.message); }
+    }
+
+    async function doVerify() {
+        const errEl  = document.getElementById('verify-err');
+        const result = document.getElementById('verify-result');
+        errEl.classList.remove('show');
+        result.className = 'verify-result';
+
+        const pubPem  = document.getElementById('ver-pub-input').value.trim();
+        const message = document.getElementById('ver-message').value;
+        const sigB64  = document.getElementById('ver-sig-input').value.trim();
+        if (!pubPem || !message || !sigB64) { showErr(errEl, '請填入公鑰、訊息與簽章值'); return; }
+        try {
+            const pubKey = await importRsaPssPub(pubPem);
+            const sig = base64ToArrayBuffer(sigB64);
+            const enc = new TextEncoder();
+            const valid = await crypto.subtle.verify(
+                { name: 'RSA-PSS', saltLength: 32 },
+                pubKey,
+                sig,
+                enc.encode(message)
+            );
+            if (valid) {
+                result.textContent = '✓ 簽章驗證成功！訊息真實且未被竄改';
+                result.className = 'verify-result ok';
+            } else {
+                result.textContent = '✗ 驗證失敗！簽章不符，訊息可能已被竄改';
+                result.className = 'verify-result fail';
+            }
+        } catch(e) { showErr(errEl, '驗證失敗：' + e.message); }
+    }
+
+    // ══════════════════════════════════════════════
+    // UTILS
+    // ══════════════════════════════════════════════
+    function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
+
+    function copyField(id, btn) {
+        const text = document.getElementById(id).value;
+        if (!text.trim()) return;
+        navigator.clipboard.writeText(text).then(() => {
+            const orig = btn.textContent;
+            btn.textContent = '✓ 已複製'; btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+        });
+    }
+
+    function pasteFromField(srcId, dstId) {
+        const val = document.getElementById(srcId).value;
+        if (val) document.getElementById(dstId).value = val;
+    }
     </script>
-    <div id="result_enc">
-    </div>
-    <hr>
-    <div id="result_desc">
-    </div>
 </body>
 </html>

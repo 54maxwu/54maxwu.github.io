@@ -3,264 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OTP 產生器 (100% 離線版)</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/otpauth@9/dist/otpauth.umd.min.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <title>OTP 產生器</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/otpauth@9/dist/otpauth.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1/dist/jsQR.min.js"></script>
 
     <style>
-        /* ... (CSS 樣式保持不變, 已移除 time-status) ... */
         :root {
-            --color-primary: #007bff;
-            --color-border: #e0e0e0;
-            --color-bg-light: #f9f9f9;
-            --color-bg: #f4f7f6;
-            --color-text-dark: #333;
-            --color-text-light: #555;
-            --color-green: #28a745;
-            --color-red: #d9534f;
+            --primary: #007bff;
+            --border:  #e0e0e0;
+            --bg:      #f4f7f6;
+            --green:   #28a745;
+            --red:     #d9534f;
+            --text:    #333;
+            --muted:   #555;
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
             min-height: 100vh;
-            background-color: var(--color-bg);
-            margin: 0;
+        }
+
+        /* ── HEADER ── */
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+        }
+
+        /* ── PAGE ── */
+        .page-content {
             padding: 20px;
-            box-sizing: border-box;
         }
-        .container {
-            width: 100%;
-            max-width: 550px;
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border: 1px solid var(--color-border);
+
+        /* ── TWO-COLUMN LAYOUT ── */
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: start;
         }
-        header {
-            padding: 20px 25px;
-            background-color: var(--color-bg-light);
-            border-bottom: 1px solid var(--color-border);
+
+        /* ── CARDS ── */
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            overflow: hidden;
         }
-        h1 { margin: 0; font-size: 1.5em; color: var(--color-text-dark); }
-        .main-content { padding: 25px; }
+
+        .card-header {
+            padding: 13px 18px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #4a6070;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-body { padding: 18px; }
+
+        /* ── FORM ── */
         .form-group {
-            margin-bottom: 18px;
             display: flex;
             flex-direction: column;
+            gap: 5px;
+            margin-bottom: 14px;
         }
         .form-group:last-child { margin-bottom: 0; }
+
         .form-group label {
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: var(--color-text-light);
-            font-size: 0.9em;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--muted);
         }
+
         .form-group input,
         .form-group select,
         .form-group textarea {
-            padding: 10px 12px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 1em;
+            padding: 8px 11px;
+            border: 1.5px solid #d1d9e0;
+            border-radius: 7px;
+            font-size: 0.84rem;
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: var(--text);
+            background: #fff;
+            transition: border-color 0.15s, box-shadow 0.15s;
             width: 100%;
-            box-sizing: border-box;
-            font-family: "Menlo", "Consolas", "Monaco", monospace;
-        }
-        .form-group textarea {
-            min-height: 80px;
-            font-size: 0.9em;
-            resize: vertical;
         }
         .form-group input:focus,
         .form-group select:focus,
         .form-group textarea:focus {
-            border-color: var(--color-primary);
+            border-color: var(--primary);
             outline: none;
-            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+            box-shadow: 0 0 0 3px rgba(0,123,255,.12);
         }
-        details {
-            border: 1px solid var(--color-border);
-            border-radius: 5px;
-            margin-top: 20px;
+        .form-group textarea {
+            min-height: 72px;
+            resize: vertical;
+            font-size: 0.8rem;
         }
-        summary {
-            padding: 12px 15px;
-            background-color: var(--color-bg-light);
-            font-weight: 600;
-            cursor: pointer;
-            outline: none;
-        }
-        .advanced-settings {
-            padding: 20px;
-            border-top: 1px solid var(--color-border);
-            background-color: #fdfdfd;
+
+        /* 2-col sub-grid in settings */
+        .settings-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 12px;
         }
         .full-width { grid-column: 1 / -1; }
-        .result-area {
-            padding: 25px;
-            background-color: #fdfdfd;
-            border-top: 1px solid var(--color-border);
+
+        /* ── QR DROP ZONE ── */
+        #qr-drop-zone {
+            border: 2px dashed #c8d0da;
+            border-radius: 8px;
+            padding: 20px 16px;
             text-align: center;
+            color: #9aa5b4;
+            font-size: 0.82rem;
+            background: #fafcff;
+            transition: background 0.2s, border-color 0.2s;
+            margin-bottom: 14px;
+            cursor: pointer;
         }
-        .otp-display-container {
+        #qr-drop-zone.dragover { border-color: var(--primary); background: #f0f7ff; }
+        #qr-drop-zone-btn {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.82rem;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        #qr-drop-zone-btn:hover { background: #0056b3; }
+        #qr-file-input { display: none; }
+
+        /* ── OTP RESULT ── */
+        .result-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            margin-top: 14px;
+        }
+
+        .otp-row {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
         }
+
         #otp-display {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: var(--color-primary);
-            letter-spacing: 2px;
-            height: 45px;
+            font-size: 2.4em;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 3px;
+            font-family: 'Consolas', monospace;
         }
+
         #copy-btn {
-            font-size: 1.5em;
+            font-size: 1.4em;
             background: none;
             border: none;
             cursor: pointer;
-            color: var(--color-text-light);
-            padding: 5px;
+            color: var(--muted);
+            padding: 4px;
             border-radius: 5px;
+            transition: background 0.15s;
         }
-        #copy-btn:hover { background-color: #eee; }
+        #copy-btn:hover { background: #eee; }
         #copy-btn:active { transform: scale(0.9); }
-        .error-message {
-            color: var(--color-red);
-            font-size: 0.9em;
-            min-height: 1.2em;
-            margin-top: 5px;
-        }
+
+        /* Timer bar */
         #timer-container {
             width: 100%;
-            background-color: #e9ecef;
+            background: #e9ecef;
             border-radius: 4px;
-            overflow: hidden;
-            height: 10px;
-            margin-top: 15px;
+            height: 6px;
+            margin-top: 12px;
             visibility: hidden;
+            overflow: hidden;
         }
         #timer-bar {
-            height: 10px;
+            height: 100%;
             width: 100%;
-            background-color: var(--color-green);
+            background: var(--green);
             transition: width 0.1s linear;
         }
+
+        /* Prev / Next */
         #prev-next-container {
             display: flex;
             justify-content: space-between;
-            font-size: 0.9em;
-            color: var(--color-text-light);
-            margin-top: 15px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 10px;
         }
         #prev-next-container span {
             font-weight: 600;
-            color: var(--color-text-dark);
-            background-color: #f0f0f0;
-            padding: 2px 6px;
+            color: var(--text);
+            background: #f0f0f0;
+            padding: 2px 7px;
             border-radius: 4px;
         }
+
+        /* ── QR Code display ── */
         #qrcode-container {
             display: flex;
             flex-direction: column;
             align-items: center;
+            gap: 8px;
+            padding: 12px 0 4px;
+        }
+        #qrcode-container label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--muted);
+            align-self: flex-start;
         }
         #qrcode {
-            width: 180px;
-            height: 180px;
-            margin-top: 10px;
-            border: 1px solid var(--color-border);
-            padding: 10px;
-            border-radius: 5px;
-            background: white;
-        }
-        #qrcode img { margin: 0 auto; }
-        .hidden { display: none; }
-        #qr-drop-zone {
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            padding: 25px;
-            text-align: center;
-            color: #aaa;
-            font-weight: 500;
-            margin-bottom: 20px;
-            transition: background-color 0.2s, border-color 0.2s;
-            background-color: #fafafa;
-        }
-        #qr-drop-zone.dragover {
-            border-color: var(--color-primary);
-            background-color: #f0f7ff;
-        }
-        #qr-drop-zone-btn {
-            background-color: var(--color-primary);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
             display: inline-block;
-            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            line-height: 0;
         }
-        #qr-drop-zone-btn:hover {
-            background-color: #0056b3;
+        #qrcode img,
+        #qrcode canvas {
+            display: block;
+            max-width: 160px;
+            height: auto;
         }
-        #qr-file-input {
-            display: none;
+
+        /* ── MISC ── */
+        .error-message {
+            color: var(--red);
+            font-size: 0.78rem;
+            min-height: 1.1em;
+        }
+        .success-message { color: var(--green); font-size: 0.78rem; }
+        .hidden { display: none; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 800px) {
+            .layout { grid-template-columns: 1fr; }
+            .settings-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
+    <div class="app-header"><h1>OTP 產生器</h1></div>
+    <div class="page-content">
+    <div class="layout">
 
-    <div class="container">
-        <header>
-            <h1>OTP 產生器</h1>
-        </header>
+        <!-- ══ LEFT: SCAN + URI + RESULT ══ -->
+        <div class="card">
+            <div class="card-header">&#128247; QR Code / URI 輸入</div>
+            <div class="card-body">
+                <input type="file" id="qr-file-input" accept="image/*">
+                <label for="qr-file-input" id="qr-drop-zone-label">
+                    <div id="qr-drop-zone">
+                        <div id="qr-drop-zone-btn">選擇 QR Code 圖片</div>
+                        <div>或拖曳圖片到此，或直接貼上 (Ctrl+V)</div>
+                    </div>
+                </label>
+                <div id="qr-scan-status" class="error-message" style="margin-bottom:10px"></div>
 
-        <div class="main-content">
-            
-            <input type="file" id="qr-file-input" accept="image/*">
-            <label for="qr-file-input" id="qr-drop-zone-label">
-                <div id="qr-drop-zone">
-                    <div id="qr-drop-zone-btn">選擇 QR Code 圖片</div>
-                    <div>或拖曳圖片到此，或直接貼上 (Ctrl+V)</div>
+                <div class="form-group">
+                    <label for="otp-uri">OTPAuth URI（或由上方圖片自動填入）</label>
+                    <textarea id="otp-uri" placeholder="貼上 otpauth://... URI 在此"></textarea>
+                    <div id="uri-error" class="error-message"></div>
                 </div>
-            </label>
-            <div id="qr-scan-status" class="error-message"></div>
 
-            <div class="form-group">
-                <label for="otp-uri">OTPAuth URI (或由上方圖片自動填入)</label>
-                <textarea id="otp-uri" placeholder="貼上 otpauth://... URI 在此"></textarea>
-                <div id="uri-error" class="error-message"></div>
+                <!-- OTP Result -->
+                <div class="result-box">
+                    <div class="otp-row">
+                        <div id="otp-display">------</div>
+                        <button id="copy-btn" title="複製代碼">📋</button>
+                    </div>
+                    <div id="general-error" class="error-message"></div>
+                    <div id="prev-next-container" class="hidden">
+                        <div>上一個: <span id="prev-otp">------</span></div>
+                        <div>下一個: <span id="next-otp">------</span></div>
+                    </div>
+                    <div id="timer-container"><div id="timer-bar"></div></div>
+                </div>
             </div>
+        </div>
 
-            <div class="result-area">
-                <div class="otp-display-container">
-                    <div id="otp-display">------</div>
-                    <button id="copy-btn" title="複製代碼">📋</button>
-                </div>
-                <div id="general-error" class="error-message"></div>
-                <div id="prev-next-container" class="hidden">
-                    <div>上一個: <span id="prev-otp">------</span></div>
-                    <div>下一個: <span id="next-otp">------</span></div>
-                </div>
-                <div id="timer-container">
-                    <div id="timer-bar"></div>
-                </div>
-            </div>
-
-            <details>
-                <summary>進階設定 (或手動輸入)</summary>
-                <div class="advanced-settings">
+        <!-- ══ RIGHT: SETTINGS ══ -->
+        <div class="card">
+            <div class="card-header">&#9881; 進階設定（手動輸入）</div>
+            <div class="card-body">
+                <div class="settings-grid">
                     <div class="form-group">
                         <label for="issuer">發行者 (Issuer)</label>
                         <input type="text" id="issuer" placeholder="e.g., Google">
@@ -276,8 +336,8 @@
                     <div class="form-group">
                         <label for="otp-type">類型</label>
                         <select id="otp-type">
-                            <option value="totp" selected>TOTP (基於時間)</option>
-                            <option value="hotp">HOTP (基於計數器)</option>
+                            <option value="totp" selected>TOTP（基於時間）</option>
+                            <option value="hotp">HOTP（基於計數器）</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -293,7 +353,7 @@
                         <input type="number" id="digits" value="6" min="6" max="10">
                     </div>
                     <div class="form-group" id="period-group">
-                        <label for="period">週期 (秒)</label>
+                        <label for="period">週期（秒）</label>
                         <input type="number" id="period" value="30" min="1">
                     </div>
                     <div class="form-group hidden" id="counter-group">
@@ -301,371 +361,266 @@
                         <input type="number" id="counter" value="0" min="0">
                     </div>
                     <div class="form-group full-width" id="qrcode-container">
-                        <label>QR Code (由上方參數產生)</label>
+                        <label>QR Code（由上方參數產生）</label>
                         <div id="qrcode"></div>
                     </div>
                 </div>
-            </details>
+            </div>
         </div>
+
     </div>
+    </div><!-- /.page-content -->
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // DOM 元素 (已移除 timeStatus)
-            const elements = {
-                otpUri: document.getElementById('otp-uri'),
-                uriError: document.getElementById('uri-error'),
-                secret: document.getElementById('secret'),
-                issuer: document.getElementById('issuer'),
-                account: document.getElementById('account'),
-                otpType: document.getElementById('otp-type'),
-                algorithm: document.getElementById('algorithm'),
-                digits: document.getElementById('digits'),
-                period: document.getElementById('period'),
-                counter: document.getElementById('counter'),
-                periodGroup: document.getElementById('period-group'),
-                counterGroup: document.getElementById('counter-group'),
-                otpDisplay: document.getElementById('otp-display'),
-                generalError: document.getElementById('general-error'),
-                timerContainer: document.getElementById('timer-container'),
-                timerBar: document.getElementById('timer-bar'),
-                copyBtn: document.getElementById('copy-btn'),
-                prevNextContainer: document.getElementById('prev-next-container'),
-                prevOtp: document.getElementById('prev-otp'),
-                nextOtp: document.getElementById('next-otp'),
-                qrcode: document.getElementById('qrcode'),
-                qrDropZone: document.getElementById('qr-drop-zone'),
-                qrFileInput: document.getElementById('qr-file-input'),
-                qrScanStatus: document.getElementById('qr-scan-status')
-            };
+    document.addEventListener('DOMContentLoaded', () => {
+        const el = {
+            otpUri:           document.getElementById('otp-uri'),
+            uriError:         document.getElementById('uri-error'),
+            secret:           document.getElementById('secret'),
+            issuer:           document.getElementById('issuer'),
+            account:          document.getElementById('account'),
+            otpType:          document.getElementById('otp-type'),
+            algorithm:        document.getElementById('algorithm'),
+            digits:           document.getElementById('digits'),
+            period:           document.getElementById('period'),
+            counter:          document.getElementById('counter'),
+            periodGroup:      document.getElementById('period-group'),
+            counterGroup:     document.getElementById('counter-group'),
+            otpDisplay:       document.getElementById('otp-display'),
+            generalError:     document.getElementById('general-error'),
+            timerContainer:   document.getElementById('timer-container'),
+            timerBar:         document.getElementById('timer-bar'),
+            copyBtn:          document.getElementById('copy-btn'),
+            prevNextContainer:document.getElementById('prev-next-container'),
+            prevOtp:          document.getElementById('prev-otp'),
+            nextOtp:          document.getElementById('next-otp'),
+            qrcode:           document.getElementById('qrcode'),
+            qrDropZone:       document.getElementById('qr-drop-zone'),
+            qrFileInput:      document.getElementById('qr-file-input'),
+            qrScanStatus:     document.getElementById('qr-scan-status'),
+        };
 
-            // 變數 (已移除 timeOffset)
-            let timerInterval = null;
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            let qrcodeInstance = new QRCode(elements.qrcode, {
-                width: 180,
-                height: 180,
-                text: " ", 
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-            
-            // [已移除] getCorrectedTime()
-            // [已移除] fetchWithTimeout()
-            // [已移除] syncTime()
-
-            // -------------------------------------------------
-            // [修改] parseUri 函數 (使用 Regex 容錯)
-            // -------------------------------------------------
-            function parseUri() {
-                const uriString = elements.otpUri.value.trim();
-                
-                if (!uriString) {
-                    elements.uriError.textContent = '';
-                    return; 
-                }
-
-                let parsedSuccess = false;
-
-                try {
-                    // **B 計畫：手動 Regex 解析**
-                    const secretMatch = uriString.match(/[?&]secret=([A-Z2-7=]+)/i);
-                    if (!secretMatch || !secretMatch[1]) {
-                        throw new Error("在 URI 中找不到 'secret' 參數。");
-                    }
-                    elements.secret.value = secretMatch[1].toUpperCase();
-
-                    const issuerMatch = uriString.match(/[?&]issuer=([^&]+)/i);
-                    if (issuerMatch && issuerMatch[1]) {
-                        elements.issuer.value = decodeURIComponent(issuerMatch[1]);
-                    }
-
-                    const labelMatch = uriString.match(/:\/\/(?:totp|hotp)\/([^?]+)/i);
-                    let label = (labelMatch && labelMatch[1]) ? decodeURIComponent(labelMatch[1]) : '';
-                    
-                    if (label) {
-                        if (elements.issuer.value && label.startsWith(elements.issuer.value + ":")) {
-                            elements.account.value = label.substring(elements.issuer.value.length + 1);
-                        } else {
-                            elements.account.value = label;
-                            if (!elements.issuer.value && label.includes(':')) {
-                                const parts = label.split(':');
-                                elements.issuer.value = parts[0];
-                                elements.account.value = parts.slice(1).join(':');
-                            }
-                        }
-                    }
-                    
-                    const algorithmMatch = uriString.match(/[?&]algorithm=([^&]+)/i);
-                    if (algorithmMatch) elements.algorithm.value = algorithmMatch[1].toUpperCase();
-                    
-                    const digitsMatch = uriString.match(/[?&]digits=([0-9]+)/i);
-                    if (digitsMatch) elements.digits.value = digitsMatch[1];
-                    
-                    const periodMatch = uriString.match(/[?&]period=([0-9]+)/i);
-                    if (periodMatch) elements.period.value = periodMatch[1];
-                    
-                    if (uriString.startsWith('otpauth://hotp')) {
-                        elements.otpType.value = 'hotp';
-                    } else {
-                        elements.otpType.value = 'totp';
-                    }
-
-                    parsedSuccess = true;
-
-                } catch (error) {
-                    console.error("手動解析 URI 失敗:", error);
-                    elements.uriError.textContent = '無法解析此 URI。';
-                    parsedSuccess = false;
-                }
-
-                if (parsedSuccess) {
-                    elements.uriError.textContent = ''; // 解析成功，清除錯誤
-                    elements.otpType.dispatchEvent(new Event('change')); // 觸發 hotp/totp 欄位切換
-                    generateOTP(); // **成功，立即產生 OTP**
-                }
-            }
-            
-            // ... (toggleFields, clearOtp) ... (保持不變)
-            function toggleFields() {
-                const type = elements.otpType.value;
-                if (type === 'totp') {
-                    elements.periodGroup.classList.remove('hidden');
-                    elements.counterGroup.classList.add('hidden');
-                    elements.timerContainer.style.visibility = 'visible';
-                } else { // hotp
-                    elements.periodGroup.classList.add('hidden');
-                    elements.counterGroup.classList.remove('hidden');
-                    elements.timerContainer.style.visibility = 'hidden';
-                    elements.prevNextContainer.classList.add('hidden');
-                    if (timerInterval) clearInterval(timerInterval); 
-                }
-            }
-            function clearOtp() {
-                if (timerInterval) clearInterval(timerInterval);
-                elements.otpDisplay.textContent = '------';
-                elements.prevOtp.textContent = '------';
-                elements.nextOtp.textContent = '------';
-                elements.timerBar.style.width = '0%';
-                elements.prevNextContainer.classList.add('hidden');
-            }
-
-            // -------------------------------------------------
-            // [修改] generateOTP (使用 Date.now())
-            // -------------------------------------------------
-            function generateOTP() {
-                try {
-                    if (timerInterval) clearInterval(timerInterval);
-                    elements.generalError.textContent = '';
-                    const type = elements.otpType.value;
-                    const secret = elements.secret.value.trim();
-                    if (!secret) {
-                        clearOtp();
-                        updateQRCode(null);
-                        return;
-                    }
-                    const options = {
-                        issuer: elements.issuer.value.trim(),
-                        label: elements.account.value.trim(),
-                        algorithm: elements.algorithm.value,
-                        digits: parseInt(elements.digits.value, 10),
-                        secret: OTPAuth.Secret.fromBase32(secret)
-                    };
-                    let otpInstance = null;
-                    if (type === 'totp') {
-                        options.period = parseInt(elements.period.value, 10);
-                        if (isNaN(options.period) || options.period <= 0) {
-                            elements.generalError.textContent = '週期必須是正整數。';
-                            clearOtp();
-                            return;
-                        }
-                        otpInstance = new OTPAuth.TOTP(options);
-                        
-                        // [修改] 直接使用 Date.now()
-                        const now = Date.now(); 
-                        const periodMs = options.period * 1000;
-                        
-                        const code = otpInstance.generate({ timestamp: now });
-                        const prevCode = otpInstance.generate({ timestamp: now - periodMs });
-                        const nextCode = otpInstance.generate({ timestamp: now + periodMs });
-                        
-                        elements.otpDisplay.textContent = code;
-                        elements.prevOtp.textContent = prevCode;
-                        elements.nextOtp.textContent = nextCode;
-                        elements.prevNextContainer.classList.remove('hidden');
-                        startTimer(options.period);
-                    } else { // hotp
-                        options.counter = parseInt(elements.counter.value, 10);
-                        if (isNaN(options.counter) || options.counter < 0) {
-                            elements.generalError.textContent = '計數器必須是 0 或正整數。';
-                            clearOtp();
-                            return;
-                        }
-                        otpInstance = new OTPAuth.HOTP(options);
-                        const code = otpInstance.generate();
-                        elements.otpDisplay.textContent = code;
-                        elements.prevNextContainer.classList.add('hidden');
-                    }
-                    updateQRCode(otpInstance);
-                } catch (error) {
-                    console.error("OTP 產生失敗:", error);
-                    elements.generalError.textContent = '產生失敗，請檢查密鑰格式。';
-                    clearOtp();
-                }
-            }
-            
-            // ... (updateQRCode) ... (保持不變)
-            function updateQRCode(otpInstance) {
-                if (!otpInstance) {
-                    qrcodeInstance.clear();
-                    qrcodeInstance.makeCode(" ");
-                    elements.qrcode.title = "";
-                    return;
-                }
-                try {
-                    const uri = OTPAuth.URI.stringify(otpInstance);
-                    qrcodeInstance.clear();
-                    qrcodeInstance.makeCode(uri);
-                    elements.qrcode.title = uri;
-                } catch (e) {
-                    console.error("QR Code 產生失敗:", e);
-                    qrcodeInstance.clear();
-                }
-            }
-            
-            // -------------------------------------------------
-            // [修改] startTimer (使用 Date.now())
-            // -------------------------------------------------
-            function startTimer(period) {
-                function update() {
-                    // [修改] 直接使用 Date.now()
-                    const epoch = Date.now();
-                    const validPeriod = Math.max(1, period);
-                    const remaining = validPeriod - (Math.floor(epoch / 1000) % validPeriod);
-                    const percentage = (remaining / validPeriod) * 100;
-                    
-                    elements.timerBar.style.width = percentage + '%';
-                    if (remaining <= 1) {
-                        setTimeout(() => {
-                            if (elements.otpType.value === 'totp') {
-                                generateOTP();
-                            }
-                        }, 1100);
-                    }
-                }
-                if (timerInterval) clearInterval(timerInterval);
-                timerInterval = setInterval(update, 100);
-                update();
-            }
-            
-            // ... (copyToClipboard, processImageFile, and event listeners) ... (保持不變)
-            function copyToClipboard() {
-                const code = elements.otpDisplay.textContent;
-                if (code && code !== '------' && code !== 'Error') {
-                    navigator.clipboard.writeText(code).then(() => {
-                        elements.copyBtn.textContent = '✅';
-                        setTimeout(() => { elements.copyBtn.textContent = '📋'; }, 1500);
-                    }, () => {
-                        elements.copyBtn.textContent = '❌';
-                        setTimeout(() => { elements.copyBtn.textContent = '📋'; }, 1500);
-                    });
-                }
-            }
-
-            function processImageFile(file) {
-                if (!file || !file.type.startsWith('image/')) {
-                    elements.qrScanStatus.textContent = '請上傳圖片檔案。';
-                    elements.qrScanStatus.style.color = 'var(--color-red)';
-                    return;
-                }
-                elements.qrScanStatus.textContent = '正在讀取圖片...';
-                elements.qrScanStatus.style.color = 'var(--color-text-light)';
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.drawImage(img, 0, 0, img.width, img.height);
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const code = jsQR(imageData.data, imageData.width, imageData.height);
-                        if (code && code.data) {
-                            elements.qrScanStatus.textContent = '✅ QR Code 解碼成功！';
-                            elements.qrScanStatus.style.color = 'var(--color-green)';
-                            elements.otpUri.value = code.data;
-                            elements.otpUri.dispatchEvent(new Event('input', { bubbles: true }));
-                        } else {
-                            elements.qrScanStatus.textContent = '❌ 在圖片中找不到 QR Code。';
-                            elements.qrScanStatus.style.color = 'var(--color-red)';
-                        }
-                    };
-                    img.onerror = () => {
-                        elements.qrScanStatus.textContent = '無法載入圖片。';
-                        elements.qrScanStatus.style.color = 'var(--color-red)';
-                    };
-                    img.src = e.target.result;
-                };
-                reader.onerror = () => {
-                    elements.qrScanStatus.textContent = '無法讀取檔案。';
-                    elements.qrScanStatus.style.color = 'var(--color-red)';
-                };
-                reader.readAsDataURL(file);
-            }
-            
-            elements.qrFileInput.addEventListener('change', (e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                    processImageFile(e.target.files[0]);
-                }
-            });
-            ['dragover', 'drop'].forEach(eventName => {
-                elements.qrDropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (eventName === 'dragover') {
-                        elements.qrDropZone.classList.add('dragover');
-                    } else if (eventName === 'drop') {
-                        elements.qrDropZone.classList.remove('dragover');
-                        const file = e.dataTransfer.files[0];
-                        processImageFile(file);
-                    }
-                });
-            });
-            elements.qrDropZone.addEventListener('dragleave', () => {
-                elements.qrDropZone.classList.remove('dragover');
-            });
-            document.addEventListener('paste', (e) => {
-                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                for (let item of items) {
-                    if (item.type.indexOf('image') !== -1) {
-                        const file = item.getAsFile();
-                        processImageFile(file);
-                        e.preventDefault(); 
-                        return;
-                    }
-                }
-            });
-            elements.otpUri.addEventListener('input', parseUri);
-            elements.otpType.addEventListener('change', () => {
-                toggleFields();
-                generateOTP(); 
-            });
-            elements.copyBtn.addEventListener('click', copyToClipboard);
-            const allInputs = [
-                elements.secret, elements.issuer, elements.account, 
-                elements.algorithm, elements.digits, elements.period, elements.counter
-            ];
-            allInputs.forEach(el => {
-                el.addEventListener('input', generateOTP);
-            });
-
-            // -------------------------------------------------
-            // [修改] 頁面載入時的初始化
-            // -------------------------------------------------
-            toggleFields();
-            generateOTP(); // 直接呼叫 generateOTP。因為密鑰為空，它會自動呼叫 clearOtp()
+        let timerInterval = null;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let qrcodeInstance = new QRCode(el.qrcode, {
+            width: 160, height: 160,
+            text: ' ',
+            colorDark: '#000', colorLight: '#fff',
+            correctLevel: QRCode.CorrectLevel.H
         });
+
+        // ── Parse URI ──
+        function parseUri() {
+            const uri = el.otpUri.value.trim();
+            if (!uri) { el.uriError.textContent = ''; return; }
+            try {
+                const secretMatch = uri.match(/[?&]secret=([A-Z2-7=]+)/i);
+                if (!secretMatch) throw new Error("找不到 secret");
+                el.secret.value = secretMatch[1].toUpperCase();
+
+                const issuerMatch = uri.match(/[?&]issuer=([^&]+)/i);
+                if (issuerMatch) el.issuer.value = decodeURIComponent(issuerMatch[1]);
+
+                const labelMatch = uri.match(/:\/\/(?:totp|hotp)\/([^?]+)/i);
+                const label = labelMatch ? decodeURIComponent(labelMatch[1]) : '';
+                if (label) {
+                    if (el.issuer.value && label.startsWith(el.issuer.value + ':')) {
+                        el.account.value = label.substring(el.issuer.value.length + 1);
+                    } else {
+                        el.account.value = label;
+                        if (!el.issuer.value && label.includes(':')) {
+                            const parts = label.split(':');
+                            el.issuer.value = parts[0];
+                            el.account.value = parts.slice(1).join(':');
+                        }
+                    }
+                }
+
+                const algMatch = uri.match(/[?&]algorithm=([^&]+)/i);
+                if (algMatch) el.algorithm.value = algMatch[1].toUpperCase();
+                const digMatch = uri.match(/[?&]digits=(\d+)/i);
+                if (digMatch) el.digits.value = digMatch[1];
+                const perMatch = uri.match(/[?&]period=(\d+)/i);
+                if (perMatch) el.period.value = perMatch[1];
+                el.otpType.value = uri.startsWith('otpauth://hotp') ? 'hotp' : 'totp';
+
+                el.uriError.textContent = '';
+                el.otpType.dispatchEvent(new Event('change'));
+                generateOTP();
+            } catch(e) {
+                el.uriError.textContent = '無法解析此 URI。';
+            }
+        }
+
+        // ── Toggle fields ──
+        function toggleFields() {
+            if (el.otpType.value === 'totp') {
+                el.periodGroup.classList.remove('hidden');
+                el.counterGroup.classList.add('hidden');
+                el.timerContainer.style.visibility = 'visible';
+            } else {
+                el.periodGroup.classList.add('hidden');
+                el.counterGroup.classList.remove('hidden');
+                el.timerContainer.style.visibility = 'hidden';
+                el.prevNextContainer.classList.add('hidden');
+                if (timerInterval) clearInterval(timerInterval);
+            }
+        }
+
+        function clearOtp() {
+            if (timerInterval) clearInterval(timerInterval);
+            el.otpDisplay.textContent = '------';
+            el.prevOtp.textContent = '------';
+            el.nextOtp.textContent = '------';
+            el.timerBar.style.width = '0%';
+            el.prevNextContainer.classList.add('hidden');
+        }
+
+        // ── Generate OTP ──
+        function generateOTP() {
+            try {
+                if (timerInterval) clearInterval(timerInterval);
+                el.generalError.textContent = '';
+                const type = el.otpType.value;
+                const secret = el.secret.value.trim();
+                if (!secret) { clearOtp(); updateQRCode(null); return; }
+
+                const opts = {
+                    issuer:    el.issuer.value.trim(),
+                    label:     el.account.value.trim(),
+                    algorithm: el.algorithm.value,
+                    digits:    parseInt(el.digits.value, 10),
+                    secret:    OTPAuth.Secret.fromBase32(secret)
+                };
+
+                if (type === 'totp') {
+                    opts.period = parseInt(el.period.value, 10);
+                    if (isNaN(opts.period) || opts.period <= 0) {
+                        el.generalError.textContent = '週期必須是正整數。'; clearOtp(); return;
+                    }
+                    const otp = new OTPAuth.TOTP(opts);
+                    const now = Date.now(), pm = opts.period * 1000;
+                    el.otpDisplay.textContent = otp.generate({ timestamp: now });
+                    el.prevOtp.textContent    = otp.generate({ timestamp: now - pm });
+                    el.nextOtp.textContent    = otp.generate({ timestamp: now + pm });
+                    el.prevNextContainer.classList.remove('hidden');
+                    startTimer(opts.period);
+                    updateQRCode(otp);
+                } else {
+                    opts.counter = parseInt(el.counter.value, 10);
+                    if (isNaN(opts.counter) || opts.counter < 0) {
+                        el.generalError.textContent = '計數器必須是 0 或正整數。'; clearOtp(); return;
+                    }
+                    const otp = new OTPAuth.HOTP(opts);
+                    el.otpDisplay.textContent = otp.generate();
+                    el.prevNextContainer.classList.add('hidden');
+                    updateQRCode(otp);
+                }
+            } catch(e) {
+                el.generalError.textContent = '產生失敗，請檢查密鑰格式。';
+                clearOtp();
+            }
+        }
+
+        function updateQRCode(otpInstance) {
+            if (!otpInstance) { qrcodeInstance.clear(); qrcodeInstance.makeCode(' '); return; }
+            try {
+                const uri = OTPAuth.URI.stringify(otpInstance);
+                qrcodeInstance.clear();
+                qrcodeInstance.makeCode(uri);
+                el.qrcode.title = uri;
+            } catch(e) { qrcodeInstance.clear(); }
+        }
+
+        function startTimer(period) {
+            function update() {
+                const epoch = Date.now();
+                const p = Math.max(1, period);
+                const remaining = p - (Math.floor(epoch / 1000) % p);
+                el.timerBar.style.width = (remaining / p * 100) + '%';
+                if (remaining <= 1) {
+                    setTimeout(() => { if (el.otpType.value === 'totp') generateOTP(); }, 1100);
+                }
+            }
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(update, 100);
+            update();
+        }
+
+        // ── Copy ──
+        el.copyBtn.addEventListener('click', () => {
+            const code = el.otpDisplay.textContent;
+            if (code && code !== '------') {
+                navigator.clipboard.writeText(code).then(
+                    () => { el.copyBtn.textContent = '✅'; setTimeout(() => { el.copyBtn.textContent = '📋'; }, 1500); },
+                    () => { el.copyBtn.textContent = '❌'; setTimeout(() => { el.copyBtn.textContent = '📋'; }, 1500); }
+                );
+            }
+        });
+
+        // ── Process image ──
+        function processImageFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                el.qrScanStatus.textContent = '請上傳圖片檔案。';
+                el.qrScanStatus.style.color = 'var(--red)'; return;
+            }
+            el.qrScanStatus.textContent = '正在讀取圖片...';
+            el.qrScanStatus.style.color = 'var(--muted)';
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width = img.width; canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(data.data, data.width, data.height);
+                    if (code && code.data) {
+                        el.qrScanStatus.textContent = '✅ QR Code 解碼成功！';
+                        el.qrScanStatus.style.color = 'var(--green)';
+                        el.otpUri.value = code.data;
+                        el.otpUri.dispatchEvent(new Event('input', { bubbles: true }));
+                    } else {
+                        el.qrScanStatus.textContent = '❌ 在圖片中找不到 QR Code。';
+                        el.qrScanStatus.style.color = 'var(--red)';
+                    }
+                };
+                img.onerror = () => { el.qrScanStatus.textContent = '無法載入圖片。'; };
+                img.src = e.target.result;
+            };
+            reader.onerror = () => { el.qrScanStatus.textContent = '無法讀取檔案。'; };
+            reader.readAsDataURL(file);
+        }
+
+        // ── Event listeners ──
+        el.qrFileInput.addEventListener('change', e => {
+            if (e.target.files[0]) processImageFile(e.target.files[0]);
+        });
+        ['dragover','drop'].forEach(ev => {
+            el.qrDropZone.addEventListener(ev, e => {
+                e.preventDefault(); e.stopPropagation();
+                if (ev === 'dragover') el.qrDropZone.classList.add('dragover');
+                else { el.qrDropZone.classList.remove('dragover'); processImageFile(e.dataTransfer.files[0]); }
+            });
+        });
+        el.qrDropZone.addEventListener('dragleave', () => el.qrDropZone.classList.remove('dragover'));
+        document.addEventListener('paste', e => {
+            for (const item of (e.clipboardData || e.originalEvent.clipboardData).items) {
+                if (item.type.startsWith('image/')) {
+                    processImageFile(item.getAsFile()); e.preventDefault(); return;
+                }
+            }
+        });
+
+        el.otpUri.addEventListener('input', parseUri);
+        el.otpType.addEventListener('change', () => { toggleFields(); generateOTP(); });
+        el.copyBtn.addEventListener('click', () => {});
+        [el.secret, el.issuer, el.account, el.algorithm, el.digits, el.period, el.counter]
+            .forEach(e => e.addEventListener('input', generateOTP));
+
+        toggleFields();
+        generateOTP();
+    });
     </script>
 </body>
 </html>

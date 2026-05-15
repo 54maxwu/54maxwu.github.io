@@ -1,61 +1,429 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="jsonSql">
-  <head>
-    <title>JSON SQL Online</title>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Latest compiled and minified CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css">
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/bootstrap-overrides.css">
-    <link rel="stylesheet" href="css/bootstrap-treeview.min.css">
-    <link rel="stylesheet" href="css/json-formatter.min.css">
-  </head>
-  <body ng-controller="NavCtrl">
-    <nav class="navbar navbar-default navbar-fixed-top">
-      <div class="container-fluid">
-        <!-- Brand and toggle get grouped for better mobile display -->
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" 
-                  data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="" ng-click="loadIndex()">JSON SQL Online</a>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON SQL Online</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;
+  background:#f1f5f9;color:#1e293b;min-height:100vh;font-size:15px;line-height:1.5;
+}
+
+.app-header{
+  background:#fff;border-bottom:1px solid #e2e8f0;
+  padding:14px 24px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);position:sticky;top:0;z-index:10;
+}
+.app-header h1{font-size:16px;font-weight:600;color:#1e293b;letter-spacing:.02em}
+.back-btn{
+  background:none;border:1px solid #e2e8f0;color:#64748b;border-radius:5px;
+  padding:4px 10px;font:inherit;font-size:13px;cursor:pointer;transition:.12s;display:none;
+}
+.back-btn:hover{border-color:#3b82f6;color:#3b82f6}
+.back-btn.show{display:inline-flex;align-items:center;gap:4px}
+
+.page{display:none;padding:24px}
+.page.active{display:block}
+
+.card{
+  background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;
+  margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);
+}
+.card-title{font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:16px}
+
+textarea,input[type=text]{
+  width:100%;background:#f8fafc;border:1px solid #e2e8f0;color:#1e293b;
+  border-radius:6px;padding:10px 12px;font:inherit;font-size:14px;
+  resize:vertical;transition:.12s;
+}
+textarea:focus,input[type=text]:focus{
+  border-color:#3b82f6;outline:none;background:#fff;
+  box-shadow:0 0 0 2px rgba(59,130,246,.12);
+}
+textarea::placeholder,input::placeholder{color:#94a3b8}
+
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+.btn{
+  padding:9px 16px;border-radius:6px;font:inherit;font-size:14px;font-weight:500;
+  cursor:pointer;transition:.12s;border:1px solid transparent;
+}
+.btn-primary{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.btn-primary:hover{background:#2563eb;border-color:#2563eb}
+.btn-secondary{background:#fff;color:#475569;border-color:#e2e8f0}
+.btn-secondary:hover{background:#f8fafc;color:#1e293b;border-color:#cbd5e1}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+.lbl{font-size:13px;color:#64748b;margin-bottom:6px;display:block;font-weight:500}
+
+.form-row{margin-bottom:14px}
+.form-row label{
+  display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  color:#3b82f6;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;
+}
+
+.err{
+  padding:10px 14px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;
+  border-radius:6px;font-size:13px;margin-bottom:14px;display:none;
+}
+.err.show{display:block}
+
+/* Results */
+.results-meta{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:8px;margin-bottom:12px;
+}
+.results-count{font-size:13px;color:#64748b}
+.dl-row{display:flex;gap:6px;flex-wrap:wrap}
+
+.tbl-wrap{overflow-x:auto;border-radius:6px;border:1px solid #e2e8f0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  background:#f8fafc;color:#64748b;font-weight:600;
+  padding:10px 14px;text-align:left;border-bottom:1px solid #e2e8f0;
+  white-space:nowrap;cursor:pointer;user-select:none;
+}
+thead th:hover{color:#1e293b}
+thead th .sort-icon{margin-left:4px;opacity:.4}
+tbody tr{border-bottom:1px solid #f1f5f9}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover td{background:#f8fafc}
+tbody td{padding:9px 14px;color:#334155;word-break:break-word;max-width:300px}
+
+.empty{padding:40px;text-align:center;color:#94a3b8;font-size:14px}
+
+/* Tooltip */
+.tip{
+  font-size:11px;color:#94a3b8;margin-left:4px;
+  cursor:help;border-bottom:1px dotted #cbd5e1;
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <button class="back-btn" id="backBtn" onclick="showPage('input')">&#8592; 返回</button>
+  <h1>JSON SQL Online</h1>
+</div>
+
+<!-- ── Page 1: JSON Input ── -->
+<div class="page active" id="page-input" style="max-width:760px;margin:0 auto">
+  <div class="card">
+    <div class="card-title">貼上 JSON</div>
+    <div class="err" id="inputErr"></div>
+    <textarea id="jsonInput" rows="18" placeholder='{"country":[{"name":"India","capital":"New Delhi"}]}'></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitJSON()">Query JSON</button>
+      <button class="btn btn-secondary" onclick="loadExample()">Load Example</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Page 2: Query ── -->
+<div class="page" id="page-query" style="max-width:1100px;margin:0 auto">
+  <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start">
+
+    <!-- Tree -->
+    <div class="card" id="treeCard">
+      <div class="card-title">JSON 結構</div>
+      <div id="jsonTree" style="font-size:12px;line-height:1.8"></div>
+    </div>
+
+    <!-- Query + Results -->
+    <div>
+      <div class="card">
+        <div class="card-title">SQL 查詢</div>
+        <div class="err" id="queryErr"></div>
+
+        <div class="form-row">
+          <label>SELECT <span class="tip" title="欄位名稱，用逗號分隔，* 代表全部">?</span></label>
+          <input type="text" id="selCols" value="*" placeholder="* 或 name, capital">
+        </div>
+        <div class="form-row">
+          <label>FROM <span class="tip" title="JSON 路徑，如 country 或 country.0.dignitaries">?</span></label>
+          <input type="text" id="selFrom" placeholder="Enter.valid.json.path">
+        </div>
+        <div class="form-row">
+          <label>WHERE <span class="tip" title="JavaScript 條件式，用 this 參照欄位，如 this.name === 'India'">?</span></label>
+          <textarea id="selWhere" rows="3" placeholder="this.name === 'India'"></textarea>
         </div>
 
-        <!-- Collect the nav links, forms, and other content for toggling -->
-        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-          <ul class="nav navbar-nav">
-            <li>
-              <a href="" ng-click="loadDocs()">
-                Docs <span class="sr-only">(current)</span>
-              </a>
-            </li>
-          </ul>
-        </div><!-- /.navbar-collapse -->
-      </div><!-- /.container-fluid -->
-    </nav>
-    <br/>
-    <div class="container" ng-view></div>  
-    </br> 
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-    <!-- Latest compiled and minified JavaScript -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.2/angular.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.2/angular-route.min.js"></script>
-    <script src="lib/uscore.js"></script>
-    <script src="lib/esprima.js"></script>
-    <script src="lib/controllers.js"></script>
-    <script src="lib/app.js"></script>
-    <script src="lib/jsonsql.js"></script>
-    <script src="lib/sampleJSON.js"></script>
-    <script src="lib/bootstrap-treeview.min.js"></script>
-    <script src="lib/json-formatter.min.js"></script>
-    <script src="lib/xlsx.full.min.js"></script>
-  </body>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="runQuery()">Run Query</button>
+          <button class="btn btn-secondary" id="useFromBtn" onclick="useSelected('from')" disabled>Use Selected in FROM</button>
+          <button class="btn btn-secondary" id="useSelBtn" onclick="useSelected('select')" disabled>Use Selected in SELECT</button>
+        </div>
+      </div>
+
+      <div id="resultsArea" style="display:none">
+        <div class="results-meta">
+          <span class="results-count" id="rowCount"></span>
+          <div class="dl-row" id="dlRow"></div>
+        </div>
+        <div class="tbl-wrap">
+          <table id="resultTable">
+            <thead id="resultHead"></thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="lib/uscore.js"></script>
+<script src="lib/esprima.js"></script>
+<script src="lib/jsonsql.js"></script>
+<script src="lib/sampleJSON.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────
+var db = null;          // jsonsql instance
+var lastResult = null;  // array of row objects
+var lastCols = [];
+var selectedNode = null;
+var sortCol = null, sortAsc = true;
+
+// ── Navigation ─────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('backBtn').classList.toggle('show', name !== 'input');
+}
+
+// ── JSON Input ─────────────────────────────────────────
+function loadExample() {
+  document.getElementById('jsonInput').value = JSON.stringify(exampleJSON, null, 2);
+  clearErr('inputErr');
+}
+
+function submitJSON() {
+  clearErr('inputErr');
+  var raw = document.getElementById('jsonInput').value.trim();
+  if (!raw) { showErr('inputErr', '請貼上 JSON'); return; }
+  var parsed;
+  try { parsed = JSON.parse(raw); } catch(e) { showErr('inputErr', '無效的 JSON：' + e.message); return; }
+  if (_.isArray(parsed)) parsed = { dataArray: parsed };
+  db = new jsonsql(parsed);
+
+  // auto-fill FROM with first queryable key
+  var keys = Object.keys(parsed).filter(function(k){ return _.isObject(parsed[k]); });
+  document.getElementById('selFrom').value = keys.length ? keys[0] : '';
+  document.getElementById('selCols').value = '*';
+  document.getElementById('selWhere').value = '';
+
+  renderTree(parsed, document.getElementById('jsonTree'), '');
+  clearErr('queryErr');
+  document.getElementById('resultsArea').style.display = 'none';
+  showPage('query');
+}
+
+// ── Tree ───────────────────────────────────────────────
+function renderTree(obj, container, path) {
+  container.innerHTML = '';
+  buildTree(obj, container, path, 0);
+}
+function buildTree(obj, parent, path, depth) {
+  if (depth > 4) return;
+  if (_.isArray(obj)) {
+    obj.forEach(function(v, i) {
+      var p = path ? path + '.' + i : String(i);
+      var node = makeNode('[' + i + ']', p, _.isObject(v));
+      parent.appendChild(node.el);
+      if (_.isObject(v)) buildTree(v, node.children, p, depth + 1);
+    });
+  } else if (_.isObject(obj)) {
+    Object.keys(obj).forEach(function(k) {
+      var p = path ? path + '.' + k : k;
+      var node = makeNode(k, p, _.isObject(obj[k]));
+      parent.appendChild(node.el);
+      if (_.isObject(obj[k])) buildTree(obj[k], node.children, p, depth + 1);
+    });
+  }
+}
+function makeNode(label, path, hasChildren) {
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'padding-left:12px';
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 4px;border-radius:4px;';
+  row.title = path;
+  var toggle = document.createElement('span');
+  toggle.style.cssText = 'width:12px;font-size:10px;color:#94a3b8;flex-shrink:0';
+  toggle.textContent = hasChildren ? '▶' : ' ';
+  var lbl = document.createElement('span');
+  lbl.style.cssText = 'font-size:12px;color:#334155';
+  lbl.textContent = label;
+  row.appendChild(toggle);
+  row.appendChild(lbl);
+  var childWrap = document.createElement('div');
+  childWrap.style.display = 'none';
+  wrap.appendChild(row);
+  wrap.appendChild(childWrap);
+  row.addEventListener('click', function(e) {
+    e.stopPropagation();
+    selectedNode = path;
+    // highlight
+    document.querySelectorAll('#jsonTree .selected').forEach(function(el){ el.classList.remove('selected'); row.style.background=''; });
+    row.style.background = '#dbeafe';
+    row.style.color = '#1d4ed8';
+    if (hasChildren) {
+      var open = childWrap.style.display !== 'none';
+      childWrap.style.display = open ? 'none' : 'block';
+      toggle.textContent = open ? '▶' : '▼';
+    }
+    document.getElementById('useFromBtn').disabled = false;
+    document.getElementById('useSelBtn').disabled = false;
+  });
+  return { el: wrap, children: childWrap };
+}
+function useSelected(target) {
+  if (!selectedNode) return;
+  if (target === 'from') document.getElementById('selFrom').value = selectedNode;
+  else {
+    var cur = document.getElementById('selCols').value.trim();
+    document.getElementById('selCols').value = (cur && cur !== '*') ? cur + ',' + selectedNode : selectedNode;
+  }
+}
+
+// ── Query ──────────────────────────────────────────────
+function runQuery() {
+  clearErr('queryErr');
+  if (!db) return;
+  var cols = document.getElementById('selCols').value.trim() || '*';
+  var from = document.getElementById('selFrom').value.trim();
+  var where = document.getElementById('selWhere').value.trim();
+
+  if (!from) { showErr('queryErr', 'FROM 不能為空'); return; }
+
+  var table = jsonUtils.getJsonNode(db.db, from);
+  if (!db.isTableQueryable(table)) { showErr('queryErr', 'FROM 路徑無效或不可查詢'); return; }
+
+  var colNames = db.getColumnNames(cols, table);
+  if (!colNames.length) { showErr('queryErr', 'SELECT 欄位無效'); return; }
+
+  var whereFn = null;
+  if (where) {
+    whereFn = db.getWhereClauseFn(where);
+    if (!whereFn) { showErr('queryErr', 'WHERE 條件式語法錯誤'); return; }
+  }
+
+  var result = db.query(cols, from, whereFn);
+  if (!result || !result.length) {
+    lastResult = []; lastCols = colNames;
+    renderResults([], colNames);
+    return;
+  }
+  lastCols = Object.keys(result[0]).filter(function(k){ return k !== '$$hashKey'; });
+  lastResult = result;
+  renderResults(result, lastCols);
+}
+
+function renderResults(rows, cols) {
+  var area = document.getElementById('resultsArea');
+  area.style.display = 'block';
+  document.getElementById('rowCount').textContent = '共 ' + rows.length + ' 筆';
+
+  // download buttons
+  var dlRow = document.getElementById('dlRow');
+  dlRow.innerHTML = '';
+  if (rows.length) {
+    ['XLSX','CSV','JSON'].forEach(function(fmt) {
+      var b = document.createElement('button');
+      b.className = 'btn btn-secondary';
+      b.style.fontSize = '12px';
+      b.style.padding = '5px 12px';
+      b.textContent = '↓ ' + fmt;
+      b.onclick = function(){ downloadAs(fmt); };
+      dlRow.appendChild(b);
+    });
+  }
+
+  // table header
+  var thead = document.getElementById('resultHead');
+  thead.innerHTML = '';
+  var tr = document.createElement('tr');
+  cols.forEach(function(c) {
+    var th = document.createElement('th');
+    th.innerHTML = c + '<span class="sort-icon">↕</span>';
+    th.onclick = function() {
+      if (sortCol === c) sortAsc = !sortAsc; else { sortCol = c; sortAsc = true; }
+      renderResults(lastResult, lastCols);
+    };
+    tr.appendChild(th);
+  });
+  thead.appendChild(tr);
+
+  // sort
+  var data = rows.slice();
+  if (sortCol) {
+    data.sort(function(a, b) {
+      var av = a[sortCol], bv = b[sortCol];
+      if (av == null) return 1; if (bv == null) return -1;
+      var r = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortAsc ? r : -r;
+    });
+  }
+
+  // table body
+  var tbody = document.getElementById('resultBody');
+  tbody.innerHTML = '';
+  if (!data.length) {
+    var empty = document.createElement('tr');
+    empty.innerHTML = '<td colspan="' + cols.length + '" class="empty">查無結果</td>';
+    tbody.appendChild(empty);
+    return;
+  }
+  data.forEach(function(row) {
+    var tr2 = document.createElement('tr');
+    cols.forEach(function(c) {
+      var td = document.createElement('td');
+      var v = row[c];
+      td.textContent = v == null ? '' : (_.isObject(v) ? JSON.stringify(v) : v);
+      tr2.appendChild(td);
+    });
+    tbody.appendChild(tr2);
+  });
+}
+
+// ── Download ───────────────────────────────────────────
+function downloadAs(fmt) {
+  if (!lastResult || !lastResult.length) return;
+  var clean = lastResult.map(function(r) {
+    var o = {};
+    lastCols.forEach(function(c){ o[c] = r[c]; });
+    return o;
+  });
+
+  if (fmt === 'JSON') {
+    trigger('jsonFile.json', JSON.stringify(clean, null, '\t'), 'application/json');
+    return;
+  }
+  if (fmt === 'CSV') {
+    var csv = lastCols.join(',') + '\n';
+    clean.forEach(function(r) {
+      csv += lastCols.map(function(c){ var v = r[c]; return _.isObject(v) ? '"'+JSON.stringify(v)+'"' : (v == null ? '' : v); }).join(',') + '\n';
+    });
+    trigger('csvFile.csv', csv, 'text/csv');
+    return;
+  }
+  if (fmt === 'XLSX') {
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(clean), 'Sheet1');
+    XLSX.writeFile(wb, 'excelFile.xlsx');
+  }
+}
+function trigger(name, data, type) {
+  var a = document.createElement('a');
+  a.href = 'data:' + type + ';charset=utf-8,' + encodeURIComponent(data);
+  a.download = name; a.click();
+}
+
+// ── Helpers ────────────────────────────────────────────
+function showErr(id, msg) { var el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
+function clearErr(id) { var el = document.getElementById(id); el.textContent = ''; el.classList.remove('show'); }
+</script>
+</body>
 </html>

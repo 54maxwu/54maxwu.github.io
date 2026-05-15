@@ -5,8 +5,93 @@
     <link rel="icon" href="./favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vite App</title>
-    <script type="module" crossorigin src="./assets/index-77aa0783.js"></script>
+    <script>
+      // Suppress autofocus when running inside an iframe (e.g. tool.htm)
+      // until the user first interacts with the page.
+      if (window.self !== window.top) {
+        const _focus = HTMLElement.prototype.focus;
+        HTMLElement.prototype.focus = function() {};
+        document.addEventListener('pointerdown', function() {
+          HTMLElement.prototype.focus = _focus;
+        }, { once: true });
+      }
+    </script>
+    <script defer src="./assets/index-77aa0783.js"></script>
     <link rel="stylesheet" href="./assets/index-13712040.css">
+  <style>
+    /* ── Global ── */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+      color: #1e293b;
+    }
+    #app {
+      min-height: 100vh;
+      background: #f1f5f9;
+    }
+
+    /* ── Element Plus variable overrides ── */
+    :root {
+      --el-bg-color:            #ffffff;
+      --el-bg-color-page:       #f1f5f9;
+      --el-bg-color-overlay:    #ffffff;
+      --el-fill-color-blank:    #ffffff;
+      --el-fill-color:          #f8fafc;
+      --el-fill-color-light:    #f1f5f9;
+      --el-fill-color-lighter:  #f8fafc;
+      --el-text-color-primary:  #1e293b;
+      --el-text-color-regular:  #374151;
+      --el-text-color-secondary:#64748b;
+      --el-text-color-placeholder: #94a3b8;
+      --el-border-color:        #e2e8f0;
+      --el-border-color-light:  #e2e8f0;
+      --el-border-color-lighter:#f1f5f9;
+      --el-border-color-extra-light: #f8fafc;
+      --el-box-shadow-light:    0 1px 4px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --el-card-bg-color:       #ffffff;
+      --el-card-border-color:   #e2e8f0;
+    }
+
+    /* ── Card ── */
+    .el-card {
+      border-radius: 10px !important;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06) !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+
+    /* ── Button primary ── */
+    .el-button--primary {
+      --el-button-bg-color: #3b82f6;
+      --el-button-border-color: #3b82f6;
+      --el-button-hover-bg-color: #2563eb;
+      --el-button-hover-border-color: #2563eb;
+    }
+
+    /* ── Input ── */
+    .el-input__wrapper {
+      background: #fff !important;
+      border: 1.5px solid #e2e8f0 !important;
+      border-radius: 7px !important;
+      box-shadow: none !important;
+    }
+    .el-input__wrapper:hover,
+    .el-input__wrapper.is-focus {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.1) !important;
+    }
+
+    /* ── Toolbar (bottom action bar) ── */
+    .el-footer,
+    .el-card__footer,
+    [class*="footer"],
+    [class*="toolbar"] {
+      background: #fff !important;
+      border-top: 1px solid #e2e8f0 !important;
+    }
+  </style>
   </head>
   <body>
     <div id="app"></div>

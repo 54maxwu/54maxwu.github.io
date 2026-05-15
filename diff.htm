@@ -1,136 +1,940 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Diff</title>
+    <title>文字比對工具</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <style>
-        .bgcolor {
-          background: linear-gradient(to bottom, #D5DEE7 0%, #E8EBF2 50%, #E2E7ED 100%), linear-gradient(to bottom, rgba(0,0,0,0.02) 50%, rgba(255,255,255,0.02) 61%, rgba(0,0,0,0.02) 73%), linear-gradient(33deg, rgba(255,255,255,0.20) 0%, rgba(0,0,0,0.20) 100%);
-          background-blend-mode: normal,color-burn;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+            padding: 0;
+            color: #2c3e50;
         }
-        .special_text{
-          text-shadow: 1px 1px 4px black, 0 0 25px rgb(211, 211, 211), 0 0 5px rgb(70, 158, 240);
-          font-weight: bolder;
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
-        .glass-container {
-          gap: 20px;
-          border-radius: 10px;
-          backdrop-filter: blur(5px);
-          background-color: rgba(0,191,255, 0.075);
-          box-shadow: rgba(0, 0, 0, 0.3) 2px 8px 8px;
-          border: 2px rgba(255,255,255,0.4) solid;
-          border-bottom: 2px rgba(40,40,40,0.35) solid;
-          border-right: 2px rgba(40,40,40,0.35) solid;
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .page-content { padding: 20px; }
+
+        .glass {
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.45);
+            box-shadow: rgba(0,0,0,0.15) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.2);
+            border-right: 1.5px solid rgba(40,40,40,0.2);
+            padding: 18px;
+        }
+
+        /* ── TABS ── */
+        .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+        .tab-btn {
+            padding: 7px 20px;
+            border: 1.5px solid rgba(0,191,255,0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.4);
+            color: #667;
+        }
+        .tab-btn.active {
+            background: rgba(0,160,220,0.2);
+            color: #0a4a70;
+            border-color: rgba(0,160,220,0.5);
+            box-shadow: 0 2px 8px rgba(0,160,220,0.15);
+        }
+        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.65); }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* ── INPUT AREA ── */
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 80px 1fr;
+            gap: 10px;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .textarea-wrap { display: flex; flex-direction: column; gap: 5px; }
+
+        .field-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #4a6070;
+            padding: 0 2px;
+        }
+
+        .count-badge {
+            background: rgba(0,160,220,0.15);
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 0.72rem;
+            color: #1a6a8a;
+            font-weight: 600;
+        }
+
+        .left-ta  { border-left: 4px solid #3498db !important; }
+        .right-ta { border-left: 4px solid #e67e22 !important; }
+
+        textarea {
+            width: 100%;
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.84rem;
+            background: rgba(255,255,255,0.72);
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            min-height: 200px;
+            line-height: 1.5;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: rgba(0,160,220,0.55);
+            box-shadow: 0 0 0 3px rgba(0,160,220,0.12);
+        }
+        textarea[readonly] {
+            background: rgba(255,255,255,0.45);
+            cursor: default;
+        }
+
+        /* ── CENTER BUTTON COL ── */
+        .center-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding-top: 28px;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            width: 72px;
+            height: 72px;
+            padding: 0;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 700;
+            transition: all 0.18s;
+            background: linear-gradient(145deg, rgba(0,160,220,0.35), rgba(0,80,160,0.35));
+            color: #0a3050;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+        }
+        .action-btn:hover { transform: scale(1.06); box-shadow: 0 5px 16px rgba(0,160,220,0.35); }
+        .action-btn:active { transform: scale(0.96); }
+
+        .clear-btn {
+            padding: 5px 12px;
+            border: 1px solid rgba(220,80,80,0.35);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.5);
+            color: #c0392b;
+            transition: all 0.18s;
+        }
+        .clear-btn:hover { background: rgba(255,80,80,0.15); }
+
+        .hint { text-align: center; font-size: 0.7rem; color: #8a9aaa; margin-top: 6px; }
+
+        .divider {
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(0,160,220,0.25), transparent);
+            margin: 16px 0;
+        }
+
+        /* ── RESULTS GRID ── */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .result-card {
+            border-radius: 10px;
+            padding: 11px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .card-only-right { background: rgba(39,174,96,0.12);  border: 2px solid #27ae60; }
+        .card-only-left  { background: rgba(231,76,60,0.10);  border: 2px solid #e74c3c; }
+        .card-intersect  { background: rgba(41,128,185,0.10); border: 2px solid #2980b9; }
+        .card-union      { background: rgba(142,68,173,0.10); border: 2px solid #8e44ad; }
+
+        .card-only-right textarea { border-left: 4px solid #27ae60 !important; background: rgba(39,174,96,0.06); }
+        .card-only-left  textarea { border-left: 4px solid #e74c3c !important; background: rgba(231,76,60,0.06); }
+        .card-intersect  textarea { border-left: 4px solid #2980b9 !important; background: rgba(41,128,185,0.06); }
+        .card-union      textarea { border-left: 4px solid #8e44ad !important; background: rgba(142,68,173,0.06); }
+
+        .result-header { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+
+        .result-title {
+            font-size: 0.8rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .card-only-right .result-title { color: #1a7a40; }
+        .card-only-left  .result-title { color: #b03020; }
+        .card-intersect  .result-title { color: #1a5880; }
+        .card-union      .result-title { color: #622a90; }
+
+        .res-badge {
+            font-size: 0.68rem;
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+        .card-only-right .res-badge { background: rgba(39,174,96,0.2);  color: #1a7a40; }
+        .card-only-left  .res-badge { background: rgba(231,76,60,0.18); color: #b03020; }
+        .card-intersect  .res-badge { background: rgba(41,128,185,0.2); color: #1a5880; }
+        .card-union      .res-badge { background: rgba(142,68,173,0.2); color: #622a90; }
+
+        .copy-btn {
+            padding: 3px 9px;
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.68rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.6);
+            color: #555;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.9); }
+        .copy-btn.copied { color: #27ae60; border-color: #27ae60; }
+
+        .result-textarea { min-height: 140px; font-size: 0.8rem; }
+
+        /* ── LEGEND ── */
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* ── UNIQUE SECTION ── */
+        .unique-row {
+            display: grid;
+            grid-template-columns: 1fr 80px 1fr;
+            gap: 10px;
+            align-items: start;
+        }
+        .unique-result-wrap { display: flex; flex-direction: column; gap: 5px; }
+        .unique-result-header { display: flex; justify-content: space-between; align-items: center; }
+
+        /* ════════════════════════════════
+           LINE DIFF SECTION
+        ════════════════════════════════ */
+        .linediff-input-row {
+            display: grid;
+            grid-template-columns: 1fr 80px 1fr;
+            gap: 10px;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        /* Split view container */
+        .split-diff-wrap {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1.5px solid rgba(0,0,0,0.12);
+            background: #1e1e1e; /* VS Code dark */
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.83rem;
+            line-height: 1.55;
+        }
+
+        .split-diff-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: #2d2d2d;
+            border-bottom: 1px solid #444;
+        }
+        .split-diff-header-cell {
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #bbb;
+            letter-spacing: 0.04em;
+        }
+        .split-diff-header-cell:first-child {
+            border-right: 1px solid #444;
+            color: #e88;
+        }
+        .split-diff-header-cell:last-child { color: #8d8; }
+
+        .split-diff-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            max-height: 520px;
+            overflow-y: auto;
+        }
+
+        .diff-col {
+            overflow-x: auto;
+        }
+        .diff-col:first-child { border-right: 1px solid #3a3a3a; }
+
+        .diff-line {
+            display: flex;
+            align-items: baseline;
+            min-height: 1.55em;
+            padding: 1px 0;
+        }
+
+        .diff-linenum {
+            min-width: 38px;
+            text-align: right;
+            padding: 0 8px;
+            font-size: 0.72rem;
+            color: #555;
+            user-select: none;
+            flex-shrink: 0;
+            border-right: 1px solid #333;
+        }
+
+        .diff-sym {
+            width: 18px;
+            text-align: center;
+            font-weight: 700;
+            flex-shrink: 0;
+            padding: 0 2px;
+        }
+
+        .diff-text {
+            padding: 0 6px;
+            white-space: pre;
+            flex: 1;
+        }
+
+        /* equal */
+        .diff-line.eq {
+            background: #1e1e1e;
+            color: #ccc;
+        }
+        .diff-line.eq .diff-sym { color: #555; }
+
+        /* remove (left only) */
+        .diff-line.rem {
+            background: #3d1515;
+            color: #f88;
+        }
+        .diff-line.rem .diff-sym { color: #f55; }
+        .diff-line.rem .diff-linenum { color: #a44; }
+
+        /* add (right only) */
+        .diff-line.add {
+            background: #143020;
+            color: #7ef0a0;
+        }
+        .diff-line.add .diff-sym { color: #3d9; }
+        .diff-line.add .diff-linenum { color: #3a8; }
+
+        /* placeholder (empty slot for alignment) */
+        .diff-line.ph {
+            background: #252525;
+            color: transparent;
+        }
+        .diff-line.ph .diff-linenum { color: transparent; border-right-color: #2a2a2a; }
+
+        /* intra-line diff: highlight only the changed chars */
+        .intra-rem {
+            background: #ff2828;
+            color: #fff;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+        .intra-add {
+            background: #18c957;
+            color: #fff;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        /* diff stats bar */
+        .diff-stats {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            padding: 8px 14px;
+            background: #2d2d2d;
+            border-top: 1px solid #444;
+            font-size: 0.75rem;
+            color: #aaa;
+        }
+        .stat-add  { color: #3d9; font-weight: 700; }
+        .stat-rem  { color: #f55; font-weight: 700; }
+        .stat-eq   { color: #888; }
+
+        .diff-empty-msg {
+            padding: 40px;
+            text-align: center;
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        .copy-diff-btn {
+            padding: 5px 14px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.08);
+            color: #bbb;
+            transition: all 0.18s;
+        }
+        .copy-diff-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+        .copy-diff-btn.copied { color: #3d9; border-color: #3d9; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 920px) {
+            .input-row, .unique-row, .linediff-input-row { grid-template-columns: 1fr; }
+            .center-col { flex-direction: row; padding-top: 0; }
+            .results-grid { grid-template-columns: repeat(2, 1fr); }
+            .split-diff-body { grid-template-columns: 1fr; }
+            .diff-col:first-child { border-right: none; border-bottom: 1px solid #3a3a3a; }
+            .split-diff-header { grid-template-columns: 1fr; }
+            .split-diff-header-cell:first-child { border-right: none; border-bottom: 1px solid #444; }
+        }
+        @media (max-width: 520px) {
+            .results-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
-<body class="bgcolor">
-    <script>
-        $(function(){
-            $("#diff").on('click', $("body"), function(event) {
-                $("#result1").html("");
-                $("#result2").html("");
-                $("#result3").html("");
-                $("#result4").html("");
-                var left = $('#c1').val().split('\n');
-                var right = $('#c2').val().split('\n');
-                var left_set = new Set();
-                var right_set = new Set();
-                $.each(left, function(i, v) {
-                    if(v.length != 0){
-                        left_set.add(v);
-                    }
-                });
-                $.each(right, function(i, v) {
-                    if(v.length != 0){
-                        right_set.add(v);
-                    }
-                });
-                //left差集
-                let leftdiff = new Set([...right_set].filter(x=>!left_set.has(x)));
-                $("#result1").html(Array.from(leftdiff).join("\n"));
-
-                //right差集
-                let rightdiff = new Set([...left_set].filter(x=>!right_set.has(x)));
-                $("#result2").html(Array.from(rightdiff).join("\n"));
-
-                //交集
-                let intersect = new Set([...right_set].filter(x=>left_set.has(x)));
-                $("#result3").html(Array.from(intersect).join("\n"));
-
-                //聯集
-                let union = new Set([...left_set,...right_set]);
-                $("#result4").html(Array.from(union).join("\n"));
-
-                event.preventDefault();
-                /* Act on the event */
-            });
-            $("#unique").on('click', $("body"), function(event) {
-                $("#u2").html("");
-                var left = $('#u1').val().split('\n');
-                var right = [...new Set(left)];
-                right.map(d=>$("#u2").html($("#u2").html()+d+'\n'))
-
-                event.preventDefault();
-                /* Act on the event */
-            });
-        });
-    </script>
-    <div style="display:flex">
-        <div style="display:flex">
-            <textarea id="c1" rows="30" cols="50"></textarea>
-            <textarea id="c2" rows="30" cols="50"></textarea>
-            <button id="diff">
-                <p>比對</p>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-git-compare" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                <circle cx="6" cy="6" r="2" />
-                <circle cx="18" cy="18" r="2" />
-                <path d="M11 6h5a2 2 0 0 1 2 2v8" />
-                <polyline points="14 9 11 6 14 3" />
-                <path d="M13 18h-5a2 2 0 0 1 -2 -2v-8" />
-                <polyline points="10 15 13 18 10 21" />
-              </svg>
-            </button>
+<body>
+    <div class="app-header"><h1>文字比對工具</h1></div>
+    <div class="page-content">
+    <div class="glass">
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="diff">集合比對</button>
+            <button class="tab-btn" data-tab="linediff">行差異</button>
+            <button class="tab-btn" data-tab="unique">去除重複</button>
         </div>
-        <div style="display:flex;margin-left:50px">
-            <textarea id="u1" rows="30" cols="50"></textarea>
-            <textarea id="u2" rows="30" cols="50" style="background-color:ghostwhite" readonly></textarea>
-            <button id="unique">
-                <p>不重複</p>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-layers-difference" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                    <path d="M16 16v2a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2h2v-2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-2" />
-                    <polyline points="10 8 8 8 8 10" />
-                    <polyline points="8 14 8 16 10 16" />
-                    <polyline points="14 8 16 8 16 10" />
-                    <polyline points="16 14 16 16 14 16" />
-                  </svg>
-            </button>
+
+        <!-- ══════════════ DIFF SECTION ══════════════ -->
+        <div id="diff-section" class="section active">
+            <div class="input-row">
+                <div class="textarea-wrap">
+                    <div class="field-label">
+                        <span style="color:#1a5090;font-size:0.82rem">&#9632; 左側清單</span>
+                        <span class="count-badge" id="c1-count">0 行</span>
+                    </div>
+                    <textarea id="c1" class="left-ta" placeholder="每行一筆資料..." rows="12"></textarea>
+                </div>
+                <div class="center-col">
+                    <button class="action-btn" id="diff-btn" title="Ctrl+Enter">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/>
+                            <path d="M11 6h5a2 2 0 0 1 2 2v8"/>
+                            <polyline points="14 9 11 6 14 3"/>
+                            <path d="M13 18h-5a2 2 0 0 1 -2 -2v-8"/>
+                            <polyline points="10 15 13 18 10 21"/>
+                        </svg>
+                        比對
+                    </button>
+                    <button class="clear-btn" id="diff-clear">清除</button>
+                </div>
+                <div class="textarea-wrap">
+                    <div class="field-label">
+                        <span style="color:#904010;font-size:0.82rem">&#9632; 右側清單</span>
+                        <span class="count-badge" id="c2-count">0 行</span>
+                    </div>
+                    <textarea id="c2" class="right-ta" placeholder="每行一筆資料..." rows="12"></textarea>
+                </div>
+            </div>
+            <p class="hint">Ctrl+Enter 快速比對</p>
+            <div class="divider"></div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div><span style="color:#1a7a40">右框獨有（左框沒有）</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#e74c3c"></div><span style="color:#b03020">左框獨有（右框沒有）</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#2980b9"></div><span style="color:#1a5880">兩框共有（交集）</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#8e44ad"></div><span style="color:#622a90">全部合併（聯集）</span></div>
+            </div>
+            <div class="results-grid">
+                <div class="result-card card-only-right">
+                    <div class="result-header">
+                        <span class="result-title"><span style="font-size:1rem">+</span> 右框獨有 <span class="res-badge" id="r1-count"></span></span>
+                        <button class="copy-btn" data-target="result1">複製</button>
+                    </div>
+                    <textarea id="result1" class="result-textarea" readonly></textarea>
+                </div>
+                <div class="result-card card-only-left">
+                    <div class="result-header">
+                        <span class="result-title"><span style="font-size:1rem">&#8722;</span> 左框獨有 <span class="res-badge" id="r2-count"></span></span>
+                        <button class="copy-btn" data-target="result2">複製</button>
+                    </div>
+                    <textarea id="result2" class="result-textarea" readonly></textarea>
+                </div>
+                <div class="result-card card-intersect">
+                    <div class="result-header">
+                        <span class="result-title"><span style="font-size:1rem">=</span> 交集 <span class="res-badge" id="r3-count"></span></span>
+                        <button class="copy-btn" data-target="result3">複製</button>
+                    </div>
+                    <textarea id="result3" class="result-textarea" readonly></textarea>
+                </div>
+                <div class="result-card card-union">
+                    <div class="result-header">
+                        <span class="result-title"><span style="font-size:1rem">&#x222A;</span> 聯集 <span class="res-badge" id="r4-count"></span></span>
+                        <button class="copy-btn" data-target="result4">複製</button>
+                    </div>
+                    <textarea id="result4" class="result-textarea" readonly></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════ LINE DIFF SECTION ══════════════ -->
+        <div id="linediff-section" class="section">
+            <div class="linediff-input-row">
+                <div class="textarea-wrap">
+                    <div class="field-label">
+                        <span style="color:#1a5090;font-size:0.82rem">&#9632; 舊版／左側</span>
+                        <span class="count-badge" id="ld1-count">0 行</span>
+                    </div>
+                    <textarea id="ld1" class="left-ta" placeholder="原始內容，每行一筆..." rows="10"></textarea>
+                </div>
+                <div class="center-col">
+                    <button class="action-btn" id="linediff-btn" title="Ctrl+Enter">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/>
+                            <path d="M11 6h5a2 2 0 0 1 2 2v8"/>
+                            <polyline points="14 9 11 6 14 3"/>
+                            <path d="M13 18h-5a2 2 0 0 1 -2 -2v-8"/>
+                            <polyline points="10 15 13 18 10 21"/>
+                        </svg>
+                        比對
+                    </button>
+                    <button class="clear-btn" id="linediff-clear">清除</button>
+                </div>
+                <div class="textarea-wrap">
+                    <div class="field-label">
+                        <span style="color:#904010;font-size:0.82rem">&#9632; 新版／右側</span>
+                        <span class="count-badge" id="ld2-count">0 行</span>
+                    </div>
+                    <textarea id="ld2" class="right-ta" placeholder="修改後內容，每行一筆..." rows="10"></textarea>
+                </div>
+            </div>
+            <p class="hint">Ctrl+Enter 快速比對　｜　左欄紅色 = 刪除　右欄綠色 = 新增</p>
+
+            <div class="divider"></div>
+
+            <!-- Split diff view -->
+            <div class="split-diff-wrap" id="split-diff-wrap">
+                <div class="diff-empty-msg" id="diff-empty-msg">輸入左右兩側內容後按「比對」</div>
+                <div id="split-diff-inner" style="display:none">
+                    <div class="split-diff-header">
+                        <div class="split-diff-header-cell">&#9632; 舊版（刪除的行）</div>
+                        <div class="split-diff-header-cell">&#9632; 新版（新增的行）</div>
+                    </div>
+                    <div class="split-diff-body">
+                        <div class="diff-col" id="diff-left-col"></div>
+                        <div class="diff-col" id="diff-right-col"></div>
+                    </div>
+                    <div class="diff-stats" id="diff-stats">
+                        <span class="stat-add" id="stat-add"></span>
+                        <span class="stat-rem" id="stat-rem"></span>
+                        <span class="stat-eq"  id="stat-eq"></span>
+                        <span style="flex:1"></span>
+                        <button class="copy-diff-btn" id="copy-unified-btn">複製 Unified Diff</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════ UNIQUE SECTION ══════════════ -->
+        <div id="unique-section" class="section">
+            <div class="unique-row">
+                <div class="textarea-wrap">
+                    <div class="field-label">
+                        <span>輸入清單</span>
+                        <span class="count-badge" id="u1-count">0 行</span>
+                    </div>
+                    <textarea id="u1" class="left-ta" placeholder="每行一筆資料..." rows="18"></textarea>
+                </div>
+                <div class="center-col">
+                    <button class="action-btn" id="unique-btn" title="Ctrl+Enter">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <path d="M16 16v2a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2h2v-2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-2"/>
+                            <polyline points="10 8 8 8 8 10"/><polyline points="8 14 8 16 10 16"/>
+                            <polyline points="14 8 16 8 16 10"/><polyline points="16 14 16 16 14 16"/>
+                        </svg>
+                        去重複
+                    </button>
+                    <button class="clear-btn" id="unique-clear">清除</button>
+                </div>
+                <div class="unique-result-wrap">
+                    <div class="unique-result-header">
+                        <div class="field-label" style="flex:1">
+                            <span>結果（去重後）</span>
+                            <span class="count-badge" id="u2-count"></span>
+                        </div>
+                        <button class="copy-btn" data-target="u2" style="margin-left:8px">複製</button>
+                    </div>
+                    <textarea id="u2" readonly rows="18"
+                        style="border-left:4px solid #27ae60 !important;background:rgba(39,174,96,0.05)"></textarea>
+                </div>
+            </div>
+            <p class="hint">Ctrl+Enter 快速去重複</p>
         </div>
     </div>
-    <hr>
-    <table>
-        <tr>
-            <td>
-                <p>左框沒有</p>
-                <textarea id="result1" readonly rows="20" cols="35"></textarea>
-            </td>
-            <td>
-                <p>右框沒有</p>
-                <textarea id="result2" readonly rows="20" cols="35"></textarea>
-            </td>
-            <td>
-                <p>兩框交集</p>
-                <textarea id="result3" readonly rows="20" cols="35"></textarea>
-            </td>
-            <td>
-                <p>兩框聯集</p>
-                <textarea id="result4" readonly rows="20" cols="35"></textarea>
-            </td>
-        </tr>
-    </table>
+    </div><!-- /.page-content -->
+
+    <script>
+    // ═══════════════════════════════════════
+    // TAB SWITCHING
+    // ═══════════════════════════════════════
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab + '-section').classList.add('active');
+        });
+    });
+
+    // ═══════════════════════════════════════
+    // LINE COUNTERS
+    // ═══════════════════════════════════════
+    function nonEmptyCount(text) {
+        return text.split('\n').filter(l => l.trim().length > 0).length;
+    }
+
+    ['c1','c2','u1','ld1','ld2'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', () => {
+            document.getElementById(id + '-count').textContent = nonEmptyCount(el.value) + ' 行';
+        });
+    });
+
+    // ═══════════════════════════════════════
+    // SET DIFF LOGIC
+    // ═══════════════════════════════════════
+    function runDiff() {
+        const leftSet  = new Set(document.getElementById('c1').value.split('\n').filter(v => v.trim()));
+        const rightSet = new Set(document.getElementById('c2').value.split('\n').filter(v => v.trim()));
+
+        const results = [
+            { id: 'result1', countId: 'r1-count', data: [...rightSet].filter(x => !leftSet.has(x)) },
+            { id: 'result2', countId: 'r2-count', data: [...leftSet].filter(x => !rightSet.has(x)) },
+            { id: 'result3', countId: 'r3-count', data: [...rightSet].filter(x =>  leftSet.has(x)) },
+            { id: 'result4', countId: 'r4-count', data: [...new Set([...leftSet, ...rightSet])] },
+        ];
+
+        results.forEach(({ id, countId, data }) => {
+            document.getElementById(id).value = data.join('\n');
+            document.getElementById(countId).textContent = data.length > 0 ? data.length + ' 筆' : '';
+        });
+    }
+
+    document.getElementById('diff-btn').addEventListener('click', runDiff);
+    document.getElementById('diff-clear').addEventListener('click', () => {
+        ['c1','c2','result1','result2','result3','result4'].forEach(id => document.getElementById(id).value = '');
+        ['c1-count','c2-count'].forEach(id => document.getElementById(id).textContent = '0 行');
+        ['r1-count','r2-count','r3-count','r4-count'].forEach(id => document.getElementById(id).textContent = '');
+    });
+
+    // ═══════════════════════════════════════
+    // LCS LINE DIFF ALGORITHM
+    // ═══════════════════════════════════════
+    function computeLCS(a, b) {
+        const m = a.length, n = b.length;
+        // Guard against huge inputs (O(mn) memory)
+        if (m * n > 250000) return null;
+
+        // Use flat Int32Array for speed
+        const dp = new Int32Array((m + 1) * (n + 1));
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                dp[i * (n + 1) + j] = a[i - 1] === b[j - 1]
+                    ? dp[(i - 1) * (n + 1) + (j - 1)] + 1
+                    : Math.max(dp[(i - 1) * (n + 1) + j], dp[i * (n + 1) + (j - 1)]);
+            }
+        }
+
+        // Backtrack to build ops
+        const ops = [];
+        let i = m, j = n;
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+                ops.push({ type: 'eq', val: a[i - 1] });
+                i--; j--;
+            } else if (j > 0 && (i === 0 || dp[i * (n + 1) + (j - 1)] >= dp[(i - 1) * (n + 1) + j])) {
+                ops.push({ type: 'add', val: b[j - 1] });
+                j--;
+            } else {
+                ops.push({ type: 'rem', val: a[i - 1] });
+                i--;
+            }
+        }
+        ops.reverse();
+        return ops;
+    }
+
+    // ═══════════════════════════════════════
+    // RENDER SPLIT DIFF VIEW
+    // ═══════════════════════════════════════
+    function esc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function makeLine(cls, num, sym, text) {
+        return `<div class="diff-line ${cls}">` +
+            `<span class="diff-linenum">${num}</span>` +
+            `<span class="diff-sym">${sym}</span>` +
+            `<span class="diff-text">${esc(text)}</span>` +
+            `</div>`;
+    }
+
+    // Like makeLine but text is already-escaped HTML (for intra-line spans)
+    function makeLineRaw(cls, num, sym, html) {
+        return `<div class="diff-line ${cls}">` +
+            `<span class="diff-linenum">${num}</span>` +
+            `<span class="diff-sym">${sym}</span>` +
+            `<span class="diff-text">${html}</span>` +
+            `</div>`;
+    }
+
+    function makePh() {
+        return `<div class="diff-line ph"><span class="diff-linenum"> </span><span class="diff-sym"> </span><span class="diff-text"> </span></div>`;
+    }
+
+    // ── Character-level LCS for intra-line diff ──
+    function charLCS(a, b) {
+        const ca = [...a], cb = [...b]; // handle Unicode/emoji correctly
+        const m = ca.length, n = cb.length;
+        // Skip if too long (fall back to full-line highlight)
+        if (m * n > 20000) return null;
+
+        const dp = new Int32Array((m + 1) * (n + 1));
+        for (let i = 1; i <= m; i++)
+            for (let j = 1; j <= n; j++)
+                dp[i*(n+1)+j] = ca[i-1] === cb[j-1]
+                    ? dp[(i-1)*(n+1)+(j-1)] + 1
+                    : Math.max(dp[(i-1)*(n+1)+j], dp[i*(n+1)+(j-1)]);
+
+        const ops = [];
+        let i = m, j = n;
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && ca[i-1] === cb[j-1]) {
+                ops.push({ t: 'eq', v: ca[i-1] }); i--; j--;
+            } else if (j > 0 && (i === 0 || dp[i*(n+1)+(j-1)] >= dp[(i-1)*(n+1)+j])) {
+                ops.push({ t: 'add', v: cb[j-1] }); j--;
+            } else {
+                ops.push({ t: 'rem', v: ca[i-1] }); i--;
+            }
+        }
+        ops.reverse();
+        return ops;
+    }
+
+    // Render intra-line HTML for one side ('rem' or 'add')
+    function renderIntra(charOps, side) {
+        if (!charOps) return null; // signal: fall back to full-line color
+        let html = '', eqBuf = '', changedBuf = '';
+        const flushEq      = () => { if (eqBuf)      { html += esc(eqBuf);      eqBuf = '';      } };
+        const flushChanged = () => { if (changedBuf)  { html += `<span class="intra-${side}">${esc(changedBuf)}</span>`; changedBuf = ''; } };
+        for (const op of charOps) {
+            if      (op.t === 'eq')   { flushChanged(); eqBuf      += op.v; }
+            else if (op.t === side)   { flushEq();      changedBuf += op.v; }
+            // opposite side chars: skip (they don't appear on this side)
+        }
+        flushChanged();
+        flushEq();
+        return html;
+    }
+
+    function runLineDiff() {
+        const leftLines  = document.getElementById('ld1').value.split('\n');
+        const rightLines = document.getElementById('ld2').value.split('\n');
+
+        // Remove trailing empty line artifact
+        if (leftLines[leftLines.length - 1] === '')  leftLines.pop();
+        if (rightLines[rightLines.length - 1] === '') rightLines.pop();
+
+        const ops = computeLCS(leftLines, rightLines);
+
+        const emptyMsg   = document.getElementById('diff-empty-msg');
+        const innerWrap  = document.getElementById('split-diff-inner');
+
+        if (!ops) {
+            emptyMsg.textContent = '輸入行數過多（超過 500 × 500），請縮小範圍';
+            emptyMsg.style.display = '';
+            innerWrap.style.display = 'none';
+            return;
+        }
+
+        // Pre-pass: pair adjacent rem+add into 'edit' (intra-line diff candidates)
+        const paired = [];
+        for (let i = 0; i < ops.length; i++) {
+            if (ops[i].type === 'rem' && i + 1 < ops.length && ops[i+1].type === 'add') {
+                paired.push({ type: 'edit', rem: ops[i].val, add: ops[i+1].val });
+                i++;
+            } else {
+                paired.push(ops[i]);
+            }
+        }
+
+        let leftHtml = '', rightHtml = '';
+        let leftNum = 1, rightNum = 1;
+        let addCount = 0, remCount = 0, eqCount = 0;
+
+        paired.forEach(op => {
+            if (op.type === 'eq') {
+                leftHtml  += makeLine('eq', leftNum++,  ' ', op.val);
+                rightHtml += makeLine('eq', rightNum++, ' ', op.val);
+                eqCount++;
+            } else if (op.type === 'rem') {
+                leftHtml  += makeLine('rem', leftNum++, '-', op.val);
+                rightHtml += makePh();
+                remCount++;
+            } else if (op.type === 'add') {
+                leftHtml  += makePh();
+                rightHtml += makeLine('add', rightNum++, '+', op.val);
+                addCount++;
+            } else {
+                // edit: intra-line char diff
+                const charOps = charLCS(op.rem, op.add);
+                const leftIntra  = renderIntra(charOps, 'rem');
+                const rightIntra = renderIntra(charOps, 'add');
+                leftHtml  += leftIntra  !== null ? makeLineRaw('rem', leftNum++,  '-', leftIntra)  : makeLine('rem', leftNum++,  '-', op.rem);
+                rightHtml += rightIntra !== null ? makeLineRaw('add', rightNum++, '+', rightIntra) : makeLine('add', rightNum++, '+', op.add);
+                remCount++;
+                addCount++;
+            }
+        });
+
+        document.getElementById('diff-left-col').innerHTML  = leftHtml  || '<div class="diff-empty-msg">（空）</div>';
+        document.getElementById('diff-right-col').innerHTML = rightHtml || '<div class="diff-empty-msg">（空）</div>';
+        document.getElementById('stat-add').textContent = `+${addCount} 新增`;
+        document.getElementById('stat-rem').textContent = `-${remCount} 刪除`;
+        document.getElementById('stat-eq').textContent  = `${eqCount} 未變動`;
+
+        emptyMsg.style.display  = 'none';
+        innerWrap.style.display = '';
+
+        // Store ops for unified copy
+        innerWrap._ops = ops;
+    }
+
+    document.getElementById('linediff-btn').addEventListener('click', runLineDiff);
+    document.getElementById('linediff-clear').addEventListener('click', () => {
+        ['ld1','ld2'].forEach(id => { document.getElementById(id).value = ''; document.getElementById(id+'-count').textContent = '0 行'; });
+        document.getElementById('diff-empty-msg').textContent = '輸入左右兩側內容後按「比對」';
+        document.getElementById('diff-empty-msg').style.display = '';
+        document.getElementById('split-diff-inner').style.display = 'none';
+    });
+
+    // ── Copy Unified Diff ──
+    document.getElementById('copy-unified-btn').addEventListener('click', function() {
+        const ops = document.getElementById('split-diff-inner')._ops;
+        if (!ops) return;
+        const lines = ops.map(op =>
+            op.type === 'add' ? '+ ' + op.val :
+            op.type === 'rem' ? '- ' + op.val :
+            '  ' + op.val
+        );
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            this.textContent = '✓ 已複製';
+            this.classList.add('copied');
+            setTimeout(() => { this.textContent = '複製 Unified Diff'; this.classList.remove('copied'); }, 1500);
+        });
+    });
+
+    // ═══════════════════════════════════════
+    // UNIQUE LOGIC
+    // ═══════════════════════════════════════
+    function runUnique() {
+        const lines  = document.getElementById('u1').value.split('\n');
+        const unique = [...new Set(lines)];
+        document.getElementById('u2').value = unique.join('\n');
+        const n = unique.filter(l => l.trim()).length;
+        document.getElementById('u2-count').textContent = n > 0 ? n + ' 筆' : '';
+    }
+
+    document.getElementById('unique-btn').addEventListener('click', runUnique);
+    document.getElementById('unique-clear').addEventListener('click', () => {
+        document.getElementById('u1').value = '';
+        document.getElementById('u2').value = '';
+        document.getElementById('u1-count').textContent = '0 行';
+        document.getElementById('u2-count').textContent = '';
+    });
+
+    // ═══════════════════════════════════════
+    // COPY BUTTONS
+    // ═══════════════════════════════════════
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const text = document.getElementById(btn.dataset.target).value;
+            if (!text.trim()) return;
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = '✓ 已複製';
+                btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+            });
+        });
+    });
+
+    // ═══════════════════════════════════════
+    // CTRL+ENTER SHORTCUT
+    // ═══════════════════════════════════════
+    document.addEventListener('keydown', e => {
+        if (!e.ctrlKey || e.key !== 'Enter') return;
+        const active = document.querySelector('.section.active');
+        if (!active) return;
+        if (active.id === 'diff-section')     runDiff();
+        else if (active.id === 'linediff-section') runLineDiff();
+        else if (active.id === 'unique-section')   runUnique();
+    });
+    </script>
 </body>
 </html>
