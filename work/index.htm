@@ -65,8 +65,10 @@
             case 'summary':
               document.getElementById("log").innerHTML += "<br><font color='red'>" + event.data.data+"</font>"
               break;
+            case 'excluded':
+              document.getElementById("log").innerHTML += event.data.data.map(d => "排除:" + d).join("<br>") + "<br>"
+              break;
             default:
-              document.getElementById("log").innerHTML += event.data
               break;
           }
         };
