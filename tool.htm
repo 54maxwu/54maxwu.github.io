@@ -308,7 +308,7 @@ body {
 <div id="login-overlay">
   <div id="login-box">
     <h2>🔐 Tool Hub</h2>
-    <input id="login-input" type="password" placeholder="請輸入通行碼" autocomplete="off">
+    <input id="login-input" type="password" placeholder="請輸入通行碼" autocomplete="off" autofocus>
     <button id="login-btn">登入</button>
     <div id="login-err"></div>
   </div>
@@ -368,9 +368,16 @@ body {
   const btn     = document.getElementById('login-btn');
   const err     = document.getElementById('login-err');
 
+  // Expose to the main script — only runs after auth succeeds.
+  window.__bootApp = function bootApp() {
+    overlay.style.display = 'none';
+    if (typeof load === 'function') { load(); render(); }
+  };
+
   // Already authenticated this session
   if (sessionStorage.getItem(LS_KEY) === '1') {
-    overlay.style.display = 'none';
+    // Defer to next tick so load()/render() are defined.
+    queueMicrotask(() => window.__bootApp());
     return;
   }
 
@@ -382,7 +389,7 @@ body {
       const ok = await verify(pw);
       if (ok) {
         sessionStorage.setItem(LS_KEY, '1');
-        overlay.style.display = 'none';
+        window.__bootApp();
       } else {
         err.textContent = '通行碼錯誤';
         input.value = '';
@@ -395,7 +402,7 @@ body {
 
   btn.addEventListener('click', attempt);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
-  input.focus();
+  requestAnimationFrame(() => input.focus());
 })();
 
 // ╔══════════════════════════════════════════════════════╗
@@ -415,6 +422,7 @@ const LINKS = [
   { id: 'diff',   name: '文字比對工具',         url: 'diff.htm',           color: '#14b8a6' },
   { id: 'mp3',    name: 'MP3 轉換工具',         url: 'mp3/index.html',     color: '#8b5cf6' },
   { id: 'json',   name: 'JSON 格式化工具',      url: 'JSON/index.html',    color: '#84cc16' },
+  { id: 'imageprovenance',   name: '影像溯源分析儀',      url: 'imageprovenance/index.html',    color: '#441116' },
 ];
 
 // ── localStorage keys ─────────────────────────────────
@@ -613,8 +621,9 @@ function tabDragEnd(e) {
 })();
 
 // ── Init ──────────────────────────────────────────────
-load();
-render();
+// load()/render() are deferred: bootApp() (in the login IIFE) calls them
+// after authentication succeeds, so iframes don't load behind the overlay
+// and steal focus from the password input.
 </script>
 </body>
 </html>

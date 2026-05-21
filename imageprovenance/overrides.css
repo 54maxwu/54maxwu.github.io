@@ -1,0 +1,182 @@
+/* ════════════════════════════════════════════════════════
+   overrides.css — 套用到 image-provenance 上游樣式之上
+   目的:統一字體、加入 .app-header、配合 Tool Hub 主題
+   ════════════════════════════════════════════════════════ */
+
+/* 統一字體 */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC',
+                 'PingFang TC', 'Microsoft JhengHei', sans-serif !important;
+}
+
+/* ── App Header (替代 upstream 的 topbar) ── */
+.app-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(8px);
+    background-color: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+.app-header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: .02em;
+    margin: 0;
+}
+.app-header .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* online-pill = 本地離線提示 */
+.online-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+    white-space: nowrap;
+}
+.online-pill .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: ip-pulse 2s infinite;
+}
+@keyframes ip-pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+
+/* lang / theme toggle 改用 app-header 內的尺寸 */
+.app-header .lang-toggle,
+.app-header .theme-toggle {
+    width: 36px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+}
+.app-header .lang-toggle { width: auto; padding: 0 10px; font-size: 12px; letter-spacing: .02em; }
+.app-header .lang-toggle .lang-opt { padding: 2px 4px; font-weight: 600; background: transparent !important; color: var(--text-muted) !important; border-bottom: 2px solid transparent; border-radius: 0; }
+.app-header .lang-toggle .lang-opt.active { color: var(--text) !important; border-bottom-color: var(--accent, currentColor); }
+.app-header .lang-toggle .lang-sep { color: var(--text-subtle); margin: 0 2px; }
+.app-header .lang-toggle:hover,
+.app-header .theme-toggle:hover { background: var(--surface-hover); color: var(--text); }
+
+/* theme toggle 顯示對應主題的圖示 */
+.app-header .theme-toggle .theme-icon { position: absolute; opacity: 0; transition: opacity .15s; }
+.app-header .theme-toggle { position: relative; }
+:root[data-theme="light"] .app-header .theme-toggle .icon-moon { opacity: 1; position: static; }
+:root[data-theme="light"] .app-header .theme-toggle .icon-sun  { display: none; }
+:root[data-theme="dark"]  .app-header .theme-toggle .icon-sun  { opacity: 1; position: static; }
+:root[data-theme="dark"]  .app-header .theme-toggle .icon-moon { display: none; }
+
+/* ── Shell 拓寬,縮小左右邊距 ── */
+.shell {
+    max-width: min(98vw, 1800px) !important;
+    padding: 20px clamp(12px, 1.5vw, 18px) 48px !important;
+    gap: 18px !important;
+}
+
+/* ── 隱藏 upstream 殘留的元素(我們在 index.html 已沒放) ── */
+.topbar { display: none !important; }
+.foot { display: none !important; }
+.community-card { display: none !important; }
+.stats-bar { display: none !important; }
+
+/* ── Workspace:中等寬度兩欄(box 2 在 box 1 底下),寬螢幕三欄(box 2 浮動)── */
+@media (min-width: 1100px) {
+    .workspace {
+        grid-template-columns: 360px 1fr !important;
+    }
+}
+
+/* ── 寬螢幕:右側預留 380px 空白欄給浮動的 box 2,確保不重疊 ── */
+@media (min-width: 1500px) {
+    .workspace {
+        /* box 1 固定 360 (pane-left 已浮動,此欄保留空間但不放實際內容),
+           box 3 自適應剩餘空間,最右側留 380px 空白給浮動卡片 */
+        grid-template-columns: 360px 1fr 380px !important;
+    }
+
+    /* box 1 (pane-left) 改為固定浮動 + 垂直置中
+       注意:不用 transform 是為了不破壞內部 result-head 的 position: fixed
+       (transform 會建立新的 containing block,讓子層的 fixed 變成相對於父層) */
+    .pane-left {
+        position: fixed !important;
+        left: max(20px, calc((100vw - 1800px) / 2 + 18px)) !important;
+        top: 20px;
+        bottom: 20px;
+        margin: auto 0;
+        width: 360px;
+        height: max-content;
+        max-height: calc(100vh - 40px);
+        z-index: 30;
+    }
+    /* pane-left 脫離文件流後,需明確把 pane-right 鎖在第 2 欄,
+       否則 grid 自動把它推到第 1 欄,內容會跑去左邊跟 pane-left 重疊 */
+    .pane-right {
+        grid-column: 2 !important;
+    }
+}
+
+/* ── 暗色主題下,header 背景對比加深 ── */
+:root[data-theme="dark"] .app-header {
+    background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+/* ── 預覽區可隨時拖放新圖,提供視覺回饋 ── */
+.preview-block { cursor: pointer; }
+.preview-block.dragover .preview-frame {
+    outline: 2px dashed var(--accent);
+    outline-offset: 4px;
+    background: var(--surface-alt);
+}
+
+/* ── result-head 已移至左欄 preview-block 內 ── */
+/* 取消上游版的下底線(原本在右欄頂部作分隔線),改用獨立卡片風格 */
+.preview-block .result-head {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ── 寬螢幕:box 2 從文件流脫離,改浮動在視窗右下角 ── */
+@media (min-width: 1500px) {
+    .preview-block .result-head {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 340px;
+        z-index: 40;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        background-color: color-mix(in srgb, var(--surface) 94%, transparent);
+        animation: floatIn 280ms cubic-bezier(.2,.7,.2,1);
+    }
+    @keyframes floatIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+}

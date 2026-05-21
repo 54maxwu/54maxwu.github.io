@@ -12,7 +12,15 @@
       "Bash(grep -o \"body[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
       "Bash(grep -o \"#app[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
       "Bash(grep -o \"\\\\.el-card[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(grep -o \"\\\\-\\\\-el-bg-color[^;}\\\\\\)]\\\\{0,50\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")"
+      "Bash(grep -o \"\\\\-\\\\-el-bg-color[^;}\\\\\\)]\\\\{0,50\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
+      "Bash(rm -rf lib app.js worker.js)",
+      "Read(//d/d/54maxwu.github.io/**)",
+      "Bash(npx --version)",
+      "Bash(npx --yes esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=src/bundle.js)",
+      "Bash(npx --yes esbuild src/frequency/worker.js --bundle --format=iife --target=es2020 --outfile=src/frequency/worker-bundle.js)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(git reset *)"
     ]
   }
 }
