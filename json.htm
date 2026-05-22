@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>JSON 格式化工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            /* 桌機:占滿視窗、禁止頁面捲軸,所有內容靠 flex 自己分配高度 */
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .status-pill.ok { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill .dot {
+            width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+        }
+
+        .page-content {
+            padding: 18px 20px;
+            flex: 1;
+            min-height: 0;        /* 讓子 flex 元素能正確收縮 */
+            display: flex;
+        }
+
+        .glass {
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 16px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Toolbar ── */
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            align-items: center;
+        }
+        .btn-spacer { flex: 1; }
+
+        /* 動作按鈕群組 — 跟 .view-toggle / .view-toggle-lg 共用外框尺寸,
+           border、padding、border-radius、按鈕 padding 全部對齊,確保 pixel-perfect alignment */
+        .action-group {
+            display: inline-flex;
+            background: rgba(241,245,249,0.85);
+            border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 10px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .action-btn {
+            background: transparent;
+            border: none;
+            padding: 7px 22px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #475569;
+            cursor: pointer;
+            border-radius: 8px;
+            letter-spacing: 0.05em;
+            transition: background-color 0.14s, color 0.14s, transform 0.08s;
+            font-family: inherit;
+            line-height: 1.2;
+        }
+        .action-btn:hover { background: rgba(148,163,184,0.18); color: #1e293b; }
+        .action-btn:active { transform: scale(0.97); }
+        .action-btn.act-primary { color: #1d4ed8; }
+        .action-btn.act-primary:hover { background: rgba(59,130,246,0.16); color: #1e40af; }
+        .action-btn.act-danger { color: #b91c1c; }
+        .action-btn.act-danger:hover { background: rgba(231,76,60,0.16); color: #7f1d1d; }
+        .meta-tag {
+            font-size: 11px;
+            color: #64748b;
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            /* 固定寬度,避免容量數字 (0 B / 1.2 MB / 856 KB) 變動時把右側元素推來推去 */
+            min-width: 80px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 容量顯示浮在輸入 textarea 的右下角 — 跟「格式化/壓縮」直接相關,
+           放在輸入旁邊比放在頂部工具列更容易看出容量變化 */
+        .input-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
+        .input-wrap textarea.input { flex: 1; }
+        .size-float {
+            position: absolute;
+            /* 避開 textarea 內建捲軸 (約 14~17px) — 留 22px 讓兩者完全不重疊 */
+            right: 22px;
+            bottom: 10px;
+            font-size: 11px;
+            color: #64748b;
+            padding: 3px 8px;
+            background: rgba(255,255,255,0.92);
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            min-width: 56px;
+            text-align: center;
+            pointer-events: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            backdrop-filter: blur(2px);
+            z-index: 2;
+        }
+
+        /* 底部漸層模糊 — 分層疊 backdrop-filter 製造真正的「越靠下越模糊」
+           原理:多層 div 同位置,每層 blur 漸強、mask 起點漸低,
+           顯示時上層只覆蓋小範圍 (輕微模糊),下層覆蓋大範圍 (強烈模糊),
+           疊起來就是連續漸進的 blur 強度 (單一 backdrop-filter 做不到的) */
+        .fade-blur-stack {
+            position: absolute;
+            left: 4px;          /* 避開左側 4px 的藍/綠強調條 */
+            right: 16px;        /* 避開 textarea/output 的捲軸 */
+            bottom: 1.5px;
+            height: 110px;
+            pointer-events: none;
+            border-radius: 0 0 6px 6px;
+            overflow: hidden;
+            /* JS 直接寫 inline opacity 跟著「剩餘可捲距離」線性變化,
+               不用 CSS transition (否則 scroll 期間 transition 跟即時值會脫節) */
+            opacity: 0;
+            z-index: 1;
+        }
+        .fade-blur-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+        /* 黑色漸層 tint — 白色 tint 跟白底融在一起幾乎看不到,改成黑色才有明顯對比,
+           文字會像「沉到陰影裡」的視覺感而不是「消失到白」 */
+        .fade-blur-tint {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(to bottom,
+                rgba(15,23,42,0) 0%,
+                rgba(15,23,42,0.06) 40%,
+                rgba(15,23,42,0.18) 75%,
+                rgba(15,23,42,0.32) 100%);
+        }
+
+        /* ── Two-pane layout ── */
+        .panes {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            flex: 1;
+            min-height: 0;
+        }
+        @media (max-width: 900px) {
+            /* 行動裝置:回到傳統可捲動排版 */
+            body { height: auto; overflow: auto; }
+            .page-content { flex: none; }
+            .glass { flex: none; }
+            .panes { grid-template-columns: 1fr; flex: none; }
+        }
+
+        .pane {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 0;
+        }
+        .pane-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #4a6070;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            /* 左右兩個 pane title 高度對齊 (output pane 有大按鈕 toggle,input pane 只有文字),
+               固定 min-height 讓 textarea 跟 output 起始 Y 位置一致 */
+            min-height: 38px;
+        }
+
+        /* ── Input textarea ── */
+        textarea.input {
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-left: 4px solid #3498db;
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.86rem;
+            background: rgba(255,255,255,0.78);
+            resize: none;
+            line-height: 1.55;
+            tab-size: 2;
+            color: #1e293b;
+        }
+        textarea.input:focus {
+            outline: none;
+            border-color: rgba(0,160,220,0.55);
+            border-left-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(0,160,220,0.12);
+        }
+        textarea.input.has-error {
+            border-color: rgba(231,76,60,0.6);
+            border-left-color: #e74c3c;
+        }
+
+        /* ── Output area ── */
+        /* output 外層 wrap 用來定位浮動的「複製」icon 按鈕,
+           讓按鈕貼在輸出區右下角而不會被 output 的 overflow:auto 裁掉 */
+        .output-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
+        .output-wrap .output { flex: 1; }
+        .copy-float {
+            position: absolute;
+            /* 避開 .output 的 scrollbar-gutter:stable 預留的捲軸空間 */
+            right: 24px;
+            bottom: 12px;
+            z-index: 2;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.92);
+            border: 1px solid rgba(148,163,184,0.45);
+            border-radius: 8px;
+            color: #475569;
+            cursor: pointer;
+            transition: background-color 0.14s, color 0.14s, transform 0.08s, box-shadow 0.14s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            backdrop-filter: blur(2px);
+            padding: 0;
+        }
+        .copy-float:hover {
+            background: rgba(59,130,246,0.12);
+            color: #1d4ed8;
+            border-color: rgba(59,130,246,0.45);
+            box-shadow: 0 2px 6px rgba(59,130,246,0.15);
+        }
+        .copy-float:active { transform: scale(0.92); }
+        .copy-float.copied {
+            background: rgba(34,197,94,0.18);
+            color: #15803d;
+            border-color: rgba(34,197,94,0.55);
+        }
+
+        .output {
+            /* flex:1 占滿 pane 剩餘高度;scrollbar-gutter:stable 避免切換視圖時
+               scrollbar 出現/消失造成內容寬度抖動 */
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            scrollbar-gutter: stable;
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-left: 4px solid #27ae60;
+            border-radius: 8px;
+            padding: 12px 14px 12px 0;
+            background: rgba(255,255,255,0.78);
+            font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.86rem;
+            line-height: 1.55;
+        }
+        .output.error-mode { border-left-color: #e74c3c; }
+        .output.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            padding: 12px;
+        }
+
+        /* ── Pretty JSON line grid ── */
+        .pretty {
+            display: grid;
+            grid-template-columns: minmax(40px, max-content) 1fr;
+            row-gap: 0;
+        }
+        .pretty .ln {
+            text-align: right;
+            padding: 0 10px 0 6px;
+            color: #94a3b8;
+            user-select: none;
+            border-right: 1px solid rgba(148,163,184,0.18);
+            font-size: 0.78rem;
+            line-height: 1.55;
+        }
+        .pretty .lc {
+            padding: 0 0 0 12px;
+            white-space: pre;
+            color: #1e293b;
+        }
+        .pretty .lc.fold-trigger { cursor: pointer; }
+        .pretty .lc.fold-trigger::before {
+            content: '▾';
+            display: inline-block;
+            width: 12px;
+            margin-left: -12px;
+            color: #94a3b8;
+            transition: transform 0.15s;
+        }
+        .pretty .lc.folded::before { transform: rotate(-90deg); }
+        /* row 必須 display:contents,讓裡面的 .ln/.lc 直接成為 .pretty grid 的格子,
+           否則 row 自己會被當成一個 grid item,版面會錯亂 */
+        .pretty .row { display: contents; }
+        .pretty .row.hidden { display: none; }
+        .pretty .lc:hover { background: rgba(0,160,220,0.04); }
+
+        /* 源數據選取 → 右側對應 token 高亮
+           pretty 視圖的 .row 是 display:contents 不能直接上 background,
+           因此分別給 .ln 和 .lc 上色;tree-row 是 flex 容器則可以直接上色 */
+        .pretty .row.sel-hl > .ln,
+        .pretty .row.sel-hl > .lc,
+        .tree-row.sel-hl {
+            background: linear-gradient(90deg,
+                rgba(250,204,21,0.32) 0%,
+                rgba(250,204,21,0.18) 100%);
+            animation: sel-pulse 0.55s ease-out;
+        }
+        /* 黃色左邊強調條只放在最左邊一欄 (.ln 或 tree-row 本身),
+           避免在 pretty 模式 .ln 跟 .lc 都各畫一條造成兩條重複 */
+        .pretty .row.sel-hl > .ln {
+            box-shadow: inset 2px 0 0 #eab308;
+        }
+        .tree-row.sel-hl {
+            box-shadow: inset 2px 0 0 #eab308;
+            border-radius: 4px;
+        }
+        @keyframes sel-pulse {
+            0%   { background: rgba(250,204,21,0.6); }
+            100% { background: rgba(250,204,21,0.18); }
+        }
+
+        /* token colors */
+        .tok-key    { color: #1d4ed8; }
+        .tok-string { color: #15803d; }
+        .tok-number { color: #b45309; }
+        .tok-bool   { color: #be185d; font-weight: 600; }
+        .tok-null   { color: #94a3b8; font-weight: 600; font-style: italic; }
+        .tok-brace  { color: #475569; font-weight: 600; }
+        .tok-punc   { color: #64748b; }
+        .tok-fold-summary { color: #94a3b8; font-style: italic; margin-left: 4px; }
+
+        /* ── Tree view ── */
+        .tree {
+            padding: 6px 14px;
+            font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.86rem;
+            line-height: 1.55;
+            color: #1e293b;
+        }
+        .tree-node { padding-left: 18px; position: relative; }
+        .tree-row {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            cursor: default;
+            padding: 1px 2px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+        .tree-row.expandable { cursor: pointer; }
+        .tree-row.expandable:hover { background: rgba(0,160,220,0.08); }
+        .tree-caret {
+            display: inline-block;
+            width: 14px;
+            margin-left: -16px;
+            color: #94a3b8;
+            font-size: 0.74rem;
+            transition: transform 0.12s;
+            flex-shrink: 0;
+            text-align: center;
+        }
+        .tree-row.collapsed .tree-caret { transform: rotate(-90deg); }
+        .tree-row:not(.expandable) .tree-caret { visibility: hidden; }
+        .tree-key { color: #1d4ed8; }
+        .tree-colon { color: #64748b; margin-right: 4px; }
+        .tree-summary { color: #94a3b8; }
+        .tree-children { padding-left: 4px; border-left: 1px dashed rgba(148,163,184,0.35); margin-left: -8px; }
+        .tree-children.hidden { display: none; }
+
+        /* ── Stats badges (top-right of output pane) ── */
+        .pane-title-right {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-left: auto;
+            flex-wrap: wrap;
+        }
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 600;
+            background: rgba(241,245,249,0.85);
+            border: 1px solid rgba(148,163,184,0.35);
+            color: #475569;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            letter-spacing: 0.02em;
+            /* 固定佔位寬度,避免不同筆數 (39 個鍵 / 5 個鍵 / 100 個鍵) 切換時寬度抖動 */
+            min-width: 72px;
+        }
+        /* 沒資料時保留位置,只隱形 (不要 display:none,否則旁邊元素會位移) */
+        .stat-badge[hidden] { display: inline-flex !important; visibility: hidden; }
+        .stat-badge.ok { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.4); color: #15803d; }
+        .stat-badge.err { background: rgba(231,76,60,0.12); border-color: rgba(231,76,60,0.45); color: #b91c1c; }
+        /* 鍵數:藍底;深度:橙底 — 兩個徽章一眼分得清 */
+        #statKeys  { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.45); color: #1d4ed8; }
+        #statDepth { background: rgba(249,115,22,0.14); border-color: rgba(249,115,22,0.5);  color: #c2410c; }
+
+        /* ── View-mode toggle (文字 / 樹狀) ── */
+        .view-toggle {
+            display: inline-flex;
+            background: rgba(241,245,249,0.85);
+            border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 8px;
+            padding: 2px;
+            gap: 0;
+        }
+        .view-toggle button {
+            background: transparent;
+            border: none;
+            padding: 3px 11px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.14s;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .view-toggle button:hover { color: #1e293b; }
+        .view-toggle button.active {
+            background: linear-gradient(145deg, #22c55e, #16a34a);
+            color: #fff;
+            box-shadow: 0 1px 4px rgba(34,197,94,0.45);
+        }
+        .view-toggle button.active:hover { color: #fff; }
+
+        /* 放大版的視圖切換,水平置中顯眼 */
+        .view-toggle-lg {
+            border-radius: 10px;
+            padding: 3px;
+        }
+        .view-toggle-lg button {
+            padding: 7px 22px;
+            font-size: 13.5px;
+            font-weight: 700;
+            border-radius: 8px;
+            letter-spacing: 0.05em;
+            line-height: 1.2;     /* 跟 .action-btn 對齊,避免瀏覽器 default normal 跟 1.2 之間的細微高度差 */
+        }
+
+        /* 3 欄式 pane title: 標題靠左 / 切換置中 / 徽章靠右 */
+        .pane-title-3col {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 8px;
+        }
+        .pane-title-3col > .view-toggle { justify-self: center; }
+        .pane-title-3col > .pane-title-right { justify-self: end; margin-left: 0; }
+
+        /* ── Error report (git diff style) ── */
+        .error-report {
+            font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.84rem;
+            line-height: 1.55;
+        }
+        .error-header {
+            background: rgba(231,76,60,0.08);
+            border-bottom: 1px solid rgba(231,76,60,0.25);
+            padding: 8px 14px;
+            margin: -12px -14px 10px -14px;
+            color: #b91c1c;
+            font-weight: 700;
+            font-size: 0.82rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .error-suggest {
+            font-weight: 500;
+            color: #7f1d1d;
+            font-size: 0.78rem;
+        }
+        .diff {
+            display: grid;
+            grid-template-columns: minmax(40px, max-content) 24px 1fr;
+            row-gap: 0;
+            padding: 0 6px;
+        }
+        .diff .ln {
+            text-align: right;
+            padding: 0 8px 0 4px;
+            color: #94a3b8;
+            user-select: none;
+            font-size: 0.78rem;
+        }
+        .diff .sign {
+            text-align: center;
+            color: #94a3b8;
+            user-select: none;
+            font-weight: 700;
+        }
+        .diff .code {
+            padding: 0 4px;
+            white-space: pre;
+            color: #334155;
+        }
+        .diff .row { display: contents; }
+        .diff .row.minus .ln,
+        .diff .row.minus .sign,
+        .diff .row.minus .code { background: rgba(231,76,60,0.12); color: #991b1b; }
+        .diff .row.minus .sign { color: #dc2626; }
+        .diff .row.plus  .ln,
+        .diff .row.plus  .sign,
+        .diff .row.plus  .code { background: rgba(34,197,94,0.12); color: #14532d; }
+        .diff .row.plus  .sign { color: #16a34a; }
+        .diff .row.context .code { color: #475569; }
+        .diff .col-pointer {
+            display: inline-block;
+            color: #dc2626;
+            font-weight: 800;
+        }
+        .pointer-line {
+            grid-column: 3;
+            white-space: pre;
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+        /* ── multi-doc tabs ── */
+        .doc-tabs {
+            display: none;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 8px 10px;
+            background: rgba(241,245,249,0.65);
+            border: 1.5px solid rgba(200,220,240,0.8);
+            border-left: 4px solid #8b5cf6;
+            border-radius: 8px;
+            max-height: 110px;
+            overflow-y: auto;
+            align-items: center;
+        }
+        .doc-tabs.show { display: flex; }
+        .doc-tabs-label {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: #4a6070;
+            letter-spacing: 0.04em;
+            margin-right: 4px;
+            white-space: nowrap;
+        }
+        .doc-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 9px;
+            min-width: 30px;
+            justify-content: center;
+            background: rgba(255,255,255,0.85);
+            border: 1px solid rgba(148,163,184,0.4);
+            border-radius: 999px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.14s;
+        }
+        .doc-chip:hover { background: rgba(0,160,220,0.12); border-color: rgba(0,160,220,0.5); color: #0a4a70; }
+        .doc-chip.active {
+            background: linear-gradient(145deg, rgba(0,160,220,0.35), rgba(0,80,160,0.35));
+            border-color: rgba(0,80,160,0.5);
+            color: #0a3050;
+            box-shadow: 0 1px 4px rgba(0,160,220,0.25);
+        }
+        .doc-chip.has-error {
+            border-color: rgba(231,76,60,0.55);
+            color: #b91c1c;
+        }
+        .doc-chip.has-error.active {
+            background: linear-gradient(145deg, rgba(231,76,60,0.3), rgba(180,30,30,0.3));
+            color: #7f1d1d;
+        }
+        .doc-chip.all { font-weight: 700; }
+
+        /* sample button */
+        .sample-link {
+            background: none;
+            border: none;
+            color: #0a4a70;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 6px;
+        }
+        .sample-link:hover { color: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>JSON 格式化工具</h1>
+        <div class="header-meta">
+            <span>貼上即解析・錯誤以 git diff 風格標示</span>
+            <span class="status-pill idle" id="statusPill">
+                <span class="dot"></span><span id="statusText">等待輸入</span>
+            </span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="toolbar">
+                <div class="action-group">
+                    <button class="action-btn act-primary" id="btnFormat">↧ 格式化</button>
+                    <button class="action-btn" id="btnMinify">↤ 壓縮</button>
+                    <button class="action-btn act-danger" id="btnClear">✕ 清空</button>
+                </div>
+                <div class="btn-spacer"></div>
+                <div class="view-toggle view-toggle-lg" id="viewToggle">
+                    <button data-view="text" class="active">文字</button>
+                    <button data-view="tree">樹狀</button>
+                </div>
+                <button class="sample-link" id="btnSample">載入範例</button>
+            </div>
+
+            <div class="panes">
+                <div class="pane">
+                    <div class="pane-title">
+                        <span>輸入 (貼上就會自動解析)</span>
+                    </div>
+                    <div class="input-wrap">
+                        <textarea class="input" id="input" spellcheck="false" placeholder="把 JSON 貼到這裡⋯⋯&#10;Ctrl+V 自動解析、格式化&#10;格式錯誤會以 git diff 風格標出位置"></textarea>
+                        <span class="size-float" id="sizeTag">0 B</span>
+                    </div>
+                    <div class="doc-tabs" id="docTabs"></div>
+                </div>
+                <div class="pane">
+                    <div class="pane-title">
+                        <span id="outputTitle">結果</span>
+                        <div class="pane-title-right">
+                            <span class="stat-badge" id="statKeys" hidden></span>
+                            <span class="stat-badge" id="statDepth" hidden></span>
+                        </div>
+                    </div>
+                    <div class="output-wrap">
+                        <div class="output empty" id="output">貼上 JSON 後會在此顯示格式化結果</div>
+                        <button class="copy-float" id="btnCopy" title="複製目前這筆 (格式化後 JSON)" aria-label="複製結果">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        const $input  = document.getElementById('input');
+        const $output = document.getElementById('output');
+        const $pill   = document.getElementById('statusPill');
+        const $pillText = document.getElementById('statusText');
+        const $sizeTag = document.getElementById('sizeTag');
+        const $outputTitle = document.getElementById('outputTitle');
+        const $docTabs = document.getElementById('docTabs');
+        const $viewToggle = document.getElementById('viewToggle');
+        const $statKeys = document.getElementById('statKeys');
+        const $statDepth = document.getElementById('statDepth');
+
+        // Multi-doc state
+        let currentDocs = [];          // [{ raw, parsed, error }]
+        let currentDocIdx = 0;         // -1 means "all (as array)"
+        let viewMode = 'text';         // 'text' | 'tree'
+
+        // ── Helpers ───────────────────────────────────
+        const esc = s => String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        const fmtSize = n => {
+            if (n < 1024) return n + ' B';
+            if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+            return (n / 1024 / 1024).toFixed(2) + ' MB';
+        };
+
+        const setStatus = (kind, text) => {
+            $pill.className = 'status-pill ' + kind;
+            $pillText.textContent = text;
+        };
+
+        const setSize = bytes => { $sizeTag.textContent = fmtSize(bytes); };
+
+        // ── Token-level pretty printer ────────────────
+        // We render formatted JSON line-by-line with syntax highlighting.
+        // Built from the AST (JSON.parse result) so it is always well-formed.
+        function renderPretty(value, indent = 2) {
+            // each line: { html, depth, openType?, path? }
+            // path 是「這一行對應的 JSON path」— pretty 模式把開頭那行 (含 key 或 [/{) 帶上 path,
+            // 收尾的 ]/} 不帶 path,因為高亮要打在開頭那一行
+            const lines = [];
+            const pad = d => ' '.repeat(d * indent);
+
+            function tokenizeValue(v, depth, suffix, path) {
+                if (v === null) {
+                    lines.push({ html: pad(depth) + `<span class="tok-null">null</span>${suffix}`, depth, path });
+                    return;
+                }
+                const t = typeof v;
+                if (t === 'string') {
+                    lines.push({ html: pad(depth) + `<span class="tok-string">${esc(JSON.stringify(v))}</span>${suffix}`, depth, path });
+                    return;
+                }
+                if (t === 'number') {
+                    const out = Number.isFinite(v) ? String(v) : 'null';
+                    lines.push({ html: pad(depth) + `<span class="tok-number">${esc(out)}</span>${suffix}`, depth, path });
+                    return;
+                }
+                if (t === 'boolean') {
+                    lines.push({ html: pad(depth) + `<span class="tok-bool">${v}</span>${suffix}`, depth, path });
+                    return;
+                }
+                if (Array.isArray(v)) {
+                    if (v.length === 0) {
+                        lines.push({ html: pad(depth) + `<span class="tok-brace">[]</span>${suffix}`, depth, path });
+                        return;
+                    }
+                    lines.push({
+                        html: pad(depth) + `<span class="tok-brace">[</span>`,
+                        depth, openType: 'arr', path,
+                    });
+                    v.forEach((item, i) => {
+                        const innerSuffix = i < v.length - 1 ? '<span class="tok-punc">,</span>' : '';
+                        tokenizeKeyless(item, depth + 1, innerSuffix, [...path, i]);
+                    });
+                    lines.push({ html: pad(depth) + `<span class="tok-brace">]</span>${suffix}`, depth });
+                    return;
+                }
+                if (t === 'object') {
+                    const keys = Object.keys(v);
+                    if (keys.length === 0) {
+                        lines.push({ html: pad(depth) + `<span class="tok-brace">{}</span>${suffix}`, depth, path });
+                        return;
+                    }
+                    lines.push({
+                        html: pad(depth) + `<span class="tok-brace">{</span>`,
+                        depth, openType: 'obj', path,
+                    });
+                    keys.forEach((k, i) => {
+                        const innerSuffix = i < keys.length - 1 ? '<span class="tok-punc">,</span>' : '';
+                        tokenizeKV(k, v[k], depth + 1, innerSuffix, path);
+                    });
+                    lines.push({ html: pad(depth) + `<span class="tok-brace">}</span>${suffix}`, depth });
+                    return;
+                }
+                lines.push({ html: pad(depth) + esc(String(v)) + suffix, depth, path });
+            }
+
+            function tokenizeKV(k, v, depth, suffix, parentPath) {
+                const path = [...parentPath, k];
+                const keyHtml = `<span class="tok-key">${esc(JSON.stringify(k))}</span><span class="tok-punc">: </span>`;
+                if (v === null) {
+                    lines.push({ html: pad(depth) + keyHtml + `<span class="tok-null">null</span>${suffix}`, depth, path });
+                    return;
+                }
+                const t = typeof v;
+                if (t === 'string') {
+                    lines.push({ html: pad(depth) + keyHtml + `<span class="tok-string">${esc(JSON.stringify(v))}</span>${suffix}`, depth, path });
+                    return;
+                }
+                if (t === 'number') {
+                    const out = Number.isFinite(v) ? String(v) : 'null';
+                    lines.push({ html: pad(depth) + keyHtml + `<span class="tok-number">${esc(out)}</span>${suffix}`, depth, path });
+                    return;
+                }
+                if (t === 'boolean') {
+                    lines.push({ html: pad(depth) + keyHtml + `<span class="tok-bool">${v}</span>${suffix}`, depth, path });
+                    return;
+                }
+                if (Array.isArray(v)) {
+                    if (v.length === 0) {
+                        lines.push({ html: pad(depth) + keyHtml + `<span class="tok-brace">[]</span>${suffix}`, depth, path });
+                        return;
+                    }
+                    lines.push({
+                        html: pad(depth) + keyHtml + `<span class="tok-brace">[</span>`,
+                        depth, openType: 'arr', path,
+                    });
+                    v.forEach((item, i) => {
+                        const innerSuffix = i < v.length - 1 ? '<span class="tok-punc">,</span>' : '';
+                        tokenizeKeyless(item, depth + 1, innerSuffix, [...path, i]);
+                    });
+                    lines.push({ html: pad(depth) + `<span class="tok-brace">]</span>${suffix}`, depth });
+                    return;
+                }
+                if (t === 'object') {
+                    const keys = Object.keys(v);
+                    if (keys.length === 0) {
+                        lines.push({ html: pad(depth) + keyHtml + `<span class="tok-brace">{}</span>${suffix}`, depth, path });
+                        return;
+                    }
+                    lines.push({
+                        html: pad(depth) + keyHtml + `<span class="tok-brace">{</span>`,
+                        depth, openType: 'obj', path,
+                    });
+                    keys.forEach((k2, i) => {
+                        const innerSuffix = i < keys.length - 1 ? '<span class="tok-punc">,</span>' : '';
+                        tokenizeKV(k2, v[k2], depth + 1, innerSuffix, path);
+                    });
+                    lines.push({ html: pad(depth) + `<span class="tok-brace">}</span>${suffix}`, depth });
+                    return;
+                }
+            }
+
+            const tokenizeKeyless = tokenizeValue;
+
+            tokenizeValue(value, 0, '', []);
+
+            // Build DOM with foldable rows
+            const root = document.createElement('div');
+            root.className = 'pretty';
+
+            // group rows by open/close pairing so we can fold
+            const stack = [];
+            lines.forEach((ln, idx) => ln._idx = idx);
+            lines.forEach((ln, idx) => {
+                if (ln.openType) {
+                    stack.push({ openIdx: idx, depth: ln.depth });
+                } else if (/<span class="tok-brace">[\]}]<\/span>/.test(ln.html) && stack.length) {
+                    const top = stack[stack.length - 1];
+                    if (top.depth === ln.depth) {
+                        const o = stack.pop();
+                        lines[o.openIdx]._closeIdx = idx;
+                    }
+                }
+            });
+
+            lines.forEach((ln, idx) => {
+                const lnNum = document.createElement('div');
+                lnNum.className = 'ln';
+                lnNum.textContent = idx + 1;
+                const lc = document.createElement('div');
+                lc.className = 'lc';
+                lc.innerHTML = ln.html;
+                lc.dataset.row = idx;
+
+                if (ln.openType && ln._closeIdx != null) {
+                    lc.classList.add('fold-trigger');
+                    lc.addEventListener('click', () => toggleFold(root, idx, ln._closeIdx, lc));
+                }
+
+                const wrap = document.createElement('div');
+                wrap.className = 'row';
+                wrap.dataset.row = idx;
+                if (ln.path) wrap.dataset.path = JSON.stringify(ln.path);
+                wrap.appendChild(lnNum);
+                wrap.appendChild(lc);
+                root.appendChild(wrap);
+            });
+            return root;
+        }
+
+        function toggleFold(root, openIdx, closeIdx, trigger) {
+            const folded = trigger.classList.toggle('folded');
+            for (let i = openIdx + 1; i <= closeIdx; i++) {
+                const row = root.querySelector(`.row[data-row="${i}"]`);
+                if (row) row.classList.toggle('hidden', folded);
+            }
+        }
+
+        // ── Error renderer (git-diff style) ─────────
+        function renderError(text, err) {
+            // Extract position from error message. V8 / Spidermonkey both vary.
+            // e.g. "Unexpected token } in JSON at position 142 (line 8 column 3)"
+            //      "Expected ',' or '}' after property value in JSON at position 42"
+            let pos = -1;
+            let lineHint = -1, colHint = -1;
+            const m1 = err.message.match(/position\s+(\d+)/i);
+            if (m1) pos = parseInt(m1[1], 10);
+            const m2 = err.message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
+            if (m2) { lineHint = +m2[1]; colHint = +m2[2]; }
+
+            const lines = text.split('\n');
+            let line, col;
+            if (lineHint > 0) {
+                line = lineHint;
+                col  = colHint;
+            } else if (pos >= 0) {
+                let acc = 0;
+                line = 1; col = 1;
+                for (let i = 0; i < lines.length; i++) {
+                    if (acc + lines[i].length >= pos) {
+                        line = i + 1;
+                        col  = pos - acc + 1;
+                        break;
+                    }
+                    acc += lines[i].length + 1;
+                }
+            } else {
+                line = lines.length;
+                col  = (lines[lines.length - 1] || '').length + 1;
+            }
+
+            const suggestion = guessFix(text, err, line, col);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'error-report';
+
+            const head = document.createElement('div');
+            head.className = 'error-header';
+            head.innerHTML = `
+                <span>✗ 第 ${line} 行 第 ${col} 欄 — ${esc(err.message)}</span>
+                ${suggestion ? `<span class="error-suggest">💡 ${esc(suggestion.hint)}</span>` : ''}
+            `;
+            wrap.appendChild(head);
+
+            const ctxStart = Math.max(1, line - 3);
+            const ctxEnd   = Math.min(lines.length, line + 3);
+
+            const diff = document.createElement('div');
+            diff.className = 'diff';
+
+            for (let i = ctxStart; i <= ctxEnd; i++) {
+                const isBad = i === line;
+                const rowKind = isBad ? 'minus' : 'context';
+                addDiffRow(diff, i, isBad ? '-' : ' ', lines[i - 1] ?? '', rowKind);
+                if (isBad) {
+                    // pointer line under the bad line
+                    const pointerRow = document.createElement('div');
+                    pointerRow.className = 'row pointer';
+                    const blank1 = document.createElement('div');
+                    blank1.className = 'ln';
+                    const blank2 = document.createElement('div');
+                    blank2.className = 'sign';
+                    const ptr = document.createElement('div');
+                    ptr.className = 'code';
+                    ptr.style.color = '#dc2626';
+                    ptr.style.fontWeight = '700';
+                    ptr.textContent = ' '.repeat(Math.max(0, col - 1)) + '^';
+                    pointerRow.appendChild(blank1);
+                    pointerRow.appendChild(blank2);
+                    pointerRow.appendChild(ptr);
+                    diff.appendChild(pointerRow);
+
+                    if (suggestion && suggestion.replacement != null) {
+                        addDiffRow(diff, i, '+', suggestion.replacement, 'plus');
+                    }
+                }
+            }
+            wrap.appendChild(diff);
+            return wrap;
+        }
+
+        function addDiffRow(parent, lineNo, sign, code, kind) {
+            const row = document.createElement('div');
+            row.className = 'row ' + kind;
+            const ln = document.createElement('div');
+            ln.className = 'ln';
+            ln.textContent = lineNo;
+            const sg = document.createElement('div');
+            sg.className = 'sign';
+            sg.textContent = sign;
+            const cd = document.createElement('div');
+            cd.className = 'code';
+            cd.textContent = code;
+            row.appendChild(ln);
+            row.appendChild(sg);
+            row.appendChild(cd);
+            parent.appendChild(row);
+        }
+
+        // Very lightweight heuristics for common mistakes:
+        //   - trailing comma before } or ]
+        //   - missing comma between two values on same / adjacent lines
+        //   - unquoted key
+        //   - smart quotes “ ” instead of "
+        //   - single quotes instead of double
+        function guessFix(text, err, line, col) {
+            const lines = text.split('\n');
+            const cur  = lines[line - 1] || '';
+            const next = (lines[line] || '').trim();
+            const prev = (lines[line - 2] || '').trim();
+            const msg = err.message;
+
+            // Smart quotes
+            if (/[“”‘’]/.test(cur)) {
+                return {
+                    hint: '偵測到智慧引號 (“ ” ‘ ’),JSON 要用直引號 "',
+                    replacement: cur
+                        .replace(/[“”]/g, '"')
+                        .replace(/[‘’]/g, "'"),
+                };
+            }
+            // Single-quoted strings
+            if (/^\s*'[^']*'\s*:/.test(cur) || /:\s*'[^']*'/.test(cur)) {
+                return {
+                    hint: 'JSON 不接受單引號,需要改成雙引號 "',
+                    replacement: cur.replace(/'([^']*)'/g, '"$1"'),
+                };
+            }
+            // Trailing comma before } or ]
+            if (/,\s*$/.test(cur) && /^[}\]]/.test(next)) {
+                return {
+                    hint: '結尾多了一個逗號 (trailing comma),JSON 不允許',
+                    replacement: cur.replace(/,\s*$/, ''),
+                };
+            }
+            // Missing comma — current line is a value/object close and next line starts a key
+            if (/[}\]"\d]\s*$/.test(prev) && /^"[^"]+"\s*:/.test(cur)) {
+                return {
+                    hint: '上一行結尾缺少逗號',
+                    replacement: lines[line - 2] + ',',
+                };
+            }
+            // Unquoted key
+            const unq = cur.match(/^(\s*)([A-Za-z_][\w-]*)(\s*:)/);
+            if (unq) {
+                return {
+                    hint: '鍵 (key) 必須用雙引號包起來',
+                    replacement: `${unq[1]}"${unq[2]}"${unq[3]}` + cur.slice(unq[0].length),
+                };
+            }
+            // Unbalanced bracket — count
+            const opens  = (text.match(/[{[]/g) || []).length;
+            const closes = (text.match(/[}\]]/g) || []).length;
+            if (opens > closes) {
+                return { hint: `少了 ${opens - closes} 個結尾括號 } 或 ]`, replacement: null };
+            }
+            if (closes > opens) {
+                return { hint: `多了 ${closes - opens} 個結尾括號 } 或 ]`, replacement: null };
+            }
+            return null;
+        }
+
+        // ── Stats: total object keys (recursive) + max depth ──
+        function computeStats(value) {
+            let keys = 0;
+            let maxDepth = 0;
+            function walk(v, d) {
+                if (d > maxDepth) maxDepth = d;
+                if (v && typeof v === 'object') {
+                    if (Array.isArray(v)) {
+                        for (const item of v) walk(item, d + 1);
+                    } else {
+                        const ks = Object.keys(v);
+                        keys += ks.length;
+                        for (const k of ks) walk(v[k], d + 1);
+                    }
+                }
+            }
+            walk(value, 0);
+            return { keys, depth: maxDepth };
+        }
+
+        function updateStats(value) {
+            if (value === undefined || value === null && currentDocs.length === 0) {
+                $statKeys.hidden = true;
+                $statDepth.hidden = true;
+                return;
+            }
+            const { keys, depth } = computeStats(value);
+            $statKeys.hidden = false;
+            $statDepth.hidden = false;
+            $statKeys.textContent = `${keys} 個鍵`;
+            $statDepth.textContent = `深度 ${depth}`;
+        }
+
+        // ── Tree view renderer ────────────────────────
+        function renderTree(value) {
+            const root = document.createElement('div');
+            root.className = 'tree';
+            root.appendChild(buildTreeNode(null, value, 0, []));
+            return root;
+        }
+
+        function buildTreeNode(keyOrIdx, value, depth, path) {
+            const node = document.createElement('div');
+            node.className = 'tree-node';
+
+            const row = document.createElement('div');
+            row.className = 'tree-row';
+            // 把這個 row 對應的 JSON path 存進 dataset,用於游標反查
+            row.dataset.path = JSON.stringify(path);
+
+            const caret = document.createElement('span');
+            caret.className = 'tree-caret';
+            caret.textContent = '▾';
+            row.appendChild(caret);
+
+            // Key label (when it's an object key — array indices are not labelled
+            // because tree mode focuses on key navigation)
+            if (typeof keyOrIdx === 'string') {
+                const k = document.createElement('span');
+                k.className = 'tree-key';
+                k.textContent = JSON.stringify(keyOrIdx);
+                row.appendChild(k);
+                const colon = document.createElement('span');
+                colon.className = 'tree-colon';
+                colon.textContent = ':';
+                row.appendChild(colon);
+            } else if (typeof keyOrIdx === 'number') {
+                const k = document.createElement('span');
+                k.className = 'tree-summary';
+                k.textContent = `[${keyOrIdx}]`;
+                row.appendChild(k);
+                const colon = document.createElement('span');
+                colon.className = 'tree-colon';
+                colon.textContent = ':';
+                row.appendChild(colon);
+            }
+
+            const valSpan = document.createElement('span');
+
+            if (value === null) {
+                valSpan.innerHTML = `<span class="tok-null">null</span>`;
+                row.appendChild(valSpan);
+                node.appendChild(row);
+                return node;
+            }
+            const t = typeof value;
+            if (t === 'string') {
+                valSpan.innerHTML = `<span class="tok-string">${esc(JSON.stringify(value))}</span>`;
+                row.appendChild(valSpan);
+                node.appendChild(row);
+                return node;
+            }
+            if (t === 'number') {
+                valSpan.innerHTML = `<span class="tok-number">${esc(Number.isFinite(value) ? String(value) : 'null')}</span>`;
+                row.appendChild(valSpan);
+                node.appendChild(row);
+                return node;
+            }
+            if (t === 'boolean') {
+                valSpan.innerHTML = `<span class="tok-bool">${value}</span>`;
+                row.appendChild(valSpan);
+                node.appendChild(row);
+                return node;
+            }
+
+            // Array or object — expandable container with { N } / [ N ] summary
+            if (Array.isArray(value)) {
+                const summary = document.createElement('span');
+                summary.className = 'tree-summary';
+                summary.textContent = value.length === 0 ? '[ ]' : `[ ${value.length} ]`;
+                row.appendChild(summary);
+                node.appendChild(row);
+                if (value.length === 0) return node;
+                row.classList.add('expandable');
+
+                const children = document.createElement('div');
+                children.className = 'tree-children';
+                value.forEach((item, i) => {
+                    children.appendChild(buildTreeNode(i, item, depth + 1, [...path, i]));
+                });
+                node.appendChild(children);
+
+                // Default: deep nodes start collapsed (top 3 levels open)
+                if (depth >= 3) {
+                    row.classList.add('collapsed');
+                    children.classList.add('hidden');
+                }
+                row.addEventListener('click', () => toggleTreeRow(row, children));
+                return node;
+            }
+
+            // Plain object
+            const keys = Object.keys(value);
+            const summary = document.createElement('span');
+            summary.className = 'tree-summary';
+            summary.textContent = keys.length === 0 ? '{ }' : `{ ${keys.length} }`;
+            row.appendChild(summary);
+            node.appendChild(row);
+            if (keys.length === 0) return node;
+            row.classList.add('expandable');
+
+            const children = document.createElement('div');
+            children.className = 'tree-children';
+            for (const k of keys) {
+                children.appendChild(buildTreeNode(k, value[k], depth + 1, [...path, k]));
+            }
+            node.appendChild(children);
+
+            if (depth >= 3) {
+                row.classList.add('collapsed');
+                children.classList.add('hidden');
+            }
+            row.addEventListener('click', () => toggleTreeRow(row, children));
+            return node;
+        }
+
+        function toggleTreeRow(row, children) {
+            const collapsed = row.classList.toggle('collapsed');
+            children.classList.toggle('hidden', collapsed);
+        }
+
+        // ── Position-aware JSON parser ────────────────
+        // 用來把 textarea 中的游標位置 → 對應的 JSON path (例如 ["providedProps", 0])
+        // 避開「同名 key 取錯」的問題。回傳 AST 帶 start/end 字元範圍。
+        // 假設輸入是合法 JSON (已被 JSON.parse 驗證過),不做嚴格錯誤處理 — 解析失敗就 return null。
+        function parseWithPositions(text) {
+            let i = 0;
+            const n = text.length;
+            const isWs = c => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+            function skipWs() { while (i < n && isWs(text[i])) i++; }
+            function parseValue() {
+                skipWs();
+                if (i >= n) return null;
+                const c = text[i];
+                if (c === '{') return parseObject();
+                if (c === '[') return parseArray();
+                if (c === '"') return parseString();
+                return parsePrimitive();
+            }
+            function parseObject() {
+                const start = i;
+                i++;
+                const props = [];
+                skipWs();
+                if (text[i] === '}') {
+                    i++;
+                    return { kind: 'object', start, end: i, props };
+                }
+                while (i < n) {
+                    skipWs();
+                    if (text[i] !== '"') return null;
+                    const keyStart = i;
+                    // 字串內容掃描 (含 \" escape)
+                    i++;
+                    while (i < n) {
+                        if (text[i] === '\\') { i += 2; continue; }
+                        if (text[i] === '"') { i++; break; }
+                        i++;
+                    }
+                    const keyEnd = i;
+                    let key;
+                    try { key = JSON.parse(text.slice(keyStart, keyEnd)); }
+                    catch (_) { return null; }
+                    skipWs();
+                    if (text[i] !== ':') return null;
+                    i++;
+                    const value = parseValue();
+                    if (!value) return null;
+                    props.push({ key, keyStart, keyEnd, value });
+                    skipWs();
+                    if (text[i] === ',') { i++; continue; }
+                    if (text[i] === '}') { i++; break; }
+                    break;
+                }
+                return { kind: 'object', start, end: i, props };
+            }
+            function parseArray() {
+                const start = i;
+                i++;
+                const items = [];
+                skipWs();
+                if (text[i] === ']') {
+                    i++;
+                    return { kind: 'array', start, end: i, items };
+                }
+                while (i < n) {
+                    const value = parseValue();
+                    if (!value) return null;
+                    items.push(value);
+                    skipWs();
+                    if (text[i] === ',') { i++; continue; }
+                    if (text[i] === ']') { i++; break; }
+                    break;
+                }
+                return { kind: 'array', start, end: i, items };
+            }
+            function parseString() {
+                const start = i;
+                i++;
+                while (i < n) {
+                    if (text[i] === '\\') { i += 2; continue; }
+                    if (text[i] === '"') { i++; break; }
+                    i++;
+                }
+                return { kind: 'string', start, end: i };
+            }
+            function parsePrimitive() {
+                const start = i;
+                while (i < n && !isWs(text[i]) && text[i] !== ',' && text[i] !== '}' && text[i] !== ']') i++;
+                return { kind: 'primitive', start, end: i };
+            }
+            try { return parseValue(); } catch (_) { return null; }
+        }
+
+        // 從 AST 找出 pos 對應的 JSON path (relative to ast start)
+        // 回傳 { path: Array<string|number>, target: 'key'|'value' } 或 null
+        function findPathAtPos(node, pos, path = []) {
+            if (!node || pos < node.start || pos > node.end) return null;
+            if (node.kind === 'object') {
+                for (const prop of node.props) {
+                    // 游標在這個 prop 的 key 上
+                    if (pos >= prop.keyStart && pos <= prop.keyEnd) {
+                        return { path: [...path, prop.key], target: 'key' };
+                    }
+                    // 游標在這個 prop 的 value 範圍內
+                    if (pos >= prop.value.start && pos <= prop.value.end) {
+                        const sub = findPathAtPos(prop.value, pos, [...path, prop.key]);
+                        return sub || { path: [...path, prop.key], target: 'value' };
+                    }
+                }
+                return { path, target: 'value' };   // 落在物件結構但不在任何 prop 上 (例如 { } 邊框)
+            }
+            if (node.kind === 'array') {
+                for (let idx = 0; idx < node.items.length; idx++) {
+                    const item = node.items[idx];
+                    if (pos >= item.start && pos <= item.end) {
+                        const sub = findPathAtPos(item, pos, [...path, idx]);
+                        return sub || { path: [...path, idx], target: 'value' };
+                    }
+                }
+                return { path, target: 'value' };
+            }
+            return { path, target: 'value' };
+        }
+
+        // ── Multi-doc splitter ────────────────────────
+        // Walks the text tracking bracket depth + string state. Each time
+        // the depth returns to 0 after a top-level { or [, that's one doc.
+        // Handles {"a":1}{"b":2}, NDJSON (one per line), and mixed.
+        function splitJsonDocs(text) {
+            const docs = [];
+            let i = 0;
+            const n = text.length;
+            while (i < n) {
+                while (i < n && /\s/.test(text[i])) i++;
+                if (i >= n) break;
+                const c = text[i];
+
+                // Top-level primitive (rare for log data, but support it).
+                if (c !== '{' && c !== '[') {
+                    // grab one whitespace-bounded token
+                    const start = i;
+                    if (c === '"') {
+                        i++;
+                        while (i < n) {
+                            if (text[i] === '\\') { i += 2; continue; }
+                            if (text[i] === '"') { i++; break; }
+                            i++;
+                        }
+                    } else {
+                        while (i < n && !/\s/.test(text[i])) i++;
+                    }
+                    const slice = text.slice(start, i);
+                    pushDoc(docs, slice, start, i);
+                    continue;
+                }
+
+                // Object or array — scan until balanced
+                const start = i;
+                let depth = 0, inStr = false, esc = false;
+                for (; i < n; i++) {
+                    const ch = text[i];
+                    if (esc) { esc = false; continue; }
+                    if (inStr) {
+                        if (ch === '\\') esc = true;
+                        else if (ch === '"') inStr = false;
+                        continue;
+                    }
+                    if (ch === '"') inStr = true;
+                    else if (ch === '{' || ch === '[') depth++;
+                    else if (ch === '}' || ch === ']') {
+                        depth--;
+                        if (depth === 0) { i++; break; }
+                    }
+                }
+                pushDoc(docs, text.slice(start, i), start, i);
+                if (depth !== 0) break;   // malformed tail — stop scanning
+            }
+            return docs;
+        }
+        // start/end:該筆 doc 在原始 textarea 文字中的字元範圍,
+        // 用來反查「游標位置 → 是哪一筆」做雙向同步
+        // ast:position-aware AST (positions 相對於 raw 開頭),用來做精準 path 反查
+        function pushDoc(docs, raw, start, end) {
+            raw = raw.trim();
+            if (!raw) return;
+            let parsed = null, error = null, ast = null;
+            try {
+                parsed = JSON.parse(raw);
+                ast = parseWithPositions(raw);
+            } catch (e) { error = e; }
+            docs.push({ raw, parsed, error, start, end, ast });
+        }
+
+        // ── Doc-tabs UI ───────────────────────────────
+        function renderDocTabs() {
+            if (currentDocs.length <= 1) {
+                $docTabs.classList.remove('show');
+                $docTabs.innerHTML = '';
+                return;
+            }
+            $docTabs.classList.add('show');
+            $docTabs.innerHTML = '';
+            const errCount = currentDocs.filter(d => d.error).length;
+
+            const label = document.createElement('span');
+            label.className = 'doc-tabs-label';
+            label.textContent = `共 ${currentDocs.length} 筆${errCount ? ` · ${errCount} 筆失敗` : ''}`;
+            $docTabs.appendChild(label);
+
+            // "全部" chip → render as JSON array of all parsed values
+            const allChip = document.createElement('button');
+            allChip.className = 'doc-chip all' + (currentDocIdx === -1 ? ' active' : '');
+            allChip.textContent = '全部';
+            allChip.title = '把所有筆數合併為 JSON 陣列檢視';
+            allChip.addEventListener('click', () => { currentDocIdx = -1; renderDoc(); renderDocTabs(); });
+            $docTabs.appendChild(allChip);
+
+            currentDocs.forEach((d, idx) => {
+                const chip = document.createElement('button');
+                chip.className = 'doc-chip' + (idx === currentDocIdx ? ' active' : '') + (d.error ? ' has-error' : '');
+                chip.textContent = String(idx + 1);
+                chip.title = d.error ? `第 ${idx + 1} 筆解析失敗:${d.error.message}` : `第 ${idx + 1} 筆 · ${d.raw.length} 字`;
+                chip.addEventListener('click', () => { currentDocIdx = idx; renderDoc(); renderDocTabs(); });
+                $docTabs.appendChild(chip);
+            });
+        }
+
+        function renderDoc() {
+            // 內容變動後在下一影格重新判定底部 fade — DOM 寫入完成 layout 才會更新 scrollHeight
+            requestAnimationFrame(refreshFades);
+            $output.innerHTML = '';
+            if (currentDocs.length === 0) {
+                $output.className = 'output empty';
+                $output.textContent = '貼上 JSON 後會在此顯示格式化結果';
+                $outputTitle.textContent = '結果';
+                $statKeys.hidden = true;
+                $statDepth.hidden = true;
+                return;
+            }
+
+            // Render helper picks text or tree view (tree never used for errors)
+            const renderValue = (v) => viewMode === 'tree' ? renderTree(v) : renderPretty(v);
+
+            // "All" view: wrap parsed docs (errored ones become null) into an array
+            if (currentDocIdx === -1) {
+                const arr = currentDocs.map(d => d.parsed);
+                $output.className = 'output';
+                $output.appendChild(renderValue(arr));
+                $outputTitle.textContent = `合併檢視 · ${currentDocs.length} 筆陣列`;
+                updateStats(arr);
+                return;
+            }
+
+            const doc = currentDocs[currentDocIdx];
+            if (doc.error) {
+                $output.className = 'output error-mode';
+                $output.appendChild(renderError(doc.raw, doc.error));
+                $outputTitle.textContent = currentDocs.length > 1 ? `第 ${currentDocIdx + 1} 筆 · 解析錯誤` : '解析錯誤';
+                $statKeys.hidden = true;
+                $statDepth.hidden = true;
+                return;
+            }
+            $output.className = 'output';
+            $output.appendChild(renderValue(doc.parsed));
+            const v = doc.parsed;
+            const kind = Array.isArray(v) ? '陣列' : (typeof v === 'object' && v !== null ? '物件' : typeof v);
+            $outputTitle.textContent = currentDocs.length > 1
+                ? `第 ${currentDocIdx + 1} / ${currentDocs.length} 筆 · ${kind}`
+                : `結果 · ${kind}`;
+            updateStats(v);
+        }
+
+        // ── View-mode toggle (文字 / 樹狀) ──
+        $viewToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-view]');
+            if (!btn) return;
+            const next = btn.dataset.view;
+            if (next === viewMode) return;
+            viewMode = next;
+            $viewToggle.querySelectorAll('button').forEach(b =>
+                b.classList.toggle('active', b.dataset.view === next));
+            renderDoc();
+        });
+
+        // ── Parse + render pipeline ───────────────────
+        function update() {
+            const raw = $input.value;
+            setSize(new Blob([raw]).size);
+            if (!raw.trim()) {
+                currentDocs = []; currentDocIdx = 0;
+                $input.classList.remove('has-error');
+                renderDocTabs();
+                renderDoc();
+                setStatus('idle', '等待輸入');
+                return;
+            }
+            // Try single doc first (fast path — most pastes are one JSON)
+            try {
+                const parsed = JSON.parse(raw);
+                const ast = parseWithPositions(raw);
+                currentDocs = [{ raw, parsed, error: null, start: 0, end: raw.length, ast }];
+                currentDocIdx = 0;
+                $input.classList.remove('has-error');
+                renderDocTabs();
+                renderDoc();
+                setStatus('ok', '有效 JSON');
+                return;
+            } catch (singleErr) {
+                // Single parse failed — try multi-doc split.
+                const docs = splitJsonDocs(raw);
+                if (docs.length >= 2) {
+                    currentDocs = docs;
+                    // default view: 第 1 筆 (使用者通常先看第一筆)
+                    if (currentDocIdx >= docs.length || currentDocIdx < -1) currentDocIdx = 0;
+                    const errs = docs.filter(d => d.error).length;
+                    $input.classList.toggle('has-error', errs > 0);
+                    renderDocTabs();
+                    renderDoc();
+                    setStatus(errs ? 'err' : 'ok',
+                        errs ? `${docs.length} 筆 · ${errs} 筆失敗` : `${docs.length} 筆有效`);
+                    return;
+                }
+                // True single-doc error — fall back to git-diff style error UI
+                currentDocs = [{ raw, parsed: null, error: singleErr, start: 0, end: raw.length }];
+                currentDocIdx = 0;
+                $input.classList.add('has-error');
+                renderDocTabs();
+                renderDoc();
+                setStatus('err', '無效 JSON');
+                return;
+            }
+        }
+
+        // ── 底部 fade-blur:還沒滑到底就顯示模糊提示 ─────
+        const $inputWrap  = $input.parentElement;
+        const $outputWrap = $output.parentElement;
+
+        // 注入分層 blur stack — 每層 blur 強度遞增、mask 起點下移,
+        // 疊加產生「越靠近底部 blur 越強」的真正漸層 (單一 backdrop-filter 做不到)
+        function injectFadeStack(wrap) {
+            const stack = document.createElement('div');
+            stack.className = 'fade-blur-stack';
+            // start 是 mask 從透明變不透明的起點 (% of stack height)
+            // blur 是該層的 backdrop-filter 強度
+            const layers = [
+                { start: 0,  blur: 0.5 },
+                { start: 15, blur: 1 },
+                { start: 30, blur: 2 },
+                { start: 45, blur: 4 },
+                { start: 60, blur: 8 },
+                { start: 78, blur: 16 },
+            ];
+            for (const l of layers) {
+                const d = document.createElement('div');
+                d.className = 'fade-blur-layer';
+                d.style.backdropFilter = `blur(${l.blur}px)`;
+                d.style.webkitBackdropFilter = `blur(${l.blur}px)`;
+                const grad = `linear-gradient(to bottom, transparent ${l.start}%, black 100%)`;
+                d.style.maskImage = grad;
+                d.style.webkitMaskImage = grad;
+                stack.appendChild(d);
+            }
+            // 最頂再疊一層白色漸層,模糊以外加「淡出」感
+            const tint = document.createElement('div');
+            tint.className = 'fade-blur-tint';
+            stack.appendChild(tint);
+            wrap.appendChild(stack);
+        }
+        injectFadeStack($inputWrap);
+        injectFadeStack($outputWrap);
+
+        function updateFade(scrollEl, wrapEl) {
+            const stack = wrapEl.querySelector('.fade-blur-stack');
+            if (!stack) return;
+            const slack = 4;
+            const scrollable = scrollEl.scrollHeight > scrollEl.clientHeight + slack;
+            if (!scrollable) { stack.style.opacity = '0'; return; }
+            // 剩餘可捲距離,從 0 (在底) → fadeRange (滿模糊) 之間線性淡出
+            // 不用 CSS class 二值切換,避免「過門檻就突然跳出」的不絲滑感
+            const remaining = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+            const fadeRange = 60;
+            const opacity = Math.min(1, Math.max(0, remaining / fadeRange));
+            stack.style.opacity = opacity.toFixed(3);
+        }
+        const refreshFades = () => {
+            updateFade($input, $inputWrap);
+            updateFade($output, $outputWrap);
+        };
+        $input.addEventListener('scroll', () => updateFade($input, $inputWrap));
+        $output.addEventListener('scroll', () => {
+            updateFade($output, $outputWrap);
+            // 程式 rAF 動畫期間 scrollAnimId !== 0,避免把自己的捲動誤判為手動;
+            // 真的是使用者手捲時清掉記憶,下次相同 token 才能重新觸發捲動
+            if (scrollAnimId === 0) lastHlRow = null;
+        });
+        window.addEventListener('resize', refreshFades);
+
+        // ── 源數據 ↔ 結果同步:游標所在 doc 自動切到右側,並高亮選取的 key ─
+        // 找出 pos 落在哪一筆 doc(回傳 currentDocs 的 index;沒有匹配回 -1)
+        function findDocAt(pos) {
+            if (!currentDocs.length) return -1;
+            // 取「start ≤ pos」中最大的那筆(空白夾在兩 doc 之間時偏向前一筆)
+            let best = -1;
+            for (let i = 0; i < currentDocs.length; i++) {
+                const d = currentDocs[i];
+                if (d.start == null) continue;
+                if (d.start <= pos) best = i;
+                else break;
+            }
+            return best === -1 ? 0 : best;
+        }
+        // 取出游標處所屬的「字詞」+ 判斷是 key 還是 value
+        // 回傳 { token, kind }:
+        //   kind = 'key'    → quoted string 後面接 ':'
+        //   kind = 'string' → quoted string 不是 key (是 value 或陣列元素)
+        //   kind = 'word'   → 非 quoted (數字 / true / false / null / 未知)
+        function tokenContextAtPos(text, pos) {
+            // 1) 游標在 "..." 字串裡 — 找出包圍的引號邊界 (要考慮 \" escape)
+            const before = text.lastIndexOf('"', pos - 1);
+            if (before !== -1) {
+                const isStringStart = before === 0 || text[before - 1] !== '\\';
+                if (isStringStart) {
+                    // 從 before+1 掃描找配對的關閉引號 (跳過 \x escape)
+                    let endQuote = -1, scan = before + 1;
+                    while (scan < text.length) {
+                        if (text[scan] === '\\') { scan += 2; continue; }
+                        if (text[scan] === '"') { endQuote = scan; break; }
+                        scan++;
+                    }
+                    if (endQuote !== -1 && endQuote >= pos - 1) {
+                        const token = text.slice(before + 1, endQuote);
+                        // 看關閉引號之後 (略過空白) 第一個字元是不是 ':'
+                        let j = endQuote + 1;
+                        while (j < text.length && /\s/.test(text[j])) j++;
+                        const kind = text[j] === ':' ? 'key' : 'string';
+                        return { token, kind };
+                    }
+                }
+            }
+            // 2) 否則取 [\w.-]+ 連續字 (數字 / 布林 / 不帶引號的標識)
+            let s = pos, e = pos;
+            while (s > 0 && /[\w.\-]/.test(text[s - 1])) s--;
+            while (e < text.length && /[\w.\-]/.test(text[e])) e++;
+            return { token: text.slice(s, e), kind: 'word' };
+        }
+        function clearSelHighlight() {
+            $output.querySelectorAll('.sel-hl').forEach(el => el.classList.remove('sel-hl'));
+        }
+
+        // ── 自製 ease-out cubic 平滑捲動 ─────────────────
+        // 原生 scrollIntoView({behavior:'smooth'}) 在 selectionchange 密集觸發時
+        // 會互相打斷造成抖動,且時長無法控制 — 自己 rAF 管 + 可取消
+        let scrollAnimId = 0;
+        // 程式正在自動捲動時設旗標,讓 scroll listener 不要把這次當作手動捲動
+        let isProgrammaticScroll = false;
+        function smoothScrollToCenter(container, target, duration = 420) {
+            if (scrollAnimId) cancelAnimationFrame(scrollAnimId);
+            const cRect = container.getBoundingClientRect();
+            const tRect = target.getBoundingClientRect();
+            const targetCenterRel = (tRect.top - cRect.top) + tRect.height / 2;
+            const desiredCenter   = container.clientHeight / 2;
+            const delta = targetCenterRel - desiredCenter;
+            if (Math.abs(delta) < 2) return;   // 已經夠居中,不動
+            const startY = container.scrollTop;
+            const maxY = container.scrollHeight - container.clientHeight;
+            const endY = Math.max(0, Math.min(maxY, startY + delta));
+            const change = endY - startY;
+            if (change === 0) return;
+            const t0 = performance.now();
+            isProgrammaticScroll = true;
+            const step = (now) => {
+                const t = Math.min((now - t0) / duration, 1);
+                const ease = 1 - Math.pow(1 - t, 3);   // ease-out cubic
+                container.scrollTop = startY + change * ease;
+                if (t < 1) {
+                    scrollAnimId = requestAnimationFrame(step);
+                } else {
+                    scrollAnimId = 0;
+                    // 多等一輪 rAF 才關旗標,確保最後一次 scrollTop 變動的 scroll
+                    // event (可能延遲到下一影格) 也算程式觸發,不會被誤清 lastHlRow
+                    requestAnimationFrame(() => { isProgrammaticScroll = false; });
+                }
+            };
+            scrollAnimId = requestAnimationFrame(step);
+        }
+
+        // 樹狀模式:把目標節點的所有摺疊祖先展開,否則目標雖被加 sel-hl 也看不到
+        // (預設 depth >= 3 的節點啟動時是 collapsed,.tree-children 帶 .hidden)
+        function expandTreeAncestors(treeRow) {
+            let cur = treeRow.parentElement;   // 目標的 .tree-node
+            while (cur && cur.classList.contains('tree-node')) {
+                const parentChildren = cur.parentElement;
+                if (!parentChildren || !parentChildren.classList.contains('tree-children')) break;
+                parentChildren.classList.remove('hidden');
+                const ancestorNode = parentChildren.parentElement;
+                if (!ancestorNode) break;
+                const ancestorRow = ancestorNode.querySelector(':scope > .tree-row');
+                if (ancestorRow) ancestorRow.classList.remove('collapsed');
+                cur = ancestorNode;
+            }
+        }
+
+        // 文字模式:同理把祖先的 fold 解開 (使用者可能手動摺疊過)
+        // .fold-trigger.folded 的 row 之後到對應 closeIdx 的 row 都帶 .hidden
+        function expandPrettyAncestors(targetRow) {
+            // 解開的方式:把所有「在 target 之前、含 .folded、且其 fold 範圍包含 target」的 trigger 點開
+            // 但取得 fold 範圍需要事件 handler 內部的 openIdx/closeIdx — 從外部最簡單的做法是
+            // 反向迭代:對所有 .folded trigger 模擬 click 直到 target 不再 .hidden
+            if (!targetRow.classList.contains('hidden')) return;
+            const root = $output.querySelector('.pretty');
+            if (!root) return;
+            const folded = Array.from(root.querySelectorAll('.lc.fold-trigger.folded'));
+            // 從外層 (較淺 depth = 較前面 row) 往內展開
+            for (const trig of folded) {
+                trig.click();
+                if (!targetRow.classList.contains('hidden')) break;
+            }
+        }
+
+        // 在右側結果中找出對應 token 的 row,加上 sel-hl
+        // 記住上次命中的 row — 同目標重複觸發時不重捲,避免拖選/連續輸入時抖動
+        let lastHlRow = null;
+        // kind 決定查哪種 token:
+        //   'key'    → .tok-key / .tree-key  (避免誤命中同名的 value)
+        //   'string' → .tok-string           (字串 value / 陣列元素)
+        //   'word'   → .tok-key / .tok-number / .tok-bool / 全部 (數字 token 可能對應 key 也可能對應值)
+        function highlightOutputToken(token, kind = 'word') {
+            clearSelHighlight();
+            if (!token) {
+                lastHlRow = null;
+                return;
+            }
+            // key/string 在 DOM 裡都帶兩側引號 (JSON.stringify 結果);word 則照原樣
+            const needle = kind === 'word' ? token : `"${token}"`;
+            let selector;
+            if (kind === 'key')    selector = '.tok-key, .tree-key';
+            else if (kind === 'string') selector = '.tok-string';
+            else /* word */         selector = '.tok-number, .tok-bool, .tok-null';
+            const candidates = $output.querySelectorAll(selector);
+            let firstRow = null;
+            candidates.forEach(el => {
+                if (el.textContent === needle) {
+                    const row = el.closest('.row, .tree-row');
+                    if (row) {
+                        row.classList.add('sel-hl');
+                        if (!firstRow) firstRow = row;
+                    }
+                }
+            });
+            if (firstRow && firstRow !== lastHlRow) {
+                lastHlRow = firstRow;
+                // 先把摺疊的祖先展開,不然視覺上沒反應 (使用者看到的是還在收起來的父節點)
+                if (firstRow.classList.contains('tree-row')) {
+                    expandTreeAncestors(firstRow);
+                } else {
+                    expandPrettyAncestors(firstRow);
+                }
+                // pretty 模式的 .row 是 display:contents 沒有 box,
+                // 改用裡面的 .lc 當捲動 anchor;tree-row 則直接用 row
+                const anchor = firstRow.classList.contains('tree-row')
+                    ? firstRow
+                    : firstRow.querySelector('.lc');
+                if (anchor) smoothScrollToCenter($output, anchor);
+            }
+        }
+        // 由 AST path 精準命中對應 row (避開同名 key 的歧義)
+        function highlightByPath(pathArr) {
+            clearSelHighlight();
+            if (!pathArr) {
+                lastHlRow = null;
+                return;
+            }
+            const target = JSON.stringify(pathArr);
+            // pretty: .row[data-path];tree: .tree-row[data-path] — 兩種都掃
+            const candidates = $output.querySelectorAll('[data-path]');
+            let firstRow = null;
+            for (const el of candidates) {
+                if (el.dataset.path === target) {
+                    el.classList.add('sel-hl');
+                    if (!firstRow) firstRow = el;
+                }
+            }
+            if (firstRow && firstRow !== lastHlRow) {
+                lastHlRow = firstRow;
+                if (firstRow.classList.contains('tree-row')) {
+                    expandTreeAncestors(firstRow);
+                } else {
+                    expandPrettyAncestors(firstRow);
+                }
+                const anchor = firstRow.classList.contains('tree-row')
+                    ? firstRow
+                    : firstRow.querySelector('.lc');
+                if (anchor) smoothScrollToCenter($output, anchor);
+            }
+        }
+
+        // 主同步:被觸發時根據 selectionStart 切 doc + 走 path 高亮
+        let syncRafId = 0;
+        function syncFromCursor() {
+            if (!currentDocs.length) return;
+            // rAF 節流:selectionchange 會密集觸發
+            if (syncRafId) cancelAnimationFrame(syncRafId);
+            syncRafId = requestAnimationFrame(() => {
+                syncRafId = 0;
+                const selStart = $input.selectionStart;
+                const selEnd = $input.selectionEnd;
+                // 1) 切到游標所在 doc(原本就在這筆就不重 render)
+                const idx = findDocAt(selStart);
+                if (idx >= 0 && idx !== currentDocIdx) {
+                    currentDocIdx = idx;
+                    renderDocTabs();
+                    renderDoc();
+                }
+                const doc = currentDocs[currentDocIdx];
+                if (!doc) return;
+                // 2) 用 AST 算精準 path — 解決同名 key 取錯的問題
+                if (doc.ast) {
+                    const relPos = selStart - (doc.start || 0);
+                    const result = findPathAtPos(doc.ast, relPos);
+                    if (result) {
+                        highlightByPath(result.path);
+                        return;
+                    }
+                }
+                // 3) AST 不可用 (解析失敗 / doc 沒位置) → 退回文字比對
+                const ctx = tokenContextAtPos($input.value, selStart);
+                let token = ctx.token;
+                if (selStart !== selEnd) {
+                    token = $input.value.slice(selStart, selEnd)
+                        .replace(/^["']|["']$/g, '').trim();
+                }
+                highlightOutputToken(token, ctx.kind);
+            });
+        }
+        // selectionchange 一次抓 click/拖曳/方向鍵/Home/End 所有狀況
+        document.addEventListener('selectionchange', () => {
+            if (document.activeElement === $input) syncFromCursor();
+        });
+
+        // ── Events ────────────────────────────────────
+        $input.addEventListener('input', update);
+
+        // Auto-format on paste inside the textarea:
+        // wait one tick so the paste lands first, then try to format.
+        $input.addEventListener('paste', () => {
+            setTimeout(() => {
+                try {
+                    const v = JSON.parse($input.value);
+                    $input.value = JSON.stringify(v, null, 2);
+                } catch (_) { /* leave raw, error UI handles it */ }
+                update();
+            }, 0);
+        });
+
+        // Page-wide paste: anywhere on the page that isn't already a text input
+        // pipes the clipboard into the JSON tool. Lets you Ctrl+V from anywhere
+        // without first clicking the textarea.
+        document.addEventListener('paste', (e) => {
+            const ae = document.activeElement;
+            const inEditable = ae && (
+                ae === $input ||
+                ae.tagName === 'INPUT' ||
+                ae.tagName === 'TEXTAREA' ||
+                ae.isContentEditable
+            );
+            if (inEditable) return;   // let the focused field handle it normally
+
+            const text = e.clipboardData?.getData('text');
+            if (!text) return;
+            e.preventDefault();
+
+            $input.value = text;
+            try {
+                const v = JSON.parse(text);
+                $input.value = JSON.stringify(v, null, 2);
+            } catch (_) { /* keep raw, error UI shows diff */ }
+            update();
+            $input.focus();
+            // park cursor at end so user can immediately keep editing
+            $input.setSelectionRange($input.value.length, $input.value.length);
+        });
+
+        // 重要:格式化/壓縮以 textarea 即時內容為準、重新切分,避免跟 currentDocs 狀態不同步
+        // (例如貼上後混合了原本舊內容,或多次點擊間 currentDocs 沒重新計算的邊角情況)
+        document.getElementById('btnFormat').addEventListener('click', () => {
+            const raw = $input.value;
+            if (!raw.trim()) return;
+            // single-doc fast path
+            try {
+                const v = JSON.parse(raw);
+                $input.value = JSON.stringify(v, null, 2);
+                update();
+                return;
+            } catch (_) { /* fall through */ }
+            // multi-doc: split + pretty each + join with blank line
+            const docs = splitJsonDocs(raw);
+            if (!docs.length) { update(); return; }
+            $input.value = docs
+                .map(d => d.parsed != null ? JSON.stringify(d.parsed, null, 2) : d.raw)
+                .join('\n\n');
+            update();
+        });
+
+        document.getElementById('btnMinify').addEventListener('click', () => {
+            const raw = $input.value;
+            if (!raw.trim()) return;
+            try {
+                const v = JSON.parse(raw);
+                $input.value = JSON.stringify(v);
+                update();
+                return;
+            } catch (_) { /* fall through */ }
+            const docs = splitJsonDocs(raw);
+            if (!docs.length) { update(); return; }
+            // NDJSON-style: minified, one per line
+            $input.value = docs
+                .map(d => d.parsed != null ? JSON.stringify(d.parsed) : d.raw)
+                .join('\n');
+            update();
+        });
+
+        const $btnCopy = document.getElementById('btnCopy');
+        $btnCopy.addEventListener('click', async () => {
+            try {
+                let textOut = '';
+                if (currentDocs.length === 0) throw new Error('沒有內容');
+                if (currentDocIdx === -1) {
+                    textOut = JSON.stringify(currentDocs.map(d => d.parsed), null, 2);
+                } else {
+                    const d = currentDocs[currentDocIdx];
+                    if (d.error) throw new Error('該筆無有效 JSON');
+                    textOut = JSON.stringify(d.parsed, null, 2);
+                }
+                await navigator.clipboard.writeText(textOut);
+                flashPill('ok', '已複製');
+                // 按鈕本身也短暫變綠,因為頂部 pill 距離按鈕遠,本地回饋更明顯
+                $btnCopy.classList.add('copied');
+                setTimeout(() => $btnCopy.classList.remove('copied'), 900);
+            } catch (e) {
+                flashPill('err', e.message || '無有效 JSON 可複製');
+            }
+        });
+
+        document.getElementById('btnClear').addEventListener('click', () => {
+            $input.value = '';
+            update();
+            $input.focus();
+        });
+
+        document.getElementById('btnSample').addEventListener('click', () => {
+            $input.value = SAMPLE;
+            update();
+        });
+
+        function flashPill(kind, text) {
+            const prevKind = $pill.className;
+            const prevText = $pillText.textContent;
+            setStatus(kind, text);
+            setTimeout(() => {
+                $pill.className = prevKind;
+                $pillText.textContent = prevText;
+            }, 1500);
+        }
+
+        const SAMPLE = `{
+  "tool": "JSON 格式化",
+  "version": 1.0,
+  "features": ["paste auto-parse", "syntax highlight", "git-diff error"],
+  "supports": {
+    "string": "hello",
+    "number": 42,
+    "boolean": true,
+    "null": null,
+    "nested": { "a": [1, 2, 3], "b": { "c": "deep" } }
+  }
+}`;
+    })();
+    </script>
+</body>
+</html>
