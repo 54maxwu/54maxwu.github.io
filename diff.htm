@@ -19,6 +19,9 @@
             background: #fff;
             border-bottom: 1px solid #e2e8f0;
             padding: 14px 24px;
+            /* 跟其他工具的 header 統一高度 — 即使內容物 (按鈕/pill) 高度不同,
+               min-height 鎖住外框高度,讓三個工具切換時 header 不會跳動 */
+            min-height: 60px;
             display: flex;
             align-items: center;
             box-shadow: 0 1px 3px rgba(0,0,0,.06);
