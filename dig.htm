@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>DNS Dig 工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .status-pill.idle  { color: #64748b; }
+        .status-pill.busy  { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.ok    { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err   { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .page-content {
+            padding: 24px 20px 60px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 24px;
+        }
+
+        /* ── Domain input ── */
+        .field-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #0d9488;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+        .domain-input {
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 10px 4px;
+            border: none;
+            border-bottom: 2px solid #cbd5e1;
+            background: transparent;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            color: #1e293b;
+            transition: border-color 0.18s;
+            outline: none;
+        }
+        .domain-input:focus { border-bottom-color: #0d9488; }
+        .domain-input::placeholder { color: #94a3b8; }
+
+        /* ── Type chip buttons ── */
+        .types {
+            margin-top: 22px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .type-btn {
+            background: transparent;
+            border: none;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
+            cursor: pointer;
+            border-radius: 6px;
+            letter-spacing: 0.06em;
+            font-family: inherit;
+            transition: background-color 0.14s, color 0.14s, transform 0.08s;
+        }
+        .type-btn:hover { background: rgba(13,148,136,0.1); color: #0d9488; }
+        .type-btn:active { transform: scale(0.96); }
+        .type-btn.active {
+            background: linear-gradient(145deg, #14b8a6, #0d9488);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(13,148,136,0.35);
+        }
+        .type-btn.loading::after {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-left: 6px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Results card ── */
+        .result-card {
+            margin-top: 22px;
+            background: rgba(255,255,255,0.85);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px 22px;
+            min-height: 120px;
+        }
+        .result-empty {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            padding: 32px 0;
+        }
+        .result-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            font-size: 11px;
+            color: #64748b;
+            border-bottom: 1px dashed #e2e8f0;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        }
+        .result-meta strong { color: #1e293b; }
+        .meta-flag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 700;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            letter-spacing: 0.04em;
+        }
+        .meta-flag.on { background: #ecfdf5; color: #15803d; border-color: #bbf7d0; }
+        .meta-flag.warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+        .meta-flag.err  { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+        .answer-section {
+            margin-bottom: 18px;
+        }
+        .answer-section:last-child { margin-bottom: 0; }
+        .section-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: #0d9488;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .rr {
+            display: grid;
+            grid-template-columns: 70px 1fr 80px;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: rgba(248,250,252,0.85);
+            border: 1px solid #f1f5f9;
+            margin-bottom: 6px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12.5px;
+            align-items: start;
+        }
+        .rr:hover { background: rgba(241,245,249,1); }
+        .rr-type {
+            font-weight: 800;
+            color: #0d9488;
+            font-size: 11.5px;
+            letter-spacing: 0.04em;
+        }
+        .rr-data {
+            color: #1e293b;
+            word-break: break-all;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        .rr-ttl {
+            color: #64748b;
+            text-align: right;
+            font-size: 11px;
+        }
+        .rr-ttl small { color: #94a3b8; }
+
+        .err-msg {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* ── Raw JSON button + modal ── */
+        .raw-btn {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            z-index: 5;
+            background: linear-gradient(145deg, #fb923c, #f97316);
+            border: 1px solid #f97316;
+            border-radius: 999px;
+            padding: 10px 20px;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
+        }
+        .raw-btn:hover {
+            background: linear-gradient(145deg, #f97316, #c2410c);
+            border-color: #c2410c;
+            box-shadow: 0 6px 20px rgba(194, 65, 12, 0.5);
+            transform: translateY(-1px);
+        }
+        .raw-btn:active { transform: scale(0.97); }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 24px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 720px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .modal-close {
+            background: transparent;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            color: #64748b;
+            font-family: inherit;
+            transition: background 0.12s, color 0.12s;
+        }
+        .modal-close:hover { background: #fef2f2; color: #b91c1c; }
+
+        .raw-json {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 14px 16px;
+            margin: 0;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* ── 頁面雙欄: 左 DNS 工具撐開,右 RDAP 固定窄欄,等高對齊 ── */
+        .page-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 420px;
+            gap: 18px;
+            /* align-items 預設 stretch — 兩欄高度跟著較高那邊一致,避免下方留空 */
+        }
+        @media (max-width: 960px) {
+            .page-grid { grid-template-columns: 1fr; }
+        }
+
+        .rdap-card {
+            background: rgba(255,255,255,0.85);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px 22px;
+            min-height: 120px;
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+            /* 自訂捲軸 — Firefox */
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        /* 自訂捲軸 — WebKit (Chrome/Edge/Safari) 淺色版,給 RDAP 卡 */
+        .rdap-card::-webkit-scrollbar { width: 6px; }
+        .rdap-card::-webkit-scrollbar-track { background: transparent; }
+        .rdap-card::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+        .rdap-card::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* 深色版捲軸,給 modal 內的原始 JSON pre */
+        .raw-json { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .raw-json::-webkit-scrollbar { width: 8px; height: 8px; }
+        .raw-json::-webkit-scrollbar-track { background: transparent; }
+        .raw-json::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 999px;
+        }
+        .raw-json::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .rdap-card-title {
+            font-size: 11.5px;
+            font-weight: 800;
+            color: #7c3aed;
+            letter-spacing: 0.06em;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .rdap-empty, .rdap-loading {
+            text-align: center;
+            font-size: 12px;
+            padding: 22px 0;
+        }
+        .rdap-empty { color: #94a3b8; }
+        .rdap-loading { color: #7c3aed; }
+        .rdap-spin {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 2px solid rgba(124,58,237,0.2);
+            border-top-color: #7c3aed;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        /* ── RDAP key-value table ── */
+        .kv-grid {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 8px 14px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12.5px;
+            padding: 12px 14px;
+            background: rgba(248,250,252,0.85);
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+            margin: 0;
+        }
+        .kv-grid dt {
+            color: #64748b;
+            font-weight: 600;
+            font-size: 11.5px;
+            align-self: center;
+        }
+        .kv-grid dd {
+            color: #1e293b;
+            word-break: break-all;
+            margin: 0;
+            line-height: 1.5;
+        }
+        .kv-grid dd.expire-warn { color: #b45309; font-weight: 700; }
+        .kv-grid dd.expire-soon { color: #b91c1c; font-weight: 700; }
+
+        .ns-list, .status-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 10px 12px;
+            background: rgba(248,250,252,0.85);
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+        }
+        .ns-item {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12px;
+            color: #1e293b;
+        }
+        .status-list {
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        .status-tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+        .status-tag.warn { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+
+        .redact-note {
+            padding: 12px 14px;
+            color: #94a3b8;
+            font-size: 12px;
+            font-style: italic;
+            background: rgba(248,250,252,0.85);
+            border: 1px dashed #e2e8f0;
+            border-radius: 8px;
+        }
+
+        /* ── Fallback box (TLD 沒 RDAP / CORS 擋住等) ── */
+        .fallback-box {
+            text-align: center;
+            padding: 28px 20px;
+        }
+        .fallback-box p {
+            color: #475569;
+            font-size: 13px;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        .fallback-box .reason {
+            font-size: 11.5px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            word-break: break-all;
+        }
+        .ext-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            background: linear-gradient(145deg, #8b5cf6, #7c3aed);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 2px 6px rgba(124,58,237,0.3);
+            transition: transform 0.08s, box-shadow 0.15s;
+        }
+        .ext-btn:hover { box-shadow: 0 4px 12px rgba(124,58,237,0.4); }
+        .ext-btn:active { transform: scale(0.97); }
+
+        /* ── Help row (provider switch + tip) ── */
+        .help-row {
+            margin-top: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #64748b;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .provider-select {
+            display: inline-flex;
+            background: rgba(255,255,255,0.85);
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 2px;
+        }
+        .provider-select button {
+            background: transparent;
+            border: none;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+            transition: all 0.14s;
+        }
+        .provider-select button.active {
+            background: #0d9488;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>DNS Dig 工具</h1>
+        <div class="header-meta">
+            <span>查 DNS 紀錄 · DoH JSON 直連</span>
+            <span class="status-pill idle" id="statusPill">
+                <span class="dot"></span><span id="statusText">輸入網域開始查詢</span>
+            </span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="page-grid">
+            <div class="glass">
+                <div class="field-label">網域名稱</div>
+                <input type="text" id="domainInput" class="domain-input" autocomplete="off" spellcheck="false"
+                    placeholder="example.com  (按 Enter 查 A 紀錄,或點下方任一類型)">
+
+                <div class="types" id="typesGrid"></div>
+
+                <div class="result-card" id="resultCard">
+                    <div class="result-empty">輸入網域 + 點任一紀錄類型開始查詢</div>
+                </div>
+
+                <div class="help-row">
+                    <div>
+                        <strong>DoH 提供者:</strong>
+                        <span class="provider-select" id="providerSelect">
+                            <button data-provider="google" class="active">Google</button>
+                            <button data-provider="cloudflare">Cloudflare</button>
+                        </span>
+                    </div>
+                </div>
+
+                <button type="button" class="raw-btn" id="rawBtn">顯示原始 JSON</button>
+            </div>
+
+            <div class="rdap-card" id="rdapCard">
+                <div class="rdap-card-title">註冊資訊 RDAP</div>
+                <div class="rdap-empty">輸入網域後將自動載入註冊資訊</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="jsonModal" hidden>
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>原始 JSON · DoH 回應</span>
+                <button type="button" class="modal-close" id="jsonModalClose" aria-label="關閉">×</button>
+            </div>
+            <pre class="raw-json" id="rawJson"></pre>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        const $input    = document.getElementById('domainInput');
+        const $types    = document.getElementById('typesGrid');
+        const $result   = document.getElementById('resultCard');
+        const $rdapCard = document.getElementById('rdapCard');
+        const $rawJson  = document.getElementById('rawJson');
+        const $rawBtn   = document.getElementById('rawBtn');
+        const $jsonModal = document.getElementById('jsonModal');
+        const $jsonModalClose = document.getElementById('jsonModalClose');
+        const $statusPill = document.getElementById('statusPill');
+        const $statusText = document.getElementById('statusText');
+        const $providerSelect = document.getElementById('providerSelect');
+
+        // RFC 標準的 DNS RR Type — name → IANA 號碼
+        // 跟 Google Admin Toolbox 一樣的覆蓋範圍
+        const TYPES = [
+            ['A', 1], ['AAAA', 28], ['ANY', 255], ['CAA', 257], ['CNAME', 5],
+            ['DNSKEY', 48], ['DS', 43], ['HTTPS', 65], ['MX', 15], ['NS', 2],
+            ['PTR', 12], ['SOA', 6], ['SRV', 33], ['SVCB', 64], ['TLSA', 52],
+            ['TSIG', 250], ['TXT', 16],
+        ];
+        // type 號碼 → name (反查用 — Answer record 的 type 是數字)
+        const TYPE_NAME = Object.fromEntries(TYPES.map(([n, c]) => [c, n]));
+        // RCODE (Status) 對照 — RFC 6895
+        const RCODE = {
+            0: 'NOERROR', 1: 'FORMERR', 2: 'SERVFAIL', 3: 'NXDOMAIN',
+            4: 'NOTIMP', 5: 'REFUSED', 6: 'YXDOMAIN', 7: 'YXRRSET',
+            8: 'NXRRSET', 9: 'NOTAUTH', 10: 'NOTZONE',
+        };
+        const PROVIDERS = {
+            google:     'https://dns.google/resolve',
+            cloudflare: 'https://cloudflare-dns.com/dns-query',
+        };
+        let currentProvider = 'google';
+        let lastType = 'A';
+        let inFlight = null;   // 上一個 fetch 的 AbortController — 切換時取消
+
+        // ── Type buttons render ───────────────────────
+        function renderTypes() {
+            $types.innerHTML = '';
+            for (const [name] of TYPES) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'type-btn' + (name === lastType ? ' active' : '');
+                btn.dataset.type = name;
+                btn.textContent = name;
+                btn.addEventListener('click', () => doQuery(name));
+                $types.appendChild(btn);
+            }
+        }
+        renderTypes();
+
+        function setActive(typeName) {
+            $types.querySelectorAll('.type-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.type === typeName);
+                b.classList.remove('loading');
+            });
+        }
+        function setLoading(typeName, on) {
+            const btn = $types.querySelector(`.type-btn[data-type="${typeName}"]`);
+            if (btn) btn.classList.toggle('loading', on);
+        }
+
+        // ── TTL pretty print ──────────────────────────
+        function fmtTTL(sec) {
+            if (sec == null) return '';
+            if (sec < 60) return `${sec} sec`;
+            if (sec < 3600) {
+                const m = Math.round(sec / 60);
+                return `${m} min${m > 1 ? 's' : ''}`;
+            }
+            if (sec < 86400) {
+                const h = (sec / 3600).toFixed(1).replace(/\.0$/, '');
+                return `${h} hr${parseFloat(h) > 1 ? 's' : ''}`;
+            }
+            const d = (sec / 86400).toFixed(1).replace(/\.0$/, '');
+            return `${d} day${parseFloat(d) > 1 ? 's' : ''}`;
+        }
+
+        function setStatus(kind, text) {
+            $statusPill.className = 'status-pill ' + kind;
+            $statusText.textContent = text;
+        }
+
+        // ── Build DoH URL ─────────────────────────────
+        function buildDoHUrl(name, type) {
+            const base = PROVIDERS[currentProvider];
+            const params = new URLSearchParams({ name, type });
+            // Cloudflare 需要明確告訴它要 JSON 而不是 wireformat
+            if (currentProvider === 'cloudflare') params.set('ct', 'application/dns-json');
+            return `${base}?${params}`;
+        }
+
+        // ── Query ────────────────────────────────────
+        async function doQuery(typeName) {
+            const name = $input.value.trim();
+            if (!name) {
+                setStatus('err', '請先輸入網域名稱');
+                $input.focus();
+                return;
+            }
+
+            // 同步在右側拉 RDAP (依網域快取,同網域不重打)
+            ensureRdap(name);
+
+            // 取消前一個請求 (例如使用者連點多顆按鈕)
+            if (inFlight) inFlight.abort();
+            const ac = new AbortController();
+            inFlight = ac;
+
+            lastType = typeName;
+            setActive(typeName);
+            setLoading(typeName, true);
+            setStatus('busy', `查詢 ${typeName} 紀錄中...`);
+
+            try {
+                const url = buildDoHUrl(name, typeName);
+                const headers = { Accept: 'application/dns-json' };
+                const res = await fetch(url, { headers, signal: ac.signal });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                inFlight = null;
+                setLoading(typeName, false);
+                renderResult(data, name, typeName);
+                $rawJson.textContent = JSON.stringify(data, null, 2);
+                // status: 看 RCODE
+                const rcode = data.Status;
+                if (rcode === 0) {
+                    const n = (data.Answer || []).length;
+                    setStatus('ok', n ? `${n} 筆紀錄 · NOERROR` : `查無紀錄 · NOERROR`);
+                } else {
+                    setStatus('err', `RCODE ${rcode} · ${RCODE[rcode] || 'UNKNOWN'}`);
+                }
+            } catch (e) {
+                if (e.name === 'AbortError') return;  // 被取消,別更新狀態
+                setLoading(typeName, false);
+                setStatus('err', '查詢失敗:' + e.message);
+                $result.innerHTML = `<div class="err-msg">查詢失敗:${escapeHtml(e.message)}<br><br>` +
+                    `請確認網路連線正常,或嘗試切換 DoH 提供者。</div>`;
+                $rawJson.textContent = '';
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ── Render answer/authority/additional sections ─
+        function renderResult(data, queryName, queryType) {
+            $result.innerHTML = '';
+
+            // Meta line — RCODE / flags / question
+            const meta = document.createElement('div');
+            meta.className = 'result-meta';
+            const rcode = data.Status;
+            const rcodeText = RCODE[rcode] || `RCODE ${rcode}`;
+            const flagsHtml = [
+                rcode === 0
+                    ? `<span class="meta-flag on">${rcodeText}</span>`
+                    : `<span class="meta-flag err">${rcodeText}</span>`,
+                data.TC ? '<span class="meta-flag warn">TC (truncated)</span>' : '',
+                data.RD ? '<span class="meta-flag on">RD</span>' : '',
+                data.RA ? '<span class="meta-flag on">RA</span>' : '',
+                data.AD ? '<span class="meta-flag on">AD (DNSSEC)</span>' : '',
+                data.CD ? '<span class="meta-flag warn">CD</span>' : '',
+            ].filter(Boolean).join(' ');
+            meta.innerHTML =
+                `<span>查詢: <strong>${escapeHtml(queryName)}</strong> / <strong>${queryType}</strong></span>` +
+                `<span style="display:inline-flex;gap:4px;flex-wrap:wrap;">${flagsHtml}</span>`;
+            $result.appendChild(meta);
+
+            // 三個區段:Answer / Authority / Additional
+            // Google DoH 通常只回 Answer,Cloudflare 偶爾會回 Authority
+            const sections = [
+                { key: 'Answer',     title: 'Answer (回答)' },
+                { key: 'Authority',  title: 'Authority (權威)' },
+                { key: 'Additional', title: 'Additional (附加)' },
+            ];
+            let hasAny = false;
+            for (const s of sections) {
+                const records = data[s.key];
+                if (!records || !records.length) continue;
+                hasAny = true;
+                const sec = document.createElement('div');
+                sec.className = 'answer-section';
+                const title = document.createElement('div');
+                title.className = 'section-title';
+                title.textContent = `${s.title} · ${records.length} 筆`;
+                sec.appendChild(title);
+                for (const rec of records) {
+                    sec.appendChild(buildRR(rec));
+                }
+                $result.appendChild(sec);
+            }
+            if (!hasAny) {
+                const empty = document.createElement('div');
+                empty.className = 'result-empty';
+                empty.textContent = rcode === 0
+                    ? `查詢成功,但沒有 ${queryType} 紀錄`
+                    : `查詢失敗:${rcodeText}`;
+                $result.appendChild(empty);
+            }
+        }
+
+        function buildRR(rec) {
+            const row = document.createElement('div');
+            row.className = 'rr';
+            const typeName = TYPE_NAME[rec.type] || `TYPE${rec.type}`;
+            const typeCell = document.createElement('div');
+            typeCell.className = 'rr-type';
+            typeCell.textContent = typeName;
+            const dataCell = document.createElement('div');
+            dataCell.className = 'rr-data';
+            dataCell.textContent = rec.data;
+            const ttlCell = document.createElement('div');
+            ttlCell.className = 'rr-ttl';
+            ttlCell.innerHTML = `<small>TTL</small> ${fmtTTL(rec.TTL)}`;
+            row.appendChild(typeCell);
+            row.appendChild(dataCell);
+            row.appendChild(ttlCell);
+            return row;
+        }
+
+        // ── RDAP query (常駐右側面板,跟著 DNS 查詢一起觸發) ──
+        // rdap.org 是 IANA bootstrap 的 HTTP 代理 — 自動 302 轉到正確 TLD registry
+        let rdapCurrentName = null;   // 已成功/已 404 的網域,同網域不重打
+        let rdapInFlight = null;
+
+        async function ensureRdap(name) {
+            if (name === rdapCurrentName) return;   // 快取命中
+            rdapCurrentName = name;
+
+            if (rdapInFlight) rdapInFlight.abort();
+            const ac = new AbortController();
+            rdapInFlight = ac;
+
+            setRdapLoading();
+
+            try {
+                const url = `https://rdap.org/domain/${encodeURIComponent(name)}`;
+                const res = await fetch(url, { signal: ac.signal });
+                rdapInFlight = null;
+
+                if (res.status === 404) {
+                    renderRdapFallback(name, 'IANA RDAP bootstrap 沒有此 TLD 的登錄 — 可能只支援傳統 WHOIS (例如 .ph / .my / .id 等)');
+                    return;   // 404 是永久狀態,保留快取
+                }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+                renderRdap(data, name);
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+                renderRdapFallback(name, e.message + ' — 可能是該 TLD registry 未開放 CORS,或網路問題');
+                rdapCurrentName = null;   // 網路錯誤允許重試
+            }
+        }
+
+        function makeRdapTitle(spinning) {
+            const t = document.createElement('div');
+            t.className = 'rdap-card-title';
+            t.innerHTML = '註冊資訊 RDAP' + (spinning ? '<span class="rdap-spin"></span>' : '');
+            return t;
+        }
+
+        function setRdapLoading() {
+            $rdapCard.innerHTML = '';
+            $rdapCard.appendChild(makeRdapTitle(true));
+            const loading = document.createElement('div');
+            loading.className = 'rdap-loading';
+            loading.textContent = '查詢中...';
+            $rdapCard.appendChild(loading);
+        }
+
+        function renderRdapFallback(name, reason) {
+            $rdapCard.innerHTML = '';
+            $rdapCard.appendChild(makeRdapTitle(false));
+            const safeName = escapeHtml(name);
+            const safeReason = escapeHtml(reason);
+            $rdapCard.insertAdjacentHTML('beforeend', `
+                <div class="fallback-box">
+                    <p><strong>${safeName}</strong> 無法透過 RDAP 查詢</p>
+                    <div class="reason">${safeReason}</div>
+                    <a class="ext-btn" target="_blank" rel="noopener noreferrer"
+                       href="https://who.is/whois/${encodeURIComponent(name)}">
+                       在 who.is 開啟 WHOIS →
+                    </a>
+                </div>
+            `);
+        }
+
+        // vCard 4.0 in RDAP: ["vcard", [["version",{},"text","4.0"], ["fn",{},"text","..."], ...]]
+        function parseVcard(arr) {
+            if (!Array.isArray(arr) || arr[0] !== 'vcard' || !Array.isArray(arr[1])) return {};
+            const out = {};
+            for (const entry of arr[1]) {
+                if (!Array.isArray(entry) || entry.length < 4) continue;
+                const prop = entry[0];
+                const value = entry[3];
+                if (value == null || value === '') continue;
+                let v;
+                if (prop === 'adr' && Array.isArray(value)) {
+                    v = value.filter(Boolean).join(', ');
+                } else {
+                    v = Array.isArray(value) ? value.join(' ') : String(value);
+                }
+                if (!v) continue;
+                out[prop] = out[prop] ? out[prop] + ', ' + v : v;
+            }
+            return out;
+        }
+
+        function findEntity(entities, role) {
+            if (!Array.isArray(entities)) return null;
+            return entities.find(e => Array.isArray(e.roles) && e.roles.includes(role)) || null;
+        }
+
+        function fmtDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return iso;
+            const y = d.getUTCFullYear();
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function daysFromNow(iso) {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return null;
+            return Math.round((d.getTime() - Date.now()) / 86400000);
+        }
+
+        const DATE_LABELS = {
+            'registration': '註冊日',
+            'expiration': '到期日',
+            'last changed': '最後更新',
+            'last update of RDAP database': 'RDAP 更新',
+            'transfer': '最後轉移',
+            'reregistration': '重新註冊',
+            'deletion': '刪除日',
+            'reinstantiation': '重新生效',
+            'unlocked': '解鎖',
+            'locked': '鎖定',
+        };
+
+        function makeKv(rows) {
+            const dl = document.createElement('dl');
+            dl.className = 'kv-grid';
+            for (const [label, value, cls] of rows) {
+                if (!value) continue;
+                const dt = document.createElement('dt');
+                dt.textContent = label;
+                const dd = document.createElement('dd');
+                dd.textContent = value;
+                if (cls) dd.className = cls;
+                dl.appendChild(dt);
+                dl.appendChild(dd);
+            }
+            return dl.children.length ? dl : null;
+        }
+
+        function makeSection(titleText) {
+            const sec = document.createElement('div');
+            sec.className = 'answer-section';
+            const t = document.createElement('div');
+            t.className = 'section-title';
+            t.textContent = titleText;
+            sec.appendChild(t);
+            return sec;
+        }
+
+        function renderRdap(data, queryName) {
+            // 函式內 shadow:後面所有 $result.appendChild(...) 都會寫到 rdap card
+            const $result = $rdapCard;
+            $result.innerHTML = '';
+            $result.appendChild(makeRdapTitle(false));
+
+            // Meta 區 — 網域名稱 + handle + 前幾個 status
+            const meta = document.createElement('div');
+            meta.className = 'result-meta';
+            const displayName = data.ldhName || queryName;
+            const handle = data.handle || '';
+            const topStatus = (data.status || []).slice(0, 3).map(s =>
+                `<span class="meta-flag${/prohibit|hold|lock|pending/i.test(s) ? ' warn' : ' on'}">${escapeHtml(s)}</span>`
+            ).join(' ');
+            meta.innerHTML =
+                `<span>網域: <strong>${escapeHtml(displayName)}</strong></span>` +
+                (handle ? `<span>handle: <strong>${escapeHtml(handle)}</strong></span>` : '') +
+                (topStatus ? `<span style="display:inline-flex;gap:4px;flex-wrap:wrap;">${topStatus}</span>` : '');
+            $result.appendChild(meta);
+
+            // ── Events / 重要日期 ──
+            const events = data.events || [];
+            if (events.length) {
+                const sec = makeSection(`重要日期 · ${events.length} 筆`);
+                const rows = events.map(ev => {
+                    const label = DATE_LABELS[ev.eventAction] || ev.eventAction;
+                    let text = fmtDate(ev.eventDate);
+                    let cls = '';
+                    if (ev.eventAction === 'expiration') {
+                        const days = daysFromNow(ev.eventDate);
+                        if (days != null) {
+                            text += days >= 0 ? `  (剩 ${days} 天)` : `  (已過期 ${-days} 天)`;
+                            if (days < 0 || days < 30) cls = 'expire-soon';
+                            else if (days < 90) cls = 'expire-warn';
+                        }
+                    }
+                    return [label, text, cls];
+                });
+                const kv = makeKv(rows);
+                if (kv) sec.appendChild(kv);
+                $result.appendChild(sec);
+            }
+
+            // ── Registrar ──
+            const registrar = findEntity(data.entities, 'registrar');
+            if (registrar) {
+                const sec = makeSection('註冊商 Registrar');
+                const v = parseVcard(registrar.vcardArray);
+                let ianaId = '';
+                if (Array.isArray(registrar.publicIds)) {
+                    const p = registrar.publicIds.find(x => /iana/i.test(x.type || ''));
+                    if (p) ianaId = p.identifier;
+                }
+                const abuse = findEntity(registrar.entities, 'abuse');
+                const av = abuse ? parseVcard(abuse.vcardArray) : {};
+                const kv = makeKv([
+                    ['名稱', v.fn || v.org],
+                    ['IANA ID', ianaId],
+                    ['Handle', registrar.handle],
+                    ['Email', v.email],
+                    ['電話', v.tel],
+                    ['Abuse Email', av.email],
+                    ['Abuse 電話', av.tel],
+                ]);
+                if (kv) sec.appendChild(kv);
+                $result.appendChild(sec);
+            }
+
+            // ── Registrant / Admin / Tech ──
+            const ENTITY_ROLES = [
+                ['registrant', '註冊人 Registrant'],
+                ['administrative', '管理聯絡 Admin'],
+                ['technical', '技術聯絡 Tech'],
+            ];
+            for (const [role, label] of ENTITY_ROLES) {
+                const ent = findEntity(data.entities, role);
+                if (!ent) continue;
+                const sec = makeSection(label);
+                const v = parseVcard(ent.vcardArray);
+                const kv = makeKv([
+                    ['名稱', v.fn],
+                    ['組織', v.org],
+                    ['Email', v.email],
+                    ['電話', v.tel],
+                    ['地址', v.adr],
+                ]);
+                if (kv) {
+                    sec.appendChild(kv);
+                } else {
+                    const note = document.createElement('div');
+                    note.className = 'redact-note';
+                    note.textContent = `${label} 資訊已遮蔽 (GDPR / 隱私保護)`;
+                    sec.appendChild(note);
+                }
+                $result.appendChild(sec);
+            }
+
+            // ── Nameservers ──
+            const ns = data.nameservers || [];
+            if (ns.length) {
+                const sec = makeSection(`名稱伺服器 · ${ns.length} 筆`);
+                const list = document.createElement('div');
+                list.className = 'ns-list';
+                for (const n of ns) {
+                    const item = document.createElement('span');
+                    item.className = 'ns-item';
+                    item.textContent = (n.ldhName || n.handle || '').toLowerCase();
+                    list.appendChild(item);
+                }
+                sec.appendChild(list);
+                $result.appendChild(sec);
+            }
+
+            // ── 完整狀態列表 ──
+            const statuses = data.status || [];
+            if (statuses.length) {
+                const sec = makeSection(`狀態 · ${statuses.length} 筆`);
+                const list = document.createElement('div');
+                list.className = 'status-list';
+                for (const s of statuses) {
+                    const tag = document.createElement('span');
+                    tag.className = 'status-tag' + (/prohibit|hold|lock|pending/i.test(s) ? ' warn' : '');
+                    tag.textContent = s;
+                    list.appendChild(tag);
+                }
+                sec.appendChild(list);
+                $result.appendChild(sec);
+            }
+
+            // ── DNSSEC ──
+            if (data.secureDNS) {
+                const sec = makeSection('DNSSEC');
+                const signed = data.secureDNS.delegationSigned;
+                const dsCount = Array.isArray(data.secureDNS.dsData) ? data.secureDNS.dsData.length : 0;
+                const kv = makeKv([
+                    ['Delegation Signed', signed === true ? '是 (已簽署)' : signed === false ? '否' : '未指定'],
+                    ['DS Records', dsCount ? `${dsCount} 筆` : ''],
+                ]);
+                if (kv) sec.appendChild(kv);
+                $result.appendChild(sec);
+            }
+        }
+
+        // ── Events ────────────────────────────────────
+        // Enter 鍵查 A 紀錄 (或最後一次選的類型)
+        $input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                doQuery(lastType);
+            }
+        });
+        // 自動 trim 黏貼進來的網域
+        $input.addEventListener('input', () => {
+            const v = $input.value;
+            const trimmed = v.replace(/^\s*https?:\/\//, '').replace(/\/.*$/, '').trim();
+            if (trimmed !== v) $input.value = trimmed;
+        });
+
+        // Raw JSON modal: 按鈕開、× 關、點 overlay 關、Esc 關
+        $rawBtn.addEventListener('click', () => {
+            if (!$rawJson.textContent.trim()) {
+                $rawJson.textContent = '// 尚無資料 — 先選一個 DNS 紀錄類型查詢';
+            }
+            $jsonModal.hidden = false;
+        });
+        $jsonModalClose.addEventListener('click', () => { $jsonModal.hidden = true; });
+        $jsonModal.addEventListener('click', e => {
+            if (e.target === $jsonModal) $jsonModal.hidden = true;
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && !$jsonModal.hidden) $jsonModal.hidden = true;
+        });
+
+        // Provider switch
+        $providerSelect.addEventListener('click', e => {
+            const btn = e.target.closest('button[data-provider]');
+            if (!btn) return;
+            const provider = btn.dataset.provider;
+            if (provider === currentProvider) return;
+            currentProvider = provider;
+            $providerSelect.querySelectorAll('button').forEach(b =>
+                b.classList.toggle('active', b.dataset.provider === provider));
+            // 若已有網域,自動重查當前類型
+            if ($input.value.trim()) doQuery(lastType);
+        });
+
+        $input.focus();
+    })();
+    </script>
+</body>
+</html>

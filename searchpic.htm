@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>以圖搜圖工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* HTML 的 hidden 屬性等同 display:none,但會被後續任何 display:flex/grid 蓋掉 —
+           強制 !important 確保 hidden 仍然生效 (例如 .upload-preview[hidden] 要真的隱藏) */
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            /* 統一全站工具 header 高度為 60px */
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .status-pill.idle  { color: #64748b; }
+        .status-pill.busy  { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.ready { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err   { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        .status-pill .dot {
+            width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+        }
+        .status-pill.busy .dot {
+            animation: pulse 1s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .page-content {
+            padding: 24px 20px 60px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .glass {
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 24px;
+        }
+
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #4a6070;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 14px;
+            background: linear-gradient(180deg, #6366f1, #4f46e5);
+            border-radius: 2px;
+        }
+
+        /* ── Upload zone ── */
+        .upload-zone {
+            border: 2px dashed rgba(99,102,241,0.4);
+            border-radius: 12px;
+            background: rgba(99,102,241,0.04);
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.18s, background 0.18s;
+            margin-bottom: 22px;
+            position: relative;
+            min-height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-zone:hover {
+            border-color: #6366f1;
+            background: rgba(99,102,241,0.08);
+        }
+        .upload-zone.dragging {
+            border-color: #4f46e5;
+            background: rgba(99,102,241,0.14);
+            box-shadow: inset 0 0 0 2px rgba(99,102,241,0.18);
+        }
+        .upload-empty {
+            color: #475569;
+        }
+        .upload-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #818cf8, #6366f1);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+        }
+        .upload-empty .upload-hint {
+            font-size: 15px;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+        .upload-empty .upload-sub {
+            font-size: 12.5px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+        .upload-empty .upload-formats {
+            font-size: 11px;
+            color: #94a3b8;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            letter-spacing: 0.05em;
+        }
+
+        .upload-preview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+        }
+        .upload-preview img {
+            max-width: 100%;
+            max-height: 360px;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            background: #fff;
+        }
+        .preview-meta {
+            font-size: 12px;
+            color: #64748b;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .preview-meta strong { color: #1e293b; font-weight: 700; }
+        .reset-btn {
+            background: linear-gradient(145deg, #ef4444, #dc2626);
+            color: #fff;
+            border: none;
+            padding: 9px 22px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.08s, box-shadow 0.18s;
+            letter-spacing: 0.04em;
+            font-family: inherit;
+        }
+        .reset-btn:hover { box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
+        .reset-btn:active { transform: scale(0.97); }
+
+        /* ── Search engine grid ── */
+        .search-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+            opacity: 0.45;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .search-grid.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .search-btn {
+            background: rgba(255,255,255,0.9);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            text-align: left;
+            transition: transform 0.1s, box-shadow 0.18s, border-color 0.18s;
+            font-family: inherit;
+            color: inherit;
+        }
+        .search-grid.active .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+            border-color: rgba(99,102,241,0.5);
+        }
+        .search-grid.active .search-btn:active {
+            transform: translateY(0);
+        }
+        .engine-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 18px;
+            color: #fff;
+            flex-shrink: 0;
+            letter-spacing: -0.02em;
+        }
+        /* 各家品牌色 — 用 gradient 給點層次感 */
+        .search-btn[data-engine="google"] .engine-icon { background: linear-gradient(135deg, #4285f4, #34a853); }
+        .search-btn[data-engine="bing"]   .engine-icon { background: linear-gradient(135deg, #008272, #0078d4); }
+        .search-btn[data-engine="yandex"] .engine-icon { background: linear-gradient(135deg, #ffcc00, #ff0000); }
+        .search-btn[data-engine="tineye"] .engine-icon { background: linear-gradient(135deg, #58c1c5, #2c8d9b); }
+        .search-btn[data-engine="sauce"]  .engine-icon { background: linear-gradient(135deg, #ec4899, #be185d); }
+        .engine-info { min-width: 0; flex: 1; }
+        .engine-info strong {
+            display: block;
+            font-size: 14px;
+            color: #1e293b;
+            margin-bottom: 3px;
+            font-weight: 700;
+        }
+        .engine-info small {
+            font-size: 11.5px;
+            color: #64748b;
+            line-height: 1.4;
+            display: block;
+        }
+        .engine-arrow {
+            color: #94a3b8;
+            font-size: 18px;
+            flex-shrink: 0;
+            transition: transform 0.15s, color 0.15s;
+            min-width: 18px;
+            text-align: right;
+        }
+        .search-grid.active .search-btn:hover .engine-arrow {
+            color: #6366f1;
+            transform: translateX(3px);
+        }
+        /* 單一按鈕 loading 狀態 — 點到才上傳的設計下,只有被點到那顆轉 spinner */
+        .search-btn.loading {
+            cursor: progress;
+        }
+        .search-btn.loading .engine-arrow {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(99,102,241,0.25);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            color: transparent;
+            font-size: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── How-to hint (below grid) ── */
+        .howto {
+            margin-top: 22px;
+            padding: 14px 16px;
+            background: rgba(255,255,255,0.55);
+            border: 1px solid rgba(148,163,184,0.3);
+            border-left: 3px solid #6366f1;
+            border-radius: 8px;
+            font-size: 12.5px;
+            color: #475569;
+            line-height: 1.6;
+        }
+        .howto b { color: #1e293b; font-weight: 700; }
+        .howto kbd {
+            display: inline-block;
+            padding: 1px 6px;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 11px;
+            color: #1e293b;
+            margin: 0 2px;
+        }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(120%);
+            background: #1e293b;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+            transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-width: 92vw;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast.ok   { background: linear-gradient(145deg, #16a34a, #15803d); }
+        .toast.err  { background: linear-gradient(145deg, #dc2626, #b91c1c); }
+        .toast.warn { background: linear-gradient(145deg, #f59e0b, #d97706); }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>以圖搜圖工具</h1>
+        <div class="header-meta">
+            <span>上傳圖片 · 多家搜尋引擎一鍵反查</span>
+            <span class="status-pill idle" id="statusPill">
+                <span class="dot"></span><span id="statusText">等待上傳圖片</span>
+            </span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="section-title">圖片來源</div>
+
+            <div class="upload-zone" id="dropzone">
+                <div class="upload-empty" id="emptyState">
+                    <div class="upload-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                    </div>
+                    <p class="upload-hint">拖拽圖片到此 或 點擊選擇</p>
+                    <p class="upload-sub">也可以直接 <kbd>Ctrl</kbd>+<kbd>V</kbd> 貼上剪貼簿圖片</p>
+                    <p class="upload-formats">PNG · JPG · WebP · GIF · BMP</p>
+                </div>
+                <div class="upload-preview" id="previewState" hidden>
+                    <img id="previewImg" alt="上傳的圖片預覽">
+                    <div class="preview-meta" id="previewMeta"></div>
+                    <button type="button" class="reset-btn" id="resetBtn">↺ 換一張圖片</button>
+                </div>
+                <input type="file" id="fileInput" accept="image/*" hidden>
+            </div>
+
+            <div class="section-title">在不同搜尋引擎中尋找類似圖像</div>
+
+            <div class="search-grid" id="searchGrid">
+                <button type="button" class="search-btn" data-engine="google">
+                    <span class="engine-icon">G</span>
+                    <div class="engine-info">
+                        <strong>Google Lens</strong>
+                        <small>反向圖片搜尋 + AI 識別,綜合表現最佳</small>
+                    </div>
+                    <span class="engine-arrow">→</span>
+                </button>
+                <button type="button" class="search-btn" data-engine="bing">
+                    <span class="engine-icon">B</span>
+                    <div class="engine-info">
+                        <strong>Bing Visual Search</strong>
+                        <small>微軟視覺搜尋,商品識別佳</small>
+                    </div>
+                    <span class="engine-arrow">→</span>
+                </button>
+                <button type="button" class="search-btn" data-engine="yandex">
+                    <span class="engine-icon">Y</span>
+                    <div class="engine-info">
+                        <strong>Yandex Images</strong>
+                        <small>俄系引擎,人臉/俄文網頁來源強</small>
+                    </div>
+                    <span class="engine-arrow">→</span>
+                </button>
+                <button type="button" class="search-btn" data-engine="tineye">
+                    <span class="engine-icon">T</span>
+                    <div class="engine-info">
+                        <strong>TinEye</strong>
+                        <small>追蹤圖片最早出現的位置,溯源強</small>
+                    </div>
+                    <span class="engine-arrow">→</span>
+                </button>
+                <button type="button" class="search-btn" data-engine="sauce">
+                    <span class="engine-icon">S</span>
+                    <div class="engine-info">
+                        <strong>SauceNAO</strong>
+                        <small>動漫/插畫/同人圖源,Pixiv·Twitter 強</small>
+                    </div>
+                    <span class="engine-arrow">→</span>
+                </button>
+            </div>
+
+            <div class="howto">
+                <b>運作方式：</b>本地預覽不會上傳。<b>點任一搜尋引擎</b>才會把圖片送到匿名圖床取得臨時 URL,再交給對應搜尋頁。
+                第一次點會等 1-3 秒(視圖片大小),之後同張圖點其他引擎都秒開(URL 已快取)。
+                整個過程不經過本工具的伺服器(本頁是純靜態檔)。
+                <br><br>
+                <b>使用的圖床(由短到長,前者失敗才走下一個):</b><br>
+                ① <a href="https://0x0.st/" target="_blank" rel="noopener">0x0.st</a> · 1 小時自動刪除 ·
+                ② <a href="https://litterbox.catbox.moe/" target="_blank" rel="noopener">litterbox.catbox.moe</a> · 1 小時自動刪除 ·
+                ③ <a href="https://uguu.se/" target="_blank" rel="noopener">uguu.se</a> · 3 小時自動刪除(保命備援)
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    (() => {
+        const $dropzone   = document.getElementById('dropzone');
+        const $fileInput  = document.getElementById('fileInput');
+        const $empty      = document.getElementById('emptyState');
+        const $preview    = document.getElementById('previewState');
+        const $previewImg = document.getElementById('previewImg');
+        const $previewMeta= document.getElementById('previewMeta');
+        const $resetBtn   = document.getElementById('resetBtn');
+        const $searchGrid = document.getElementById('searchGrid');
+        const $toast      = document.getElementById('toast');
+        const $statusPill = document.getElementById('statusPill');
+        const $statusText = document.getElementById('statusText');
+
+        // 各家搜尋引擎的 URL-based 反查端點 — 圖片要先上傳到匿名圖床取得公開 URL
+        const SEARCH_URL = {
+            google: u => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}`,
+            bing:   u => `https://www.bing.com/images/search?q=imgurl:${encodeURIComponent(u)}&view=detailv2&iss=sbi&FORM=IRSBIQ`,
+            yandex: u => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}`,
+            tineye: u => `https://www.tineye.com/search?url=${encodeURIComponent(u)}`,
+            sauce:  u => `https://saucenao.com/search.php?url=${encodeURIComponent(u)}`,
+        };
+
+        let currentBlob = null;
+        let currentObjectURL = null;
+        let uploadedUrl = null;       // 上傳成功後的公開 URL,搜尋按鈕共用
+        let uploadPromise = null;     // 正在跑的上傳 promise — 按鈕點到時若還沒完成就 await
+
+        // ── Helpers ───────────────────────────────────
+        const fmtSize = n => {
+            if (n < 1024) return n + ' B';
+            if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+            return (n / 1024 / 1024).toFixed(2) + ' MB';
+        };
+
+        function setStatus(kind, text) {
+            $statusPill.className = 'status-pill ' + kind;
+            $statusText.textContent = text;
+        }
+
+        let toastTimer = 0;
+        function showToast(text, kind = '') {
+            $toast.textContent = text;
+            $toast.className = 'toast ' + (kind ? kind + ' ' : '') + 'show';
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => $toast.classList.remove('show'), 3500);
+        }
+
+        // ── 上傳到匿名圖床 (帶 fallback 鏈) ──────────────
+        // 為什麼要 fallback:單一服務常常臨時擋 CORS / 上線維護,
+        // 多家串起來大大提高成功率。
+        // 排序原則:保留時間由短到長 — 越前面越隱私,後面是保命備援。
+        async function uploadTo0x0(blob) {
+            const fd = new FormData();
+            fd.append('file', blob, blob.name || 'upload.png');
+            fd.append('expires', '1');   // 1 小時後自動刪除
+            const r = await fetch('https://0x0.st', { method: 'POST', body: fd });
+            if (!r.ok) throw new Error('0x0.st HTTP ' + r.status);
+            const text = (await r.text()).trim();
+            if (!/^https?:\/\//.test(text)) throw new Error('0x0.st bad response: ' + text);
+            return text;
+        }
+        async function uploadToLitterbox(blob) {
+            const fd = new FormData();
+            fd.append('reqtype', 'fileupload');
+            fd.append('time', '1h');     // 1 小時 (litterbox 支援 1h/12h/24h/72h)
+            fd.append('fileToUpload', blob, blob.name || 'upload.png');
+            const r = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', { method: 'POST', body: fd });
+            if (!r.ok) throw new Error('litterbox HTTP ' + r.status);
+            const text = (await r.text()).trim();
+            if (!/^https?:\/\//.test(text)) throw new Error('litterbox bad response: ' + text);
+            return text;
+        }
+        async function uploadToUguu(blob) {
+            const fd = new FormData();
+            fd.append('files[]', blob, blob.name || 'upload.png');
+            const r = await fetch('https://uguu.se/upload.php', { method: 'POST', body: fd });
+            if (!r.ok) throw new Error('uguu HTTP ' + r.status);
+            const j = await r.json();
+            if (!j.success || !j.files || !j.files[0]) throw new Error('uguu bad response');
+            return j.files[0].url;
+        }
+        async function uploadToTempHost(blob) {
+            const providers = [
+                { name: '0x0.st',    fn: uploadTo0x0 },        // 1 hr
+                { name: 'litterbox', fn: uploadToLitterbox },  // 1 hr
+                { name: 'uguu.se',   fn: uploadToUguu },       // 3 hr (保命)
+            ];
+            const errors = [];
+            for (const p of providers) {
+                try {
+                    setStatus('busy', `上傳中 (${p.name})...`);
+                    const url = await p.fn(blob);
+                    return { url, provider: p.name };
+                } catch (e) {
+                    console.warn(p.name, 'failed:', e);
+                    errors.push(`${p.name}: ${e.message}`);
+                }
+            }
+            throw new Error('全部圖床都失敗\n' + errors.join('\n'));
+        }
+
+        // ── Image loading + preview ───────────────────
+        // 注意:這裡只做本地預覽,不會立刻上傳到圖床 (lazy upload)。
+        // 使用者點到搜尋按鈕才會觸發第一次上傳,之後其他引擎共用快取的 URL。
+        function loadImage(file) {
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                showToast('請選擇圖片檔案 (PNG/JPG/WebP/GIF)', 'err');
+                return;
+            }
+            // 釋放上一張的 object URL,避免記憶體洩漏
+            if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+            currentBlob = file;
+            currentObjectURL = URL.createObjectURL(file);
+            uploadedUrl = null;
+            uploadPromise = null;
+            $previewImg.src = currentObjectURL;
+            $previewImg.onload = () => {
+                $previewMeta.innerHTML =
+                    `<span>📐 <strong>${$previewImg.naturalWidth} × ${$previewImg.naturalHeight}</strong></span>` +
+                    `<span>📦 <strong>${fmtSize(file.size)}</strong></span>` +
+                    `<span>🎨 <strong>${file.type.split('/')[1].toUpperCase()}</strong></span>`;
+            };
+            $empty.hidden = true;
+            $preview.hidden = false;
+            $searchGrid.classList.add('active');
+            setStatus('ready', '圖片就緒 · 點任一引擎開始搜尋');
+        }
+
+        function reset() {
+            if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+            currentObjectURL = null;
+            currentBlob = null;
+            uploadedUrl = null;
+            uploadPromise = null;
+            $previewImg.src = '';
+            $previewMeta.innerHTML = '';
+            $empty.hidden = false;
+            $preview.hidden = true;
+            $searchGrid.classList.remove('active');
+            $searchGrid.querySelectorAll('.search-btn.loading').forEach(b => b.classList.remove('loading'));
+            $fileInput.value = '';
+            setStatus('idle', '等待上傳圖片');
+        }
+
+        // ── Events ────────────────────────────────────
+        // 點擊 dropzone → 觸發檔案選擇 (但點預覽圖/重設按鈕時不要,避免誤觸)
+        $dropzone.addEventListener('click', e => {
+            if (e.target.closest('.reset-btn') || e.target.closest('.upload-preview img')) return;
+            $fileInput.click();
+        });
+
+        $fileInput.addEventListener('change', e => {
+            const f = e.target.files && e.target.files[0];
+            if (f) loadImage(f);
+        });
+
+        // Drag & drop
+        ['dragover', 'dragenter'].forEach(evt => {
+            $dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                $dropzone.classList.add('dragging');
+            });
+        });
+        ['dragleave', 'dragend'].forEach(evt => {
+            $dropzone.addEventListener(evt, () => {
+                $dropzone.classList.remove('dragging');
+            });
+        });
+        $dropzone.addEventListener('drop', e => {
+            e.preventDefault();
+            $dropzone.classList.remove('dragging');
+            const f = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) loadImage(f);
+        });
+
+        // 全頁面 paste — 從剪貼簿貼上圖片
+        document.addEventListener('paste', e => {
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                    const file = item.getAsFile();
+                    if (file) {
+                        e.preventDefault();
+                        loadImage(file);
+                        return;
+                    }
+                }
+            }
+        });
+
+        $resetBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            reset();
+        });
+
+        // 搜尋引擎按鈕 — lazy upload 設計
+        // 流程:
+        //   1. 點按鈕時若 URL 已快取 → 直接 window.open (秒開)
+        //   2. URL 沒快取 → 先用 user gesture 同步打開一個 about:blank 分頁
+        //      (這步必須同步,否則 popup blocker 會擋),再非同步上傳圖床,
+        //      上傳完用 win.location.href 把新分頁導向真正的搜尋頁
+        $searchGrid.addEventListener('click', async e => {
+            const btn = e.target.closest('.search-btn');
+            if (!btn) return;
+            if (!currentBlob) {
+                showToast('請先上傳一張圖片', 'err');
+                return;
+            }
+            const engine = btn.dataset.engine;
+            const buildUrl = SEARCH_URL[engine];
+            if (!buildUrl) return;
+
+            // Fast path:URL 已就緒,直接開
+            if (uploadedUrl) {
+                window.open(buildUrl(uploadedUrl), '_blank', 'noopener,noreferrer');
+                return;
+            }
+
+            // Slow path:同步先開 placeholder 分頁,確保不被 popup blocker 擋
+            const placeholder = window.open('about:blank', '_blank');
+            if (!placeholder) {
+                showToast('瀏覽器擋下新分頁 — 請允許彈出視窗後重試', 'err');
+                return;
+            }
+            // 在 placeholder 寫個等待畫面,使用者比較清楚發生什麼事
+            try {
+                placeholder.document.write(
+                    '<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">' +
+                    '<title>正在準備搜尋…</title>' +
+                    '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;' +
+                    'background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;' +
+                    'height:100vh;margin:0;flex-direction:column;gap:14px;}' +
+                    '.s{width:36px;height:36px;border:3px solid rgba(255,255,255,.15);' +
+                    'border-top-color:#818cf8;border-radius:50%;animation:r .8s linear infinite;}' +
+                    '@keyframes r{to{transform:rotate(360deg);}}p{font-size:14px;color:#94a3b8;}</style>' +
+                    '</head><body><div class="s"></div><p>圖片上傳中,即將開啟搜尋頁…</p></body></html>'
+                );
+                placeholder.document.close();
+            } catch (_) { /* 某些瀏覽器禁止 document.write,沒寫成也沒差 */ }
+
+            btn.classList.add('loading');
+            try {
+                if (!uploadPromise) {
+                    setStatus('busy', '上傳中...');
+                    uploadPromise = uploadToTempHost(currentBlob).then(res => {
+                        uploadedUrl = res.url;
+                        setStatus('ready', `已上傳到 ${res.provider} · 後續搜尋可直接點`);
+                        return res;
+                    }).catch(err => {
+                        setStatus('err', '上傳失敗,點按鈕重試');
+                        uploadPromise = null;    // 失敗就重置,下次點才會重新嘗試
+                        throw err;
+                    });
+                }
+                await uploadPromise;
+                btn.classList.remove('loading');
+                placeholder.location.href = buildUrl(uploadedUrl);
+            } catch (err) {
+                btn.classList.remove('loading');
+                try { placeholder.close(); } catch (_) {}
+                showToast('上傳失敗:' + err.message, 'err');
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
