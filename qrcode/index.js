@@ -8,7 +8,18 @@ new Vue({
         previewSrc: '',
         resultContent: '',
         qrEncodeMode: true,
-        showResult: false
+        showResult: false,
+        // Version 40 + EC level L, byte mode 的官方上限
+        QR_MAX_BYTES: 2953
+    },
+    computed: {
+        byteLength() {
+            // QR 碼容量是以 UTF-8 編碼後的位元組數計算,中文 1 字 = 3 bytes
+            return new TextEncoder().encode(this.textContent).length;
+        },
+        isOverLimit() {
+            return this.byteLength > this.QR_MAX_BYTES;
+        }
     },
     mounted() {
         const mode = new URL(location.href).searchParams.get('mode');
@@ -81,9 +92,21 @@ new Vue({
                 $('#preview').html('');
                 return;
             }
+            if (this.isOverLimit) {
+                this.showResult = false;
+                $('#preview').html('');
+                alert(`內容過長:${this.byteLength} bytes,已超過 QR 碼最大容量 ${this.QR_MAX_BYTES} bytes`);
+                return;
+            }
             this.showResult = true;
             this.$nextTick(() => {
-                $('#preview').html('').qrcode(this._createOptions());
+                try {
+                    $('#preview').html('').qrcode(this._createOptions());
+                } catch (err) {
+                    this.showResult = false;
+                    $('#preview').html('');
+                    alert('QR 碼生成失敗:' + (err && err.message || err));
+                }
             });
         },
         fileChanged(e) {

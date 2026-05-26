@@ -92,11 +92,18 @@ body {
 :root[data-theme="dark"]  .app-header .theme-toggle .icon-sun  { opacity: 1; position: static; }
 :root[data-theme="dark"]  .app-header .theme-toggle .icon-moon { display: none; }
 
-/* ── Shell 拓寬,縮小左右邊距 ── */
+/* ── Shell — match project-wide standard (.page-content) ──
+   body 是 flex column (見下方 overflow-lock 區塊),flex item 在交叉軸上
+   不會被 `margin: 0 auto` 自動撐到 max-width,反而會塌縮到內容尺寸 →
+   shell 寬只剩 ~694px,左右出現巨大空白。
+   修法:顯式 width:100% 讓 shell 撐滿 body 寬度,再由 max-width 截到 1400。 */
 .shell {
-    max-width: min(98vw, 1800px) !important;
-    padding: 20px clamp(12px, 1.5vw, 18px) 48px !important;
+    width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    padding: 12px 20px 20px !important;
     gap: 18px !important;
+    align-self: stretch !important;
 }
 
 /* ── 隱藏 upstream 殘留的元素(我們在 index.html 已沒放) ── */
@@ -105,41 +112,15 @@ body {
 .community-card { display: none !important; }
 .stats-bar { display: none !important; }
 
-/* ── Workspace:中等寬度兩欄(box 2 在 box 1 底下),寬螢幕三欄(box 2 浮動)── */
+/* ── Workspace:中等寬度+寬螢幕都用兩欄,4:6 比例 (與專案 1400px max-width shell 對齊) ── */
 @media (min-width: 1100px) {
     .workspace {
-        grid-template-columns: 360px 1fr !important;
+        grid-template-columns: 4fr 6fr !important;
     }
 }
-
-/* ── 寬螢幕:右側預留 380px 空白欄給浮動的 box 2,確保不重疊 ── */
-@media (min-width: 1500px) {
-    .workspace {
-        /* box 1 固定 360 (pane-left 已浮動,此欄保留空間但不放實際內容),
-           box 3 自適應剩餘空間,最右側留 380px 空白給浮動卡片 */
-        grid-template-columns: 360px 1fr 380px !important;
-    }
-
-    /* box 1 (pane-left) 改為固定浮動 + 垂直置中
-       注意:不用 transform 是為了不破壞內部 result-head 的 position: fixed
-       (transform 會建立新的 containing block,讓子層的 fixed 變成相對於父層) */
-    .pane-left {
-        position: fixed !important;
-        left: max(20px, calc((100vw - 1800px) / 2 + 18px)) !important;
-        top: 20px;
-        bottom: 20px;
-        margin: auto 0;
-        width: 360px;
-        height: max-content;
-        max-height: calc(100vh - 40px);
-        z-index: 30;
-    }
-    /* pane-left 脫離文件流後,需明確把 pane-right 鎖在第 2 欄,
-       否則 grid 自動把它推到第 1 欄,內容會跑去左邊跟 pane-left 重疊 */
-    .pane-right {
-        grid-column: 2 !important;
-    }
-}
+/* 註:舊版在 1500px+ 切成 360/1fr/380 三欄、左欄 position:fixed 浮動,
+   是為了配合 max-width: 1800px 的舊 shell;遷移到 1400px 標準後第 3 欄會
+   變成純空白浪費,故移除該 breakpoint。 */
 
 /* ── 暗色主題下,header 背景對比加深 ── */
 :root[data-theme="dark"] .app-header {
@@ -154,6 +135,43 @@ body {
     background: var(--surface-alt);
 }
 
+/* ── 空狀態 (尚未上傳圖片):維持跟上傳後相同的兩欄結構,
+   只把內容換成 placeholder,看起來和最終結果一致,
+   上傳後不會出現大幅版面跳動 ──
+   - 左欄:dashed upload-area 佔滿 preview-frame 將來的位置 (flex:1) +
+     下方褪色 file-meta-card 骨架
+   - 右欄:沿用 .empty-state 的 hero 區塊
+   - 欄寬沿用 overrides 第 110 行的 4fr/6fr (上傳後相同) ── */
+body[data-imgstate="empty"] .pane-left .upload-area {
+    flex: 1 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    align-self: stretch !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box;
+}
+body[data-imgstate="empty"] .pane-left .preview-skeleton {
+    width: 100% !important;
+    align-self: stretch !important;
+}
+
+.preview-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.preview-skeleton .file-meta-card {
+    opacity: 0.45;
+    pointer-events: none;
+    user-select: none;
+}
+/* 上傳後隱藏骨架,真實 file-meta-card 會接管位置 */
+body[data-imgstate="loaded"] .preview-skeleton {
+    display: none;
+}
+
 /* ── result-head 已移至左欄 preview-block 內 ── */
 /* 取消上游版的下底線(原本在右欄頂部作分隔線),改用獨立卡片風格 */
 .preview-block .result-head {
@@ -164,6 +182,53 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
+/* ── 鎖死外層,只讓右欄內部出現捲軸 ──
+   body 是 flex column:app-header 自然高度,shell flex:1 吃掉剩下的視窗空間。
+   不能直接給 shell height:100vh,因為 shell 上方還有 60px header,會撐爆 body。 */
+html { height: 100vh !important; overflow: hidden !important; }
+body {
+    height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+.shell {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+.workspace {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+.pane-right {
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+.pane-right::-webkit-scrollbar { width: 8px; }
+.pane-right::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+.pane-right::-webkit-scrollbar-track { background: transparent; }
+
+/* ── 結果區間距壓緊,讓一眼能看到大部分項目 ── */
+.tab-bar { margin-bottom: 12px !important; }
+.tab-btn { padding: 8px 12px !important; font-size: 12.5px !important; }
+
+.detection-item { padding: 9px 0 !important; }
+.detection-item:first-child { padding-top: 4px !important; }
+.detection-item:last-child { padding-bottom: 2px !important; }
+.detection-item-header { margin-bottom: 3px !important; gap: 8px !important; }
+.detection-item-title { font-size: 12.5px !important; gap: 6px !important; }
+.detection-item-desc { font-size: 12px !important; line-height: 1.4 !important; }
+.detection-item-details { margin-top: 6px !important; }
+
+/* result-view 整體 gap (在右欄 pane) 也縮一點 */
+.result-view { gap: 12px !important; }
+
 /* ── 寬螢幕:box 2 從文件流脫離,改浮動在視窗右下角 ── */
 @media (min-width: 1500px) {
     .preview-block .result-head {
@@ -172,14 +237,23 @@ body {
         bottom: 24px;
         width: 340px;
         z-index: 40;
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         background-color: color-mix(in srgb, var(--surface) 94%, transparent);
         animation: floatIn 280ms cubic-bezier(.2,.7,.2,1);
+        /* Faded by default — fully clear on hover (avoid distracting from the analysis area).
+           Both opacity and box-shadow transition so the card feels like it "lifts" on focus. */
+        opacity: 0.35;
+        transition: opacity 0.2s ease, box-shadow 0.2s ease;
+    }
+    .preview-block .result-head:hover,
+    .preview-block .result-head:focus-within {
+        opacity: 1;
+        box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
     }
     @keyframes floatIn {
         from { opacity: 0; transform: translateY(10px); }
-        to   { opacity: 1; transform: translateY(0); }
+        to   { opacity: 0.35; transform: translateY(0); }
     }
 }

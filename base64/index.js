@@ -23,6 +23,22 @@ new Vue({
             }
         }
     },
+    computed: {
+        dataUriInputSize: function () {
+            return this.txtBase64Input.length ? this._sizeFormat(this.txtBase64Input.length) : "暫無數據";
+        },
+        decodedImageSize: function () {
+            const s = this.txtBase64Input;
+            if (!s.length) return "暫無數據";
+            // 取 base64 主體 — 有 data: 前綴就抓 base64, 後面那段, 沒有就全當 base64
+            const m = s.match(/base64,([A-Za-z0-9+/=\s]+)/);
+            const b64 = (m ? m[1] : s).replace(/\s+/g, '');
+            if (!b64.length) return "暫無數據";
+            const padding = (b64.match(/=+$/) || [''])[0].length;
+            const bytes = Math.floor(b64.length * 3 / 4) - padding;
+            return bytes > 0 ? this._sizeFormat(bytes) : "暫無數據";
+        }
+    },
     mounted: function () {
         "chrome-extension:" === location.protocol && chrome.tabs.query({
             currentWindow: !0,

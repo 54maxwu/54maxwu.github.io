@@ -20,7 +20,9 @@
       "Bash(npx --yes esbuild src/frequency/worker.js --bundle --format=iife --target=es2020 --outfile=src/frequency/worker-bundle.js)",
       "Bash(npm init *)",
       "Bash(npm install *)",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "Bash(awk 'NR==185' \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
+      "Bash(grep -oE 'gVe=[^,]{1,400}')"
     ]
   }
 }

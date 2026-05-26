@@ -518,24 +518,33 @@ a:hover { color: var(--text-muted); }
 .pane-left .upload-mark { width: 32px; height: 32px; }
 .pane-left .upload-text { font-size: 13px; line-height: 1.6; }
 
-/* Preview block (visible after upload) */
+/* Preview block (visible after upload) — fills the remaining vertical space
+   in .pane-left so the preview-frame can use it to display the image as large
+   as possible (letterbox or pillarbox via object-fit: contain). */
 .preview-block {
     display: flex; flex-direction: column; gap: 14px;
     animation: revealUp var(--dur-slow) var(--ease);
+    flex: 1;
+    min-height: 0;
 }
 .preview-frame {
     position: relative; border-radius: var(--radius-lg);
     overflow: hidden; background: var(--surface-alt);
     border: 1px solid var(--border);
+    /* Grow into available pane-left height; img inside uses object-fit to fit
+       within this box without distortion (wide image → top/bottom letterbox,
+       tall image → left/right pillarbox). */
+    flex: 1;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .preview-frame img {
-    width: 100%; display: block; object-fit: contain;
-    /* Dynamic height: don't let a tall portrait push the file-meta card
-     * out of the viewport. Cap at 60vh and also at (viewport − reserved
-     * space for the meta card). Minimum 180px so a tiny landscape image
-     * still shows usefully. */
-    max-height: min(60vh, calc(100vh - 300px));
-    min-height: 180px;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
     background: var(--surface-alt);
 }
 .preview-change {

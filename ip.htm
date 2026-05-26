@@ -62,8 +62,8 @@
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 
         .page-content {
-            padding: 24px 20px 60px;
-            max-width: 1280px;
+            padding: 12px 20px 20px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -140,12 +140,17 @@
         .result-grid {
             margin-top: 22px;
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            /* Info card 1/3, map 2/3. Both stretch to result-grid height so the map is generously
+               sized; raw-JSON button drops to the bottom of the info-card via info-full flex:1. */
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
             gap: 18px;
-            align-items: start;
+            align-items: stretch;
+            /* Fill the viewport: 100vh minus app-header (60) + page-content padding (12 + 20)
+               + IP input glass (≈140) + result-grid margin-top (22) ≈ 254 → leave ~16px tail */
+            min-height: calc(100vh - 254px);
         }
         @media (max-width: 900px) {
-            .result-grid { grid-template-columns: 1fr; }
+            .result-grid { grid-template-columns: 1fr; min-height: 0; }
         }
 
         .info-card, .map-card {
@@ -156,22 +161,40 @@
             box-shadow: 0 1px 3px rgba(0,0,0,.04);
         }
         .info-card { display: flex; flex-direction: column; }
-        .map-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 1 / 1; }
+        .map-card {
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            /* No aspect-ratio — let grid's align-items: stretch make the map match info-card height,
+               turning the square into a tall rectangle that fills the available space. */
+        }
         @media (max-width: 900px) {
-            .map-card { aspect-ratio: auto; min-height: 380px; }
+            .map-card { min-height: 380px; }
         }
 
-        /* Two-column inner layout inside info-card so Location | Network+Timezone fit at a glance. */
+        /* Location + Timezone share the top row (both have short values).
+           Network drops to its own full-width row below — ISP / Org strings are long and
+           would wrap awkwardly in a half-width column. */
         .info-cols {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             gap: 14px;
+            align-items: stretch;  /* both columns same height — Timezone matches Location */
         }
         @media (max-width: 600px) {
             .info-cols { grid-template-columns: 1fr; }
         }
         .info-cols > div { display: flex; flex-direction: column; gap: 4px; }
-        .info-cols .kv-grid + .section-title { margin-top: 6px; }
+        .info-cols .kv-grid { flex: 1; align-content: start; }   /* fill column height, but pack rows at the top — extra space goes to the bottom */
+        .info-full {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;   /* push the raw-JSON button to the bottom */
+        }
 
         .result-meta {
             display: flex;
@@ -211,11 +234,11 @@
 
         .kv-grid {
             display: grid;
-            grid-template-columns: 110px 1fr;
-            gap: 5px 12px;
+            grid-template-columns: 72px minmax(0, 1fr);
+            gap: 4px 8px;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
             font-size: 12px;
-            padding: 10px 12px;
+            padding: 10px 10px;
             background: rgba(248,250,252,0.85);
             border: 1px solid #f1f5f9;
             border-radius: 8px;
@@ -229,11 +252,10 @@
         }
         .kv-grid dd {
             color: #1e293b;
-            word-break: break-all;
+            overflow-wrap: anywhere;  /* prefer word-boundary breaks, fall back to mid-word only if value has no spaces (long URLs) */
             margin: 0;
             line-height: 1.5;
         }
-        .kv-grid dd.empty { color: #cbd5e1; font-style: italic; }
         .kv-grid dd a { color: #0d9488; text-decoration: none; }
         .kv-grid dd a:hover { text-decoration: underline; }
 
@@ -483,9 +505,9 @@
 
     function row(label, value, opts = {}) {
         const empty = value === null || value === undefined || value === '' || value === 0 && opts.zeroIsEmpty;
-        const cls   = empty ? 'empty' : '';
-        const txt   = empty ? '—' : (opts.html ? value : esc(value));
-        return `<dt>${esc(label)}</dt><dd class="${cls}">${txt}</dd>`;
+        if (empty) return '';  // skip the row entirely so columns don't get padded with placeholders
+        const txt = opts.html ? value : esc(value);
+        return `<dt>${esc(label)}</dt><dd>${txt}</dd>`;
     }
 
     function renderData(d) {
@@ -549,8 +571,9 @@
             meta +
             `<div class="info-cols">
                 <div>${location}</div>
-                <div>${network}${timezone}</div>
-            </div>` +
+                <div>${timezone}</div>
+            </div>
+            <div class="info-full">${network}</div>` +
             '<button type="button" class="raw-btn" id="rawBtn">查看原始 JSON</button>';
         document.getElementById('rawBtn').addEventListener('click', openRaw);
 

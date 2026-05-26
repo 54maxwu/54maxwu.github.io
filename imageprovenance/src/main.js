@@ -110,6 +110,7 @@ function resolveQuality() {
 
 // ================= Upload handling =================
 const uploadArea = document.getElementById('uploadArea');
+document.body.dataset.imgstate = 'empty';
 const fileInput = document.getElementById('fileInput');
 uploadArea.addEventListener('click', (e) => {
     if (e.target.closest('input, button, a')) return;
@@ -272,6 +273,7 @@ async function handleFile(file) {
     resultView.classList.remove('hidden');
     previewBlock.classList.remove('hidden');
     uploadArea.classList.add('hidden');   // ← hide the big uploader; "換一張" button on the preview handles re-upload
+    document.body.dataset.imgstate = 'loaded';
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'detect'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== 'detect'));
 

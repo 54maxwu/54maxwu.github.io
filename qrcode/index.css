@@ -60,7 +60,11 @@ body {
 
 /* ── Body / Grid ── */
 .app-body {
-    padding: 24px;
+    /* Standardized page-content padding (matches all other tool pages) */
+    padding: 12px 20px 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
     flex: 1;
 }
 
@@ -68,8 +72,6 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
 }
 
 .pane {
@@ -102,6 +104,26 @@ body {
 .content-textarea::placeholder {
     color: #cbd5e1;
 }
+
+/* ── Byte Counter (capacity hint) ── */
+.byte-counter {
+    font-size: 12px;
+    color: #94a3b8;
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color .15s;
+}
+.byte-counter strong {
+    color: #475569;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.byte-counter.warn { color: #b45309; }
+.byte-counter.warn strong { color: #b45309; }
+.byte-counter.over { color: #dc2626; font-weight: 500; }
+.byte-counter.over strong { color: #dc2626; }
 
 /* ── Options Bar ── */
 .options-bar {
@@ -196,6 +218,7 @@ body {
     border: 1.5px solid #e2e8f0;
     border-radius: 16px;
     min-height: 340px;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -246,7 +269,8 @@ body {
     background: #fff;
     border: 2px dashed #cbd5e1;
     border-radius: 16px;
-    min-height: 340px;
+    /* Fixed height (not min-height) so tall images get pillar-boxed instead of stretching */
+    height: 340px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -373,7 +397,7 @@ body {
 
 @media (max-width: 768px) {
     .app-body {
-        padding: 16px;
+        padding: 12px 16px 16px;
     }
 
     .pane-grid {
@@ -382,7 +406,7 @@ body {
     }
 
     .upload-zone {
-        min-height: 240px;
+        height: 240px;
     }
 
     .content-textarea,

@@ -61,10 +61,13 @@
         }
 
         .page-content {
-            padding: 18px 20px;
+            padding: 12px 20px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
             flex: 1;
             min-height: 0;        /* 讓子 flex 元素能正確收縮 */
             display: flex;
+            width: 100%;
         }
 
         .glass {
@@ -81,16 +84,6 @@
             display: flex;
             flex-direction: column;
         }
-
-        /* ── Toolbar ── */
-        .toolbar {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 14px;
-            align-items: center;
-        }
-        .btn-spacer { flex: 1; }
 
         /* 動作按鈕群組 — 跟 .view-toggle / .view-toggle-lg 共用外框尺寸,
            border、padding、border-radius、按鈕 padding 全部對齊,確保 pixel-perfect alignment */
@@ -233,11 +226,14 @@
             letter-spacing: 0.06em;
             display: flex;
             align-items: center;
+            justify-content: space-between;   /* title left, action buttons right */
             gap: 8px;
-            /* 左右兩個 pane title 高度對齊 (output pane 有大按鈕 toggle,input pane 只有文字),
-               固定 min-height 讓 textarea 跟 output 起始 Y 位置一致 */
+            /* 左右兩個 pane title 高度對齊 — buttons embedded inside; keep 38px so
+               textarea/output Y-start stays aligned across both panes */
             min-height: 38px;
+            flex-wrap: wrap;
         }
+        .pane-title > span:first-child { flex-shrink: 0; }
 
         /* ── Input textarea ── */
         textarea.input {
@@ -671,13 +667,28 @@
             margin-left: 6px;
         }
         .sample-link:hover { color: #1d4ed8; }
+
+        /* Embedded buttons — compact sizes so they fit inside pane-title (38px) without wrapping */
+        .pane-title .action-group { padding: 2px; border-radius: 7px; }
+        .pane-title .action-btn {
+            padding: 4px 11px;
+            font-size: 12px;
+            border-radius: 6px;
+            letter-spacing: 0.03em;
+        }
+        .pane-title .view-toggle-lg { padding: 2px; border-radius: 7px; }
+        .pane-title .view-toggle-lg button {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            letter-spacing: 0.03em;
+        }
     </style>
 </head>
 <body>
     <div class="app-header">
         <h1>JSON 格式化工具</h1>
         <div class="header-meta">
-            <span>貼上即解析・錯誤以 git diff 風格標示</span>
             <span class="status-pill idle" id="statusPill">
                 <span class="dot"></span><span id="statusText">等待輸入</span>
             </span>
@@ -686,24 +697,17 @@
 
     <div class="page-content">
         <div class="glass">
-            <div class="toolbar">
-                <div class="action-group">
-                    <button class="action-btn act-primary" id="btnFormat">↧ 格式化</button>
-                    <button class="action-btn" id="btnMinify">↤ 壓縮</button>
-                    <button class="action-btn act-danger" id="btnClear">✕ 清空</button>
-                </div>
-                <div class="btn-spacer"></div>
-                <div class="view-toggle view-toggle-lg" id="viewToggle">
-                    <button data-view="text" class="active">文字</button>
-                    <button data-view="tree">樹狀</button>
-                </div>
-                <button class="sample-link" id="btnSample">載入範例</button>
-            </div>
-
             <div class="panes">
                 <div class="pane">
                     <div class="pane-title">
                         <span>輸入 (貼上就會自動解析)</span>
+                        <div class="pane-title-right">
+                            <div class="action-group">
+                                <button class="action-btn act-primary" id="btnFormat">↧ 格式化</button>
+                                <button class="action-btn" id="btnMinify">↤ 壓縮</button>
+                                <button class="action-btn act-danger" id="btnClear">✕ 清空</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="input-wrap">
                         <textarea class="input" id="input" spellcheck="false" placeholder="把 JSON 貼到這裡⋯⋯&#10;Ctrl+V 自動解析、格式化&#10;格式錯誤會以 git diff 風格標出位置"></textarea>
@@ -717,6 +721,11 @@
                         <div class="pane-title-right">
                             <span class="stat-badge" id="statKeys" hidden></span>
                             <span class="stat-badge" id="statDepth" hidden></span>
+                            <div class="view-toggle view-toggle-lg" id="viewToggle">
+                                <button data-view="text" class="active">文字</button>
+                                <button data-view="tree">樹狀</button>
+                            </div>
+                            <button class="sample-link" id="btnSample">載入範例</button>
                         </div>
                     </div>
                     <div class="output-wrap">

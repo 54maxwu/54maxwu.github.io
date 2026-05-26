@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>螢幕/鏡頭分享</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+  background: #f1f5f9;
+  color: #2c3e50;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 14px 24px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.app-header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: .02em;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color .2s, color .2s, border-color .2s;
+}
+.status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+.status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+.status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+.status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+.page {
+  padding: 16px 20px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  margin-bottom: 14px;
+}
+
+/* ── Picker (initial state) ─────────────────────────── */
+#picker { text-align: center; padding: 40px 22px; }
+#picker h2 { font-size: 22px; margin-bottom: 8px; color: #1e293b; font-weight: 700; }
+#picker p  { font-size: 13px; color: #64748b; margin-bottom: 26px; }
+
+.pick-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.pick-btn {
+  flex: 1 1 220px;
+  max-width: 280px;
+  padding: 22px 18px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-family: inherit;
+  color: inherit;
+}
+.pick-btn:hover { border-color: #0d9488; background: #f0fdfa; transform: translateY(-2px); }
+.pick-btn svg { width: 38px; height: 38px; stroke: #0d9488; }
+.pick-btn .label { font-size: 15px; font-weight: 700; color: #1e293b; }
+.pick-btn .desc  { font-size: 12px; color: #64748b; }
+
+/* ── Sharing layout ─────────────────────────────────── */
+.share-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .share-grid { grid-template-columns: 1fr; }
+}
+
+.video-card {
+  padding: 0;
+  overflow: hidden;
+  background: #0f172a;
+  aspect-ratio: 16/9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  font-size: 13px;
+  position: relative;
+}
+.video-card video {
+  width: 100%; height: 100%; object-fit: contain; background: #000;
+}
+.video-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #94a3b8; font-size: 13px;
+  pointer-events: none;
+  background: rgba(15,23,42,.85);
+  text-align: center;
+  padding: 20px;
+}
+
+.field-label {
+  font-size: .72rem;
+  font-weight: 700;
+  color: #0d9488;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 6px;
+}
+
+.link-box {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+.link-box input {
+  flex: 1;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 12px;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #1e293b;
+  outline: none;
+  min-width: 0;
+}
+.link-box input:focus { border-color: #0d9488; }
+
+.btn {
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  letter-spacing: .04em;
+  font-family: inherit;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.btn-primary { background: #0d9488; color: #fff; }
+.btn-primary:hover { background: #0f766e; }
+.btn-ghost { background: transparent; color: #475569; border: 1.5px solid #e2e8f0; }
+.btn-ghost:hover { background: #f1f5f9; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e2e8f0;
+  font-size: 13px;
+}
+.info-row:last-child { border-bottom: none; }
+.info-row .k { color: #64748b; }
+.info-row .v { color: #1e293b; font-weight: 600; font-family: ui-monospace, monospace; }
+
+.actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ── Viewer (full-bleed) ────────────────────────────── */
+#viewer-stage {
+  background: #000;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  position: relative;
+  margin-bottom: 14px;
+}
+#viewer-stage video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+#viewer-stage .video-overlay { font-size: 14px; }
+
+#toast {
+  position: fixed;
+  bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1e293b; color: #fff;
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+  z-index: 100;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.hint {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.55;
+}
+.hint code {
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.config-warn {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+.config-warn code { background: #fff; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>📺 螢幕/鏡頭分享 <span style="font-weight:400;color:#94a3b8;font-size:12px;margin-left:6px;">WebRTC P2P</span></h1>
+  <div class="status-pill" id="statusPill">
+    <span class="dot"></span><span id="statusText">待機中</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- mode A: chooser (default landing) -->
+  <section id="picker" class="card" hidden>
+    <h2>開始分享</h2>
+    <p>選擇要分享的來源，產生一個連結傳給對方</p>
+    <div class="pick-row">
+      <button class="pick-btn" id="btnScreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <path d="M8 21h8M12 17v4"/>
+        </svg>
+        <span class="label">分享螢幕</span>
+        <span class="desc">整個螢幕、視窗或分頁</span>
+      </button>
+      <button class="pick-btn" id="btnCamera">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z"/>
+          <rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+        <span class="label">分享鏡頭</span>
+        <span class="desc">前/後鏡頭，含麥克風</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- mode B: sharing -->
+  <section id="share-view" hidden>
+    <div class="share-grid">
+      <div class="card video-card">
+        <video id="previewVideo" autoplay muted playsinline></video>
+      </div>
+      <div class="card">
+        <div class="field-label">分享連結（傳給對方）</div>
+        <div class="link-box">
+          <input id="shareUrl" type="text" readonly>
+          <button class="btn btn-primary" id="copyBtn">複製</button>
+        </div>
+
+        <div class="info-row"><span class="k">Room ID</span><span class="v" id="roomIdView">—</span></div>
+        <div class="info-row"><span class="k">連線狀態</span><span class="v" id="connState">等待對方連入</span></div>
+        <div class="info-row"><span class="k">傳輸路徑</span><span class="v" id="connType">—</span></div>
+
+        <div class="actions">
+          <button class="btn btn-danger" id="stopBtn">停止分享</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- mode C: viewing -->
+  <section id="viewer-view" hidden>
+    <div id="viewer-stage">
+      <video id="viewerVideo" autoplay playsinline></video>
+      <div class="video-overlay" id="viewerOverlay">連線中…</div>
+    </div>
+    <div class="card">
+      <div class="info-row"><span class="k">Room ID</span><span class="v" id="viewerRoomId">—</span></div>
+      <div class="info-row"><span class="k">連線狀態</span><span class="v" id="viewerConnState">等待中</span></div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="muteBtn">靜音</button>
+        <button class="btn btn-ghost" id="fsBtn">全螢幕</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- config warning shown when WORKER_URL not set -->
+  <section id="config-warn" class="config-warn" hidden>
+    <strong>尚未設定 signaling server。</strong><br>
+    請在 <code>pingl/index.htm</code> 頂端把 <code>WORKER_URL</code> 改成你自己部署的 Cloudflare Worker URL（例如 <code>wss://pingl-signal.你的帳號.workers.dev</code>）。
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── 設定 ──────────────────────────────────────────────
+// 部署完 Cloudflare Worker 後改成你的 URL，記得用 wss://
+const WORKER_URL = 'wss://pingl-signal.54maxwu.workers.dev';
+
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
+
+// ── DOM refs ──────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const pill       = $('statusPill');
+const statusText = $('statusText');
+const toastEl    = $('toast');
+
+function setStatus(text, kind) {
+  statusText.textContent = text;
+  pill.classList.remove('busy', 'ok', 'err');
+  if (kind) pill.classList.add(kind);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+}
+
+function randomId() {
+  // 8-char URL-safe ID
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+// ── Routing ───────────────────────────────────────────
+function parseHash() {
+  const h = location.hash.replace(/^#/, '');
+  const params = new URLSearchParams(h);
+  return { view: params.get('view') };
+}
+
+function boot() {
+  if (!WORKER_URL) {
+    $('config-warn').hidden = false;
+    setStatus('未設定 server', 'err');
+    return;
+  }
+  const { view } = parseHash();
+  if (view) startViewer(view);
+  else      showPicker();
+}
+
+function showPicker() {
+  $('picker').hidden = false;
+  $('share-view').hidden = true;
+  $('viewer-view').hidden = true;
+  setStatus('待機中');
+}
+
+// ── Common: WebSocket signaling ───────────────────────
+function openSignal(roomId) {
+  const url = WORKER_URL.replace(/^http/, 'ws').replace(/\/$/, '') + '/room/' + roomId;
+  return new WebSocket(url);
+}
+
+// ── Sender flow ───────────────────────────────────────
+let senderState = null;
+
+async function startSender(source) {
+  setStatus('取得媒體…', 'busy');
+  let stream;
+  try {
+    if (source === 'screen') {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 30, max: 60 } },
+        audio: true,
+      });
+    } else {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: true,
+      });
+    }
+  } catch (err) {
+    setStatus('取得媒體失敗', 'err');
+    toast(err.message || '使用者拒絕或裝置不可用');
+    return;
+  }
+
+  // Stream ended (user clicked browser "stop sharing" button)
+  stream.getVideoTracks()[0]?.addEventListener('ended', () => stopSender('使用者停止分享'));
+
+  $('picker').hidden = true;
+  $('share-view').hidden = false;
+  $('previewVideo').srcObject = stream;
+
+  const roomId = randomId();
+  $('roomIdView').textContent = roomId;
+
+  const shareUrl = `${location.origin}${location.pathname}#view=${roomId}`;
+  $('shareUrl').value = shareUrl;
+
+  setStatus('等待對方連入', 'busy');
+  $('connState').textContent = '等待對方連入';
+
+  const ws = openSignal(roomId);
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  senderState = { ws, pc, stream };
+
+  stream.getTracks().forEach(t => pc.addTrack(t, stream));
+
+  pc.onicecandidate = e => {
+    if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+  };
+
+  pc.onconnectionstatechange = async () => {
+    const s = pc.connectionState;
+    $('connState').textContent = s;
+    if (s === 'connected') {
+      setStatus('已連線', 'ok');
+      // Inspect selected candidate pair to show transport type (host/srflx/relay)
+      try {
+        const stats = await pc.getStats();
+        let pairType = '';
+        stats.forEach(r => {
+          if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated) {
+            const local = stats.get(r.localCandidateId);
+            if (local) pairType = local.candidateType;
+          }
+        });
+        const label = { host: '區網直連', srflx: 'STUN 打洞', prflx: 'STUN 打洞', relay: 'TURN 中繼' }[pairType] || pairType || '—';
+        $('connType').textContent = label;
+      } catch {}
+    } else if (s === 'failed' || s === 'disconnected') {
+      setStatus('連線中斷', 'err');
+      $('connType').textContent = '—';
+    }
+  };
+
+  ws.onmessage = async ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'room-state') {
+      if (msg.peerCount >= 1) await makeOffer(pc, ws);
+    } else if (msg.type === 'peer-joined') {
+      await makeOffer(pc, ws);
+    } else if (msg.type === 'answer') {
+      await pc.setRemoteDescription(msg.sdp);
+    } else if (msg.type === 'ice') {
+      try { await pc.addIceCandidate(msg.candidate); } catch {}
+    } else if (msg.type === 'peer-left') {
+      setStatus('對方離線', 'err');
+      $('connState').textContent = '對方離線';
+    }
+  };
+
+  ws.onerror = () => setStatus('signaling 連線失敗', 'err');
+  ws.onclose = () => { if (senderState) setStatus('signaling 已斷', 'err'); };
+}
+
+async function makeOffer(pc, ws) {
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  ws.send(JSON.stringify({ type: 'offer', sdp: offer }));
+}
+
+function stopSender(reason) {
+  if (!senderState) return;
+  const { ws, pc, stream } = senderState;
+  try { stream.getTracks().forEach(t => t.stop()); } catch {}
+  try { pc.close(); } catch {}
+  try { ws.close(); } catch {}
+  senderState = null;
+  if (reason) toast(reason);
+  showPicker();
+}
+
+// ── Viewer flow ───────────────────────────────────────
+let viewerState = null;
+
+async function startViewer(roomId) {
+  $('picker').hidden = true;
+  $('share-view').hidden = true;
+  $('viewer-view').hidden = false;
+  $('viewerRoomId').textContent = roomId;
+  setStatus('連線中…', 'busy');
+
+  const ws = openSignal(roomId);
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  viewerState = { ws, pc };
+
+  pc.ontrack = e => {
+    $('viewerVideo').srcObject = e.streams[0];
+    $('viewerOverlay').hidden = true;
+  };
+
+  pc.onicecandidate = e => {
+    if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+  };
+
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    $('viewerConnState').textContent = s;
+    if (s === 'connected') setStatus('已連線', 'ok');
+    else if (s === 'failed' || s === 'disconnected') {
+      setStatus('連線中斷', 'err');
+      $('viewerOverlay').hidden = false;
+      $('viewerOverlay').textContent = '連線中斷';
+    }
+  };
+
+  ws.onmessage = async ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'room-state') {
+      if (msg.peerCount === 0) {
+        $('viewerOverlay').textContent = '等待分享者開始…';
+        setStatus('等待分享者', 'busy');
+      }
+    } else if (msg.type === 'offer') {
+      await pc.setRemoteDescription(msg.sdp);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ type: 'answer', sdp: answer }));
+    } else if (msg.type === 'ice') {
+      try { await pc.addIceCandidate(msg.candidate); } catch {}
+    } else if (msg.type === 'peer-left') {
+      setStatus('對方已離開', 'err');
+      $('viewerOverlay').hidden = false;
+      $('viewerOverlay').textContent = '分享者已離開';
+    }
+  };
+
+  ws.onerror = () => {
+    setStatus('signaling 連線失敗', 'err');
+    $('viewerOverlay').textContent = 'signaling 連線失敗';
+  };
+  ws.onclose = () => {
+    if (viewerState && pc.connectionState !== 'connected') {
+      setStatus('signaling 已斷', 'err');
+    }
+  };
+}
+
+// ── UI wiring ─────────────────────────────────────────
+$('btnScreen').addEventListener('click', () => startSender('screen'));
+$('btnCamera').addEventListener('click', () => startSender('camera'));
+$('stopBtn').addEventListener('click', () => stopSender());
+
+$('copyBtn').addEventListener('click', async () => {
+  const url = $('shareUrl').value;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('已複製連結');
+  } catch {
+    $('shareUrl').select();
+    document.execCommand('copy');
+    toast('已複製連結');
+  }
+});
+
+$('muteBtn').addEventListener('click', () => {
+  const v = $('viewerVideo');
+  v.muted = !v.muted;
+  $('muteBtn').textContent = v.muted ? '取消靜音' : '靜音';
+});
+$('fsBtn').addEventListener('click', () => {
+  const v = $('viewerVideo');
+  if (document.fullscreenElement) document.exitFullscreen();
+  else v.requestFullscreen?.();
+});
+
+window.addEventListener('beforeunload', () => {
+  stopSender();
+  if (viewerState) { try { viewerState.pc.close(); viewerState.ws.close(); } catch {} }
+});
+
+boot();
+</script>
+
+</body>
+</html>

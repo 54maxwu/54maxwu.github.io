@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" href="./favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <title>文件加密</title>
     <script>
       // Suppress autofocus when running inside an iframe (e.g. tool.htm)
       // until the user first interacts with the page.
@@ -17,6 +17,7 @@
       }
     </script>
     <script defer src="./assets/index-77aa0783.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     <link rel="stylesheet" href="./assets/index-13712040.css">
   <style>
     /* ── Global ── */
@@ -28,9 +29,38 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
       color: #1e293b;
     }
+
+    /* ── Project-wide standard header ── */
+    .app-header {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 14px 24px;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .app-header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e293b;
+      letter-spacing: .02em;
+      margin: 0;
+    }
+
+    /* ── Project-wide standard page-content wrapper ── */
+    .page-content {
+      padding: 12px 20px 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
     #app {
-      min-height: 100vh;
-      background: #f1f5f9;
+      /* App container takes whatever vertical space remains after header */
+      background: transparent;
     }
 
     /* ── Element Plus variable overrides ── */
@@ -84,17 +114,503 @@
     }
 
     /* ── Toolbar (bottom action bar) ── */
-    .el-footer,
     .el-card__footer,
-    [class*="footer"],
     [class*="toolbar"] {
       background: #fff !important;
-      border-top: 1px solid #e2e8f0 !important;
+    }
+
+    /* ── Header right-side action group (steg button + lifted file bar) ── */
+    .app-header .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #stegBtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 38px;
+      padding: 0 14px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #1e293b;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+      font-family: inherit;
+      white-space: nowrap;
+      max-width: 280px;
+    }
+    #stegBtn:hover {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #2563eb;
+    }
+    #stegBtn:active { transform: scale(.97); }
+    #stegBtn.armed {
+      background: #ecfdf5;
+      border-color: #10b981;
+      color: #047857;
+      padding: 3px 6px 3px 4px;
+    }
+    #stegBtn.armed:hover {
+      background: #d1fae5;
+      border-color: #059669;
+    }
+    #stegBtn.armed img {
+      width: 30px;
+      height: 30px;
+      object-fit: cover;
+      border-radius: 4px;
+      display: block;
+    }
+    #stegBtn.armed .steg-name {
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #stegBtn.armed .steg-clear {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(4,120,87,.12);
+      color: #047857;
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 2px;
+    }
+    #stegBtn.armed .steg-clear:hover {
+      background: #047857;
+      color: #fff;
+    }
+
+    /* ── File action bar moved into the page header ──
+       JS (below) lifts <div id="main"> > :last-child into .app-header.
+       These rules shrink the upload zone / filename input / download button
+       so they fit inside the 60px-tall header next to the title. Inline
+       styles on those elements force !important everywhere. */
+    .app-header .file-action-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .app-header #dropArea {
+      width: auto !important;
+      padding: 4px 14px !important;
+      background: #f0f7ff !important;
+      border: 1px dashed #94a3b8 !important;
+      border-radius: 6px;
+      height: 38px;
+      display: flex !important;
+      align-items: center;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .app-header #dropArea:hover {
+      background: #dbeafe !important;
+      border-color: #3b82f6 !important;
+    }
+    .app-header #dropArea .el-icon {
+      font-size: 22px !important;
+    }
+    .app-header .file-action-bar .el-input {
+      width: 200px !important;
+    }
+    /* Bundle 把密碼欄硬編 display:none。重新露出來,加密才能用 */
+    .app-header .file-action-bar .el-input--password {
+      display: inline-flex !important;
+      width: 160px !important;
+    }
+    .app-header .file-action-bar .el-input__inner,
+    .app-header .file-action-bar .el-input__wrapper {
+      font-size: 13px !important;
+      height: 38px;
+    }
+    .app-header .file-action-bar .el-button {
+      height: 38px !important;
+      width: auto !important;
+      padding: 0 16px !important;
+      font-size: 13px !important;
     }
   </style>
   </head>
   <body>
-    <div id="app"></div>
-    
+    <div class="app-header">
+      <h1>文件加密</h1>
+      <div class="header-actions">
+        <button id="stegBtn" type="button" title="把任意檔案藏進一張圖片裡">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+            <circle cx="9" cy="9" r="1.5"></circle>
+            <path d="M21 15l-5-5L5 21"></path>
+            <circle cx="17" cy="17" r="3"></circle>
+          </svg>
+          <span>藏進圖片</span>
+        </button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div id="app"></div>
+    </div>
+    <script>
+      // ── Steganography ──
+      // Payload = current editor HTML. Layout (read from end of file):
+      //   [carrier bytes][HTML UTF-8 bytes][u32 LE htmlLen][8B magic]
+      const STEG_MAGIC = new Uint8Array([0x53,0x54,0x45,0x47,0x48,0x54,0x4D,0x4C]); // "STEGHTML"
+
+      function buildStegBlob(carrierBuf, htmlBytes) {
+        const total = carrierBuf.byteLength + htmlBytes.length + 4 + STEG_MAGIC.length;
+        const out = new Uint8Array(total);
+        let p = 0;
+        out.set(new Uint8Array(carrierBuf), p); p += carrierBuf.byteLength;
+        out.set(htmlBytes, p); p += htmlBytes.length;
+        new DataView(out.buffer).setUint32(p, htmlBytes.length, true); p += 4;
+        out.set(STEG_MAGIC, p);
+        return out;
+      }
+
+      async function extractHiddenHTML(file) {
+        if (!file || !file.type || !file.type.startsWith('image/')) return null;
+        const buf = new Uint8Array(await file.arrayBuffer());
+        if (buf.length < STEG_MAGIC.length + 4) return null;
+        for (let i = 0; i < STEG_MAGIC.length; i++) {
+          if (buf[buf.length - STEG_MAGIC.length + i] !== STEG_MAGIC[i]) return null;
+        }
+        const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+        const tailEnd = buf.length - STEG_MAGIC.length;
+        const htmlLen = dv.getUint32(tailEnd - 4, true);
+        const htmlStart = tailEnd - 4 - htmlLen;
+        if (htmlStart < 0) return null;
+        return new TextDecoder().decode(buf.subarray(htmlStart, htmlStart + htmlLen));
+      }
+
+      // Read current editor content (HTML) from the ProseMirror DOM
+      function getEditorHTML() {
+        const pm = document.querySelector('.ProseMirror');
+        return pm ? pm.innerHTML : '';
+      }
+
+      // Replace editor content by simulating an HTML paste on ProseMirror —
+      // this routes through tiptap/prosemirror's normal paste pipeline, keeping
+      // internal state consistent (unlike setting innerHTML directly).
+      function setEditorHTML(html) {
+        const pm = document.querySelector('.ProseMirror');
+        if (!pm) return false;
+        pm.focus();
+        const range = document.createRange();
+        range.selectNodeContents(pm);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        const dt = new DataTransfer();
+        dt.setData('text/html', html);
+        pm.dispatchEvent(new ClipboardEvent('paste', {
+          clipboardData: dt, bubbles: true, cancelable: true
+        }));
+        return true;
+      }
+
+      function pickFile(accept) {
+        return new Promise(resolve => {
+          const inp = document.createElement('input');
+          inp.type = 'file';
+          if (accept) inp.accept = accept;
+          inp.style.display = 'none';
+          inp.addEventListener('change', () => {
+            const f = inp.files && inp.files[0];
+            inp.remove();
+            resolve(f || null);
+          });
+          inp.addEventListener('cancel', () => { inp.remove(); resolve(null); });
+          document.body.appendChild(inp);
+          inp.click();
+        });
+      }
+
+      function downloadBlob(bytes, name, mime) {
+        const blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      // ── 從密碼欄抓密碼 ──
+      function getPassword() {
+        const bar = document.querySelector('.file-action-bar');
+        if (!bar) return '';
+        const pw = bar.querySelector('input[type="password"]');
+        return pw ? pw.value : '';
+      }
+
+      // ── AES 加 / 解 (跟 bundle 同款:AES-ECB / Pkcs7 / key=btoa(password)) ──
+      // 輸出 hex 字串,跟 bundle 原本下載的 .txt 內容一致 — 改天把 steg 圖
+      // 改副檔名成 .txt,bundle 自己也能解開。
+      function encryptToHex(plain, password) {
+        const key = CryptoJS.enc.Utf8.parse(btoa(password));
+        return CryptoJS.AES.encrypt(plain, key, {
+          mode: CryptoJS.mode.ECB, padding: CryptoJS.pad.Pkcs7
+        }).ciphertext.toString();
+      }
+      function decryptFromHex(hex, password) {
+        try {
+          const key = CryptoJS.enc.Utf8.parse(btoa(password));
+          const ct = CryptoJS.enc.Hex.parse(hex);
+          const out = CryptoJS.AES.decrypt({ ciphertext: ct }, key, {
+            mode: CryptoJS.mode.ECB, padding: CryptoJS.pad.Pkcs7
+          }).toString(CryptoJS.enc.Utf8);
+          return out || null;
+        } catch { return null; }
+      }
+
+      // Lift the bundle-rendered file bar into the header, then hook its
+      // 下載文件 button so we can intercept clicks when a steg carrier is armed.
+      (function () {
+        const target = document.querySelector('.app-header .header-actions');
+        if (!target) return;
+        const observer = new MutationObserver(() => {
+          const main = document.getElementById('main');
+          if (!main) return;
+          const bar = main.lastElementChild;
+          if (!bar || bar.dataset.lifted === '1') return;
+          bar.dataset.lifted = '1';
+          bar.classList.add('file-action-bar');
+          target.appendChild(bar);
+          // Capture-phase click hook on download button — fires before Vue's listener
+          const downloadBtn = bar.querySelector('button.el-button');
+          if (downloadBtn) {
+            downloadBtn.addEventListener('click', onDownloadClick, true);
+          }
+          observer.disconnect();
+        });
+        observer.observe(document.getElementById('app'), { childList: true, subtree: true });
+      })();
+
+      // ── Page-wide file drop / click-to-pick ──
+      // 如果丟進來的是含有隱藏 HTML 的圖,直接還原到編輯器;
+      // 否則維持原本「轉發給 #dropArea 走 bundle 的解密流程」。
+      (function () {
+        const hasFiles = e => e.dataTransfer
+          && Array.from(e.dataTransfer.types || []).includes('Files');
+
+        function deliverFiles(files) {
+          const drop = document.getElementById('dropArea');
+          if (!drop || !files || !files.length) return;
+          const dt = new DataTransfer();
+          for (const f of files) dt.items.add(f);
+          drop.dispatchEvent(new DragEvent('drop', {
+            bubbles: true, cancelable: true, dataTransfer: dt
+          }));
+        }
+
+        async function handleFiles(files) {
+          if (!files || !files.length) return;
+          const first = files[0];
+          // 第一個檔案先試抽 steg payload(裡面是加密過的 hex)
+          const cipherHex = await extractHiddenHTML(first);
+          if (cipherHex != null) {
+            const password = getPassword();
+            if (!password) {
+              alert('請先在密碼欄輸入密碼,才能解密這張藏圖');
+              return;
+            }
+            const html = decryptFromHex(cipherHex, password);
+            if (html == null || !html.length) {
+              alert('密碼錯誤,無法解密');
+              return;
+            }
+            if (setEditorHTML(html)) {
+              await armCarrier(first);
+              setBundleFilename(first.name);
+            }
+            return;
+          }
+          // 沒 steg 但是圖片 → 直接 arm 成載體 + 填檔名,不丟給 dropArea (避免它讀二進位失敗)
+          if (first.type && first.type.startsWith('image/')) {
+            await armCarrier(first);
+            setBundleFilename(first.name);
+            return;
+          }
+          // 其他檔案 → 清掉舊載體,交給 dropArea 走 bundle 的解密流程
+          clearStegCarrier();
+          deliverFiles(files);
+        }
+
+        document.addEventListener('dragover', e => {
+          if (hasFiles(e)) e.preventDefault();
+        }, false);
+
+        document.addEventListener('drop', async e => {
+          const drop = document.getElementById('dropArea');
+          if (!drop) return;
+          if (drop.contains(e.target)) return; // 落在 dropArea 上讓它自己處理 (但它沒 steg 抽取)
+          const files = e.dataTransfer && e.dataTransfer.files;
+          if (!files || !files.length) return;
+          e.preventDefault();
+          await handleFiles(files);
+        }, false);
+
+        // 點 #dropArea 開檔案選擇器
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', async () => {
+          await handleFiles(fileInput.files);
+          fileInput.value = '';
+        });
+        document.body.appendChild(fileInput);
+
+        document.addEventListener('click', e => {
+          const drop = document.getElementById('dropArea');
+          if (drop && drop.contains(e.target)) fileInput.click();
+        }, false);
+      })();
+
+      // ── 藏進圖片 (arm 載體) ──
+      // 點按鈕 → 選一張載體圖 → 預存 + 顯示縮圖,不下載。
+      // 之後按「下載文件」會自動把內容藏進這張圖,輸出成圖檔。
+      let stegCarrier = null; // {buf, name, type, previewUrl}
+
+      function renderStegBtn() {
+        const btn = document.getElementById('stegBtn');
+        if (!btn) return;
+        if (stegCarrier) {
+          btn.classList.add('armed');
+          btn.title = '已選載體圖,點「下載文件」會輸出成圖檔';
+          btn.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = stegCarrier.previewUrl;
+          btn.appendChild(img);
+          const name = document.createElement('span');
+          name.className = 'steg-name';
+          name.textContent = stegCarrier.name;
+          btn.appendChild(name);
+          const x = document.createElement('span');
+          x.className = 'steg-clear';
+          x.textContent = '✕';
+          x.title = '取消';
+          x.addEventListener('click', e => {
+            e.stopPropagation();
+            clearStegCarrier();
+          });
+          btn.appendChild(x);
+        } else {
+          btn.classList.remove('armed');
+          btn.title = '把任意檔案藏進一張圖片裡';
+          btn.innerHTML =
+            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+              '<rect x="3" y="3" width="18" height="18" rx="2"></rect>' +
+              '<circle cx="9" cy="9" r="1.5"></circle>' +
+              '<path d="M21 15l-5-5L5 21"></path>' +
+              '<circle cx="17" cy="17" r="3"></circle>' +
+            '</svg>' +
+            '<span>藏進圖片</span>';
+        }
+      }
+
+      function clearStegCarrier() {
+        if (stegCarrier && stegCarrier.previewUrl) URL.revokeObjectURL(stegCarrier.previewUrl);
+        stegCarrier = null;
+        renderStegBtn();
+      }
+
+      // 載體緩衝若末端有舊的 steg payload,剝掉後再存,避免重覆下載時累積膨脹
+      function stripStegPayload(arrayBuf) {
+        const u8 = new Uint8Array(arrayBuf);
+        if (u8.length < STEG_MAGIC.length + 4) return arrayBuf;
+        for (let i = 0; i < STEG_MAGIC.length; i++) {
+          if (u8[u8.length - STEG_MAGIC.length + i] !== STEG_MAGIC[i]) return arrayBuf;
+        }
+        const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+        const tailEnd = u8.length - STEG_MAGIC.length;
+        const htmlLen = dv.getUint32(tailEnd - 4, true);
+        const htmlStart = tailEnd - 4 - htmlLen;
+        if (htmlStart < 0) return arrayBuf;
+        return u8.slice(0, htmlStart).buffer;
+      }
+
+      async function armCarrier(file, buf) {
+        if (!file || !file.type || !file.type.startsWith('image/')) return false;
+        try {
+          const raw = buf || await file.arrayBuffer();
+          const arr = stripStegPayload(raw);
+          if (stegCarrier && stegCarrier.previewUrl) URL.revokeObjectURL(stegCarrier.previewUrl);
+          stegCarrier = {
+            buf: arr,
+            name: file.name,
+            type: file.type,
+            previewUrl: URL.createObjectURL(file)
+          };
+          renderStegBtn();
+          return true;
+        } catch (err) {
+          alert('讀取圖檔失敗: ' + (err && err.message || err));
+          return false;
+        }
+      }
+
+      // 把檔名塞進 bundle 的檔名輸入框,並透過原生 setter + input event
+      // 讓 Vue 的 v-model 同步反應(直接設 .value 不會觸發 reactivity)
+      function setBundleFilename(name) {
+        const bar = document.querySelector('.file-action-bar');
+        if (!bar) return false;
+        const input = bar.querySelector('input[type="text"]');
+        if (!input) return false;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, name);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      }
+
+      (function () {
+        const btn = document.getElementById('stegBtn');
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+          const carrier = await pickFile('image/*');
+          if (!carrier) return;
+          await armCarrier(carrier);
+        });
+      })();
+
+      // ── 下載文件 攔截 ──
+      // capture-phase 攔截 bundle 的 click listener;載體已 arm 就改成藏圖下載
+      function onDownloadClick(e) {
+        if (!stegCarrier) return; // 沒 arm → 讓 bundle 自己處理
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const password = getPassword();
+        if (!password) {
+          alert('請先在密碼欄輸入密碼');
+          return;
+        }
+        const html = getEditorHTML();
+        if (!html || !html.trim() || html === '<p></p>' || html === '<p><br></p>') {
+          alert('編輯器是空的,沒有內容可以藏');
+          return;
+        }
+        try {
+          const cipherHex = encryptToHex(html, password);
+          const cipherBytes = new TextEncoder().encode(cipherHex);
+          const out = buildStegBlob(stegCarrier.buf, cipherBytes);
+          // 檔名:沿用檔名輸入框,沒填就用載體原名;副檔名一律跟著載體
+          const bar = document.querySelector('.file-action-bar');
+          const userName = (bar && bar.querySelector('input[type="text"]')?.value || '').trim();
+          const carrierExt = stegCarrier.name.match(/\.[^.]+$/)?.[0] || '.png';
+          const base = userName || stegCarrier.name.replace(/\.[^.]+$/, '');
+          const filename = base.endsWith(carrierExt) ? base : base + carrierExt;
+          downloadBlob(out, filename, stegCarrier.type);
+        } catch (err) {
+          alert('加密 / 合成失敗: ' + (err && err.message || err));
+        }
+      }
+    </script>
   </body>
 </html>

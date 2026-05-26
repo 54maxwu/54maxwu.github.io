@@ -10,9 +10,12 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
             background: #f1f5f9;
-            min-height: 100vh;
+            height: 100vh;
             padding: 0;
             color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .app-header {
@@ -24,6 +27,8 @@
             min-height: 60px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            gap: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,.06);
             position: sticky;
             top: 0;
@@ -36,7 +41,15 @@
             letter-spacing: .02em;
             margin: 0;
         }
-        .page-content { padding: 20px; }
+        .page-content {
+            padding: 12px 20px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
 
         .glass {
             border-radius: 14px;
@@ -47,16 +60,22 @@
             border-bottom: 1.5px solid rgba(40,40,40,0.2);
             border-right: 1.5px solid rgba(40,40,40,0.2);
             padding: 18px;
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        /* ── TABS ── */
-        .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+        /* ── TABS (inside .app-header, on the right) ── */
+        .app-header .tabs { display: flex; gap: 6px; }
         .tab-btn {
-            padding: 7px 20px;
+            padding: 6px 16px;
             border: 1.5px solid rgba(0,191,255,0.3);
             border-radius: 8px;
             cursor: pointer;
-            font-size: 0.88rem;
+            font-size: 0.84rem;
             font-weight: 600;
             transition: all 0.2s;
             background: rgba(255,255,255,0.4);
@@ -70,19 +89,27 @@
         }
         .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.65); }
 
-        .section { display: none; }
-        .section.active { display: block; }
+        .section { display: none; min-height: 0; }
+        .section.active {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow: auto;  /* scroll inside section if total content too tall */
+        }
 
         /* ── INPUT AREA ── */
         .input-row {
             display: grid;
             grid-template-columns: 1fr 80px 1fr;
             gap: 10px;
-            align-items: start;
+            align-items: stretch;
             margin-bottom: 12px;
+            flex: 1;
+            min-height: 240px;  /* don't collapse on short viewports */
         }
 
-        .textarea-wrap { display: flex; flex-direction: column; gap: 5px; }
+        .textarea-wrap { display: flex; flex-direction: column; gap: 5px; min-height: 0; }
 
         .field-label {
             display: flex;
@@ -118,6 +145,7 @@
             transition: border-color 0.2s, box-shadow 0.2s;
             min-height: 200px;
             line-height: 1.5;
+            flex: 1;  /* fill the textarea-wrap so input-row's height propagates down */
         }
         textarea:focus {
             outline: none;
@@ -136,30 +164,24 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            padding-top: 28px;
         }
 
+        /* Action button — matches .clear-btn dimensions, green tint instead of red. */
         .action-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-            width: 72px;
-            height: 72px;
-            padding: 0;
-            border: none;
-            border-radius: 10px;
+            padding: 5px 12px;
+            border: 1px solid rgba(39,174,96,0.45);
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.78rem;
-            font-weight: 700;
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.5);
+            color: #1f7a47;
             transition: all 0.18s;
-            background: linear-gradient(145deg, rgba(0,160,220,0.35), rgba(0,80,160,0.35));
-            color: #0a3050;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
         }
-        .action-btn:hover { transform: scale(1.06); box-shadow: 0 5px 16px rgba(0,160,220,0.35); }
+        .action-btn:hover  { background: rgba(39,174,96,0.15); }
         .action-btn:active { transform: scale(0.96); }
+        /* Hide any leftover SVG icons inside the action button (legacy markup) */
+        .action-btn svg { display: none; }
 
         .clear-btn {
             padding: 5px 12px;
@@ -266,9 +288,11 @@
             display: grid;
             grid-template-columns: 1fr 80px 1fr;
             gap: 10px;
-            align-items: start;
+            align-items: stretch;
+            flex: 1;            /* fill the section height so textareas grow */
+            min-height: 0;
         }
-        .unique-result-wrap { display: flex; flex-direction: column; gap: 5px; }
+        .unique-result-wrap { display: flex; flex-direction: column; gap: 5px; min-height: 0; }
         .unique-result-header { display: flex; justify-content: space-between; align-items: center; }
 
         /* ════════════════════════════════
@@ -278,11 +302,14 @@
             display: grid;
             grid-template-columns: 1fr 80px 1fr;
             gap: 10px;
-            align-items: start;
+            align-items: stretch;
             margin-bottom: 12px;
+            flex: 3;            /* 30% of section height — input is secondary */
+            min-height: 140px;
         }
 
-        /* Split view container */
+        /* Split view container — the main focus; takes 70% of section height.
+           Internal .split-diff-body scrolls when content overflows. */
         .split-diff-wrap {
             border-radius: 10px;
             overflow: hidden;
@@ -291,6 +318,10 @@
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.83rem;
             line-height: 1.55;
+            flex: 7;
+            min-height: 360px;
+            display: flex;
+            flex-direction: column;
         }
 
         .split-diff-header {
@@ -312,16 +343,51 @@
         }
         .split-diff-header-cell:last-child { color: #8d8; }
 
+        /* Body = pure vertical scroll container; the 2-col grid lives one level in
+           (.split-diff-rows). Keeping the grid out of the scroll container so its
+           row-track sizing can compute against natural content height — otherwise
+           a grid item that's also a scroll container (overflow-y on .diff-col)
+           collapses row tracks to 0 and the body never sees overflow. */
         .split-diff-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            /* Custom scrollbar — default dark-theme scrollbars are invisible on #1e1e1e bg */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,.25) rgba(0,0,0,.25);
+        }
+        .split-diff-rows {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            max-height: 520px;
-            overflow-y: auto;
+            min-height: 100%;   /* if content is shorter than body, still fill the dark area */
         }
+        .split-diff-body::-webkit-scrollbar { width: 10px; }
+        .split-diff-body::-webkit-scrollbar-track { background: rgba(0,0,0,.25); }
+        .split-diff-body::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,.25);
+            border-radius: 5px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        .split-diff-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); background-clip: padding-box; border: 2px solid transparent; }
 
         .diff-col {
             overflow-x: auto;
+            /* Explicit `overflow-y: clip` so the browser doesn't auto-promote the default
+               `visible` to `auto` (which would add a per-column vertical scrollbar).
+               Using `clip` (not `hidden`) keeps the column from becoming a scroll container,
+               so grid row sizing isn't affected — single scrollbar lives on .split-diff-body. */
+            overflow-y: clip;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,.2) transparent;
         }
+        .diff-col::-webkit-scrollbar { height: 8px; }
+        .diff-col::-webkit-scrollbar-track { background: transparent; }
+        .diff-col::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,.22);
+            border-radius: 4px;
+        }
+        .diff-col::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); }
         .diff-col:first-child { border-right: 1px solid #3a3a3a; }
 
         .diff-line {
@@ -421,6 +487,23 @@
             color: #555;
             font-size: 0.85rem;
         }
+        /* Top-level empty placeholder fills the 420px wrap and centers vertically;
+           in-column "(empty)" fallbacks keep the simple padding-only layout. */
+        .split-diff-wrap > .diff-empty-msg {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* When result populated, JS clears inline display="none" → this rule kicks in,
+           making the inner panel a flex column so the .split-diff-body inside can
+           properly compute its remaining height and trigger overflow scroll. */
+        #split-diff-inner {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
 
         .copy-diff-btn {
             padding: 5px 14px;
@@ -452,14 +535,16 @@
     </style>
 </head>
 <body>
-    <div class="app-header"><h1>文字比對工具</h1></div>
-    <div class="page-content">
-    <div class="glass">
+    <div class="app-header">
+        <h1>文字比對工具</h1>
         <div class="tabs">
             <button class="tab-btn active" data-tab="diff">集合比對</button>
             <button class="tab-btn" data-tab="linediff">行差異</button>
             <button class="tab-btn" data-tab="unique">去除重複</button>
         </div>
+    </div>
+    <div class="page-content">
+    <div class="glass">
 
         <!-- ══════════════ DIFF SECTION ══════════════ -->
         <div id="diff-section" class="section active">
@@ -578,8 +663,10 @@
                         <div class="split-diff-header-cell">&#9632; 新版（新增的行）</div>
                     </div>
                     <div class="split-diff-body">
-                        <div class="diff-col" id="diff-left-col"></div>
-                        <div class="diff-col" id="diff-right-col"></div>
+                        <div class="split-diff-rows">
+                            <div class="diff-col" id="diff-left-col"></div>
+                            <div class="diff-col" id="diff-right-col"></div>
+                        </div>
                     </div>
                     <div class="diff-stats" id="diff-stats">
                         <span class="stat-add" id="stat-add"></span>

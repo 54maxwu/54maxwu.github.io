@@ -7,6 +7,42 @@
     <link rel="stylesheet" href="index.css">
     <script type="text/javascript" src="vue.js"></script>
     <script type="text/javascript" src="require.js"></script>
+    <style>
+        /* ── Toast (custom non-blocking notification, replaces native alert) ── */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b; color: #f1f5f9;
+            padding: 10px 18px; border-radius: 8px;
+            font-size: 13px; font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            box-shadow: 0 6px 20px rgba(0,0,0,.4);
+            opacity: 0; transition: opacity .2s, transform .2s;
+            z-index: 9999; pointer-events: none;
+            max-width: 90vw; border: 1px solid #334155;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast.err { background: #7f1d1d; border-color: #991b1b; }
+    </style>
+    <script>
+    // Custom toast (replaces native alert)
+    (function () {
+        function init() {
+            const el = document.createElement('div');
+            el.className = 'toast';
+            document.body.appendChild(el);
+            let t = null;
+            window.alert = function (msg) {
+                el.textContent = msg;
+                el.className = 'toast err show';
+                clearTimeout(t);
+                t = setTimeout(() => { el.className = 'toast err'; }, 2800);
+            };
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+        else init();
+    })();
+    </script>
 </head>
 <body>
     <div class="app-wrapper" id="pageContainer">
@@ -27,6 +63,13 @@
                         ref="codeSource"
                         v-model="textContent"
                         placeholder="在這裡填寫需要生成二維碼的任意內容"></textarea>
+
+                    <div class="byte-counter" :class="{ over: isOverLimit, warn: !isOverLimit && byteLength > QR_MAX_BYTES * 0.85 }">
+                        <span v-if="isOverLimit">⚠ 已超過 QR 碼容量上限 — 將無法產生</span>
+                        <span v-else-if="byteLength > QR_MAX_BYTES * 0.85">⚠ 接近容量上限</span>
+                        <span v-else>容量</span>
+                        <strong>{{ byteLength }}</strong> / {{ QR_MAX_BYTES }} bytes
+                    </div>
 
                     <div class="options-bar">
                         <div class="opt-group">

@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>台中交通即時影像</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         [hidden] { display: none !important; }
@@ -112,8 +111,8 @@
         .search-clear:hover { color: #ef4444; background: rgba(239,68,68,.08); }
 
         .page-content {
-            padding: 20px 16px 60px;
-            max-width: 1280px;
+            padding: 12px 20px 20px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -379,6 +378,45 @@
             max-width: 90%;
             word-break: break-all;
         }
+
+        /* Paused / handed-off to external player */
+        .video-overlay.paused {
+            background: linear-gradient(135deg, #0b1220 0%, #1e293b 100%);
+            cursor: pointer;
+            pointer-events: auto;
+            gap: 18px;
+        }
+        .video-overlay.paused:hover .play-circle {
+            transform: scale(1.08);
+            background: #14b8a6;
+            box-shadow: 0 8px 28px rgba(20,184,166,.55);
+        }
+        .play-circle {
+            width: 76px; height: 76px;
+            border-radius: 50%;
+            background: rgba(20,184,166,.85);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 22px rgba(20,184,166,.4);
+            transition: transform .15s, background .15s, box-shadow .15s;
+        }
+        .play-circle svg { width: 32px; height: 32px; margin-left: 4px; }
+        .video-overlay.paused .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            background: rgba(20,184,166,.15);
+            border: 1px solid rgba(20,184,166,.35);
+            color: #5eead4;
+            border-radius: 999px;
+            font-weight: 600;
+            letter-spacing: .04em;
+        }
+        .video-overlay.paused .ov-msg { font-weight: 600; color: #e2e8f0; }
         .retry-btn {
             padding: 8px 18px;
             background: linear-gradient(145deg, #14b8a6, #0d9488);
@@ -394,6 +432,113 @@
         }
         .retry-btn:hover { box-shadow: 0 4px 12px rgba(13,148,136,.5); }
         .retry-btn:active { transform: scale(.97); }
+
+        .ext-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 4px;
+        }
+        .ext-btn {
+            padding: 7px 14px;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.15);
+            color: #cbd5e1;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background .12s, color .12s, border-color .12s;
+        }
+        .ext-btn:hover {
+            background: rgba(20,184,166,.18);
+            border-color: rgba(20,184,166,.4);
+            color: #5eead4;
+        }
+
+        /* ── Share popover ── */
+        .share-pop {
+            position: absolute;
+            top: 50px;
+            right: 12px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            box-shadow: 0 10px 28px rgba(0,0,0,.55);
+            padding: 10px;
+            min-width: 320px;
+            max-width: calc(100% - 24px);
+            z-index: 20;
+            display: none;
+        }
+        .share-pop.show { display: block; }
+        .share-pop .pop-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            padding: 2px 4px 6px;
+        }
+        .share-pop .url-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .share-pop input {
+            flex: 1;
+            min-width: 0;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            color: #cbd5e1;
+            padding: 7px 10px;
+            font-size: 11px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            outline: none;
+        }
+        .share-pop input:focus { border-color: #14b8a6; }
+        .pop-divider {
+            height: 1px;
+            background: #334155;
+            margin: 6px 0;
+        }
+        .pop-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 9px 10px;
+            background: transparent;
+            border: none;
+            color: #cbd5e1;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 6px;
+            text-align: left;
+            font-family: inherit;
+            transition: background .12s, color .12s;
+        }
+        .pop-row:hover {
+            background: rgba(20,184,166,.15);
+            color: #5eead4;
+        }
+        .pop-row .ico {
+            width: 20px;
+            text-align: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .pop-row .hint {
+            margin-left: auto;
+            font-size: 10px;
+            color: #64748b;
+        }
 
         .toast {
             position: fixed;
@@ -462,9 +607,8 @@
                     <button class="tool-btn" id="snapBtn" type="button" title="畫面截圖 (PNG)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="4"/></svg>
                     </button>
-                    <button class="tool-btn" id="muteBtn" type="button" title="靜音 / 開聲音">
-                        <svg id="muteIconOn"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
-                        <svg id="muteIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                    <button class="tool-btn" id="shareBtn" type="button" title="用外部播放器 (O)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
                     </button>
                     <button class="tool-btn" id="fsBtn" type="button" title="全螢幕">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V5a2 2 0 0 1 2-2h4"/><path d="M21 9V5a2 2 0 0 0-2-2h-4"/><path d="M3 15v4a2 2 0 0 0 2 2h4"/><path d="M21 15v4a2 2 0 0 1-2 2h-4"/></svg>
@@ -475,17 +619,57 @@
                 </div>
             </div>
             <div class="video-wrap">
-                <video id="video" class="modal-video" preload="none" crossorigin="anonymous" controls playsinline></video>
+                <img id="video" class="modal-video" alt="" referrerpolicy="no-referrer">
                 <div class="video-overlay" id="loadingOverlay">
                     <div class="spinner"></div>
                     <div class="ov-msg">正在連接串流…</div>
+                </div>
+                <div class="video-overlay paused" id="pausedOverlay" hidden>
+                    <div class="badge"><span>已交給外部播放器</span></div>
+                    <div class="play-circle">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                    <div class="ov-msg">點擊在網頁恢復播放</div>
                 </div>
                 <div class="video-overlay error" id="errorOverlay" hidden>
                     <div class="icon-big">⚠</div>
                     <div class="ov-msg" id="errorMsg">無法載入串流</div>
                     <div class="ov-sub" id="errorSub"></div>
                     <button class="retry-btn" id="retryBtn" type="button">重試</button>
+                    <div class="ext-row">
+                        <button class="ext-btn" data-ext="potplayer" type="button">▶ PotPlayer</button>
+                        <button class="ext-btn" data-ext="vlc"       type="button">🎬 VLC</button>
+                        <button class="ext-btn" data-ext="copy"      type="button">📋 複製網址</button>
+                        <button class="ext-btn" data-ext="download"  type="button">💾 下載 .m3u</button>
+                    </div>
                 </div>
+            </div>
+
+            <div class="share-pop" id="sharePop">
+                <div class="pop-title">HLS 串流網址（HEVC,給外部播放器用）</div>
+                <div class="url-row">
+                    <input type="text" id="shareUrl" readonly>
+                </div>
+                <div class="pop-divider"></div>
+                <button class="pop-row" data-ext="potplayer" type="button">
+                    <span class="ico">▶</span>
+                    <span>在 PotPlayer 開啟</span>
+                    <span class="hint">potplayer://</span>
+                </button>
+                <button class="pop-row" data-ext="vlc" type="button">
+                    <span class="ico">🎬</span>
+                    <span>在 VLC 開啟</span>
+                    <span class="hint">vlc://</span>
+                </button>
+                <button class="pop-row" data-ext="copy" type="button">
+                    <span class="ico">📋</span>
+                    <span>複製串流網址</span>
+                </button>
+                <button class="pop-row" data-ext="download" type="button">
+                    <span class="ico">💾</span>
+                    <span>下載 .m3u 播放清單</span>
+                    <span class="hint">用預設播放器開</span>
+                </button>
             </div>
         </div>
     </div>
@@ -606,7 +790,7 @@
     }
 
     // ── Constants from the source Vue component ──────────
-    const API_BASE     = 'https://traffic.54maxwu.workers.dev';
+    const API_BASE     = 'https://tcnvr2.taichung.gov.tw:7001';
     const USERNAME     = 'publicviewer';
     const DIGEST       = 'cfa189e7f102b35dd9aa0075f794517e';
     const PARTIAL_HA2  = '8f61ab83c6acab8a073a6d49e1517860'; // md5("GET:")
@@ -614,7 +798,6 @@
     // ── State ─────────────────────────────────────────────
     let authKey = '';
     let cameras = [];
-    let hlsInstance = null;
 
     // ── DOM ───────────────────────────────────────────────
     const $grid       = document.getElementById('grid');
@@ -625,9 +808,9 @@
     const $closeBtn   = document.getElementById('closeBtn');
     const $reloadBtn  = document.getElementById('reloadBtn');
     const $snapBtn    = document.getElementById('snapBtn');
-    const $muteBtn    = document.getElementById('muteBtn');
-    const $muteOn     = document.getElementById('muteIconOn');
-    const $muteOff    = document.getElementById('muteIconOff');
+    const $shareBtn   = document.getElementById('shareBtn');
+    const $sharePop   = document.getElementById('sharePop');
+    const $shareUrl   = document.getElementById('shareUrl');
     const $fsBtn      = document.getElementById('fsBtn');
     const $modalTitle = document.getElementById('modalTitle');
     const $statusPill = document.getElementById('statusPill');
@@ -635,6 +818,7 @@
     const $videoWrap  = document.querySelector('.video-wrap');
     const $loadingOv  = document.getElementById('loadingOverlay');
     const $errorOv    = document.getElementById('errorOverlay');
+    const $pausedOv   = document.getElementById('pausedOverlay');
     const $errorMsg   = document.getElementById('errorMsg');
     const $errorSub   = document.getElementById('errorSub');
     const $retryBtn   = document.getElementById('retryBtn');
@@ -718,120 +902,90 @@
 
     // ── Video modal ───────────────────────────────────────
     let currentCam = null;   // { mac, name }
-    let retryTimer = null;
 
     function showLoading() {
         $loadingOv.hidden = false;
         $errorOv.hidden   = true;
+        $pausedOv.hidden  = true;
     }
     function showError(msg, sub) {
         $loadingOv.hidden = true;
         $errorOv.hidden   = false;
+        $pausedOv.hidden  = true;
         $errorMsg.textContent = msg || '無法載入串流';
         $errorSub.textContent = sub || '';
+    }
+    function showPaused() {
+        $loadingOv.hidden = true;
+        $errorOv.hidden   = true;
+        $pausedOv.hidden  = false;
     }
     function hideOverlays() {
         $loadingOv.hidden = true;
         $errorOv.hidden   = true;
+        $pausedOv.hidden  = true;
     }
 
-    function destroyHls() {
-        if (hlsInstance) {
-            try { hlsInstance.destroy(); } catch {}
-            hlsInstance = null;
-        }
-        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    // MJPEG endpoint — multipart JPEG stream, plays natively in <img>, no codec needed
+    function buildStreamUrl(camMac) {
+        return API_BASE + '/media/' + camMac + '.mpjpeg?auth=' + encodeURIComponent(authKey);
+    }
+    // HLS endpoint — higher quality (HEVC), keep for external desktop players
+    function buildHlsUrl(camMac) {
+        return API_BASE + '/hls/' + camMac + '.m3u?auth=' + encodeURIComponent(authKey);
     }
 
     function loadStream() {
         if (!currentCam) return;
-        const { mac } = currentCam;
-        const src = API_BASE + '/hls/' + mac + '.m3u?auth=' + encodeURIComponent(authKey);
-
-        destroyHls();
+        // Cache-bust so re-clicking the same camera forces a fresh connection
+        const src = buildStreamUrl(currentCam.mac) + '&t=' + Date.now();
         $video.removeAttribute('src');
-        $video.load();
         showLoading();
-
-        // Safari / iOS — native HLS
-        if ($video.canPlayType('application/vnd.apple.mpegurl')) {
-            $video.src = src;
-            $video.play().catch(() => {});
-            return;
-        }
-
-        if (!window.Hls || !window.Hls.isSupported()) {
-            showError('此瀏覽器不支援 HLS 串流播放');
-            return;
-        }
-
-        hlsInstance = new Hls({
-            lowLatencyMode: true,
-            liveDurationInfinity: true,
-            liveSyncDurationCount: 3,
-            maxLiveSyncPlaybackRate: 1.2,
-            manifestLoadingTimeOut: 12000,
-            manifestLoadingMaxRetry: 2,
-            levelLoadingTimeOut: 12000,
-            fragLoadingTimeOut: 15000,
-        });
-        hlsInstance.loadSource(src);
-        hlsInstance.attachMedia($video);
-
-        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-            $video.play().catch(() => { /* autoplay may be blocked until gesture */ });
-        });
-
-        hlsInstance.on(Hls.Events.ERROR, (_evt, data) => {
-            if (!data.fatal) return;
-            switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                    showError('網路錯誤，正在重試…', data.details || '');
-                    retryTimer = setTimeout(() => {
-                        if (hlsInstance) hlsInstance.startLoad();
-                    }, 1500);
-                    break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                    showError('影像解碼錯誤，嘗試復原…', data.details || '');
-                    try { hlsInstance.recoverMediaError(); } catch {}
-                    break;
-                default:
-                    showError('串流無法播放', data.details || data.reason || '');
-                    destroyHls();
-                    break;
-            }
-        });
+        requestAnimationFrame(() => { $video.src = src; });
     }
 
-    function openVideo(mac, name) {
+    async function openVideo(mac, name) {
         currentCam = { mac, name };
         $modalTitle.textContent = name || '即時影像';
         $modal.classList.add('show');
+        showLoading();
+        // Auth tokens expire fast — refresh right before connecting
+        try { await authenticate(); }
+        catch {
+            showError('auth 取得失敗', '請稍後再試或重新整理頁面');
+            return;
+        }
+        if (!currentCam || currentCam.mac !== mac) return; // user closed / switched in the meantime
         loadStream();
     }
 
     function closeModal() {
-        destroyHls();
-        $video.pause();
         $video.removeAttribute('src');
-        $video.load();
         $modal.classList.remove('show');
+        $sharePop.classList.remove('show');
         hideOverlays();
         currentCam = null;
-        // Exit fullscreen if we entered it
         if (document.fullscreenElement) {
             document.exitFullscreen().catch(() => {});
         }
     }
 
-    // ── Video element state → overlay handling ────────────
-    $video.addEventListener('playing', hideOverlays);
-    $video.addEventListener('waiting', () => {
-        if ($errorOv.hidden) showLoading();
-    });
+    // ── <img> stream state → overlay handling ─────────────
+    $video.addEventListener('load',  hideOverlays);
     $video.addEventListener('error', () => {
-        const err = $video.error;
-        showError('影片載入失敗', err ? `code ${err.code}` : '');
+        if (!currentCam) return;
+        if (!$pausedOv.hidden) return; // src cleared on purpose for external handoff
+        showError('串流連線失敗', '請檢查網路或改用外部播放器');
+    });
+
+    // Click the paused placeholder → refresh auth and resume the in-page stream
+    $pausedOv.addEventListener('click', async () => {
+        if (!currentCam) return;
+        showLoading();
+        try { await authenticate(); }
+        catch { showError('auth 取得失敗', '請稍後再試'); return; }
+        if (!currentCam) return;
+        loadStream();
     });
 
     // ── Toolbar buttons ───────────────────────────────────
@@ -842,32 +996,114 @@
 
     $retryBtn.addEventListener('click', loadStream);
 
-    $muteBtn.addEventListener('click', () => {
-        $video.muted = !$video.muted;
-        $muteOn.hidden  = $video.muted;
-        $muteOff.hidden = !$video.muted;
-        toast($video.muted ? '已靜音' : '已開啟聲音');
-    });
-    // Sync mute icon initial state (default not muted)
-    $muteOn.hidden = $video.muted;
-    $muteOff.hidden = !$video.muted;
-
     $fsBtn.addEventListener('click', () => {
         if (document.fullscreenElement) {
             document.exitFullscreen();
         } else if ($videoWrap.requestFullscreen) {
             $videoWrap.requestFullscreen();
-        } else if ($video.webkitEnterFullscreen) {
-            $video.webkitEnterFullscreen(); // iOS
         }
     });
 
+    // ── External player ──────────────────────────────────
+    function safeFilename(s) {
+        return String(s || 'stream').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
+    }
+
+    // Stop the in-page MJPEG stream so it stops eating bandwidth /
+    // doesn't conflict with the external player (same source IP)
+    function stopInPageStream() {
+        $video.removeAttribute('src');
+    }
+
+    async function externalAction(kind) {
+        if (!currentCam) return;
+        const name = currentCam.name || 'Stream';
+
+        // Auth tokens expire fast — refresh before handing URL to external player
+        $sharePop.classList.remove('show');
+        toast('取得最新 auth…');
+        try { await authenticate(); }
+        catch (e) { toast('auth 取得失敗'); return; }
+        const url = buildHlsUrl(currentCam.mac);
+
+        switch (kind) {
+            case 'potplayer':
+                stopInPageStream();
+                showPaused();
+                location.href = 'potplayer://' + url;
+                toast('已交給 PotPlayer');
+                break;
+            case 'vlc':
+                stopInPageStream();
+                showPaused();
+                location.href = 'vlc://' + url;
+                toast('已交給 VLC');
+                break;
+            case 'copy':
+                try {
+                    await navigator.clipboard.writeText(url);
+                    toast('已複製串流網址（HLS）');
+                } catch {
+                    $shareUrl.value = url;
+                    $shareUrl.select();
+                    document.execCommand('copy');
+                    toast('已複製串流網址（HLS）');
+                }
+                break;
+            case 'download': {
+                const content = `#EXTM3U\n#EXTINF:-1,${name}\n${url}\n`;
+                const blob = new Blob([content], { type: 'audio/x-mpegurl' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = safeFilename(name) + '.m3u';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                toast('已下載 .m3u');
+                break;
+            }
+        }
+    }
+
+    async function openSharePop() {
+        if (!currentCam) return;
+        $sharePop.classList.add('show');
+        $shareUrl.value = '取得最新 auth…';
+        try { await authenticate(); } catch { $shareUrl.value = 'auth 取得失敗'; return; }
+        if (!currentCam) return;
+        $shareUrl.value = buildHlsUrl(currentCam.mac);  // external use → HLS URL
+        $shareUrl.focus();
+        $shareUrl.select();
+    }
+
+    $shareBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if ($sharePop.classList.contains('show')) $sharePop.classList.remove('show');
+        else openSharePop();
+    });
+
+    // Click outside the popover to dismiss
+    document.addEventListener('click', e => {
+        if (!$sharePop.classList.contains('show')) return;
+        if ($sharePop.contains(e.target) || $shareBtn.contains(e.target)) return;
+        $sharePop.classList.remove('show');
+    });
+
+    // Wire up both the popover rows and the error-overlay quick buttons
+    document.querySelectorAll('[data-ext]').forEach(el => {
+        el.addEventListener('click', e => {
+            e.stopPropagation();
+            externalAction(el.dataset.ext);
+        });
+    });
+
     $snapBtn.addEventListener('click', () => {
-        if (!$video.videoWidth) { toast('影像尚未載入'); return; }
+        if (!$video.naturalWidth) { toast('影像尚未載入'); return; }
         try {
             const c = document.createElement('canvas');
-            c.width  = $video.videoWidth;
-            c.height = $video.videoHeight;
+            c.width  = $video.naturalWidth;
+            c.height = $video.naturalHeight;
             const g = c.getContext('2d');
             g.drawImage($video, 0, 0, c.width, c.height);
 
@@ -904,11 +1140,15 @@
     });
     document.addEventListener('keydown', e => {
         if (!$modal.classList.contains('show')) return;
-        if (e.key === 'Escape') closeModal();
+        if (document.activeElement === $shareUrl) return; // don't trigger shortcuts while typing
+        if (e.key === 'Escape') {
+            if ($sharePop.classList.contains('show')) $sharePop.classList.remove('show');
+            else closeModal();
+        }
         else if (e.key === 'f' || e.key === 'F') $fsBtn.click();
-        else if (e.key === 'm' || e.key === 'M') $muteBtn.click();
         else if (e.key === 'r' || e.key === 'R') $reloadBtn.click();
         else if (e.key === 's' || e.key === 'S') $snapBtn.click();
+        else if (e.key === 'o' || e.key === 'O') $shareBtn.click();
     });
 
     $search.addEventListener('input', () => {
