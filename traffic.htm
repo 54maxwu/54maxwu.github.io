@@ -997,11 +997,14 @@
     $retryBtn.addEventListener('click', loadStream);
 
     $fsBtn.addEventListener('click', () => {
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
-        } else if ($videoWrap.requestFullscreen) {
-            $videoWrap.requestFullscreen();
+        const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        if (fsEl) {
+            (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            return;
         }
+        if ($videoWrap.requestFullscreen)             $videoWrap.requestFullscreen();
+        else if ($videoWrap.webkitRequestFullscreen)  $videoWrap.webkitRequestFullscreen();
+        else                                          toast('此瀏覽器不支援全螢幕');
     });
 
     // ── External player ──────────────────────────────────

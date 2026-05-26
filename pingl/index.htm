@@ -329,13 +329,23 @@ body {
         <span class="label">分享螢幕</span>
         <span class="desc">整個螢幕、視窗或分頁</span>
       </button>
-      <button class="pick-btn" id="btnCamera">
+      <button class="pick-btn" id="btnFront">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M23 7l-7 5 7 5V7z"/>
           <rect x="1" y="5" width="15" height="14" rx="2"/>
+          <circle cx="8.5" cy="12" r="2.4"/>
         </svg>
-        <span class="label">分享鏡頭</span>
-        <span class="desc">前/後鏡頭，含麥克風</span>
+        <span class="label">前鏡頭</span>
+        <span class="desc">面向自己（自拍）</span>
+      </button>
+      <button class="pick-btn" id="btnBack">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z"/>
+          <rect x="1" y="5" width="15" height="14" rx="2"/>
+          <path d="M5 9l3 3-3 3M11 9l-3 3 3 3"/>
+        </svg>
+        <span class="label">後鏡頭</span>
+        <span class="desc">面向外側（拍景）</span>
       </button>
     </div>
 
@@ -457,6 +467,11 @@ function boot() {
     setStatus('未設定 server', 'err');
     return;
   }
+  // Hide screen-share on mobile / browsers without getDisplayMedia support
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile || !navigator.mediaDevices?.getDisplayMedia) {
+    $('btnScreen').style.display = 'none';
+  }
   const { view } = parseHash();
   if (view) startViewer(view);
   else      showPicker();
@@ -488,10 +503,21 @@ async function startSender(source) {
         audio: true,
       });
     } else {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: true,
-      });
+      // source = 'camera-front' | 'camera-back'
+      const facingMode = source === 'camera-back' ? 'environment' : 'user';
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: facingMode } },
+          audio: true,
+        });
+      } catch (errExact) {
+        // Desktop (single camera) or no matching device — relax to hint-only,
+        // which falls back to any available camera.
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode },
+          audio: true,
+        });
+      }
     }
   } catch (err) {
     setStatus('取得媒體失敗', 'err');
@@ -668,7 +694,8 @@ async function startViewer(roomId) {
 
 // ── UI wiring ─────────────────────────────────────────
 $('btnScreen').addEventListener('click', () => startSender('screen'));
-$('btnCamera').addEventListener('click', () => startSender('camera'));
+$('btnFront').addEventListener('click', () => startSender('camera-front'));
+$('btnBack').addEventListener('click', () => startSender('camera-back'));
 $('stopBtn').addEventListener('click', () => stopSender());
 
 function joinByCode() {
