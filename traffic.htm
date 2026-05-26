@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>台中交通即時影像</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .status-pill .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+        .status-pill.ok      { background: #ecfdf5; color: #047857; }
+        .status-pill.ok .dot { background: #10b981; }
+        .status-pill.err     { background: #fef2f2; color: #b91c1c; }
+        .status-pill.err .dot{ background: #ef4444; }
+
+        .search-wrap {
+            position: relative;
+            flex: 1 1 240px;
+            min-width: 200px;
+            max-width: 360px;
+        }
+        .search-input {
+            width: 100%;
+            font-size: 13px;
+            padding: 8px 32px 8px 32px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #1e293b;
+            outline: none;
+            font-family: inherit;
+            transition: border-color .15s, background .15s;
+        }
+        .search-input:focus {
+            border-color: #0d9488;
+            background: #fff;
+        }
+        .search-icon {
+            position: absolute;
+            left: 10px; top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 13px;
+            pointer-events: none;
+        }
+        .search-clear {
+            position: absolute;
+            right: 6px; top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 4px 6px;
+            border-radius: 4px;
+        }
+        .search-clear:hover { color: #ef4444; background: rgba(239,68,68,.08); }
+
+        .page-content {
+            padding: 20px 16px 60px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 14px;
+        }
+
+        .cam-card {
+            background: #fff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform .12s, box-shadow .15s, border-color .15s;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .cam-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(13,148,136,.18);
+            border-color: #14b8a6;
+        }
+        .cam-thumb-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: linear-gradient(135deg, #1e293b, #334155);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cam-thumb {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .cam-thumb.broken { display: none; }
+        .cam-thumb-fallback {
+            color: #64748b;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .cam-play {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.0);
+            transition: background .15s;
+            pointer-events: none;
+        }
+        .cam-card:hover .cam-play { background: rgba(0,0,0,.3); }
+        .cam-play svg {
+            width: 44px; height: 44px;
+            opacity: 0;
+            transition: opacity .15s, transform .15s;
+            transform: scale(.85);
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
+        }
+        .cam-card:hover .cam-play svg { opacity: 1; transform: scale(1); }
+
+        .cam-status {
+            position: absolute;
+            top: 8px; left: 8px;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            letter-spacing: .04em;
+            background: rgba(239,68,68,.9);
+            color: #fff;
+            text-transform: uppercase;
+        }
+        .cam-status.online { background: rgba(16,185,129,.92); }
+
+        .cam-body {
+            padding: 10px 12px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .cam-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 36px;
+        }
+
+        .empty-state, .loading-state {
+            grid-column: 1 / -1;
+            padding: 60px 20px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .loading-state .spinner {
+            width: 28px; height: 28px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #0d9488;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Modal video ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            position: relative;
+            background: #0f172a;
+            border-radius: 14px;
+            overflow: hidden;
+            max-width: 1024px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0,0,0,.5);
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            padding: 11px 16px;
+            background: #1e293b;
+            color: #f1f5f9;
+            font-size: 13.5px;
+            font-weight: 600;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 46px;
+        }
+        .modal-header .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 8px rgba(239,68,68,.6);
+            animation: pulse 1.4s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: .35; }
+        }
+        .modal-title {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .tool-btn {
+            width: 32px; height: 32px;
+            border-radius: 7px;
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.12);
+            color: #cbd5e1;
+            font-size: 15px;
+            line-height: 1;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .12s, color .12s, border-color .12s;
+            padding: 0;
+        }
+        .tool-btn:hover {
+            background: rgba(20,184,166,.18);
+            border-color: rgba(20,184,166,.4);
+            color: #5eead4;
+        }
+        .tool-btn.danger:hover {
+            background: rgba(239,68,68,.18);
+            border-color: rgba(239,68,68,.4);
+            color: #fca5a5;
+        }
+        .tool-btn:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+        .tool-btn svg { width: 16px; height: 16px; display: block; }
+
+        .video-wrap {
+            position: relative;
+            background: #000;
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+        }
+        .modal-video {
+            position: absolute;
+            inset: 0;
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            object-fit: contain;
+        }
+        /* Native browser controls already provide play / pause / seek / volume / fullscreen */
+
+        .video-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            background: rgba(0,0,0,.55);
+            color: #f1f5f9;
+            font-size: 13px;
+            text-align: center;
+            padding: 20px;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .video-overlay.error { pointer-events: auto; }
+        .video-overlay[hidden] { display: none; }
+        .video-overlay .spinner {
+            width: 38px; height: 38px;
+            border: 3px solid rgba(255,255,255,.18);
+            border-top-color: #5eead4;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        .video-overlay .icon-big {
+            font-size: 36px;
+            opacity: .85;
+        }
+        .video-overlay .ov-msg {
+            max-width: 380px;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+        .video-overlay .ov-sub {
+            font-size: 11px;
+            color: #94a3b8;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            max-width: 90%;
+            word-break: break-all;
+        }
+        .retry-btn {
+            padding: 8px 18px;
+            background: linear-gradient(145deg, #14b8a6, #0d9488);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 2px 6px rgba(13,148,136,.4);
+            transition: transform .08s, box-shadow .15s;
+        }
+        .retry-btn:hover { box-shadow: 0 4px 12px rgba(13,148,136,.5); }
+        .retry-btn:active { transform: scale(.97); }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,.4);
+            opacity: 0;
+            transition: opacity .2s, transform .2s;
+            z-index: 200;
+            pointer-events: none;
+            border: 1px solid #334155;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 640px) {
+            .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+            .cam-name { font-size: 12px; min-height: 32px; }
+            .app-header { padding: 10px 14px; }
+            .modal-overlay { padding: 0; }
+            .modal-box { border-radius: 0; max-height: 100vh; }
+            .tool-btn { width: 30px; height: 30px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>台中交通即時影像</h1>
+        <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchInput" placeholder="搜尋路口名稱…" autocomplete="off" spellcheck="false">
+            <button type="button" class="search-clear" id="searchClear" hidden>&times;</button>
+        </div>
+        <div class="header-meta">
+            <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="grid" id="grid">
+            <div class="loading-state">
+                <div class="spinner"></div>
+                正在連線取得攝影機列表…
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span class="dot"></span>
+                <span class="modal-title" id="modalTitle">即時影像</span>
+                <div class="modal-actions">
+                    <button class="tool-btn" id="reloadBtn" type="button" title="重新整理串流">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+                    </button>
+                    <button class="tool-btn" id="snapBtn" type="button" title="畫面截圖 (PNG)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </button>
+                    <button class="tool-btn" id="muteBtn" type="button" title="靜音 / 開聲音">
+                        <svg id="muteIconOn"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+                        <svg id="muteIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                    </button>
+                    <button class="tool-btn" id="fsBtn" type="button" title="全螢幕">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V5a2 2 0 0 1 2-2h4"/><path d="M21 9V5a2 2 0 0 0-2-2h-4"/><path d="M3 15v4a2 2 0 0 0 2 2h4"/><path d="M21 15v4a2 2 0 0 1-2 2h-4"/></svg>
+                    </button>
+                    <button class="tool-btn danger" id="closeBtn" type="button" title="關閉 (Esc)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="video-wrap">
+                <video id="video" class="modal-video" preload="none" crossorigin="anonymous" controls playsinline></video>
+                <div class="video-overlay" id="loadingOverlay">
+                    <div class="spinner"></div>
+                    <div class="ov-msg">正在連接串流…</div>
+                </div>
+                <div class="video-overlay error" id="errorOverlay" hidden>
+                    <div class="icon-big">⚠</div>
+                    <div class="ov-msg" id="errorMsg">無法載入串流</div>
+                    <div class="ov-sub" id="errorSub"></div>
+                    <button class="retry-btn" id="retryBtn" type="button">重試</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // ── MD5 (Joseph Myers, public domain) ─────────────────
+    const md5 = (() => {
+        function safeAdd(x, y) {
+            const lsw = (x & 0xffff) + (y & 0xffff);
+            return (((x >> 16) + (y >> 16) + (lsw >> 16)) << 16) | (lsw & 0xffff);
+        }
+        function rol(n, c) { return (n << c) | (n >>> (32 - c)); }
+        function cmn(q, a, b, x, s, t) { return safeAdd(rol(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b); }
+        function ff(a, b, c, d, x, s, t) { return cmn((b & c) | ((~b) & d), a, b, x, s, t); }
+        function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & (~d)), a, b, x, s, t); }
+        function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+        function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | (~d)), a, b, x, s, t); }
+
+        function cycle(x, k) {
+            let [a, b, c, d] = x;
+            a=ff(a,b,c,d,k[0],7,-680876936);   d=ff(d,a,b,c,k[1],12,-389564586);
+            c=ff(c,d,a,b,k[2],17,606105819);   b=ff(b,c,d,a,k[3],22,-1044525330);
+            a=ff(a,b,c,d,k[4],7,-176418897);   d=ff(d,a,b,c,k[5],12,1200080426);
+            c=ff(c,d,a,b,k[6],17,-1473231341); b=ff(b,c,d,a,k[7],22,-45705983);
+            a=ff(a,b,c,d,k[8],7,1770035416);   d=ff(d,a,b,c,k[9],12,-1958414417);
+            c=ff(c,d,a,b,k[10],17,-42063);     b=ff(b,c,d,a,k[11],22,-1990404162);
+            a=ff(a,b,c,d,k[12],7,1804603682);  d=ff(d,a,b,c,k[13],12,-40341101);
+            c=ff(c,d,a,b,k[14],17,-1502002290);b=ff(b,c,d,a,k[15],22,1236535329);
+
+            a=gg(a,b,c,d,k[1],5,-165796510);   d=gg(d,a,b,c,k[6],9,-1069501632);
+            c=gg(c,d,a,b,k[11],14,643717713);  b=gg(b,c,d,a,k[0],20,-373897302);
+            a=gg(a,b,c,d,k[5],5,-701558691);   d=gg(d,a,b,c,k[10],9,38016083);
+            c=gg(c,d,a,b,k[15],14,-660478335); b=gg(b,c,d,a,k[4],20,-405537848);
+            a=gg(a,b,c,d,k[9],5,568446438);    d=gg(d,a,b,c,k[14],9,-1019803690);
+            c=gg(c,d,a,b,k[3],14,-187363961);  b=gg(b,c,d,a,k[8],20,1163531501);
+            a=gg(a,b,c,d,k[13],5,-1444681467); d=gg(d,a,b,c,k[2],9,-51403784);
+            c=gg(c,d,a,b,k[7],14,1735328473);  b=gg(b,c,d,a,k[12],20,-1926607734);
+
+            a=hh(a,b,c,d,k[5],4,-378558);      d=hh(d,a,b,c,k[8],11,-2022574463);
+            c=hh(c,d,a,b,k[11],16,1839030562); b=hh(b,c,d,a,k[14],23,-35309556);
+            a=hh(a,b,c,d,k[1],4,-1530992060);  d=hh(d,a,b,c,k[4],11,1272893353);
+            c=hh(c,d,a,b,k[7],16,-155497632);  b=hh(b,c,d,a,k[10],23,-1094730640);
+            a=hh(a,b,c,d,k[13],4,681279174);   d=hh(d,a,b,c,k[0],11,-358537222);
+            c=hh(c,d,a,b,k[3],16,-722521979);  b=hh(b,c,d,a,k[6],23,76029189);
+            a=hh(a,b,c,d,k[9],4,-640364487);   d=hh(d,a,b,c,k[12],11,-421815835);
+            c=hh(c,d,a,b,k[15],16,530742520);  b=hh(b,c,d,a,k[2],23,-995338651);
+
+            a=ii(a,b,c,d,k[0],6,-198630844);   d=ii(d,a,b,c,k[7],10,1126891415);
+            c=ii(c,d,a,b,k[14],15,-1416354905);b=ii(b,c,d,a,k[5],21,-57434055);
+            a=ii(a,b,c,d,k[12],6,1700485571);  d=ii(d,a,b,c,k[3],10,-1894986606);
+            c=ii(c,d,a,b,k[10],15,-1051523);   b=ii(b,c,d,a,k[1],21,-2054922799);
+            a=ii(a,b,c,d,k[8],6,1873313359);   d=ii(d,a,b,c,k[15],10,-30611744);
+            c=ii(c,d,a,b,k[6],15,-1560198380); b=ii(b,c,d,a,k[13],21,1309151649);
+            a=ii(a,b,c,d,k[4],6,-145523070);   d=ii(d,a,b,c,k[11],10,-1120210379);
+            c=ii(c,d,a,b,k[2],15,718787259);   b=ii(b,c,d,a,k[9],21,-343485551);
+
+            x[0] = safeAdd(a, x[0]);
+            x[1] = safeAdd(b, x[1]);
+            x[2] = safeAdd(c, x[2]);
+            x[3] = safeAdd(d, x[3]);
+        }
+
+        function blk(bytes, off) {
+            const b = new Array(16);
+            for (let i = 0; i < 16; i++) {
+                b[i] =  bytes[off + i*4]
+                     | (bytes[off + i*4 + 1] << 8)
+                     | (bytes[off + i*4 + 2] << 16)
+                     | (bytes[off + i*4 + 3] << 24);
+            }
+            return b;
+        }
+
+        const enc = new TextEncoder();
+        return function (str) {
+            const bytes = enc.encode(str);
+            const n = bytes.length;
+            const state = [1732584193, -271733879, -1732584194, 271733878];
+
+            let i;
+            for (i = 64; i <= n; i += 64) cycle(state, blk(bytes, i - 64));
+
+            const tail = new Uint8Array(64);
+            const rem = bytes.subarray(i - 64);
+            tail.set(rem);
+            tail[rem.length] = 0x80;
+            if (rem.length > 55) {
+                cycle(state, blk(tail, 0));
+                tail.fill(0);
+            }
+            const bits = n * 8;
+            tail[56] = bits & 0xFF;
+            tail[57] = (bits >>> 8) & 0xFF;
+            tail[58] = (bits >>> 16) & 0xFF;
+            tail[59] = (bits >>> 24) & 0xFF;
+            cycle(state, blk(tail, 0));
+
+            const hex = '0123456789abcdef';
+            let out = '';
+            for (const w of state) {
+                for (let j = 0; j < 4; j++) {
+                    const v = (w >>> (j * 8)) & 0xFF;
+                    out += hex[v >>> 4] + hex[v & 0xF];
+                }
+            }
+            return out;
+        };
+    })();
+
+    // ── Base64 helper (UTF-8 safe) ────────────────────────
+    function b64Encode(str) {
+        const bytes = new TextEncoder().encode(str);
+        let bin = '';
+        for (const b of bytes) bin += String.fromCharCode(b);
+        return btoa(bin);
+    }
+
+    // ── Constants from the source Vue component ──────────
+    const API_BASE     = 'https://tcnvr2.taichung.gov.tw:7001';
+    const USERNAME     = 'publicviewer';
+    const DIGEST       = 'cfa189e7f102b35dd9aa0075f794517e';
+    const PARTIAL_HA2  = '8f61ab83c6acab8a073a6d49e1517860'; // md5("GET:")
+
+    // ── State ─────────────────────────────────────────────
+    let authKey = '';
+    let cameras = [];
+    let hlsInstance = null;
+
+    // ── DOM ───────────────────────────────────────────────
+    const $grid       = document.getElementById('grid');
+    const $search     = document.getElementById('searchInput');
+    const $searchClr  = document.getElementById('searchClear');
+    const $modal      = document.getElementById('modal');
+    const $video      = document.getElementById('video');
+    const $closeBtn   = document.getElementById('closeBtn');
+    const $reloadBtn  = document.getElementById('reloadBtn');
+    const $snapBtn    = document.getElementById('snapBtn');
+    const $muteBtn    = document.getElementById('muteBtn');
+    const $muteOn     = document.getElementById('muteIconOn');
+    const $muteOff    = document.getElementById('muteIconOff');
+    const $fsBtn      = document.getElementById('fsBtn');
+    const $modalTitle = document.getElementById('modalTitle');
+    const $statusPill = document.getElementById('statusPill');
+    const $statusText = document.getElementById('statusText');
+    const $videoWrap  = document.querySelector('.video-wrap');
+    const $loadingOv  = document.getElementById('loadingOverlay');
+    const $errorOv    = document.getElementById('errorOverlay');
+    const $errorMsg   = document.getElementById('errorMsg');
+    const $errorSub   = document.getElementById('errorSub');
+    const $retryBtn   = document.getElementById('retryBtn');
+    const $toast      = document.getElementById('toast');
+
+    let toastTimer = null;
+    function toast(msg) {
+        $toast.textContent = msg;
+        $toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $toast.classList.remove('show'), 1800);
+    }
+
+    function setStatus(text, kind) {
+        $statusText.textContent = text;
+        $statusPill.classList.remove('ok', 'err');
+        if (kind === 'ok')  $statusPill.classList.add('ok');
+        if (kind === 'err') $statusPill.classList.add('err');
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Auth handshake ────────────────────────────────────
+    async function authenticate() {
+        setStatus('取得認證中…');
+        const res = await fetch(API_BASE + '/web/api/getNonce');
+        const d   = await res.json();
+        const nonce = d.reply.nonce;
+        const simplifiedHa2 = md5(DIGEST + ':' + nonce + ':' + PARTIAL_HA2);
+        authKey = b64Encode(USERNAME + ':' + nonce + ':' + simplifiedHa2);
+    }
+
+    async function fetchCameras() {
+        const res = await fetch(API_BASE + '/ec2/getCamerasEx?auth=' + encodeURIComponent(authKey));
+        return res.json();
+    }
+
+    // ── Render grid ───────────────────────────────────────
+    function renderGrid() {
+        const q = $search.value.trim().toLowerCase();
+        const list = cameras
+            .filter(c => c.mac && c.mac !== '00-00-00-00-00-00')
+            .filter(c => !q || (c.name || '').toLowerCase().includes(q));
+
+        if (!list.length) {
+            $grid.innerHTML = '<div class="empty-state">沒有符合條件的攝影機</div>';
+            return;
+        }
+
+        const thumbBase = API_BASE + '/ec2/cameraThumbnail?height=180&width=320&auth=' + encodeURIComponent(authKey) + '&cameraId=';
+        $grid.innerHTML = list.map(c => {
+            const online = (c.status || '').toLowerCase() === 'online';
+            return `
+                <div class="cam-card" data-mac="${esc(c.mac)}" data-name="${esc(c.name || '')}">
+                    <div class="cam-thumb-wrap">
+                        <img class="cam-thumb" src="${thumbBase}${encodeURIComponent(c.mac)}" alt="${esc(c.name || '')}" loading="lazy" onerror="this.classList.add('broken'); this.nextElementSibling.style.display='block';">
+                        <div class="cam-thumb-fallback" style="display:none;">📹</div>
+                        <div class="cam-play">
+                            <svg viewBox="0 0 24 24" fill="#fff">
+                                <circle cx="12" cy="12" r="11" fill="rgba(0,0,0,.55)"/>
+                                <path d="M9.5 7.5v9l7-4.5z" fill="#fff"/>
+                            </svg>
+                        </div>
+                        <span class="cam-status ${online ? 'online' : ''}">${online ? '● LIVE' : 'OFFLINE'}</span>
+                    </div>
+                    <div class="cam-body">
+                        <div class="cam-name">${esc(c.name || '(未命名)')}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        $grid.querySelectorAll('.cam-card').forEach(el => {
+            el.addEventListener('click', () => {
+                openVideo(el.dataset.mac, el.dataset.name);
+            });
+        });
+    }
+
+    // ── Video modal ───────────────────────────────────────
+    let currentCam = null;   // { mac, name }
+    let retryTimer = null;
+
+    function showLoading() {
+        $loadingOv.hidden = false;
+        $errorOv.hidden   = true;
+    }
+    function showError(msg, sub) {
+        $loadingOv.hidden = true;
+        $errorOv.hidden   = false;
+        $errorMsg.textContent = msg || '無法載入串流';
+        $errorSub.textContent = sub || '';
+    }
+    function hideOverlays() {
+        $loadingOv.hidden = true;
+        $errorOv.hidden   = true;
+    }
+
+    function destroyHls() {
+        if (hlsInstance) {
+            try { hlsInstance.destroy(); } catch {}
+            hlsInstance = null;
+        }
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    }
+
+    function loadStream() {
+        if (!currentCam) return;
+        const { mac } = currentCam;
+        const src = API_BASE + '/hls/' + mac + '.m3u?auth=' + encodeURIComponent(authKey);
+
+        destroyHls();
+        $video.removeAttribute('src');
+        $video.load();
+        showLoading();
+
+        // Safari / iOS — native HLS
+        if ($video.canPlayType('application/vnd.apple.mpegurl')) {
+            $video.src = src;
+            $video.play().catch(() => {});
+            return;
+        }
+
+        if (!window.Hls || !window.Hls.isSupported()) {
+            showError('此瀏覽器不支援 HLS 串流播放');
+            return;
+        }
+
+        hlsInstance = new Hls({
+            lowLatencyMode: true,
+            liveDurationInfinity: true,
+            liveSyncDurationCount: 3,
+            maxLiveSyncPlaybackRate: 1.2,
+            manifestLoadingTimeOut: 12000,
+            manifestLoadingMaxRetry: 2,
+            levelLoadingTimeOut: 12000,
+            fragLoadingTimeOut: 15000,
+        });
+        hlsInstance.loadSource(src);
+        hlsInstance.attachMedia($video);
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+            $video.play().catch(() => { /* autoplay may be blocked until gesture */ });
+        });
+
+        hlsInstance.on(Hls.Events.ERROR, (_evt, data) => {
+            if (!data.fatal) return;
+            switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                    showError('網路錯誤，正在重試…', data.details || '');
+                    retryTimer = setTimeout(() => {
+                        if (hlsInstance) hlsInstance.startLoad();
+                    }, 1500);
+                    break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                    showError('影像解碼錯誤，嘗試復原…', data.details || '');
+                    try { hlsInstance.recoverMediaError(); } catch {}
+                    break;
+                default:
+                    showError('串流無法播放', data.details || data.reason || '');
+                    destroyHls();
+                    break;
+            }
+        });
+    }
+
+    function openVideo(mac, name) {
+        currentCam = { mac, name };
+        $modalTitle.textContent = name || '即時影像';
+        $modal.classList.add('show');
+        loadStream();
+    }
+
+    function closeModal() {
+        destroyHls();
+        $video.pause();
+        $video.removeAttribute('src');
+        $video.load();
+        $modal.classList.remove('show');
+        hideOverlays();
+        currentCam = null;
+        // Exit fullscreen if we entered it
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+        }
+    }
+
+    // ── Video element state → overlay handling ────────────
+    $video.addEventListener('playing', hideOverlays);
+    $video.addEventListener('waiting', () => {
+        if ($errorOv.hidden) showLoading();
+    });
+    $video.addEventListener('error', () => {
+        const err = $video.error;
+        showError('影片載入失敗', err ? `code ${err.code}` : '');
+    });
+
+    // ── Toolbar buttons ───────────────────────────────────
+    $reloadBtn.addEventListener('click', () => {
+        toast('重新整理串流');
+        loadStream();
+    });
+
+    $retryBtn.addEventListener('click', loadStream);
+
+    $muteBtn.addEventListener('click', () => {
+        $video.muted = !$video.muted;
+        $muteOn.hidden  = $video.muted;
+        $muteOff.hidden = !$video.muted;
+        toast($video.muted ? '已靜音' : '已開啟聲音');
+    });
+    // Sync mute icon initial state (default not muted)
+    $muteOn.hidden = $video.muted;
+    $muteOff.hidden = !$video.muted;
+
+    $fsBtn.addEventListener('click', () => {
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else if ($videoWrap.requestFullscreen) {
+            $videoWrap.requestFullscreen();
+        } else if ($video.webkitEnterFullscreen) {
+            $video.webkitEnterFullscreen(); // iOS
+        }
+    });
+
+    $snapBtn.addEventListener('click', () => {
+        if (!$video.videoWidth) { toast('影像尚未載入'); return; }
+        try {
+            const c = document.createElement('canvas');
+            c.width  = $video.videoWidth;
+            c.height = $video.videoHeight;
+            const g = c.getContext('2d');
+            g.drawImage($video, 0, 0, c.width, c.height);
+
+            // Overlay caption: name + timestamp
+            const ts = new Date().toLocaleString('zh-TW', { hour12: false });
+            const cap = `${currentCam?.name || ''}  ${ts}`;
+            g.font = 'bold 18px -apple-system, "Segoe UI", "Noto Sans TC", sans-serif';
+            const padX = 14, padY = 10;
+            const w = g.measureText(cap).width + padX * 2;
+            g.fillStyle = 'rgba(0,0,0,.55)';
+            g.fillRect(0, c.height - 36, w, 36);
+            g.fillStyle = '#fff';
+            g.textBaseline = 'middle';
+            g.fillText(cap, padX, c.height - 18);
+
+            const safeName = (currentCam?.name || 'snapshot').replace(/[\\/:*?"<>|]/g, '_').slice(0, 40);
+            const stamp = ts.replace(/[\/: ]/g, '-');
+            const link = document.createElement('a');
+            link.download = `${safeName}_${stamp}.png`;
+            link.href = c.toDataURL('image/png');
+            link.click();
+            toast('已下載截圖');
+        } catch (err) {
+            // Likely tainted canvas (CORS) — server didn't send Access-Control-Allow-Origin
+            console.error(err);
+            toast('截圖失敗（CORS 限制）');
+        }
+    });
+
+    // ── Events ────────────────────────────────────────────
+    $closeBtn.addEventListener('click', closeModal);
+    $modal.addEventListener('click', e => {
+        if (e.target === $modal) closeModal();
+    });
+    document.addEventListener('keydown', e => {
+        if (!$modal.classList.contains('show')) return;
+        if (e.key === 'Escape') closeModal();
+        else if (e.key === 'f' || e.key === 'F') $fsBtn.click();
+        else if (e.key === 'm' || e.key === 'M') $muteBtn.click();
+        else if (e.key === 'r' || e.key === 'R') $reloadBtn.click();
+        else if (e.key === 's' || e.key === 'S') $snapBtn.click();
+    });
+
+    $search.addEventListener('input', () => {
+        $searchClr.hidden = !$search.value;
+        renderGrid();
+    });
+    $searchClr.addEventListener('click', () => {
+        $search.value = '';
+        $searchClr.hidden = true;
+        renderGrid();
+        $search.focus();
+    });
+
+    // ── Boot ──────────────────────────────────────────────
+    (async () => {
+        try {
+            await authenticate();
+            setStatus('載入攝影機清單…');
+            cameras = await fetchCameras();
+            if (!Array.isArray(cameras)) cameras = [];
+            const valid = cameras.filter(c => c.mac && c.mac !== '00-00-00-00-00-00').length;
+            setStatus(`已載入 ${valid} 支攝影機`, 'ok');
+            renderGrid();
+        } catch (err) {
+            console.error(err);
+            setStatus('連線失敗', 'err');
+            $grid.innerHTML = `<div class="empty-state">⚠ 無法取得攝影機清單<br><span style="font-size:11px;color:#94a3b8;">${esc(err.message || err)}</span></div>`;
+        }
+    })();
+    </script>
+</body>
+</html>

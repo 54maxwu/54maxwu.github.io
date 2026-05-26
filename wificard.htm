@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>WiFi 名片產生器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="qrcode/jquery-3.3.1.min.js"></script>
+    <script src="qrcode/jquery.qrcode.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .page-content {
+            padding: 24px 20px 60px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            align-items: start;
+        }
+        @media (max-width: 880px) {
+            .layout-grid { grid-template-columns: 1fr; }
+        }
+
+        .glass {
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 24px;
+        }
+
+        /* ── Form ── */
+        .field { margin-bottom: 18px; }
+        .field:last-child { margin-bottom: 0; }
+        .field-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #0d9488;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+        .text-input {
+            width: 100%;
+            font-size: 1.05rem;
+            padding: 10px 4px;
+            border: none;
+            border-bottom: 2px solid #cbd5e1;
+            background: transparent;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            color: #1e293b;
+            transition: border-color 0.18s;
+            outline: none;
+        }
+        .text-input:focus { border-bottom-color: #0d9488; }
+        .text-input::placeholder { color: #94a3b8; }
+
+        .password-wrap { position: relative; }
+        .pw-toggle {
+            position: absolute;
+            right: 4px;
+            bottom: 8px;
+            background: transparent;
+            border: none;
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: inherit;
+            transition: color 0.14s, background 0.14s;
+        }
+        .pw-toggle:hover { color: #0d9488; background: rgba(13,148,136,.08); }
+
+        .radio-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .radio-pill { position: relative; }
+        .radio-pill input { position: absolute; opacity: 0; pointer-events: none; }
+        .radio-pill label {
+            display: inline-block;
+            padding: 7px 14px;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #475569;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.14s, color 0.14s;
+            letter-spacing: 0.04em;
+        }
+        .radio-pill label:hover { background: rgba(13,148,136,0.1); color: #0d9488; }
+        .radio-pill input:checked + label {
+            background: linear-gradient(145deg, #14b8a6, #0d9488);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(13,148,136,0.35);
+        }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #475569;
+            cursor: pointer;
+            user-select: none;
+            padding: 4px 0;
+        }
+        .check-row input {
+            accent-color: #0d9488;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .check-row + .check-row { margin-top: 4px; }
+
+        /* ── Card preview ── */
+        .card-pane {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+        }
+        .wifi-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 26px 28px 26px;
+            width: 100%;
+            max-width: 360px;
+            border: 1.5px solid #e2e8f0;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+        }
+        .wc-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .wc-icon {
+            font-size: 22px;
+            line-height: 1;
+        }
+        .wc-info {
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+        .wc-row {
+            display: grid;
+            grid-template-columns: 60px 1fr;
+            gap: 12px;
+            align-items: start;
+            padding: 6px 0;
+        }
+        .wc-row + .wc-row { border-top: 1px dashed #f1f5f9; }
+        .wc-label {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 700;
+            padding-top: 3px;
+        }
+        .wc-value {
+            color: #1e293b;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 14px;
+            word-break: break-all;
+            font-weight: 600;
+        }
+        .wc-value.muted { color: #94a3b8; font-weight: 400; font-style: italic; }
+        .wc-qr {
+            display: flex;
+            justify-content: center;
+            padding: 8px 0 4px;
+        }
+        .wc-qr canvas {
+            display: block;
+            border-radius: 4px;
+        }
+        .wc-footer {
+            font-size: 11px;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 10px;
+            letter-spacing: 0.02em;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            background: linear-gradient(145deg, #14b8a6, #0d9488);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: transform 0.08s, box-shadow 0.15s;
+            box-shadow: 0 2px 6px rgba(13,148,136,0.3);
+        }
+        .action-btn:hover { box-shadow: 0 4px 12px rgba(13,148,136,0.4); }
+        .action-btn:active { transform: scale(0.97); }
+        .action-btn.secondary {
+            background: rgba(255,255,255,0.85);
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            box-shadow: none;
+        }
+        .action-btn.secondary:hover {
+            background: #fff;
+            color: #0d9488;
+            border-color: #0d9488;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-top: 18px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 8px;
+            border-left: 3px solid #14b8a6;
+        }
+        .helper-text strong { color: #0d9488; }
+
+        /* ── Print: 只印卡片 ── */
+        @media print {
+            body { background: #fff; }
+            .app-header, .form-pane, .actions, .helper-text { display: none !important; }
+            .page-content { padding: 0; max-width: none; }
+            .layout-grid { display: block; }
+            .card-pane { padding: 24px 0; }
+            .wifi-card {
+                box-shadow: none;
+                border: 1.5px solid #94a3b8;
+                page-break-inside: avoid;
+                max-width: 380px;
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>WiFi 名片產生器</h1>
+        <div class="header-meta">
+            <span>輸入 WiFi 資訊 · 一鍵生成可列印 QR 名片</span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="layout-grid">
+            <!-- 左:表單 -->
+            <div class="glass form-pane">
+                <div class="field">
+                    <label class="field-label" for="ssid">網路名稱 (SSID)</label>
+                    <input type="text" class="text-input" id="ssid" placeholder="例如 MyHomeWiFi" autocomplete="off" spellcheck="false">
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="password">密碼</label>
+                    <div class="password-wrap">
+                        <input type="password" class="text-input" id="password" placeholder="(無加密時可留空)" autocomplete="off" spellcheck="false">
+                        <button type="button" class="pw-toggle" id="pwToggle">顯示</button>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="field-label">加密方式</label>
+                    <div class="radio-group" id="encGroup">
+                        <span class="radio-pill">
+                            <input type="radio" id="enc-wpa" name="enc" value="WPA" checked>
+                            <label for="enc-wpa">WPA / WPA2 / WPA3</label>
+                        </span>
+                        <span class="radio-pill">
+                            <input type="radio" id="enc-wep" name="enc" value="WEP">
+                            <label for="enc-wep">WEP</label>
+                        </span>
+                        <span class="radio-pill">
+                            <input type="radio" id="enc-none" name="enc" value="nopass">
+                            <label for="enc-none">無加密</label>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="check-row">
+                        <input type="checkbox" id="hidePassword">
+                        <span>在卡片上隱藏密碼文字(仍可掃 QR 連線)</span>
+                    </label>
+                    <label class="check-row">
+                        <input type="checkbox" id="hiddenSsid">
+                        <span>這是隱藏 SSID 的網路</span>
+                    </label>
+                </div>
+
+                <div class="helper-text">
+                    <strong>WIFI URI:</strong> 採 Wi-Fi Alliance 標準字串
+                    <code>WIFI:T:&lt;auth&gt;;S:&lt;ssid&gt;;P:&lt;pw&gt;;H:&lt;hidden&gt;;;</code> —
+                    iOS / Android 內建相機掃即跳「加入網路」。本頁純靜態,所有資訊在你瀏覽器產生,不會送出。
+                </div>
+            </div>
+
+            <!-- 右:卡片預覽 + 動作 -->
+            <div class="card-pane">
+                <div class="wifi-card" id="wifiCard">
+                    <div class="wc-info" id="wcInfo">
+                        <div class="wc-row">
+                            <span class="wc-label">SSID</span>
+                            <span class="wc-value muted" id="cardSsid">(尚未填寫)</span>
+                        </div>
+                        <div class="wc-row" id="cardPwRow">
+                            <span class="wc-label">密碼</span>
+                            <span class="wc-value muted" id="cardPw">—</span>
+                        </div>
+                    </div>
+                    <div class="wc-qr"><div id="qrWrap"></div></div>
+                    <div class="wc-footer">用手機相機掃描即可加入網路</div>
+                </div>
+
+                <div class="actions">
+                    <button type="button" class="action-btn" id="printBtn">🖨 列印</button>
+                    <button type="button" class="action-btn secondary" id="downloadBtn">📥 下載 PNG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        const $ssid       = document.getElementById('ssid');
+        const $password   = document.getElementById('password');
+        const $pwToggle   = document.getElementById('pwToggle');
+        const $hidePw     = document.getElementById('hidePassword');
+        const $hiddenSsid = document.getElementById('hiddenSsid');
+        const $encGroup   = document.getElementById('encGroup');
+        const $cardSsid   = document.getElementById('cardSsid');
+        const $cardPw     = document.getElementById('cardPw');
+        const $cardPwRow  = document.getElementById('cardPwRow');
+        const $qrWrap     = document.getElementById('qrWrap');
+        const $printBtn   = document.getElementById('printBtn');
+        const $downloadBtn= document.getElementById('downloadBtn');
+
+        const PLACEHOLDER_QR = '輸入 SSID 後產生 QR';
+
+        // WIFI URI escape — 規格規定 \, ;, ,, ", : 都要前綴反斜線
+        function wifiEscape(s) {
+            return String(s).replace(/[\\;,":]/g, c => '\\' + c);
+        }
+
+        function getEnc() {
+            return document.querySelector('input[name="enc"]:checked').value;
+        }
+
+        function buildWifiUri() {
+            const ssid = $ssid.value;
+            const pw = $password.value;
+            const enc = getEnc();
+            const hidden = $hiddenSsid.checked;
+
+            // WIFI:T:<auth>;S:<ssid>;P:<password>;H:<hidden>;;
+            const parts = ['WIFI:T:' + enc, 'S:' + wifiEscape(ssid)];
+            if (enc !== 'nopass') parts.push('P:' + wifiEscape(pw));
+            if (hidden) parts.push('H:true');
+            return parts.join(';') + ';;';
+        }
+
+        function drawPlaceholder() {
+            $qrWrap.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            canvas.width = 220; canvas.height = 220;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 220, 220);
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.setLineDash([6, 6]);
+            ctx.strokeRect(8, 8, 204, 204);
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px -apple-system, "Segoe UI", "Noto Sans TC", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(PLACEHOLDER_QR, 110, 110);
+            $qrWrap.appendChild(canvas);
+        }
+
+        // jquery.qrcode plugin: $(elem).qrcode({ render, text, size, ecLevel, fill, background, quiet })
+        function renderQR(text, size) {
+            $($qrWrap).empty().qrcode({
+                render: 'canvas',
+                text: text,
+                size: size,
+                ecLevel: 'M',
+                fill: '#0f172a',
+                background: '#ffffff',
+                quiet: 1,
+            });
+        }
+
+        function render() {
+            const ssid = $ssid.value.trim();
+            const pw = $password.value;
+            const enc = getEnc();
+
+            // 卡片文字
+            if (ssid) {
+                $cardSsid.textContent = ssid;
+                $cardSsid.classList.remove('muted');
+            } else {
+                $cardSsid.textContent = '(尚未填寫)';
+                $cardSsid.classList.add('muted');
+            }
+
+            if (enc === 'nopass') {
+                $cardPwRow.hidden = true;
+            } else {
+                $cardPwRow.hidden = false;
+                if ($hidePw.checked) {
+                    $cardPw.textContent = '••••••••';
+                    $cardPw.classList.add('muted');
+                } else if (pw) {
+                    $cardPw.textContent = pw;
+                    $cardPw.classList.remove('muted');
+                } else {
+                    $cardPw.textContent = '(未輸入)';
+                    $cardPw.classList.add('muted');
+                }
+            }
+
+            // QR
+            if (ssid) {
+                renderQR(buildWifiUri(), 220);
+            } else {
+                drawPlaceholder();
+            }
+        }
+
+        // ── Events ──
+        [$ssid, $password, $hiddenSsid, $hidePw].forEach(el =>
+            el.addEventListener('input', render));
+        $encGroup.addEventListener('change', render);
+
+        $pwToggle.addEventListener('click', () => {
+            const showing = $password.type === 'text';
+            $password.type = showing ? 'password' : 'text';
+            $pwToggle.textContent = showing ? '顯示' : '隱藏';
+        });
+
+        $printBtn.addEventListener('click', () => {
+            if (!$ssid.value.trim()) { alert('請先輸入 SSID'); return; }
+            window.print();
+        });
+
+        // ── 下載 PNG:用獨立 canvas 重繪一張高解析卡片 ──
+        $downloadBtn.addEventListener('click', () => {
+            const ssid = $ssid.value.trim();
+            if (!ssid) { alert('請先輸入 SSID'); return; }
+            const pw = $password.value;
+            const enc = getEnc();
+            const hidePw = $hidePw.checked;
+            const uri = buildWifiUri();
+
+            // 2x density for crisp print
+            const scale = 2;
+            const W = 600 * scale, H = 760 * scale;
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H;
+            const g = c.getContext('2d');
+            g.scale(scale, scale);
+
+            // 背景 + 邊框
+            g.fillStyle = '#ffffff';
+            g.fillRect(0, 0, 600, 760);
+            g.strokeStyle = '#94a3b8';
+            g.lineWidth = 2;
+            roundRect(g, 8, 8, 584, 744, 18);
+            g.stroke();
+
+            // SSID 行 — 對齊預覽 (label 靠左、value 緊接 label 也靠左)
+            const LABEL_X = 50;
+            const VALUE_X = 140;
+            g.textBaseline = 'middle';
+            g.textAlign = 'left';
+            g.fillStyle = '#94a3b8';
+            g.font = 'bold 13px -apple-system, sans-serif';
+            g.fillText('SSID', LABEL_X, 138);
+            g.fillStyle = '#1e293b';
+            g.font = '600 18px ui-monospace, Consolas, monospace';
+            g.fillText(ssid, VALUE_X, 138);
+
+            // 密碼行
+            let qrY = 200;
+            if (enc !== 'nopass') {
+                g.strokeStyle = '#f1f5f9';
+                g.lineWidth = 1;
+                g.setLineDash([3, 3]);
+                g.beginPath(); g.moveTo(50, 165); g.lineTo(550, 165); g.stroke();
+                g.setLineDash([]);
+                g.fillStyle = '#94a3b8';
+                g.font = 'bold 13px -apple-system, sans-serif';
+                g.fillText('密碼', LABEL_X, 192);
+                g.fillStyle = '#1e293b';
+                g.font = '600 18px ui-monospace, Consolas, monospace';
+                g.fillText(hidePw ? '••••••••' : (pw || '(未輸入)'), VALUE_X, 192);
+                qrY = 240;
+            }
+
+            // QR — 用 jQuery plugin 在臨時 div 產出高解析 canvas
+            const tmpDiv = document.createElement('div');
+            $(tmpDiv).qrcode({
+                render: 'canvas',
+                text: uri,
+                size: 380,
+                ecLevel: 'M',
+                fill: '#0f172a',
+                background: '#ffffff',
+                quiet: 1,
+            });
+            const qrCanvas = tmpDiv.querySelector('canvas');
+            g.drawImage(qrCanvas, (600 - 380) / 2, qrY);
+
+            // 底部文字
+            g.fillStyle = '#94a3b8';
+            g.font = '13px -apple-system, sans-serif';
+            g.textAlign = 'center';
+            g.fillText('用手機相機掃描即可加入網路', 300, qrY + 380 + 30);
+
+            // 觸發下載
+            const link = document.createElement('a');
+            link.download = `wifi-${ssid.replace(/[^\w-]+/g, '_')}.png`;
+            link.href = c.toDataURL('image/png');
+            link.click();
+        });
+
+        function roundRect(g, x, y, w, h, r) {
+            g.beginPath();
+            g.moveTo(x + r, y);
+            g.lineTo(x + w - r, y);
+            g.quadraticCurveTo(x + w, y, x + w, y + r);
+            g.lineTo(x + w, y + h - r);
+            g.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            g.lineTo(x + r, y + h);
+            g.quadraticCurveTo(x, y + h, x, y + h - r);
+            g.lineTo(x, y + r);
+            g.quadraticCurveTo(x, y, x + r, y);
+            g.closePath();
+        }
+
+        // initial
+        render();
+        $ssid.focus();
+    })();
+    </script>
+</body>
+</html>

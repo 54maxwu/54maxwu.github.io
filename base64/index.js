@@ -39,7 +39,14 @@ new Vue({
                 }))
             })
         }), document.addEventListener("paste", t => {
-            "image" === this.curType && this.paste(t)
+            if ("image" === this.curType) return this.paste(t);
+            if ("base64" === this.curType) {
+                let e = document.getElementById("base64Input");
+                if (document.activeElement === e) return;
+                let i = t.clipboardData && t.clipboardData.getData("text");
+                if (!i) return;
+                t.preventDefault(), this.txtBase64Input = i, e && e.focus()
+            }
         }, !1), document.addEventListener("drop", t => {
             if (t.preventDefault(), t.stopPropagation(), "image" !== this.curType) return;
             let e = t.dataTransfer.files;

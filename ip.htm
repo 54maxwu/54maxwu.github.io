@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>IP 反查工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color .2s, color .2s, border-color .2s;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+        .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+        .page-content {
+            padding: 24px 20px 60px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 24px;
+        }
+
+        /* ── Input row ── */
+        .field-label {
+            font-size: .78rem;
+            font-weight: 700;
+            color: #0d9488;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin-bottom: 6px;
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .input-wrap { flex: 1 1 320px; }
+        .ip-input {
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 10px 4px;
+            border: none;
+            border-bottom: 2px solid #cbd5e1;
+            background: transparent;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            color: #1e293b;
+            transition: border-color .18s;
+            outline: none;
+        }
+        .ip-input:focus { border-bottom-color: #0d9488; }
+        .ip-input::placeholder { color: #94a3b8; }
+
+        .btn {
+            padding: 10px 22px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: .04em;
+            font-family: inherit;
+            transition: background .15s, box-shadow .15s, transform .08s;
+        }
+        .btn-primary {
+            background: linear-gradient(145deg, #14b8a6, #0d9488);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(13,148,136,0.35);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 14px rgba(13,148,136,0.45); }
+        .btn-primary:active { transform: scale(.97); }
+        .btn-secondary {
+            background: #fff;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-secondary:hover { background: #f8fafc; color: #0d9488; border-color: #0d9488; }
+        .btn-secondary:active { transform: scale(.97); }
+
+        /* ── Result layout ── */
+        .result-grid {
+            margin-top: 22px;
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+            gap: 18px;
+        }
+        @media (max-width: 900px) {
+            .result-grid { grid-template-columns: 1fr; }
+        }
+
+        .info-card, .map-card {
+            background: rgba(255,255,255,0.85);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px 22px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .map-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+        .result-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            font-size: 11px;
+            color: #64748b;
+            border-bottom: 1px dashed #e2e8f0;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        }
+        .result-meta strong { color: #1e293b; font-size: 13px; }
+        .meta-flag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 700;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            letter-spacing: .04em;
+        }
+        .meta-flag.eu { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: #0d9488;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            margin: 16px 0 8px;
+        }
+        .section-title:first-of-type { margin-top: 0; }
+
+        .kv-grid {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 8px 14px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12.5px;
+            padding: 12px 14px;
+            background: rgba(248,250,252,0.85);
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+            margin: 0;
+        }
+        .kv-grid dt {
+            color: #64748b;
+            font-weight: 600;
+            font-size: 11.5px;
+            align-self: center;
+        }
+        .kv-grid dd {
+            color: #1e293b;
+            word-break: break-all;
+            margin: 0;
+            line-height: 1.5;
+        }
+        .kv-grid dd.empty { color: #cbd5e1; font-style: italic; }
+        .kv-grid dd a { color: #0d9488; text-decoration: none; }
+        .kv-grid dd a:hover { text-decoration: underline; }
+
+        .flag-emoji { font-size: 16px; vertical-align: middle; margin-right: 4px; }
+
+        /* ── Map ── */
+        .map-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .map-header h2 {
+            font-size: 12px;
+            font-weight: 800;
+            color: #0d9488;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .map-header .loc {
+            font-size: 13px;
+            color: #1e293b;
+            font-weight: 600;
+        }
+        .map-frame {
+            width: 100%;
+            flex: 1;
+            min-height: 360px;
+            border: none;
+            display: block;
+        }
+        .map-empty {
+            flex: 1;
+            min-height: 360px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 13px;
+            background:
+                repeating-linear-gradient(45deg, transparent 0 18px, rgba(203,213,225,.18) 18px 36px),
+                #f8fafc;
+        }
+        .map-footer {
+            padding: 8px 16px;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            font-size: 11px;
+            color: #64748b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .map-footer a {
+            color: #0d9488;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .map-footer a:hover { text-decoration: underline; }
+
+        /* ── Empty/error states ── */
+        .result-empty {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            padding: 60px 20px;
+        }
+        .err-msg {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* ── Raw JSON ── */
+        .raw-btn {
+            margin-top: 14px;
+            background: linear-gradient(145deg, #fb923c, #f97316);
+            border: 1px solid #f97316;
+            border-radius: 999px;
+            padding: 8px 18px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 3px 10px rgba(249,115,22,.35);
+            transition: background .15s, box-shadow .15s, transform .08s;
+        }
+        .raw-btn:hover {
+            background: linear-gradient(145deg, #f97316, #c2410c);
+            box-shadow: 0 5px 16px rgba(194,65,12,.45);
+        }
+        .raw-btn:active { transform: scale(.97); }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 24px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 720px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4);
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .modal-close {
+            background: transparent;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            color: #64748b;
+            font-family: inherit;
+            transition: background .12s, color .12s;
+        }
+        .modal-close:hover { background: #fef2f2; color: #b91c1c; }
+        .raw-json {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 14px 16px;
+            margin: 0;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow: auto;
+            flex: 1;
+            min-height: 0;
+        }
+        .raw-json { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .raw-json::-webkit-scrollbar { width: 8px; }
+        .raw-json::-webkit-scrollbar-track { background: transparent; }
+        .raw-json::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+        .raw-json::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>IP 反查工具</h1>
+        <div class="header-meta">
+            <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="field-label">IP Address</div>
+            <div class="input-row">
+                <div class="input-wrap">
+                    <input type="text" class="ip-input" id="ipInput"
+                           placeholder="留空查詢自己,或輸入 IPv4 / IPv6 (e.g. 8.8.8.8)"
+                           autocomplete="off" spellcheck="false">
+                </div>
+                <button type="button" class="btn btn-primary" id="lookupBtn">查詢</button>
+                <button type="button" class="btn btn-secondary" id="myIpBtn">我的 IP</button>
+            </div>
+
+            <div class="result-grid" id="resultArea">
+                <div class="info-card" id="infoCard">
+                    <div class="result-empty">輸入 IP 後按「查詢」,或直接按「我的 IP」</div>
+                </div>
+                <div class="map-card">
+                    <div class="map-header">
+                        <h2>Approximate Geographic Location</h2>
+                        <div class="loc" id="mapLoc">—</div>
+                    </div>
+                    <div class="map-empty" id="mapEmpty">尚未取得座標</div>
+                    <iframe class="map-frame" id="mapFrame" referrerpolicy="no-referrer-when-downgrade" hidden></iframe>
+                    <div class="map-footer" id="mapFooter" hidden>
+                        <span id="mapCoord">—</span>
+                        <a id="mapOpen" target="_blank" rel="noopener">在 Google 地圖中開啟 ↗</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="rawModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>原始 JSON 回應</span>
+                <button type="button" class="modal-close" id="rawClose">&times;</button>
+            </div>
+            <pre class="raw-json" id="rawJson"></pre>
+        </div>
+    </div>
+
+    <script>
+    const $ipInput    = document.getElementById('ipInput');
+    const $lookupBtn  = document.getElementById('lookupBtn');
+    const $myIpBtn    = document.getElementById('myIpBtn');
+    const $infoCard   = document.getElementById('infoCard');
+    const $mapLoc     = document.getElementById('mapLoc');
+    const $mapEmpty   = document.getElementById('mapEmpty');
+    const $mapFrame   = document.getElementById('mapFrame');
+    const $mapFooter  = document.getElementById('mapFooter');
+    const $mapCoord   = document.getElementById('mapCoord');
+    const $mapOpen    = document.getElementById('mapOpen');
+    const $statusPill = document.getElementById('statusPill');
+    const $statusText = document.getElementById('statusText');
+    const $rawModal   = document.getElementById('rawModal');
+    const $rawClose   = document.getElementById('rawClose');
+    const $rawJson    = document.getElementById('rawJson');
+
+    let lastRaw = null;
+
+    function setStatus(text, kind) {
+        $statusText.textContent = text;
+        $statusPill.classList.remove('idle', 'busy', 'ok', 'err');
+        $statusPill.classList.add(kind || 'idle');
+    }
+
+    function esc(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function row(label, value, opts = {}) {
+        const empty = value === null || value === undefined || value === '' || value === 0 && opts.zeroIsEmpty;
+        const cls   = empty ? 'empty' : '';
+        const txt   = empty ? '—' : (opts.html ? value : esc(value));
+        return `<dt>${esc(label)}</dt><dd class="${cls}">${txt}</dd>`;
+    }
+
+    function renderData(d) {
+        lastRaw = d;
+
+        const flagImg   = d?.flag?.img ? `<img src="${esc(d.flag.img)}" alt="" style="width:20px;height:14px;border:1px solid #e2e8f0;border-radius:2px;vertical-align:middle;margin-right:6px;">` : '';
+        const flagEmoji = d?.flag?.emoji ? `<span class="flag-emoji">${esc(d.flag.emoji)}</span>` : '';
+
+        const locationParts = [d.city, d.region, d.country].filter(Boolean).join(', ');
+        $mapLoc.textContent = locationParts || '—';
+
+        const meta = `
+            <div class="result-meta">
+                <span><strong>${flagImg}${flagEmoji}${esc(d.ip || '')}</strong></span>
+                <span class="meta-flag">${esc(d.type || '')}</span>
+                ${d.is_eu ? '<span class="meta-flag eu">EU</span>' : ''}
+                <span>${esc(d.country || '')} <strong>${esc(d.country_code || '')}</strong></span>
+            </div>
+        `;
+
+        const location = `
+            <div class="section-title">Location</div>
+            <dl class="kv-grid">
+                ${row('Continent',    d.continent ? `${d.continent} (${d.continent_code || ''})` : '')}
+                ${row('Country',      d.country ? `${d.country} (${d.country_code || ''})` : '')}
+                ${row('Region',       d.region ? `${d.region} (${d.region_code || ''})` : '')}
+                ${row('City',         d.city)}
+                ${row('Postal',       d.postal)}
+                ${row('Latitude',     d.latitude)}
+                ${row('Longitude',    d.longitude)}
+                ${row('Capital',      d.capital)}
+                ${row('Calling Code', d.calling_code ? '+' + d.calling_code : '')}
+                ${row('Borders',      d.borders)}
+            </dl>
+        `;
+
+        const conn = d.connection || {};
+        const network = `
+            <div class="section-title">Network</div>
+            <dl class="kv-grid">
+                ${row('ASN',    conn.asn ? `AS${conn.asn}` : '')}
+                ${row('ISP',    conn.isp)}
+                ${row('Org',    conn.org)}
+                ${row('Domain', conn.domain ? `<a href="https://${esc(conn.domain)}" target="_blank" rel="noopener">${esc(conn.domain)}</a>` : '', { html: true })}
+            </dl>
+        `;
+
+        const tz = d.timezone || {};
+        const timezone = `
+            <div class="section-title">Timezone</div>
+            <dl class="kv-grid">
+                ${row('ID',     tz.id)}
+                ${row('Abbr',   tz.abbr)}
+                ${row('UTC',    tz.utc)}
+                ${row('Offset', tz.offset !== undefined ? `${tz.offset} sec` : '')}
+                ${row('DST',    tz.is_dst === undefined ? '' : (tz.is_dst ? 'Yes' : 'No'))}
+            </dl>
+        `;
+
+        $infoCard.innerHTML = meta + location + network + timezone +
+            '<button type="button" class="raw-btn" id="rawBtn">查看原始 JSON</button>';
+        document.getElementById('rawBtn').addEventListener('click', openRaw);
+
+        // Map
+        if (typeof d.latitude === 'number' && typeof d.longitude === 'number') {
+            const lat = d.latitude, lng = d.longitude;
+            const q = `${lat},${lng}`;
+            $mapFrame.src = `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=12&output=embed`;
+            $mapFrame.hidden = false;
+            $mapEmpty.hidden = true;
+            $mapCoord.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            $mapOpen.href = `https://www.google.com/maps?q=${encodeURIComponent(q)}`;
+            $mapFooter.hidden = false;
+        } else {
+            $mapFrame.removeAttribute('src');
+            $mapFrame.hidden = true;
+            $mapFooter.hidden = true;
+            $mapEmpty.hidden = false;
+            $mapEmpty.textContent = '此 IP 沒有可用座標';
+        }
+    }
+
+    function renderError(msg) {
+        $infoCard.innerHTML = `<div class="err-msg">⚠ ${esc(msg)}</div>`;
+        $mapFrame.removeAttribute('src');
+        $mapFrame.hidden = true;
+        $mapFooter.hidden = true;
+        $mapEmpty.hidden = false;
+        $mapEmpty.textContent = '尚未取得座標';
+        $mapLoc.textContent = '—';
+    }
+
+    // ── ipapi.co response → ipwho.is-shaped object that renderData() expects ──
+    const CONTINENT_NAMES = {
+        AF: 'Africa', AN: 'Antarctica', AS: 'Asia',
+        EU: 'Europe', NA: 'North America', OC: 'Oceania', SA: 'South America'
+    };
+
+    function codeToEmoji(cc) {
+        if (!cc || cc.length !== 2) return '';
+        const base = 0x1F1E6 - 65;
+        return String.fromCodePoint(
+            base + cc.toUpperCase().charCodeAt(0),
+            base + cc.toUpperCase().charCodeAt(1)
+        );
+    }
+
+    // ipapi.co utc_offset is like "+0800"; convert to "+08:00" + seconds.
+    function parseUtcOffset(s) {
+        if (!s || !/^[+-]\d{4}$/.test(s)) return { utc: '', offset: undefined };
+        const sign = s[0] === '-' ? -1 : 1;
+        const hh = +s.slice(1, 3), mm = +s.slice(3, 5);
+        return { utc: `${s.slice(0,3)}:${s.slice(3)}`, offset: sign * (hh * 3600 + mm * 60) };
+    }
+
+    function normalize(d) {
+        const cc  = d.country_code || d.country || '';
+        const tz  = parseUtcOffset(d.utc_offset);
+        const asn = d.asn ? String(d.asn).replace(/^AS/i, '') : '';
+        return {
+            ip:             d.ip,
+            type:           d.version || (d.ip && d.ip.includes(':') ? 'IPv6' : 'IPv4'),
+            continent:      CONTINENT_NAMES[d.continent_code] || '',
+            continent_code: d.continent_code || '',
+            country:        d.country_name || '',
+            country_code:   cc,
+            region:         d.region || '',
+            region_code:    d.region_code || '',
+            city:           d.city || '',
+            latitude:       typeof d.latitude  === 'number' ? d.latitude  : (d.latitude  ? +d.latitude  : undefined),
+            longitude:      typeof d.longitude === 'number' ? d.longitude : (d.longitude ? +d.longitude : undefined),
+            is_eu:          !!d.in_eu,
+            postal:         d.postal || '',
+            calling_code:   d.country_calling_code ? d.country_calling_code.replace(/^\+/, '') : '',
+            capital:        d.country_capital || '',
+            borders:        '',
+            flag: cc ? {
+                img:   `https://flagcdn.com/${cc.toLowerCase()}.svg`,
+                emoji: codeToEmoji(cc),
+            } : {},
+            connection: {
+                asn:    asn ? +asn : undefined,
+                isp:    d.org || '',
+                org:    d.org || '',
+                domain: ''
+            },
+            timezone: {
+                id:     d.timezone || '',
+                abbr:   '',
+                utc:    tz.utc,
+                offset: tz.offset,
+                is_dst: undefined
+            },
+            _source: 'ipapi.co',
+            _raw: d
+        };
+    }
+
+    async function lookup(ip) {
+        const target = (ip || '').trim();
+        // ipapi.co: free 1000/day, HTTPS, CORS-enabled. `/json/` (no IP) returns the caller's info.
+        const url = target
+            ? `https://ipapi.co/${encodeURIComponent(target)}/json/`
+            : 'https://ipapi.co/json/';
+        setStatus('查詢中…', 'busy');
+        $lookupBtn.disabled = true;
+        $myIpBtn.disabled   = true;
+        try {
+            const res = await fetch(url);
+            const d   = await res.json();
+            if (d.error || !d.ip) {
+                lastRaw = d;
+                renderError(d.reason ? `${d.reason}${d.message ? ': ' + d.message : ''}` : (d.message || '查無資料'));
+                setStatus('查詢失敗', 'err');
+            } else {
+                renderData(normalize(d));
+                if (!target && d.ip) $ipInput.value = d.ip;
+                setStatus(`已查詢 ${d.ip || target}`, 'ok');
+            }
+        } catch (err) {
+            console.error(err);
+            renderError(err.message || String(err));
+            setStatus('連線失敗', 'err');
+        } finally {
+            $lookupBtn.disabled = false;
+            $myIpBtn.disabled   = false;
+        }
+    }
+
+    function openRaw() {
+        if (!lastRaw) return;
+        $rawJson.textContent = JSON.stringify(lastRaw, null, 2);
+        $rawModal.classList.add('show');
+    }
+    function closeRaw() { $rawModal.classList.remove('show'); }
+
+    $lookupBtn.addEventListener('click', () => lookup($ipInput.value));
+    $myIpBtn.addEventListener('click', () => { $ipInput.value = ''; lookup(''); });
+    $ipInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') lookup($ipInput.value);
+    });
+    $rawClose.addEventListener('click', closeRaw);
+    $rawModal.addEventListener('click', e => { if (e.target === $rawModal) closeRaw(); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && $rawModal.classList.contains('show')) closeRaw();
+    });
+
+    // Don't auto-lookup on load — user has to press the button.
+    setStatus('準備就緒', 'idle');
+    </script>
+</body>
+</html>

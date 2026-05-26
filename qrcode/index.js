@@ -43,7 +43,18 @@ new Vue({
         }, false);
 
         document.addEventListener('paste', e => {
-            if (!this.qrEncodeMode) this.paste(e);
+            if (!this.qrEncodeMode) { this.paste(e); return; }
+            if (document.activeElement === this.$refs.codeSource) return;
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (const key in items) {
+                const item = items[key];
+                if (/text\/plain/.test(item.type)) {
+                    e.preventDefault();
+                    item.getAsString(text => { this.textContent = text; });
+                    break;
+                }
+            }
         }, false);
 
         $('#opt_fc').colorpicker({
@@ -54,16 +65,25 @@ new Vue({
             }
         });
     },
+    watch: {
+        textContent() { this._scheduleConvert(); },
+        qrSize()     { this._scheduleConvert(); },
+        qrColor()    { this._scheduleConvert(); }
+    },
     methods: {
+        _scheduleConvert() {
+            clearTimeout(this._convertTimer);
+            this._convertTimer = setTimeout(() => this.convert(), 150);
+        },
         convert() {
+            if (!this.textContent) {
+                this.showResult = false;
+                $('#preview').html('');
+                return;
+            }
             this.showResult = true;
             this.$nextTick(() => {
-                const $preview = $('#preview');
-                if (this.textContent) {
-                    $preview.html('').qrcode(this._createOptions());
-                } else {
-                    $preview.html('再在輸入框裡輸入一些內容，就能生成二維碼了哦~');
-                }
+                $('#preview').html('').qrcode(this._createOptions());
             });
         },
         fileChanged(e) {
