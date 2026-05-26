@@ -140,8 +140,9 @@
         .result-grid {
             margin-top: 22px;
             display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             gap: 18px;
+            align-items: start;
         }
         @media (max-width: 900px) {
             .result-grid { grid-template-columns: 1fr; }
@@ -151,20 +152,36 @@
             background: rgba(255,255,255,0.85);
             border: 1.5px solid #e2e8f0;
             border-radius: 12px;
-            padding: 18px 22px;
+            padding: 16px 18px;
             box-shadow: 0 1px 3px rgba(0,0,0,.04);
         }
-        .map-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+        .info-card { display: flex; flex-direction: column; }
+        .map-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 1 / 1; }
+        @media (max-width: 900px) {
+            .map-card { aspect-ratio: auto; min-height: 380px; }
+        }
+
+        /* Two-column inner layout inside info-card so Location | Network+Timezone fit at a glance. */
+        .info-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        @media (max-width: 600px) {
+            .info-cols { grid-template-columns: 1fr; }
+        }
+        .info-cols > div { display: flex; flex-direction: column; gap: 4px; }
+        .info-cols .kv-grid + .section-title { margin-top: 6px; }
 
         .result-meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 14px;
+            gap: 12px;
             font-size: 11px;
             color: #64748b;
             border-bottom: 1px dashed #e2e8f0;
-            padding-bottom: 12px;
-            margin-bottom: 14px;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
         }
         .result-meta strong { color: #1e293b; font-size: 13px; }
@@ -189,17 +206,16 @@
             color: #0d9488;
             letter-spacing: .08em;
             text-transform: uppercase;
-            margin: 16px 0 8px;
+            margin: 0 0 4px;
         }
-        .section-title:first-of-type { margin-top: 0; }
 
         .kv-grid {
             display: grid;
-            grid-template-columns: 130px 1fr;
-            gap: 8px 14px;
+            grid-template-columns: 110px 1fr;
+            gap: 5px 12px;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-            font-size: 12.5px;
-            padding: 12px 14px;
+            font-size: 12px;
+            padding: 10px 12px;
             background: rgba(248,250,252,0.85);
             border: 1px solid #f1f5f9;
             border-radius: 8px;
@@ -245,13 +261,13 @@
         .map-frame {
             width: 100%;
             flex: 1;
-            min-height: 360px;
+            min-height: 0;
             border: none;
             display: block;
         }
         .map-empty {
             flex: 1;
-            min-height: 360px;
+            min-height: 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -529,7 +545,12 @@
             </dl>
         `;
 
-        $infoCard.innerHTML = meta + location + network + timezone +
+        $infoCard.innerHTML =
+            meta +
+            `<div class="info-cols">
+                <div>${location}</div>
+                <div>${network}${timezone}</div>
+            </div>` +
             '<button type="button" class="raw-btn" id="rawBtn">查看原始 JSON</button>';
         document.getElementById('rawBtn').addEventListener('click', openRaw);
 
@@ -562,11 +583,30 @@
         $mapLoc.textContent = '—';
     }
 
-    // ── ipapi.co response → ipwho.is-shaped object that renderData() expects ──
+    // ── ipinfo.io response → ipwho.is-shaped object that renderData() expects ──
     const CONTINENT_NAMES = {
         AF: 'Africa', AN: 'Antarctica', AS: 'Asia',
         EU: 'Europe', NA: 'North America', OC: 'Oceania', SA: 'South America'
     };
+    // CC → continent code, just for the obvious "show me what continent this IP is in" use case.
+    // Not exhaustive — falls back to '' for unmapped codes.
+    const CC_TO_CONTINENT = {
+        TW:'AS', JP:'AS', KR:'AS', CN:'AS', HK:'AS', MO:'AS', SG:'AS', MY:'AS', TH:'AS', VN:'AS', PH:'AS', ID:'AS',
+        IN:'AS', PK:'AS', BD:'AS', LK:'AS', NP:'AS', BT:'AS', MM:'AS', KH:'AS', LA:'AS', MN:'AS', KP:'AS',
+        AE:'AS', SA:'AS', IL:'AS', TR:'AS', IR:'AS', IQ:'AS', SY:'AS', JO:'AS', LB:'AS', KW:'AS', QA:'AS', OM:'AS', YE:'AS', BH:'AS',
+        US:'NA', CA:'NA', MX:'NA', CU:'NA', JM:'NA', HT:'NA', DO:'NA', PR:'NA', GT:'NA', BZ:'NA', SV:'NA', HN:'NA', NI:'NA', CR:'NA', PA:'NA',
+        BR:'SA', AR:'SA', CL:'SA', PE:'SA', CO:'SA', VE:'SA', EC:'SA', BO:'SA', PY:'SA', UY:'SA', GY:'SA', SR:'SA',
+        GB:'EU', DE:'EU', FR:'EU', IT:'EU', ES:'EU', PT:'EU', NL:'EU', BE:'EU', LU:'EU', CH:'EU', AT:'EU', SE:'EU', NO:'EU', DK:'EU', FI:'EU', IS:'EU', IE:'EU',
+        PL:'EU', CZ:'EU', SK:'EU', HU:'EU', RO:'EU', BG:'EU', GR:'EU', HR:'EU', SI:'EU', RS:'EU', BA:'EU', AL:'EU', MK:'EU', ME:'EU', XK:'EU',
+        LT:'EU', LV:'EU', EE:'EU', BY:'EU', UA:'EU', MD:'EU', RU:'EU',
+        EG:'AF', ZA:'AF', NG:'AF', KE:'AF', ET:'AF', GH:'AF', MA:'AF', DZ:'AF', TN:'AF', LY:'AF', SD:'AF', UG:'AF', TZ:'AF', AO:'AF', MZ:'AF', ZW:'AF',
+        AU:'OC', NZ:'OC', FJ:'OC', PG:'OC',
+        AQ:'AN'
+    };
+    const EU_MEMBERS = new Set([
+        'AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE',
+        'IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'
+    ]);
 
     function codeToEmoji(cc) {
         if (!cc || cc.length !== 2) return '';
@@ -577,44 +617,75 @@
         );
     }
 
-    // ipapi.co utc_offset is like "+0800"; convert to "+08:00" + seconds.
-    function parseUtcOffset(s) {
-        if (!s || !/^[+-]\d{4}$/.test(s)) return { utc: '', offset: undefined };
-        const sign = s[0] === '-' ? -1 : 1;
-        const hh = +s.slice(1, 3), mm = +s.slice(3, 5);
-        return { utc: `${s.slice(0,3)}:${s.slice(3)}`, offset: sign * (hh * 3600 + mm * 60) };
+    function regionName(cc) {
+        if (!cc) return '';
+        try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(cc) || ''; }
+        catch { return ''; }
+    }
+
+    // Format "Asia/Taipei" → "+08:00" using current offset from the runtime.
+    function tzOffsetString(tzId) {
+        if (!tzId) return { utc: '', offset: undefined };
+        try {
+            const dtf = new Intl.DateTimeFormat('en-US', { timeZone: tzId, timeZoneName: 'shortOffset' });
+            const parts = dtf.formatToParts(new Date());
+            const offPart = parts.find(p => p.type === 'timeZoneName')?.value || '';   // e.g. "GMT+8"
+            const m = offPart.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+            if (!m) return { utc: '', offset: undefined };
+            const sign = m[1] === '-' ? -1 : 1;
+            const hh   = +m[2];
+            const mm   = m[3] ? +m[3] : 0;
+            const pad  = n => String(n).padStart(2, '0');
+            return {
+                utc:    `${m[1]}${pad(hh)}:${pad(mm)}`,
+                offset: sign * (hh * 3600 + mm * 60)
+            };
+        } catch { return { utc: '', offset: undefined }; }
+    }
+
+    // ipinfo.io's `org` looks like "AS3462 Chunghwa Telecom Co., Ltd." — split into ASN + ISP.
+    function splitOrg(org) {
+        if (!org) return { asn: undefined, isp: '', org: '' };
+        const m = org.match(/^AS(\d+)\s+(.+)$/i);
+        if (!m) return { asn: undefined, isp: org, org };
+        return { asn: +m[1], isp: m[2], org };
     }
 
     function normalize(d) {
-        const cc  = d.country_code || d.country || '';
-        const tz  = parseUtcOffset(d.utc_offset);
-        const asn = d.asn ? String(d.asn).replace(/^AS/i, '') : '';
+        const cc = (d.country || '').toUpperCase();
+        const [latStr, lngStr] = (d.loc || '').split(',');
+        const lat = latStr ? +latStr : undefined;
+        const lng = lngStr ? +lngStr : undefined;
+        const conn = splitOrg(d.org);
+        const tz   = tzOffsetString(d.timezone);
+        const continentCode = CC_TO_CONTINENT[cc] || '';
+
         return {
             ip:             d.ip,
-            type:           d.version || (d.ip && d.ip.includes(':') ? 'IPv6' : 'IPv4'),
-            continent:      CONTINENT_NAMES[d.continent_code] || '',
-            continent_code: d.continent_code || '',
-            country:        d.country_name || '',
+            type:           d.ip && d.ip.includes(':') ? 'IPv6' : 'IPv4',
+            continent:      CONTINENT_NAMES[continentCode] || '',
+            continent_code: continentCode,
+            country:        regionName(cc) || cc,
             country_code:   cc,
             region:         d.region || '',
-            region_code:    d.region_code || '',
+            region_code:    '',
             city:           d.city || '',
-            latitude:       typeof d.latitude  === 'number' ? d.latitude  : (d.latitude  ? +d.latitude  : undefined),
-            longitude:      typeof d.longitude === 'number' ? d.longitude : (d.longitude ? +d.longitude : undefined),
-            is_eu:          !!d.in_eu,
+            latitude:       Number.isFinite(lat) ? lat : undefined,
+            longitude:      Number.isFinite(lng) ? lng : undefined,
+            is_eu:          EU_MEMBERS.has(cc),
             postal:         d.postal || '',
-            calling_code:   d.country_calling_code ? d.country_calling_code.replace(/^\+/, '') : '',
-            capital:        d.country_capital || '',
+            calling_code:   '',
+            capital:        '',
             borders:        '',
             flag: cc ? {
                 img:   `https://flagcdn.com/${cc.toLowerCase()}.svg`,
                 emoji: codeToEmoji(cc),
             } : {},
             connection: {
-                asn:    asn ? +asn : undefined,
-                isp:    d.org || '',
-                org:    d.org || '',
-                domain: ''
+                asn:    conn.asn,
+                isp:    conn.isp,
+                org:    conn.org,
+                domain: d.hostname || ''
             },
             timezone: {
                 id:     d.timezone || '',
@@ -623,26 +694,28 @@
                 offset: tz.offset,
                 is_dst: undefined
             },
-            _source: 'ipapi.co',
+            _source: 'ipinfo.io',
             _raw: d
         };
     }
 
     async function lookup(ip) {
         const target = (ip || '').trim();
-        // ipapi.co: free 1000/day, HTTPS, CORS-enabled. `/json/` (no IP) returns the caller's info.
+        // ipinfo.io: 50k/month free, HTTPS, sends `Access-Control-Allow-Origin: *`
+        // so it works from any origin including `null` (file:// or sandboxed iframes).
         const url = target
-            ? `https://ipapi.co/${encodeURIComponent(target)}/json/`
-            : 'https://ipapi.co/json/';
+            ? `https://ipinfo.io/${encodeURIComponent(target)}/json`
+            : 'https://ipinfo.io/json';
         setStatus('查詢中…', 'busy');
         $lookupBtn.disabled = true;
         $myIpBtn.disabled   = true;
         try {
             const res = await fetch(url);
             const d   = await res.json();
-            if (d.error || !d.ip) {
+            if (!d.ip || d.error) {
                 lastRaw = d;
-                renderError(d.reason ? `${d.reason}${d.message ? ': ' + d.message : ''}` : (d.message || '查無資料'));
+                const msg = d.error?.message || d.error?.title || d.message || '查無資料';
+                renderError(msg);
                 setStatus('查詢失敗', 'err');
             } else {
                 renderData(normalize(d));
