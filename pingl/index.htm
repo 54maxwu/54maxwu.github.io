@@ -396,6 +396,7 @@ body {
       <div class="actions">
         <button class="btn btn-ghost" id="muteBtn">取消靜音</button>
         <button class="btn btn-ghost" id="fsBtn">全螢幕</button>
+        <button class="btn btn-danger" id="leaveBtn" style="margin-left:auto;">返回</button>
       </div>
     </div>
   </section>
@@ -722,6 +723,21 @@ $('copyBtn').addEventListener('click', async () => {
     toast('已複製連結');
   }
 });
+
+function stopViewer() {
+  if (viewerState) {
+    try { viewerState.pc.close(); } catch {}
+    try { viewerState.ws.close(); } catch {}
+    viewerState = null;
+  }
+  const v = $('viewerVideo');
+  v.srcObject = null;
+  // Clear hash so refresh won't auto-reconnect
+  history.replaceState(null, '', location.pathname + location.search);
+  showPicker();
+}
+
+$('leaveBtn').addEventListener('click', stopViewer);
 
 $('muteBtn').addEventListener('click', () => {
   const v = $('viewerVideo');
