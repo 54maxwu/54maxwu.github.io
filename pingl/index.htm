@@ -100,6 +100,47 @@ body {
 .pick-btn .label { font-size: 15px; font-weight: 700; color: #1e293b; }
 .pick-btn .desc  { font-size: 12px; color: #64748b; }
 
+.join-divider {
+  display: flex;
+  align-items: center;
+  margin: 26px 0 14px;
+  color: #94a3b8;
+  font-size: 12px;
+  gap: 12px;
+}
+.join-divider::before, .join-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+.join-row {
+  display: flex;
+  gap: 8px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.join-row input {
+  flex: 1;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 16px;
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #1e293b;
+  outline: none;
+  letter-spacing: 2px;
+  text-align: center;
+}
+.join-row input:focus { border-color: #0d9488; background: #fff; }
+.join-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 8px;
+  text-align: center;
+}
+
 /* ── Sharing layout ─────────────────────────────────── */
 .share-grid {
   display: grid;
@@ -143,6 +184,22 @@ body {
   text-transform: uppercase;
   letter-spacing: .08em;
   margin-bottom: 6px;
+}
+
+.code-big {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: #0d9488;
+  text-align: center;
+  padding: 14px 8px;
+  background: #f0fdfa;
+  border: 1.5px dashed #99f6e4;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  user-select: all;
+  cursor: text;
 }
 
 .link-box {
@@ -281,6 +338,14 @@ body {
         <span class="desc">前/後鏡頭，含麥克風</span>
       </button>
     </div>
+
+    <div class="join-divider"><span>或</span></div>
+    <div class="join-row">
+      <input id="joinInput" type="text" inputmode="numeric" autocomplete="off"
+             placeholder="輸入 6 位數連線代碼" maxlength="32">
+      <button class="btn btn-primary" id="joinBtn">觀看</button>
+    </div>
+    <div class="join-hint">也可以直接貼上分享連結</div>
   </section>
 
   <!-- mode B: sharing -->
@@ -290,13 +355,15 @@ body {
         <video id="previewVideo" autoplay muted playsinline></video>
       </div>
       <div class="card">
-        <div class="field-label">分享連結（傳給對方）</div>
+        <div class="field-label">連線代碼</div>
+        <div class="code-big" id="roomIdView">—</div>
+
+        <div class="field-label" style="margin-top:6px;">或分享連結</div>
         <div class="link-box">
           <input id="shareUrl" type="text" readonly>
           <button class="btn btn-primary" id="copyBtn">複製</button>
         </div>
 
-        <div class="info-row"><span class="k">Room ID</span><span class="v" id="roomIdView">—</span></div>
         <div class="info-row"><span class="k">連線狀態</span><span class="v" id="connState">等待對方連入</span></div>
         <div class="info-row"><span class="k">傳輸路徑</span><span class="v" id="connType">—</span></div>
 
@@ -310,14 +377,14 @@ body {
   <!-- mode C: viewing -->
   <section id="viewer-view" hidden>
     <div id="viewer-stage">
-      <video id="viewerVideo" autoplay playsinline></video>
+      <video id="viewerVideo" autoplay playsinline muted></video>
       <div class="video-overlay" id="viewerOverlay">連線中…</div>
     </div>
     <div class="card">
       <div class="info-row"><span class="k">Room ID</span><span class="v" id="viewerRoomId">—</span></div>
       <div class="info-row"><span class="k">連線狀態</span><span class="v" id="viewerConnState">等待中</span></div>
       <div class="actions">
-        <button class="btn btn-ghost" id="muteBtn">靜音</button>
+        <button class="btn btn-ghost" id="muteBtn">取消靜音</button>
         <button class="btn btn-ghost" id="fsBtn">全螢幕</button>
       </div>
     </div>
@@ -363,10 +430,18 @@ function toast(msg) {
 }
 
 function randomId() {
-  // 8-char URL-safe ID
-  const bytes = new Uint8Array(6);
-  crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  // 6-digit numeric, easy to dictate
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return (100000 + (buf[0] % 900000)).toString();
+}
+
+function extractCode(input) {
+  if (!input) return '';
+  // Accept either a pure code or a full URL containing #view=
+  const m = input.match(/#view=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return input.trim();
 }
 
 // ── Routing ───────────────────────────────────────────
@@ -525,9 +600,23 @@ async function startViewer(roomId) {
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   viewerState = { ws, pc };
 
-  pc.ontrack = e => {
-    $('viewerVideo').srcObject = e.streams[0];
+  pc.ontrack = async e => {
+    const v = $('viewerVideo');
+    v.srcObject = e.streams[0];
     $('viewerOverlay').hidden = true;
+    try {
+      await v.play();
+    } catch {
+      // iOS / Safari autoplay blocked — show tap-to-play
+      const ov = $('viewerOverlay');
+      ov.hidden = false;
+      ov.textContent = '▶ 點擊播放';
+      ov.style.pointerEvents = 'auto';
+      ov.style.cursor = 'pointer';
+      ov.onclick = async () => {
+        try { await v.play(); ov.hidden = true; } catch {}
+      };
+    }
   };
 
   pc.onicecandidate = e => {
@@ -581,6 +670,19 @@ async function startViewer(roomId) {
 $('btnScreen').addEventListener('click', () => startSender('screen'));
 $('btnCamera').addEventListener('click', () => startSender('camera'));
 $('stopBtn').addEventListener('click', () => stopSender());
+
+function joinByCode() {
+  const code = extractCode($('joinInput').value);
+  if (!code) { toast('請輸入連線代碼'); return; }
+  if (!/^[a-zA-Z0-9_-]{1,32}$/.test(code)) {
+    toast('代碼格式不正確');
+    return;
+  }
+  location.hash = 'view=' + code;
+  startViewer(code);
+}
+$('joinBtn').addEventListener('click', joinByCode);
+$('joinInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinByCode(); });
 
 $('copyBtn').addEventListener('click', async () => {
   const url = $('shareUrl').value;
