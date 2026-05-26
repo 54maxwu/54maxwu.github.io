@@ -266,6 +266,26 @@ body {
 #viewer-stage video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 #viewer-stage .video-overlay { font-size: 14px; }
 
+#leaveFloat {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+#leaveFloat:hover, #leaveFloat:active { background: #ef4444; }
+
 #toast {
   position: fixed;
   bottom: 24px; left: 50%;
@@ -329,6 +349,14 @@ body {
         <span class="label">分享螢幕</span>
         <span class="desc">整個螢幕、視窗或分頁</span>
       </button>
+      <button class="pick-btn" id="btnCamera">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 7l-7 5 7 5V7z"/>
+          <rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+        <span class="label">分享鏡頭</span>
+        <span class="desc">攝影機 + 麥克風</span>
+      </button>
       <button class="pick-btn" id="btnFront">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M23 7l-7 5 7 5V7z"/>
@@ -389,6 +417,7 @@ body {
     <div id="viewer-stage">
       <video id="viewerVideo" autoplay playsinline muted></video>
       <div class="video-overlay" id="viewerOverlay">連線中…</div>
+      <button id="leaveFloat" title="返回" aria-label="返回">×</button>
     </div>
     <div class="card">
       <div class="info-row"><span class="k">Room ID</span><span class="v" id="viewerRoomId">—</span></div>
@@ -468,10 +497,16 @@ function boot() {
     setStatus('未設定 server', 'err');
     return;
   }
-  // Hide screen-share on mobile / browsers without getDisplayMedia support
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile || !navigator.mediaDevices?.getDisplayMedia) {
+  // Mobile: hide screen-share + generic camera, show front/back picks
+  // Desktop: hide front/back (usually one camera), show screen-share + generic camera
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                 || !navigator.mediaDevices?.getDisplayMedia;
+  if (isMobile) {
     $('btnScreen').style.display = 'none';
+    $('btnCamera').style.display = 'none';
+  } else {
+    $('btnFront').style.display = 'none';
+    $('btnBack').style.display = 'none';
   }
   const { view } = parseHash();
   if (view) startViewer(view);
@@ -695,6 +730,7 @@ async function startViewer(roomId) {
 
 // ── UI wiring ─────────────────────────────────────────
 $('btnScreen').addEventListener('click', () => startSender('screen'));
+$('btnCamera').addEventListener('click', () => startSender('camera-front'));
 $('btnFront').addEventListener('click', () => startSender('camera-front'));
 $('btnBack').addEventListener('click', () => startSender('camera-back'));
 $('stopBtn').addEventListener('click', () => stopSender());
@@ -738,6 +774,7 @@ function stopViewer() {
 }
 
 $('leaveBtn').addEventListener('click', stopViewer);
+$('leaveFloat').addEventListener('click', stopViewer);
 
 $('muteBtn').addEventListener('click', () => {
   const v = $('viewerVideo');
