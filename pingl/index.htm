@@ -703,8 +703,19 @@ $('muteBtn').addEventListener('click', () => {
 });
 $('fsBtn').addEventListener('click', () => {
   const v = $('viewerVideo');
-  if (document.fullscreenElement) document.exitFullscreen();
-  else v.requestFullscreen?.();
+  const stage = document.getElementById('viewer-stage');
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fsEl) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    return;
+  }
+  // Prefer the container (so overlay/controls go fullscreen too), then video,
+  // then iOS Safari's video-only API.
+  if (stage.requestFullscreen)             stage.requestFullscreen();
+  else if (stage.webkitRequestFullscreen)  stage.webkitRequestFullscreen();
+  else if (v.requestFullscreen)            v.requestFullscreen();
+  else if (v.webkitEnterFullscreen)        v.webkitEnterFullscreen();
+  else                                     toast('此瀏覽器不支援全螢幕');
 });
 
 window.addEventListener('beforeunload', () => {
