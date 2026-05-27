@@ -26,3 +26,16 @@ build/
 .env
 .env.local
 .env.*.local
+
+# Don't commit hefty binaries that bloat repo history
+*.zip
+*.cmd
+*.7z
+*.rar
+*.psd
+*.mp4
+*.mov
+
+# Vite/Rollup build output for the tip/ subapp (regenerate via build, don't commit)
+tip/assets/
+
