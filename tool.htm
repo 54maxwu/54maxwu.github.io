@@ -455,46 +455,57 @@ body {
 </div>
 
 <script>
-// Worker endpoint that verifies the passcode and returns the LINKS array.
-const LINKS_API = 'https://pingl-signal.54maxwu.workers.dev/links';
-
-// LINKS are fetched at login time; never embedded in this HTML.
+// LINKS are loaded from /links.json after login.
 let LINKS = [];
 
-// ── Login (server-side verify) ───────────────────────
+// ── RSA-PSS Login ────────────────────────────────────
 (function () {
-  const SS_LINKS = 'toolhub_links';
+  const PUB_KEY_B64 = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmGXhsEcms3FNOxkRBSd2FmBaU8xo6WwRIkdPIjVoZYzvwTyXun0rpVHBNITO7bt/zAKNT+/3m5xwFSEtJflxjMVumW1Ci8IB1YyH+5O1sxweSOivHXFRoRteHRiYYQwf697EPdBMX1MZnsBhp05uH6EpOKfxII3mDldNlSN564ueiXVrKodzcOncK4/RG1c5TSNroYZCcpk4Vq5EemZsMbmhrklRFipB4fDPag6kPKlLME64Xl97gTkAJU1xr0lVqkeWrSQPy6f990tPlxKYtg12cIWLeo6cHhCSyt1yFD6kO0yk08fW8uo+8iqMj4ELz8beC1OsxKOvz+6Z4awnVQIDAQAB';
+  const SIG_B64     = 'WfkbK13IFfxAcJLWmRi1+Y2ak9Y4UlTRqcceWrYT0+5yZtPjgNrO6bWPdsguaH7cX4wEGVAN7b0J94AvBv7gjNcurX/y9XcMiGk54KwUl68Zc7FZ1xKINtrRTbpDI/pEIJ5z7slhR3aGNjkixfyE65b9J3z8p814CeOjCCeL6yopcVPGLZcjDtoeWaG8CRY+UC0cMs6YW2Pc5zJnvqsmrahkEUnVS6Pwbe7uLUPATFy+JH+gWIH/8kf8CBHd/k3oMb9tkjXTVL0Eq1IIqLEERynt/YiGjqwBn9YVgaeteW6hF8FGqCUzrHKDd9BUMsRtFpNhZ6g4Qw3WKkJKhfX4ew==';
+  const SALT_LEN    = 32;
+  const SS_KEY      = 'toolhub_auth';
+
+  function b64ToBytes(b64) {
+    const bin = atob(b64);
+    return Uint8Array.from(bin, c => c.charCodeAt(0));
+  }
+
+  async function verify(password) {
+    const keyData = b64ToBytes(PUB_KEY_B64);
+    const pubKey  = await crypto.subtle.importKey(
+      'spki', keyData,
+      { name: 'RSA-PSS', hash: 'SHA-256' },
+      false, ['verify']
+    );
+    const sig  = b64ToBytes(SIG_B64);
+    const data = new TextEncoder().encode(password);
+    return crypto.subtle.verify(
+      { name: 'RSA-PSS', saltLength: SALT_LEN },
+      pubKey, sig, data
+    );
+  }
+
+  async function loadLinks() {
+    const res = await fetch('/links.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('links.json ' + res.status);
+    LINKS = await res.json();
+  }
 
   const overlay = document.getElementById('login-overlay');
   const input   = document.getElementById('login-input');
   const btn     = document.getElementById('login-btn');
   const err     = document.getElementById('login-err');
 
-  // Expose to the main script — only runs after auth succeeds.
-  window.__bootApp = function bootApp() {
+  window.__bootApp = async function bootApp() {
+    try { await loadLinks(); }
+    catch { err.textContent = '無法載入 links.json'; return; }
     overlay.style.display = 'none';
     if (typeof load === 'function') { load(); render(); }
   };
 
-  async function fetchLinks(password) {
-    const res = await fetch(LINKS_API, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-    if (res.status === 401) return null;
-    if (!res.ok) throw new Error('http ' + res.status);
-    return await res.json();
-  }
-
-  // Reuse cached LINKS within the same tab session
-  const cached = sessionStorage.getItem(SS_LINKS);
-  if (cached) {
-    try {
-      LINKS = JSON.parse(cached);
-      queueMicrotask(() => window.__bootApp());
-      return;
-    } catch { sessionStorage.removeItem(SS_LINKS); }
+  if (sessionStorage.getItem(SS_KEY) === '1') {
+    queueMicrotask(() => window.__bootApp());
+    return;
   }
 
   async function attempt() {
@@ -503,10 +514,9 @@ let LINKS = [];
     if (!pw) { err.textContent = '請輸入通行碼'; return; }
     btn.disabled = true;
     try {
-      const links = await fetchLinks(pw);
-      if (links) {
-        LINKS = links;
-        sessionStorage.setItem(SS_LINKS, JSON.stringify(links));
+      const ok = await verify(pw);
+      if (ok) {
+        sessionStorage.setItem(SS_KEY, '1');
         window.__bootApp();
       } else {
         err.textContent = '通行碼錯誤';
@@ -514,7 +524,7 @@ let LINKS = [];
         input.focus();
       }
     } catch {
-      err.textContent = '無法連線伺服器，請重試';
+      err.textContent = '驗證失敗，請重試';
     } finally {
       btn.disabled = false;
     }

@@ -9,9 +9,3 @@ class_name = "Room"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
-
-# KV: stores the LINKS array, editable via Cloudflare dashboard.
-# After running `wrangler kv namespace create LINKS_KV`, paste the returned id below.
-[[kv_namespaces]]
-binding = "LINKS_KV"
-id = "6f3b6f3e4ea84599a0e2b1ccf7c5ea1b"

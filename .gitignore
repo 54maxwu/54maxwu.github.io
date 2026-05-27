@@ -26,6 +26,3 @@ build/
 .env
 .env.local
 .env.*.local
-
-# Tool hub LINKS (uploaded to Cloudflare KV, kept out of public repo)
-pingl/worker/links.json
