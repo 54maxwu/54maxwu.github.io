@@ -217,6 +217,7 @@
             flex-direction: column;
             gap: 8px;
             min-height: 0;
+            min-width: 0;
         }
         .pane-title {
             font-size: 0.78rem;
@@ -317,12 +318,15 @@
             border: 1.5px solid rgba(200,220,240,0.8);
             border-left: 4px solid #27ae60;
             border-radius: 8px;
-            padding: 12px 14px 12px 0;
+            /* No padding-top — let inner views add their own so table mode's
+               sticky header can sit flush against the viewport top */
+            padding: 0 14px 12px 0;
             background: rgba(255,255,255,0.78);
             font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
             font-size: 0.86rem;
             line-height: 1.55;
         }
+        .pretty { padding-top: 12px; }
         .output.error-mode { border-left-color: #e74c3c; }
         .output.empty {
             display: flex;
@@ -441,6 +445,75 @@
         .tree-summary { color: #94a3b8; }
         .tree-children { padding-left: 4px; border-left: 1px dashed rgba(148,163,184,0.35); margin-left: -8px; }
         .tree-children.hidden { display: none; }
+
+        /* ── Table view ── */
+        .json-table-wrap {
+            /* No padding — table starts flush against .output's viewport top
+               so the sticky header sits at the very top with no gap */
+        }
+        .json-table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.82rem;
+            color: #1e293b;
+        }
+        .json-table thead th {
+            position: sticky;
+            top: 0;
+            background: #f1f5f9;
+            box-shadow: inset 0 -2px 0 #cbd5e1;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 700;
+            color: #334155;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .json-table tbody tr:nth-child(even) { background: #f8fafc; }
+        .json-table tbody tr:hover { background: #eff6ff; }
+        .json-table td {
+            padding: 5px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        .json-table td > span,
+        .json-table td > .cell-key {
+            display: inline-block;
+            max-width: 360px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: bottom;
+        }
+        .json-table .row-idx {
+            color: #94a3b8;
+            font-size: 0.74rem;
+            text-align: right;
+            font-weight: 600;
+        }
+        .json-table .cell-key { color: #1d4ed8; font-weight: 600; }
+        .json-table .cell-empty { color: #cbd5e1; }
+        .json-table .val-null { color: #94a3b8; font-style: italic; }
+        .json-table .val-bool { color: #be185d; font-weight: 600; }
+        .json-table .val-num  { color: #b45309; }
+        .json-table .val-str  { color: #047857; }
+        .json-table .val-summary {
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 1px 7px;
+            border-radius: 4px;
+            font-style: italic;
+            cursor: help;
+        }
+        .table-empty {
+            padding: 18px;
+            color: #94a3b8;
+            font-style: italic;
+            text-align: center;
+        }
 
         /* ── Stats badges (top-right of output pane) ── */
         .pane-title-right {
@@ -724,6 +797,7 @@
                             <div class="view-toggle view-toggle-lg" id="viewToggle">
                                 <button data-view="text" class="active">文字</button>
                                 <button data-view="tree">樹狀</button>
+                                <button data-view="table">表格</button>
                             </div>
                             <button class="sample-link" id="btnSample">載入範例</button>
                         </div>
@@ -1281,6 +1355,169 @@
             children.classList.toggle('hidden', collapsed);
         }
 
+        // ── Table view ────────────────────────────────
+        // 把 JSON 轉表格:
+        //   - 物件陣列  → 寬表 (聯合所有 key 當欄)
+        //   - 純值陣列  → 兩欄 (index / value)
+        //   - 物件      → 兩欄 (key / value)
+        //   - 其他      → 文字
+        function renderTable(value) {
+            const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+            if (Array.isArray(value)) {
+                if (value.length === 0) return tableEmpty('(空陣列)');
+                if (value.every(isObj))  return tableArrayOfObjects(value);
+                return tableArrayOfValues(value);
+            }
+            if (isObj(value)) {
+                if (Object.keys(value).length === 0) return tableEmpty('(空物件)');
+                return tableObject(value);
+            }
+            const wrap = tableEmpty('');
+            wrap.textContent = String(value);
+            return wrap;
+        }
+
+        function tableEmpty(text) {
+            const d = document.createElement('div');
+            d.className = 'table-empty';
+            d.textContent = text;
+            return d;
+        }
+
+        function tableArrayOfObjects(arr) {
+            // 聯合所有 key,保留首次出現的順序
+            const keys = [];
+            const seen = new Set();
+            for (const item of arr) {
+                for (const k of Object.keys(item)) {
+                    if (!seen.has(k)) { keys.push(k); seen.add(k); }
+                }
+            }
+            const wrap = document.createElement('div');
+            wrap.className = 'json-table-wrap';
+            const table = document.createElement('table');
+            table.className = 'json-table';
+            // Header
+            const thead = document.createElement('thead');
+            const trh = document.createElement('tr');
+            trh.appendChild(tableHeaderCell('#'));
+            keys.forEach(k => trh.appendChild(tableHeaderCell(k)));
+            thead.appendChild(trh);
+            table.appendChild(thead);
+            // Body
+            const tbody = document.createElement('tbody');
+            arr.forEach((item, i) => {
+                const tr = document.createElement('tr');
+                const idx = document.createElement('td');
+                const idxSpan = document.createElement('span');
+                idxSpan.className = 'row-idx';
+                idxSpan.textContent = i;
+                idx.appendChild(idxSpan);
+                tr.appendChild(idx);
+                keys.forEach(k => {
+                    const td = document.createElement('td');
+                    if (k in item) td.appendChild(renderCellValue(item[k]));
+                    else {
+                        const s = document.createElement('span');
+                        s.className = 'cell-empty';
+                        s.textContent = '—';
+                        td.appendChild(s);
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            return wrap;
+        }
+
+        function tableArrayOfValues(arr) {
+            const wrap = document.createElement('div');
+            wrap.className = 'json-table-wrap';
+            const table = document.createElement('table');
+            table.className = 'json-table';
+            const thead = document.createElement('thead');
+            const trh = document.createElement('tr');
+            trh.appendChild(tableHeaderCell('#'));
+            trh.appendChild(tableHeaderCell('value'));
+            thead.appendChild(trh);
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            arr.forEach((item, i) => {
+                const tr = document.createElement('tr');
+                const idxTd = document.createElement('td');
+                const idxSpan = document.createElement('span');
+                idxSpan.className = 'row-idx';
+                idxSpan.textContent = i;
+                idxTd.appendChild(idxSpan);
+                tr.appendChild(idxTd);
+                const valTd = document.createElement('td');
+                valTd.appendChild(renderCellValue(item));
+                tr.appendChild(valTd);
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            return wrap;
+        }
+
+        function tableObject(obj) {
+            const wrap = document.createElement('div');
+            wrap.className = 'json-table-wrap';
+            const table = document.createElement('table');
+            table.className = 'json-table';
+            const thead = document.createElement('thead');
+            const trh = document.createElement('tr');
+            trh.appendChild(tableHeaderCell('key'));
+            trh.appendChild(tableHeaderCell('value'));
+            thead.appendChild(trh);
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            for (const k of Object.keys(obj)) {
+                const tr = document.createElement('tr');
+                const tk = document.createElement('td');
+                const ks = document.createElement('span');
+                ks.className = 'cell-key';
+                ks.textContent = k;
+                tk.appendChild(ks);
+                tr.appendChild(tk);
+                const tv = document.createElement('td');
+                tv.appendChild(renderCellValue(obj[k]));
+                tr.appendChild(tv);
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            return wrap;
+        }
+
+        function tableHeaderCell(text) {
+            const th = document.createElement('th');
+            th.textContent = text;
+            return th;
+        }
+
+        function renderCellValue(v) {
+            const span = document.createElement('span');
+            if (v === null)              { span.className = 'val-null';    span.textContent = 'null'; return span; }
+            if (v === undefined)         { span.className = 'cell-empty';  span.textContent = '—';    return span; }
+            if (typeof v === 'boolean')  { span.className = 'val-bool';    span.textContent = String(v); return span; }
+            if (typeof v === 'number')   { span.className = 'val-num';     span.textContent = String(v); return span; }
+            if (typeof v === 'string')   { span.className = 'val-str';     span.textContent = v;      span.title = v; return span; }
+            if (Array.isArray(v)) {
+                span.className = 'val-summary';
+                span.textContent = `[${v.length}]`;
+                span.title = JSON.stringify(v).slice(0, 500);
+                return span;
+            }
+            // Object
+            span.className = 'val-summary';
+            span.textContent = `{${Object.keys(v).length}}`;
+            span.title = JSON.stringify(v).slice(0, 500);
+            return span;
+        }
+
         // ── Position-aware JSON parser ────────────────
         // 用來把 textarea 中的游標位置 → 對應的 JSON path (例如 ["providedProps", 0])
         // 避開「同名 key 取錯」的問題。回傳 AST 帶 start/end 字元範圍。
@@ -1521,8 +1758,11 @@
                 return;
             }
 
-            // Render helper picks text or tree view (tree never used for errors)
-            const renderValue = (v) => viewMode === 'tree' ? renderTree(v) : renderPretty(v);
+            // Render helper picks text / tree / table view (none used for errors)
+            const renderValue = (v) =>
+                viewMode === 'tree'  ? renderTree(v)  :
+                viewMode === 'table' ? renderTable(v) :
+                                       renderPretty(v);
 
             // "All" view: wrap parsed docs (errored ones become null) into an array
             if (currentDocIdx === -1) {

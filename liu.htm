@@ -1,997 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>嘸蝦米兩碼字分類</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
 
-<!-- saved from url=(0029)http://www.liu.com.tw/ana.htm -->
-<HTML><HEAD><TITLE>兩碼字分類及說明</TITLE>
-<META http-equiv=Page-Enter content=revealTrans(Duration=1.0,Transition=19)>
-<STYLE fprolloverstyle>A:hover {
-    COLOR: #ff3399; TEXT-DECORATION: none
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+    background: #f1f5f9;
+    color: #2c3e50;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .app-header {
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 14px 24px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    gap: 14px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .app-header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    letter-spacing: .02em;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .status-pill.ok { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+
+  .page-content {
+    flex: 1;
+    min-height: 0;
+    padding: 12px 20px 20px;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+  }
+
+  .glass {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+    background-color: rgba(255,255,255,0.55);
+    box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+    border: 1.5px solid rgba(255,255,255,0.7);
+    border-bottom: 1.5px solid rgba(40,40,40,0.15);
+    border-right: 1.5px solid rgba(40,40,40,0.15);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Toolbar ─────────────────────────── */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .search-wrap { flex: 1 1 240px; position: relative; }
+  .search-input {
+    width: 100%;
+    padding: 9px 14px 9px 36px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 9px;
+    background: #fff;
+    color: #1e293b;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .search-input:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13,148,136,.12);
+  }
+  .search-input::placeholder { color: #94a3b8; }
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 14px;
+    pointer-events: none;
+  }
+  .clear-btn {
+    border: 1.5px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .clear-btn:hover { background: #f8fafc; color: #0d9488; border-color: #0d9488; }
+  .clear-btn:active { transform: scale(.97); }
+
+  /* ── Category tabs ───────────────────── */
+  .category-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  .cat-tab {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1.5px solid transparent;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .cat-tab:hover { background: #e2e8f0; color: #1e293b; }
+  .cat-tab .count {
+    opacity: .65;
+    margin-left: 4px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* ── Scrollable content ──────────────── */
+  .content-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .content-scroll::-webkit-scrollbar { width: 8px; }
+  .content-scroll::-webkit-scrollbar-track { background: transparent; }
+  .content-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  .content-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  /* ── Category sections ───────────────── */
+  .category {
+    margin-bottom: 18px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1.5px solid #e2e8f0;
+    background: rgba(255,255,255,.85);
+    scroll-margin-top: 8px;
+  }
+  .category-header {
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    border-bottom: 1.5px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg, #f8fafc);
+  }
+  .category-header .accent {
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: var(--accent, #94a3b8);
+    border-radius: 2px;
+  }
+  .category-header .count-badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.85);
+    color: var(--accent, #475569);
+    border: 1px solid rgba(0,0,0,.06);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 6px;
+    padding: 12px;
+  }
+  .entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    transition: border-color .12s, box-shadow .12s, transform .08s;
+  }
+  .entry:hover {
+    border-color: var(--accent, #0d9488);
+    box-shadow: 0 2px 6px rgba(0,0,0,.06);
+    transform: translateY(-1px);
+  }
+  .entry .ch {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1;
+  }
+  .entry .code-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .entry .code {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent, #0d9488);
+    letter-spacing: .04em;
+  }
+  .entry .note {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  /* Search states */
+  .entry.hit {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    box-shadow: 0 0 0 2px rgba(245,158,11,.2);
+  }
+  .category.hidden-cat { display: none; }
+  .entry.hidden-entry { display: none; }
+
+  .empty-result {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+    font-size: 14px;
+  }
+
+  .footer-note {
+    margin-top: 6px;
+    margin-bottom: 4px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,.85);
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.75;
+    color: #475569;
+    text-indent: 2em;
+  }
+
+  @media (max-width: 640px) {
+    .app-header { padding: 10px 14px; }
+    .page-content { padding: 8px 12px 12px; }
+    .glass { padding: 14px; }
+    .grid {
+      grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+      gap: 5px;
+      padding: 10px;
+    }
+    .entry { padding: 7px 8px; }
+    .entry .ch { font-size: 15px; }
+    .entry .code { font-size: 12px; }
+    .cat-tab { padding: 5px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-header">
+    <h1>嘸蝦米兩碼字分類及說明</h1>
+    <span class="status-pill ok"><span class="dot"></span><span id="total-count">共 0 字</span></span>
+  </div>
+
+  <div class="page-content">
+    <div class="glass">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input id="search" class="search-input" type="text"
+                 placeholder="搜尋中文字或兩碼（例：寸 / AA / 思）" autocomplete="off" spellcheck="false">
+        </div>
+        <button class="clear-btn" id="clear-btn" type="button">清除</button>
+      </div>
+
+      <div class="category-tabs" id="cat-tabs"></div>
+
+      <div class="content-scroll" id="scroll">
+        <div id="sections"></div>
+        <div class="empty-result" id="empty-result" hidden>沒有符合的字</div>
+        <div class="footer-note">當你常常接觸到兩碼字後，看多了也看熟了，久而久之一看到中文字，就能立即判斷出它是否為兩碼字，所謂熟能生巧，同樣的一個兩碼字，第一次打可能不太熟練，打它個三遍、五遍，甚至十遍，到後來，定能很快的以兩碼字的方式將它快速打出。要成為嘸蝦米輸入法的高手，一定要會用到兩碼字且用的非常非常的多。</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// 每筆 entry: [字, 碼] 或 [字, 碼, 說明]
+const CATEGORIES = [
+  {
+    id: 'cat1',
+    title: '一、由標準字根產生的兩碼字',
+    accent: '#16a34a', bg: '#f0fdf4',
+    entries: [
+      ['寸','AA'],['金','AE'],['也','AL'],['不','BA'],['半','BJ'],['比','BL'],['人','BN'],['入','BP'],['夕','CA'],['中','CI'],
+      ['車','CJ'],['巴','CL'],['央','CN'],['西','CO'],['尸','CP'],['史','CX'],['歹','DA'],['豆','DE'],['鬥','DI'],['斗','DJ'],
+      ['大','DN'],['日','DO'],['刀','DP'],['力','DX/DY'],['與','EA'],['丑','EE'],['山','EI'],['屯','EL'],['尹','EX'],['下','FA'],
+      ['上','FE'],['飛','FJ'],['亡','FL'],['火','FN'],['曲','FO'],['戶','FP'],['方','FY'],['瓜','GA'],['千','GJ'],['夾','GN'],
+      ['甘','GO'],['干','GV'],['女','GX'],['心','HA'],['手','HJ'],['工','IE'],['欠','IN'],['言','IO'],['我','IX'],['井','JJ'],
+      ['黃','KA'],['王','KE'],['斤','KI'],['立','LE'],['辛','LJ'],['來','LN'],['且','ME'],['門','MI/MY'],['冊','MJ'],['毛','ML'],
+      ['米','MN'],['目','MO'],['矛','MP'],['角','NE'],['巾','NJ'],['亞','OE'],['口','OO'],['卜','PA'],['至','PE'],['平','PJ'],
+      ['皮','PX'],['片','PY'],['里','QE'],['弓','QK'],['兼','QN'],['田','QO'],['丈','QX'],['臣','RE'],['耳','RJ'],['儿','RL'],
+      ['乃','RP'],['爾','RX'],['小','SA'],['生','SE'],['川','SI'],['牛','SJ'],['世','SL'],['少','SP'],['身','SX'],['丁','TI'],
+      ['木','TN'],['雨','UA'],['月','UE'],['予','UI'],['于','UJ'],['永','UN'],['才','UP'],['又','UX'],['鬼','VA'],['佳','VE'],
+      ['弗','VJ'],['万','VY'],['瓦','WA'],['了','WI'],['午','WJ'],['水','WN'],['巫','WV'],['文','WX'],['升','XJ'],['食','XN'],
+      ['牙','XP/YP'],['氏','XX'],['士','YE'],['土','YV'],['舟','ZA'],['止','ZE'],['竹','ZI'],['子','ZJ'],['乙','ZL/ZZ'],['丸','ZX']
+    ]
+  },
+  {
+    id: 'cat2',
+    title: '二、由簡速字根產生的兩碼字',
+    accent: '#ec4899', bg: '#fdf2f8',
+    entries: [
+      ['俞','AI'],['華','AJ'],['良','AN'],['成','AY'],['並','BE'],['前','BI'],['曾','BO'],['義','BX'],['既','DL'],['辭','EJ'],
+      ['夷','EN'],['司','EO'],['易','EP'],['發','FX'],['垂','GE'],['即','GI'],['就','GL'],['旁','GY'],['或','HE'],['巷','HL'],
+      ['很','HN'],['首','HO'],['愛','HX'],['應','IA'],['申','II'],['甫','IJ'],['祭','JA'],['直','JE'],['是','JN'],['故','JX'],
+      ['甚','KL'],['咸','KO'],['新','LI'],['親','LL'],['路','LO'],['夜','LX'],['買','MA'],['曼','MX'],['求','NA'],['包','NL'],
+      ['象','NN'],['周','NO'],['敬','NX'],['貫','OA'],['單','OJ'],['嚴','OX'],['條','PN'],['個','PO'],['修','PP'],['貴','QA'],
+      ['畢','QJ'],['規','QL'],['兆','RA'],['而','RI'],['考','RK'],['樂','RN'],['當','SO'],['頁','TA'],['充','TL'],['弟','TP'],
+      ['更','TX'],['能','UL'],['覽','VL'],['詹','VO'],['敏','VX'],['武','WE'],['谷','WO'],['專','XA'],['鄉','XI'],['夸','XK'],
+      ['奄','XL'],['商','XO'],['原','YA'],['幸','YJ'],['厭','YN'],['憂','YX'],['餐','ZN'],['號','OL'],['卷','PL']
+    ]
+  },
+  {
+    id: 'cat3',
+    title: '三、由頭碼與尾碼所產生的兩碼字',
+    accent: '#eab308', bg: '#fefce8',
+    entries: [
+      ['鎮','AB'],['會','AD'],['鑑','AF'],['威','AG'],['感','AH'],['救','AP'],['錢','AQ'],['創','AR'],['戚','AS'],['錄','AW'],
+      ['之','AZ'],['資','BB'],['階','BD'],['為','BF'],['隱','BH'],['全','BK'],['陽','BM'],['隊','BQ'],['院','BR'],['隆','BS'],
+      ['隔','BT'],['舒','BU'],['遵','BW'],['墜','BY'],['凝','BZ'],['輿','CB'],['屬','CC'],['屠','CD'],['擊','CH'],['輻','CQ'],
+      ['剝','CR'],['繫','CS'],['殿','CU'],['覆','CV'],['遲','CW'],['壁','CY'],['顯','DB'],['照','DF'],['裂','DK'],['影','DM'],
+      ['殘','DQ'],['晚','DR'],['景','DS'],['題','DT'],['暴','DW'],['兩','EB'],['融','EC'],['習','ED'],['群','EH'],['釀','EK'],
+      ['彩','EM'],['舉','EQ'],['劃','ER'],['崇','ES'],['頸','ET'],['段','EU'],['逼','EW'],['再','EY'],['正','EZ'],['顧','FB'],
+      ['螢','FC'],['豐','FD'],['慧','FH'],['歐','FI'],['斷','FK'],['督','FM'],['匪','FS'],['榮','FT'],['爆','FW'],['疑','FZ'],
+      ['動','GD'],['怒','GH'],['裝','GK'],['重','GQ'],['剩','GR'],['乘','GS'],['毀','GU'],['好','GZ'],['積','HB'],['懊','HD'],
+      ['穩','HH'],['懷','HK'],['悔','HM'],['必','HP'],['懂','HQ'],['稅','HR'],['慌','HS'],['頹','HT'],['悄','HU'],['惟','HV'],
+      ['黎','HW'],['稱','HY'],['讀','IB'],['鞏','IC'],['誤','ID'],['譯','IG'],['恐','IH'],['讓','IK'],['誨','IM'],['評','IP'],
+      ['說','IR'],['謊','IS'],['護','IU'],['誕','IW'],['講','IY'],['戴','JB'],['載','JC'],['換','JD'],['撫','JF'],['幹','JG'],
+      ['惠','JH'],['控','JI'],['裁','JK'],['搶','JO'],['撤','JP'],['刺','JR'],['排','JS'],['栽','JT'],['搬','JU'],['擁','JV'],
+      ['挺','JW'],['挫','JY'],['擬','JZ'],['質','KB'],['環','KK'],['氣','KM'],['理','KQ'],['弄','KR'],['廷','KW'],['基','KY'],
+      ['病','LB'],['勵','LD'],['熟','LF'],['廳','LH'],['哀','LK'],['彰','LM'],['痛','LQ'],['競','LR'],['牽','LS'],['碟','LT'],
+      ['厲','LU'],['確','LV'],['麼','LW'],['壓','LY'],['礎','LZ'],['類','MB'],['矚','MC'],['盼','MD'],['關','MF'],['釋','MG'],
+      ['德','MH'],['往','MK'],['循','MM'],['驟','MQ'],['閱','MR'],['縣','MS'],['衝','MT'],['睛','MU'],['從','MZ'],['賽','NB'],
+      ['觸','NC'],['突','ND'],['寫','NF'],['安','NG'],['憲','NH'],['究','NK'],['勿','NM'],['危','NP'],['幅','NQ'],['剛','NR'],
+      ['宗','NS'],['額','NT'],['竊','NU'],['逸','NW'],['塞','NY'],['定','NZ'],['圓','OB'],['囑','OC'],['因','OD'],['距','OF'],
+      ['蹈','OG'],['園','OK'],['圈','OP'],['戰','OQ'],['唬','OR'],['圍','OS'],['嘲','OU'],['選','OW'],['貨','PB'],['使','PC'],
+      ['候','PD'],['儘','PF'],['牌','PG'],['億','PH'],['譬','PI'],['依','PK'],['自','PM'],['側','PR'],['係','PS'],['停','PT'],
+      ['偶','PU'],['邀','PW'],['促','PZ'],['弱','QB'],['獨','QC'],['體','QD'],['弧','QG'],['愚','QH'],['甲','QI'],['界','QR'],
+      ['獵','QS'],['獲','QU'],['遇','QW'],['共','RB'],['輩','RC'],['著','RD'],['聯','RF'],['舊','RG'],['聽','RH'],['落','RO'],
+      ['福','RQ'],['視','RR'],['非','RS'],['藝','RT'],['萬','RU'],['遭','RW'],['續','SB'],['輝','SC'],['縮','SD'],['黨','SF'],
+      ['總','SH'],['製','SK'],['省','SM'],['常','SN'],['緣','SQ'],['覺','SR'],['綜','SS'],['繼','SW'],['堂','SY'],['縱','SZ'],
+      ['檢','TB'],['樓','TG'],['想','TH'],['相','TM'],['棒','TQ'],['械','TR'],['標','TS'],['樣','TU'],['構','TY'],['楚','TZ'],
+      ['預','UB'],['勝','UD'],['熊','UF'],['脾','UG'],['態','UH'],['參','UM'],['脫','UR'],['服','UU'],['遙','UW'],['墾','UY'],
+      ['智','VD'],['無','VF'],['矮','VG'],['怎','VH'],['每','VM'],['複','VP'],['裡','VQ'],['舞','VS'],['集','VT'],['鬆','VU'],
+      ['顏','WB'],['濁','WC'],['響','WD'],['濕','WF'],['濾','WH'],['漲','WK'],['海','WM'],['激','WP'],['灣','WQ'],['測','WR'],
+      ['漂','WS'],['梁','WT'],['法','WU'],['滋','WW'],['洲','WY'],['殺','XU'],['在','XY'],['存','XZ'],['都','YB'],['勢','YD'],
+      ['熱','YF'],['趕','YG'],['摯','YH'],['款','YI'],['壞','YK'],['起','YL'],['趁','YM'],['超','YO'],['境','YR'],['末','YS'],
+      ['願','YT'],['報','YU'],['遠','YW'],['州','YY'],['執','YZ'],['籲','ZB'],['籍','ZD'],['盤','ZF'],['孤','ZG'],['慮','ZH'],
+      ['虧','ZK'],['第','ZP'],['戲','ZQ'],['劇','ZR'],['歲','ZS'],['築','ZT'],['般','ZU'],['遽','ZW'],['妥','EG'],['可','TO'],
+      ['台','UO'],['跑','ON']
+    ]
+  },
+  {
+    id: 'cat4',
+    title: '四、由簡體字衍生的兩碼字',
+    accent: '#06b6d4', bg: '#ecfeff',
+    entries: [
+      ['術','AT'],['靈','EF'],['遷','GW'],['開','KJ'],['長','KN'],['麗','LA'],['廠','LP'],['夢','TC'],['聲','YC']
+    ]
+  },
+  {
+    id: 'cat5',
+    title: '五、與形、音或義有關的兩碼字',
+    accent: '#f97316', bg: '#fff7ed',
+    entries: [
+      ['澳','AU','發音'],['溪','CE','音、2'],['得','DD','音、2'],['富','FQ','音、尾'],
+      ['幾','GB','音、尾'],['艦','GF','音、尾'],['己','GG','發音'],['教','GP','音、尾'],
+      ['靠','KS','音、尾'],['疾','LG','首、音'],['績','SG','首、音'],['街','ST','英略字'],
+      ['淑','SU','音、尾'],['替','TD','音、尾'],['流','WL','首、音'],['渡','DU','音、尾']
+    ]
+  },
+  {
+    id: 'cat6',
+    title: '六、不是正規的頭碼＋尾碼的兩碼字',
+    accent: '#64748b', bg: '#f1f5f9',
+    entries: [
+      ['駐','AK','3、尾'],['貪','AM','首、3'],['貸','AX','2、3'],['凍','BC','首、2'],['營','FF','首、2'],
+      ['媽','GM','首、2'],['麵','HG','尾、首'],['該','IL','首、2'],['損','JM','首、3'],['潛','KD','2、尾'],
+      ['薦','KF','3、尾'],['懲','KH','3、尾'],['徵','KP','3、尾'],['養','KX','2、尾'],['邊','MW','2、尾'],
+      ['嚇','OY','首、2'],['跌','OZ','首、2'],['默','QF','首、2'],['臨','RV','首、2'],['極','TK','首、2'],
+      ['哥','TT','首、3'],['衡','UT','3、尾'],['礙','VZ','4、尾'],['隨','XW','2、尾'],['偵','ZM','2、3'],
+      ['店','ZO','2、尾']
+    ]
+  },
+  {
+    id: 'cat7',
+    title: '七、只看得懂其中的一個碼，另一碼看不出來',
+    accent: '#6366f1', bg: '#eef2ff',
+    entries: [
+      ['鏡','AC','首、？'],['點','AO','？、尾'],['族','AV','？、2'],['障','BG','首、？'],['善','BV','首、？'],
+      ['履','CG','首、？'],['夠','CK','首、？'],['慰','CM','首、？'],['捷','CZ','？、尾'],['貿','DG','首、？'],
+      ['召','DV','首、？'],['峻','EV','首、？'],['旗','FG','首、？'],['業','FR','首、？'],['胡','FU','？、尾'],
+      ['區','FV','首、？'],['獎','GC','首、？'],['娛','GT','首、？'],['程','HC','首、？'],['悅','HF','首、？'],
+      ['靜','HZ','首、？'],['跡','IF','？、尾'],['讚','IQ','首、？'],['譴','IT','首、？'],['試','IV','首、？'],
+      ['掀','IZ','尾、？'],['擒','JL','首、？'],['協','JQ','首、？'],['趣','KU','？、尾'],['兵','KV','首、？'],
+      ['磁','LC','首、？'],['行','MV','首、？'],['市','NI','2、？'],['久','NV','首、？'],['啊','OH','首、？'],
+      ['誓','OI','尾、？'],['器','OM','首、？'],['圖','OT','首、？'],['品','OV','首、？'],['歸','PQ','首、？'],
+      ['泉','PV','首、？'],['們','QM','？、2'],['繳','QP','？、尾'],['蒙','QQ','？、尾'],['懼','QV','？、尾'],
+      ['酬','QY','？、尾'],['跟','QZ','？、2'],['惹','RM','首、？'],['勒','RY','首、？'],['微','RZ','3、？'],
+      ['線','SV','首、？'],['碼','TF','？、尾'],['面','TJ','首、？'],['模','TV','首、？'],['禁','TW','首、？'],
+      ['遣','UC','？、首'],['粵','UK','？、尾'],['鮮','UQ','首、？'],['罪','US','？、尾'],['腳','UZ','首、？'],
+      ['賴','VB','？、尾'],['差','VI','？、尾'],['表','VK','？、尾'],['介','VR','？、尾'],['速','VW','？、尾'],
+      ['溉','WG','首、？'],['汽','WZ','首、？'],['鄰','XB','？、尾'],['蜜','XC','？、尾'],['藉','XD','？、尾'],
+      ['密','XE','？、尾'],['網','XF','？、尾'],['徐','XH','？、尾'],['蓄','XQ','？、尾'],['薄','XR','？、首'],
+      ['綠','XS','？、首'],['操','XT','？、尾'],['嘉','YQ','首、？'],['趨','ZC','2、？'],['處','ZV','首、？'],
+      ['塑','ZY','？、尾']
+    ]
+  },
+  {
+    id: 'cat8',
+    title: '八、由沒有任何相關連的兩個碼（硬性配對）',
+    accent: '#a855f7', bg: '#faf5ff',
+    entries: [
+      ['宣','CF'],['禍','CT'],['待','DC'],['導','DH'],['債','DZ'],
+      ['幫','HI'],['冠','KC'],['授','KG'],['賞','KT'],['贊','KZ'],
+      ['悲','QT'],['臺','TE'],['越','UV'],['副','VC'],['邁','VN'],
+      ['、','VV'],['諸','XG'],['儲','XM'],['贏','XV']
+    ]
+  }
+];
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ── Render ───────────────────────────────────
+const tabsEl     = document.getElementById('cat-tabs');
+const sectionsEl = document.getElementById('sections');
+const scrollEl   = document.getElementById('scroll');
+const emptyEl    = document.getElementById('empty-result');
+const totalEl    = document.getElementById('total-count');
+const searchEl   = document.getElementById('search');
+const clearBtn   = document.getElementById('clear-btn');
+
+let totalCount = 0;
+CATEGORIES.forEach(cat => totalCount += cat.entries.length);
+totalEl.textContent = `共 ${totalCount} 字`;
+
+CATEGORIES.forEach(cat => {
+  // tab
+  const tab = document.createElement('button');
+  tab.type = 'button';
+  tab.className = 'cat-tab';
+  tab.style.setProperty('--accent', cat.accent);
+  const shortTitle = cat.title.replace(/^[一二三四五六七八]、/, m => m[0] + '. ');
+  tab.innerHTML = `<span style="color:${esc(cat.accent)}">●</span> ${esc(shortTitle.replace(/^./, c => c).slice(0, 22))}<span class="count">${cat.entries.length}</span>`;
+  tab.addEventListener('click', () => {
+    const target = document.getElementById(cat.id);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  tabsEl.appendChild(tab);
+
+  // section
+  const section = document.createElement('section');
+  section.className = 'category';
+  section.id = cat.id;
+  section.style.setProperty('--accent', cat.accent);
+  section.style.setProperty('--bg', cat.bg);
+
+  const header = document.createElement('div');
+  header.className = 'category-header';
+  header.innerHTML = `
+    <span class="accent"></span>
+    <span>${esc(cat.title)}</span>
+    <span class="count-badge">共 ${cat.entries.length} 字</span>`;
+  section.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  cat.entries.forEach(([ch, code, note]) => {
+    const e = document.createElement('div');
+    e.className = 'entry';
+    e.dataset.ch = ch;
+    e.dataset.code = code.toUpperCase();
+    e.innerHTML = `
+      <span class="ch">${esc(ch)}</span>
+      <span class="code-wrap">
+        <span class="code">${esc(code)}</span>
+        ${note ? `<span class="note">${esc(note)}</span>` : ''}
+      </span>`;
+    grid.appendChild(e);
+  });
+  section.appendChild(grid);
+  sectionsEl.appendChild(section);
+});
+
+// ── Search ───────────────────────────────────
+function runSearch() {
+  const q = searchEl.value.trim();
+  const qUpper = q.toUpperCase();
+  let anyHit = false;
+
+  document.querySelectorAll('.category').forEach(section => {
+    let sectionHit = false;
+    section.querySelectorAll('.entry').forEach(entry => {
+      if (!q) {
+        entry.classList.remove('hidden-entry', 'hit');
+        sectionHit = true;
+        return;
+      }
+      const match = entry.dataset.ch.includes(q) || entry.dataset.code.includes(qUpper);
+      entry.classList.toggle('hidden-entry', !match);
+      entry.classList.toggle('hit', match);
+      if (match) sectionHit = true;
+    });
+    section.classList.toggle('hidden-cat', !sectionHit);
+    if (sectionHit) anyHit = true;
+  });
+
+  emptyEl.hidden = !q || anyHit;
 }
-</STYLE>
 
-<META content="Microsoft FrontPage 4.0" name=GENERATOR></HEAD>
-<BODY vLink=#cc9900 link=#800000><FONT face=新細明體>
-<DIV align=center>
-
-<P><BIG><FONT face=標楷體 color=#800080>一、由標準字根產生的兩碼字：共計124個</FONT></BIG></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" bgColor=#c1ffc1 border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>寸=AA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>金=AE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>也=AL</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>不=BA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>半=BJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>比=BL</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>人=BN</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>入=BP</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>夕=CA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>中=CI</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>車=CJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>巴=CL</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>央=CN</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>西=CO</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>尸=CP</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>史=CX</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>歹=DA</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>豆=DE</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>鬥=DI</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>斗=DJ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>大=DN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>日=DO</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>刀=DP</FONT></TD>
-    <TD vAlign=center width="13%"><FONT 
-    face=細明體>力=<SMALL>DX/DY</SMALL></FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>與=EA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>丑=EE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>山=EI</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>屯=EL</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>尹=EX</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>下=FA</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>上=FE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>飛=FJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>亡=FL</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>火=FN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>曲=FO</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>戶=FP</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>方=FY</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>瓜=GA</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>千=GJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>夾=GN</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>甘=GO</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>干=GV</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>女=GX</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>心=HA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>手=HJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>工=IE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>欠=IN</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>言=IO</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>我=IX</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>井=JJ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>黃=KA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>王=KE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>斤=KI</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>立=LE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>辛=LJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>來=LN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>且=ME</FONT></TD>
-    <TD vAlign=center width="13%">
-      <P align=justify><FONT face=細明體>門=<SMALL>MI/MY</SMALL></FONT></P></TD>
-    <TD vAlign=center width="13%">
-      <P align=justify><FONT face=細明體>冊=MJ</FONT></P></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>毛=ML</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>米=MN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>目=MO</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>矛=MP</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>角=NE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>巾=NJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>亞=OE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>口=OO</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>卜=PA</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>至=PE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>平=PJ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>皮=PX</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>片=PY</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>里=QE</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>弓=QK</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>兼=QN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>田=QO</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>丈=QX</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>臣=RE</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>耳=RJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>儿=RL</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>乃=RP</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>爾=RX</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>小=SA</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>生=SE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>川=SI</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>牛=SJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>世=SL</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>少=SP</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>身=SX</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>丁=TI</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>木=TN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>雨=UA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>月=UE</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>予=UI</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>于=UJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>永=UN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>才=UP</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>又=UX</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>鬼=VA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>佳=VE</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT face=細明體>弗=VJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>万=VY</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>瓦=WA</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>了=WI</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>午=WJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>水=WN</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>巫=WV</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>文=WX</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>升=XJ</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>食=XN</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="13%"><FONT 
-    face=細明體>牙=<SMALL>XP/YP</SMALL></FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>氏=XX</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>士=YE</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>土=YV</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>舟=ZA</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>止=ZE</FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>竹=ZI</FONT></TD>
-    <TD vAlign=center width="13%"><FONT face=細明體>子=ZJ</FONT></TD>
-    <TD vAlign=center width="13%"><FONT 
-    face=細明體>乙=<SMALL>ZL/ZZ</SMALL></FONT></TD>
-    <TD vAlign=center width="8%"><FONT face=細明體>丸=ZX 
-</FONT></TD></TR></TBODY></TABLE></CENTER></DIV>
-<P><FONT face=標楷體 color=#800080><BIG>二、由簡速字根產生的兩碼字：共計79個</BIG></FONT></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" bgColor=#ffc8e3 border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>俞=AI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>華=AJ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>良=AN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>成=AY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>並=BE</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>前=BI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>曾=BO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>義=BX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>既=DL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>辭=EJ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>夷=EN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>司=EO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>易=EP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>發=FX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>垂=GE</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>即=GI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>就=GL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>旁=GY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>或=HE</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>巷=HL</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>很=HN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>首=HO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>愛=HX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>應=IA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>申=II</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>甫=IJ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>祭=JA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>直=JE</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>是=JN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>故=JX</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>甚=KL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>咸=KO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>新=LI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>親=LL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>路=LO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>夜=LX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>買=MA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>曼=MX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>求=NA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>包=NL</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>象=NN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>周=NO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>敬=NX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>貫=OA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>單=OJ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>嚴=OX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>條=PN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>個=PO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>修=PP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>貴=QA</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>畢=QJ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>規=QL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>兆=RA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>而=RI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>考=RK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>樂=RN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>當=SO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>頁=TA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>充=TL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>弟=TP</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>更=TX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>能=UL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>覽=VL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>詹=VO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>敏=VX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>武=WE</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>谷=WO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>專=XA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>鄉=XI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>夸=XK</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>奄=XL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>商=XO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>原=YA</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>幸=YJ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>厭=YN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>憂=YX</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>餐=ZN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>號=OL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>卷=PL</FONT></TD>
-    <TD vAlign=center width="10%">　</TD></TR></TBODY></TABLE></CENTER></DIV>
-<P><BIG><FONT face=標楷體 color=#800080>三、由</FONT><FONT face=標楷體 
-color=#0000ff>頭碼與尾碼</FONT><FONT face=標楷體 
-color=#800080>所產生的兩碼字：共計322個</FONT></BIG></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" bgColor=#ffffc6 border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>鎮=AB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>會=AD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>鑑=AF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>威=AG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>感=AH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>救=AP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>錢=AQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>創=AR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>戚=AS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>錄=AW</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>之=AZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>資=BB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>階=BD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>為=BF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>隱=BH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>全=BK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>陽=BM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>隊=BQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>院=BR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>隆=BS</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>隔=BT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>舒=BU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>遵=BW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>墜=BY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>凝=BZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>輿=CB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>屬=CC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>屠=CD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>擊=CH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>輻=CQ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>剝=CR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>繫=CS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>殿=CU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>覆=CV</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>遲=CW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>壁=CY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>顯=DB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>照=DF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>裂=DK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>影=DM</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>殘=DQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>晚=DR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>景=DS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>題=DT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>暴=DW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>兩=EB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>融=EC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>習=ED</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>群=EH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>釀=EK</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>彩=EM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>舉=EQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>劃=ER</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>崇=ES</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>頸=ET</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>段=EU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>逼=EW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>再=EY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>正=EZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>顧=FB</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>螢=FC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>豐=FD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>慧=FH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>歐=FI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>斷=FK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>督=FM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>匪=FS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>榮=FT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>爆=FW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>疑=FZ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>動=GD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>怒=GH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>裝=GK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>重=GQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>剩=GR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>乘=GS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>毀=GU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>好=GZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>積=HB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>懊=HD</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>穩=HH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>懷=HK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>悔=HM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>必=HP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>懂=HQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>稅=HR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>慌=HS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>頹=HT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>悄=HU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>惟=HV</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>黎=HW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>稱=HY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>讀=IB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>鞏=IC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>誤=ID</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>譯=IG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>恐=IH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>讓=IK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>誨=IM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>評=IP</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>說=IR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>謊=IS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>護=IU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>誕=IW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>講=IY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>戴=JB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>載=JC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>換=JD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>撫=JF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>幹=JG</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>惠=JH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>控=JI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>裁=JK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>搶=JO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>撤=JP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>刺=JR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>排=JS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>栽=JT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>搬=JU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>擁=JV</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>挺=JW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>挫=JY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>擬=JZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>質=KB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>環=KK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>氣=KM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>理=KQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>弄=KR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>廷=KW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>基=KY</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>病=LB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>勵=LD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>熟=LF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>廳=LH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>哀=LK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>彰=LM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>痛=LQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>競=LR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>牽=LS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>碟=LT</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>厲=LU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>確=LV</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>麼=LW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>壓=LY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>礎=LZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>類=MB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>矚=MC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>盼=MD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>關=MF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>釋=MG</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>德=MH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>往=MK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>循=MM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>驟=MQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>閱=MR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>縣=MS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>衝=MT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>睛=MU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>從=MZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>賽=NB</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>觸=NC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>突=ND</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>寫=NF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>安=NG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>憲=NH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>究=NK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>勿=NM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>危=NP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>幅=NQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>剛=NR</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>宗=NS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>額=NT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>竊=NU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>逸=NW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>塞=NY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>定=NZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>圓=OB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>囑=OC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>因=OD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>距=OF</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>蹈=OG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>園=OK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>圈=OP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>戰=OQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>唬=OR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>圍=OS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>嘲=OU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>選=OW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>貨=PB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>使=PC</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>候=PD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>儘=PF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>牌=PG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>億=PH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>譬=PI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>依=PK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>自=PM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>側=PR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>係=PS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>停=PT</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>偶=PU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>邀=PW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>促=PZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>弱=QB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>獨=QC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>體=QD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>弧=QG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>愚=QH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>甲=QI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>界=QR</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>獵=QS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>獲=QU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>遇=QW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>共=RB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>輩=RC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>著=RD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>聯=RF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>舊=RG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>聽=RH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>落=RO</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>福=RQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>視=RR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>非=RS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>藝=RT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>萬=RU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>遭=RW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>續=SB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>輝=SC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>縮=SD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>黨=SF</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>總=SH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>製=SK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>省=SM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>常=SN</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>緣=SQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>覺=SR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>綜=SS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>繼=SW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>堂=SY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>縱=SZ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>檢=TB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>樓=TG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>想=TH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>相=TM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>棒=TQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>械=TR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>標=TS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>樣=TU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>構=TY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>楚=TZ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>預=UB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>勝=UD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>熊=UF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>脾=UG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>態=UH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>參=UM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>脫=UR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>服=UU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>遙=UW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>墾=UY</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>智=VD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>無=VF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>矮=VG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>怎=VH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>每=VM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>複=VP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>裡=VQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>舞=VS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>集=VT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>鬆=VU</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>顏=WB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>濁=WC</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>響=WD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>濕=WF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>濾=WH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>漲=WK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>海=WM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>激=WP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>灣=WQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>測=WR</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>漂=WS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>梁=WT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>法=WU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>滋=WW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>洲=WY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>殺=XU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>在=XY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>存=XZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>都=YB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>勢=YD</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>熱=YF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>趕=YG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>摯=YH</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>款=YI</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>壞=YK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>起=YL</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>趁=YM</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>超=YO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>境=YR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>末=YS</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>願=YT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>報=YU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>遠=YW</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>州=YY</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>執=YZ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>籲=ZB</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>籍=ZD</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>盤=ZF</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>孤=ZG</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>慮=ZH</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%"><FONT face=細明體>虧=ZK</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>第=ZP</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>戲=ZQ</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>劇=ZR</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>歲=ZS</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>築=ZT</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>般=ZU</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>遽=ZW</FONT></TD>
-    <TD vAlign=center width="10%">妥=<FONT face=細明體>EG</FONT></TD>
-    <TD vAlign=center width="10%">可=<FONT face=細明體>TO</FONT></TD></TR>
-  <TR>
-    <TD vAlign=center width="10%">台=<FONT face=細明體>UO</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>跑=ON　</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>　</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>　</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>　</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>　</FONT></TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>　</FONT></TD>
-    <TD vAlign=center width="10%">　</TD>
-    <TD vAlign=center width="10%"><FONT face=細明體>　</FONT></TD>
-    <TD vAlign=center width="10%"><FONT 
-face=細明體>　</FONT></TD></TR></TBODY></TABLE></CENTER></DIV>
-<P><FONT face=標楷體 color=#800080><BIG>四、由簡體字衍生的兩碼字：共計9個</BIG></FONT></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" bgColor=#e4fdfe border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>術＝ＡＴ</FONT></P></TD>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>靈＝ＥＦ</FONT></P></TD>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>遷＝ＧＷ</FONT></P></TD>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>開＝ＫＪ</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>長＝ＫＮ</FONT></P></TD>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>麗＝ＬＡ</FONT></P></TD>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>廠＝ＬＰ</FONT></P></TD>
-    <TD vAlign=top align=middle width="25%">
-      <P align=center><FONT face=細明體>夢＝ＴＣ</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=top align=middle width="25%"><FONT face=細明體>聲＝ＹＣ</FONT></TD>
-    <TD vAlign=top align=middle width="25%">　</TD>
-    <TD vAlign=top align=middle width="25%">　</TD>
-    <TD vAlign=top align=middle 
-width="25%">　</TD></TR></TBODY></TABLE></CENTER></DIV>
-<P><BIG><FONT face=標楷體 color=#800080>五、與</FONT><FONT face=標楷體 
-color=#0000ff>形</FONT><FONT face=標楷體 color=#800080>、</FONT><FONT face=標楷體 
-color=#0000ff>音</FONT><FONT face=標楷體 color=#800080>或</FONT><FONT face=標楷體 
-color=#0000ff>義</FONT><FONT face=標楷體 color=#800080>有關的兩碼字：共計16個</FONT></BIG></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" bgColor=#ffe4ca border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=top width="25%"><FONT face=細明體>澳＝發音＝AU</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>溪＝音、２＝CE</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>得＝音、２＝DD</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>富＝音、尾＝FQ</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="25%"><FONT face=細明體>幾＝音、尾＝GB</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>艦＝音、尾＝GF</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>己＝發音＝GG</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>教＝音、尾＝GP</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="25%"><FONT face=細明體>靠＝音、尾＝KS</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>疾＝首、音＝LG</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>績＝首、音＝SG</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>街＝英略字＝ST</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="25%"><FONT face=細明體>淑＝音、尾＝SU</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>替＝音、尾＝TD</FONT></TD>
-    <TD vAlign=top width="25%"><FONT face=細明體>流＝首、音＝WL</FONT></TD>
-    <TD vAlign=top width="25%"><FONT 
-face=細明體>渡＝音、尾＝DU</FONT></TD></TR></TBODY></TABLE></CENTER></DIV>
-<P><FONT face=標楷體 color=#800080><BIG>六、不是正規的頭碼＋尾碼的兩碼字：共計26個</BIG></FONT></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" bgColor=#e9e9e9 border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>駐=３、尾=AK</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>貪=首、３=AM</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>貸=２、３=AX</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>凍=首、２=BC</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>營=首、２=FF</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>媽=首、２=GM</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>麵=尾、首=HG</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>該=首、２=IL</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>損=首、３=JM</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>潛=２、尾=KD</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>薦=３、尾=KF</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>懲=３、尾=KH</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>徵=３、尾=KP</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>養=２、尾=KX</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=justify>邊=２、尾=MW</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>嚇=首、２=OY</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>跌=首、２=OZ</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>默=首、２=QF</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>臨=首、２=RV</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>極=首、２=TK</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>哥=首、３=TT</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>衡=３、尾=UT</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>礙=４、尾=VZ</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>隨=２、尾=XW</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>偵=２、３=ZM</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%">
-      <P align=justify><FONT face=細明體>店=２、尾=ZO</FONT></P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify>　</P></TD>
-    <TD vAlign=center width="20%">
-      <P align=justify>　</P></TD>
-    <TD vAlign=center width="20%">　</TD>
-    <TD vAlign=center width="20%">　</TD></TR></TBODY></TABLE></CENTER></DIV>
-<P style="MARGIN-LEFT: 48px; TEXT-INDENT: -48px"><FONT face=標楷體 
-color=#800080><BIG>七、只看得懂其中的一個碼，但另一碼就看不出來的兩碼字：共計81個</BIG></FONT></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>鏡=AC=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff>
-      <P align=justify><FONT face=細明體>點=AO=？、尾</FONT></P></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>族=AV=？、２</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff>
-      <P align=justify><FONT face=細明體>障=BG=首、？</FONT></P></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff>
-      <P align=justify><FONT face=細明體>善=BV=首、？</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>履=CG=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>夠=CK=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>慰=CM=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>捷=CZ=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>貿=DG=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>召=DV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>峻=EV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>旗=FG=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>業=FR=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>胡=FU=？、尾</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>區=FV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>獎=GC=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>娛=GT=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>程=HC=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>悅=HF=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>靜=HZ=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>跡=IF=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>讚=IQ=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>譴=IT=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>試=IV=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>掀=IZ=尾、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>擒=JL=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>協=JQ=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>趣=KU=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>兵=KV=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>磁=LC=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>行=MV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>市=NI=２、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>久=NV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>啊=OH=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>誓=OI=尾、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>器=OM=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>圖=OT=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>品=OV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>歸=PQ=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>泉=PV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>們=QM=？、２</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>繳=QP=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>蒙=QQ=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>懼=QV=？、尾</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>酬=QY=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>跟=QZ=？、２</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>惹=RM=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>勒=RY=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>微=RZ=３、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>線=SV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>碼=TF=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>面=TJ=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>模=TV=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>禁=TW=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>遣=UC=？、首</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>粵=UK=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>鮮=UQ=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>罪=US=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>腳=UZ=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>賴=VB=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>差=VI=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>表=VK=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>介=VR=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>速=VW=？、尾</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>溉=WG=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>汽=WZ=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>鄰=XB=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>蜜=XC=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>藉=XD=？、尾</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>密=XE=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>網=XF=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>徐=XH=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>蓄=XQ=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>薄=XR=？、首</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>綠=XS=？、首</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>操=XT=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>嘉=YQ=首、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>趨=ZC=２、？</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>處=ZV=首、？</FONT></TD></TR>
-  <TR>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff><FONT 
-    face=細明體>塑=ZY=？、尾</FONT></TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff>　</TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff>　</TD>
-    <TD vAlign=top width="20%" bgColor=#d2d6ff>　</TD>
-    <TD vAlign=top width="20%" 
-bgColor=#d2d6ff>　</TD></TR></TBODY></TABLE></CENTER></DIV>
-<P style="MARGIN-LEFT: 48px; TEXT-INDENT: -48px"><FONT face=標楷體 
-color=#800080><BIG>八、由沒有任何相關連的兩個碼(硬性配對)產生的兩碼字：共計19個</BIG></FONT></P>
-<DIV align=center>
-<CENTER>
-<TABLE cellSpacing=1 cellPadding=2 width="95%" bgColor=#e6e6cc border=1>
-  <TBODY>
-  <TR>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>宣＝CF</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>禍＝CT</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>待＝DC</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>導＝DH</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>債＝DZ</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>幫＝HI</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>冠＝KC</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>授＝KG</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>賞＝KT</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>贊＝KZ</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>悲＝QT</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>臺＝TE</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>越＝UV</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>副＝VC</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>邁＝VN</FONT></P></TD></TR>
-  <TR>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>、＝VV</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>諸＝XG</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>儲＝XM</FONT></P></TD>
-    <TD vAlign=center width="20%"><FONT face=細明體>
-      <P align=center>贏＝XV</FONT></P></TD>
-    <TD vAlign=center width="20%">　</TD></TR></TBODY></TABLE></CENTER></DIV>
-<DIV align=center>
-<CENTER>
-<TABLE height=24 cellPadding=0 width="95%" border=0>
-  <TBODY>
-  <TR>
-    <TD width="100%" height=18>
-      <P 
-      style="MARGIN-TOP: 15px; MARGIN-BOTTOM: 3px; TEXT-INDENT: 40px; LINE-HEIGHT: 150%" 
-      align=justify><FONT 
-      face=細明體>當你常常接觸到兩碼字後，看多了也看熟了，久而久之一看到中文字，就能立即判斷出它是否為兩碼字，所謂熟能生巧，同樣的一個兩碼字，第一次打可能不太熟練，打它個三遍、五遍，甚至十遍，到後來，定能很快的以兩碼字的方式將它快速打出，要成為嘸蝦米輸入法的高手，一定要會用到兩碼字且用的非常非常的多。</FONT></P></TD></TR></TBODY></TABLE></CENTER></DIV>
-</BODY></HTML>
+searchEl.addEventListener('input', runSearch);
+clearBtn.addEventListener('click', () => {
+  searchEl.value = '';
+  runSearch();
+  searchEl.focus();
+});
+searchEl.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    searchEl.value = '';
+    runSearch();
+  }
+});
+</script>
+</body>
+</html>

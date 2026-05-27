@@ -455,8 +455,34 @@ body {
 </div>
 
 <script>
-// LINKS are loaded from /links.json after login.
-let LINKS = [];
+// ╔══════════════════════════════════════════════════════╗
+// ║  在這裡設定工具清單                                     ║
+// ║  { id, name, url, color }                            ║
+// ║  color 可用 hex 或任何 CSS 色彩                        ║
+// ╚══════════════════════════════════════════════════════╝
+const LINKS = [
+  { id: 'base64',          name: '圖片/Base64互轉',         url: 'base64/index.htm',           color: '#3b82f6' },
+  { id: 'qrcode',          name: '二維碼生成/解碼器',       url: 'qrcode/index.html',          color: '#22c55e' },
+  { id: 'encode',          name: '編碼 / 解碼工具',         url: 'encode.htm',                 color: '#0891b2' },
+  { id: 'otp',             name: 'OTP 產生器',              url: 'OTP.htm',                    color: '#a855f7' },
+  { id: 'tip',             name: '文件加密',                url: 'tip/index.html',             color: '#06b6d4' },
+  { id: 'device',          name: '裝置診斷',                url: 'device.html',                color: '#f59e0b' },
+  { id: 'rsa',             name: 'RSA 加密 / 簽章工具',     url: 'rsa.htm',                    color: '#ef4444' },
+  { id: 'aes',             name: 'AES 加密 / 解密工具',     url: 'aes.htm',                    color: '#f97316' },
+  { id: 'aesecb',          name: 'AES ECB 加密 / 解密工具', url: 'aesecb.htm',                 color: '#ec4899' },
+  { id: 'diff',            name: '文字比對工具',            url: 'diff.htm',                   color: '#14b8a6' },
+  { id: 'mp3',             name: 'MP3 轉換工具',            url: 'mp3/index.html',             color: '#8b5cf6' },
+  { id: 'json',            name: 'JSON 格式化工具',         url: 'json.htm',                   color: '#84cc16' },
+  { id: 'imageprovenance', name: '影像溯源分析儀',          url: 'imageprovenance/index.html', color: '#441116' },
+  { id: 'searchpic',       name: '以圖搜圖工具',            url: 'searchpic.htm',              color: '#6366f1' },
+  { id: 'dig',             name: 'DNS Dig 工具',            url: 'dig.htm',                    color: '#0d9488' },
+  { id: 'ip',              name: 'IP 反查工具',             url: 'ip.htm',                     color: '#0284c7' },
+  { id: 'wificard',        name: 'WiFi 名片產生器',         url: 'wificard.htm',               color: '#14b8a6' },
+  { id: 'traffic',         name: '台中交通即時影像',        url: 'traffic.htm',                color: '#0ea5e9' },
+  { id: 'pingl',           name: '螢幕/鏡頭分享',           url: 'pingl/index.htm',            color: '#d946ef' },
+  { id: 'emoji',           name: 'emoji 查看器',            url: 'emoji.htm',                  color: '#d326ef' },
+  { id: 'liu',             name: '嘸蝦米兩碼字',            url: 'liu.htm',                    color: '#16a34a' },
+];
 
 // ── RSA-PSS Login ────────────────────────────────────
 (function () {
@@ -485,20 +511,12 @@ let LINKS = [];
     );
   }
 
-  async function loadLinks() {
-    const res = await fetch('/links.json', { cache: 'no-cache' });
-    if (!res.ok) throw new Error('links.json ' + res.status);
-    LINKS = await res.json();
-  }
-
   const overlay = document.getElementById('login-overlay');
   const input   = document.getElementById('login-input');
   const btn     = document.getElementById('login-btn');
   const err     = document.getElementById('login-err');
 
-  window.__bootApp = async function bootApp() {
-    try { await loadLinks(); }
-    catch { err.textContent = '無法載入 links.json'; return; }
+  window.__bootApp = function bootApp() {
     overlay.style.display = 'none';
     if (typeof load === 'function') { load(); render(); }
   };
