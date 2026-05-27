@@ -2,8 +2,14 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Tool Hub</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tool Hub">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -35,9 +41,16 @@ body {
 
 #tabs-container { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
 
-#close-all-btn {
+#tab-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   align-self: center;
+  flex-shrink: 0;
+}
+#close-all-btn,
+#install-btn {
   display: none;
   align-items: center;
   gap: 5px;
@@ -49,11 +62,12 @@ body {
   color: #8b949e;
   font-size: 12px;
   cursor: pointer;
-  flex-shrink: 0;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-#close-all-btn.visible { display: inline-flex; }
+#close-all-btn.visible,
+#install-btn.visible { display: inline-flex; }
 #close-all-btn:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+#install-btn:hover   { background: #238636; color: #fff; border-color: #238636; }
 
 .tab {
   display: flex;
@@ -405,7 +419,10 @@ body {
 
 <div id="tab-bar">
   <div id="tabs-container"></div>
-  <button id="close-all-btn" title="關閉全部分頁">× 全部關閉</button>
+  <div id="tab-actions">
+    <button id="close-all-btn" title="關閉全部分頁">× 全部關閉</button>
+    <button id="install-btn" title="安裝為桌面 App">⬇ 安裝</button>
+  </div>
 </div>
 
 <div id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
@@ -437,32 +454,15 @@ body {
 </div>
 
 <script>
-// ── RSA-PSS Login ────────────────────────────────────
+// Worker endpoint that verifies the passcode and returns the LINKS array.
+const LINKS_API = 'https://pingl-signal.54maxwu.workers.dev/links';
+
+// LINKS are fetched at login time; never embedded in this HTML.
+let LINKS = [];
+
+// ── Login (server-side verify) ───────────────────────
 (function () {
-  const PUB_KEY_B64 = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmGXhsEcms3FNOxkRBSd2FmBaU8xo6WwRIkdPIjVoZYzvwTyXun0rpVHBNITO7bt/zAKNT+/3m5xwFSEtJflxjMVumW1Ci8IB1YyH+5O1sxweSOivHXFRoRteHRiYYQwf697EPdBMX1MZnsBhp05uH6EpOKfxII3mDldNlSN564ueiXVrKodzcOncK4/RG1c5TSNroYZCcpk4Vq5EemZsMbmhrklRFipB4fDPag6kPKlLME64Xl97gTkAJU1xr0lVqkeWrSQPy6f990tPlxKYtg12cIWLeo6cHhCSyt1yFD6kO0yk08fW8uo+8iqMj4ELz8beC1OsxKOvz+6Z4awnVQIDAQAB';
-  const SIG_B64     = 'WfkbK13IFfxAcJLWmRi1+Y2ak9Y4UlTRqcceWrYT0+5yZtPjgNrO6bWPdsguaH7cX4wEGVAN7b0J94AvBv7gjNcurX/y9XcMiGk54KwUl68Zc7FZ1xKINtrRTbpDI/pEIJ5z7slhR3aGNjkixfyE65b9J3z8p814CeOjCCeL6yopcVPGLZcjDtoeWaG8CRY+UC0cMs6YW2Pc5zJnvqsmrahkEUnVS6Pwbe7uLUPATFy+JH+gWIH/8kf8CBHd/k3oMb9tkjXTVL0Eq1IIqLEERynt/YiGjqwBn9YVgaeteW6hF8FGqCUzrHKDd9BUMsRtFpNhZ6g4Qw3WKkJKhfX4ew==';
-  const SALT_LEN    = 32;
-  const LS_KEY      = 'toolhub_auth';
-
-  function b64ToBytes(b64) {
-    const bin = atob(b64);
-    return Uint8Array.from(bin, c => c.charCodeAt(0));
-  }
-
-  async function verify(password) {
-    const keyData = b64ToBytes(PUB_KEY_B64);
-    const pubKey  = await crypto.subtle.importKey(
-      'spki', keyData,
-      { name: 'RSA-PSS', hash: 'SHA-256' },
-      false, ['verify']
-    );
-    const sig  = b64ToBytes(SIG_B64);
-    const data = new TextEncoder().encode(password);
-    return crypto.subtle.verify(
-      { name: 'RSA-PSS', saltLength: SALT_LEN },
-      pubKey, sig, data
-    );
-  }
+  const SS_LINKS = 'toolhub_links';
 
   const overlay = document.getElementById('login-overlay');
   const input   = document.getElementById('login-input');
@@ -475,21 +475,37 @@ body {
     if (typeof load === 'function') { load(); render(); }
   };
 
-  // Already authenticated this session
-  if (sessionStorage.getItem(LS_KEY) === '1') {
-    // Defer to next tick so load()/render() are defined.
-    queueMicrotask(() => window.__bootApp());
-    return;
+  async function fetchLinks(password) {
+    const res = await fetch(LINKS_API, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (res.status === 401) return null;
+    if (!res.ok) throw new Error('http ' + res.status);
+    return await res.json();
+  }
+
+  // Reuse cached LINKS within the same tab session
+  const cached = sessionStorage.getItem(SS_LINKS);
+  if (cached) {
+    try {
+      LINKS = JSON.parse(cached);
+      queueMicrotask(() => window.__bootApp());
+      return;
+    } catch { sessionStorage.removeItem(SS_LINKS); }
   }
 
   async function attempt() {
     err.textContent = '';
     const pw = input.value;
     if (!pw) { err.textContent = '請輸入通行碼'; return; }
+    btn.disabled = true;
     try {
-      const ok = await verify(pw);
-      if (ok) {
-        sessionStorage.setItem(LS_KEY, '1');
+      const links = await fetchLinks(pw);
+      if (links) {
+        LINKS = links;
+        sessionStorage.setItem(SS_LINKS, JSON.stringify(links));
         window.__bootApp();
       } else {
         err.textContent = '通行碼錯誤';
@@ -497,7 +513,9 @@ body {
         input.focus();
       }
     } catch {
-      err.textContent = '驗證失敗，請重試';
+      err.textContent = '無法連線伺服器，請重試';
+    } finally {
+      btn.disabled = false;
     }
   }
 
@@ -505,33 +523,6 @@ body {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
   requestAnimationFrame(() => input.focus());
 })();
-
-// ╔══════════════════════════════════════════════════════╗
-// ║  在這裡設定工具清單                                     ║
-// ║  { id, name, url, color }                            ║
-// ║  color 可用 hex 或任何 CSS 色彩                        ║
-// ╚══════════════════════════════════════════════════════╝
-const LINKS = [
-  { id: 'base64', name: '圖片/Base64互轉',      url: 'base64/index.htm',   color: '#3b82f6' },
-  { id: 'qrcode', name: '二維碼生成/解碼器',    url: 'qrcode/index.html',  color: '#22c55e' },
-  { id: 'encode', name: '編碼 / 解碼工具',      url: 'encode.htm',         color: '#0891b2' },
-  { id: 'otp',    name: 'OTP 產生器',           url: 'OTP.htm',            color: '#a855f7' },
-  { id: 'tip',    name: '文件加密',             url: 'tip/index.html',     color: '#06b6d4' },
-  { id: 'device', name: '裝置診斷',             url: 'device.html',        color: '#f59e0b' },
-  { id: 'rsa',    name: 'RSA 加密 / 簽章工具',  url: 'rsa.htm',            color: '#ef4444' },
-  { id: 'aes',    name: 'AES 加密 / 解密工具',  url: 'aes.htm',            color: '#f97316' },
-  { id: 'aesecb', name: 'AES ECB 加密 / 解密工具', url: 'aesecb.htm',     color: '#ec4899' },
-  { id: 'diff',   name: '文字比對工具',         url: 'diff.htm',           color: '#14b8a6' },
-  { id: 'mp3',    name: 'MP3 轉換工具',         url: 'mp3/index.html',     color: '#8b5cf6' },
-  { id: 'json',   name: 'JSON 格式化工具',      url: 'json.htm',           color: '#84cc16' },
-  { id: 'imageprovenance',   name: '影像溯源分析儀',      url: 'imageprovenance/index.html',    color: '#441116' },
-  { id: 'searchpic', name: '以圖搜圖工具',        url: 'searchpic.htm',      color: '#6366f1' },
-  { id: 'dig',       name: 'DNS Dig 工具',         url: 'dig.htm',            color: '#0d9488' },
-  { id: 'ip',        name: 'IP 反查工具',           url: 'ip.htm',             color: '#0284c7' },
-  { id: 'wificard',  name: 'WiFi 名片產生器',      url: 'wificard.htm',       color: '#14b8a6' },
-  { id: 'traffic',   name: '台中交通即時影像',      url: 'traffic.htm',        color: '#0ea5e9' },
-  { id: 'pingl',     name: '螢幕/鏡頭分享',         url: 'pingl/index.htm',    color: '#d946ef' },
-];
 
 // ── localStorage keys ─────────────────────────────────
 const LS = {
@@ -784,6 +775,41 @@ function tabDragEnd(e) {
 // load()/render() are deferred: bootApp() (in the login IIFE) calls them
 // after authentication succeeds, so iframes don't load behind the overlay
 // and steal focus from the password input.
+
+// ── PWA ───────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+(function () {
+  const btn = document.getElementById('install-btn');
+  let deferred = null;
+
+  // Hide if already running as installed app
+  if (window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true) {
+    return;
+  }
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    btn.classList.add('visible');
+  });
+
+  btn.addEventListener('click', async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch {}
+    deferred = null;
+    btn.classList.remove('visible');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    btn.classList.remove('visible');
+    deferred = null;
+  });
+})();
 </script>
 </body>
 </html>
