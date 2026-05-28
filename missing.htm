@@ -99,6 +99,7 @@
             align-items: center;
             gap: 10px;
             margin-bottom: 14px;
+            flex-wrap: wrap;
         }
         .mode-tabs {
             display: inline-flex;
@@ -136,6 +137,33 @@
         }
         .settings-btn:hover { border-color: #e11d48; color: #e11d48; }
         .settings-btn.unset { border-color: #f59e0b; color: #b45309; background: #fffbeb; }
+
+        /* Collapsible query panel — surfaced on mobile, where the filter block would
+           otherwise fill the screen and push results below the fold. */
+        .filter-toggle {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            height: 34px;
+            padding: 0 14px;
+            border-radius: 9px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #475569;
+            font-size: 12.5px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .filter-toggle:hover { border-color: #e11d48; color: #e11d48; }
+        .filter-toggle .chev { font-size: 10px; transition: transform .2s; }
+        .glass:not(.collapsed) .filter-toggle .chev { transform: rotate(180deg); }
+        .glass.collapsed #filtersRecent,
+        .glass.collapsed #filtersHistory { display: none; }
+        @media (max-width: 640px) {
+            .filter-toggle { display: inline-flex; }
+        }
 
         /* ── Filters ── */
         .filters {
@@ -261,7 +289,7 @@
                 #eef2f7;
             overflow: hidden;
         }
-        .card-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+        .card-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
         .card-photo .no-photo {
             position: absolute; inset: 0;
             display: flex; align-items: center; justify-content: center;
@@ -491,6 +519,7 @@
                     <button type="button" class="mode-tab" data-mode="history">歷史查詢</button>
                 </div>
                 <button type="button" class="settings-btn" id="settingsBtn" title="設定歷史查詢代理">⚙</button>
+                <button type="button" class="filter-toggle" id="filterToggle" title="顯示／隱藏查詢條件"><span class="chev">▾</span>條件</button>
             </div>
 
             <!-- 近期協尋名單：抓全部 → 前端篩選 -->
@@ -654,7 +683,11 @@
     const $codeBlock = $('codeBlock'), $copyCode = $('copyCode');
     const $proxyInput = $('proxyInput'), $proxySave = $('proxySave'), $proxyClear = $('proxyClear'), $proxyStatus = $('proxyStatus');
     const $toast = $('toast');
+    const $glass = document.querySelector('.glass');
+    const $filterToggle = $('filterToggle');
     const modeTabs = [...document.querySelectorAll('.mode-tab')];
+    const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
+    function collapseFilters(c) { $glass.classList.toggle('collapsed', c); }
 
     // ── Code → label maps (authoritative, from od.moi.gov.tw query form) ──
     const BLD  = { '1': 'A', '2': 'B', '3': 'O', '4': 'AB' };
@@ -903,6 +936,7 @@
             DATA = all;
             setStatus(`查詢結果 ${all.length} 筆`, all.length ? 'ok' : 'idle');
             renderHistory();
+            if (isMobile()) collapseFilters(true);   // fold the form so results fill the screen
         } catch (e) {
             console.error(e);
             setStatus('查詢失敗', 'err');
@@ -1045,6 +1079,7 @@
     // ── Setup (proxy) modal ──
     function refreshProxyUI() {
         const has = !!getProxy();
+        $settingsBtn.hidden = has;
         $settingsBtn.classList.toggle('unset', !has);
         $settingsBtn.title = has ? '歷史查詢代理：已設定' : '尚未設定歷史查詢代理';
     }
@@ -1076,6 +1111,7 @@
     // ── Mode switching ──
     function setMode(m) {
         mode = m;
+        if (isMobile()) collapseFilters(false);   // show the new mode's controls
         modeTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === m));
         $filtersRecent.hidden = m !== 'recent';
         $filtersHistory.hidden = m !== 'history';
@@ -1114,6 +1150,9 @@
     [$hStart, $hEnd].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') runHistory(); }));
 
     modeTabs.forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+    $filterToggle.addEventListener('click', () => collapseFilters(!$glass.classList.contains('collapsed')));
+    // Never leave the panel hidden with no way back when the layout grows past mobile.
+    window.addEventListener('resize', () => { if (!isMobile()) collapseFilters(false); });
 
     $results.addEventListener('click', e => {
         const card = e.target.closest('.card');
@@ -1153,6 +1192,7 @@
     $hEnd.value = `${r.y}/${r.m}`;
     $codeBlock.textContent = WORKER_CODE;
     refreshProxyUI();
+    if (isMobile()) collapseFilters(true);   // mobile: start with the list visible, conditions folded
     loadData();
     </script>
 </body>
