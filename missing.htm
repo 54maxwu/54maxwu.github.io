@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>失蹤人口協尋查詢</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            flex-shrink: 0;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color .2s, color .2s, border-color .2s;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+        .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+        /* ── Layout ── */
+        .page-content {
+            padding: 12px 20px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 18px 20px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Filters ── */
+        .filters {
+            flex-shrink: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 16px;
+            align-items: flex-end;
+            padding-bottom: 14px;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        .field-label {
+            font-size: .7rem;
+            font-weight: 700;
+            color: #be123c;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+        .kw-wrap { flex: 1 1 240px; }
+        .txt, .sel {
+            width: 100%;
+            font-size: 13px;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            color: #1e293b;
+            font-family: inherit;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .txt:focus, .sel:focus { border-color: #e11d48; box-shadow: 0 0 0 3px rgba(225,29,72,.12); }
+        .txt::placeholder { color: #94a3b8; }
+        .sel { cursor: pointer; }
+        .age-row { display: flex; align-items: center; gap: 6px; }
+        .age-row .txt { width: 64px; text-align: center; }
+        .age-row span { color: #94a3b8; font-size: 12px; }
+
+        .btn {
+            padding: 8px 16px;
+            font-size: 12.5px;
+            font-weight: 700;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: .03em;
+            font-family: inherit;
+            white-space: nowrap;
+            transition: background .15s, box-shadow .15s, transform .08s, color .15s, border-color .15s;
+        }
+        .btn-primary {
+            background: linear-gradient(145deg, #f43f5e, #e11d48);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(225,29,72,0.32);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 14px rgba(225,29,72,0.42); }
+        .btn-primary:active { transform: scale(.97); }
+        .btn-secondary { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+        .btn-secondary:hover { background: #f8fafc; color: #e11d48; border-color: #e11d48; }
+        .btn-secondary:active { transform: scale(.97); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+        /* ── Results bar ── */
+        .results-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 2px 10px;
+            flex-wrap: wrap;
+        }
+        .count-text { font-size: 13px; color: #475569; font-weight: 600; }
+        .count-text b { color: #e11d48; font-size: 15px; }
+        .sort-wrap { display: flex; align-items: center; gap: 6px; }
+        .sort-wrap label { font-size: 12px; color: #64748b; }
+        .sort-wrap .sel { width: auto; padding: 6px 8px; font-size: 12px; }
+
+        /* ── Results grid (scrollable) ── */
+        .results {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 4px 6px 6px 2px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+            align-content: start;
+        }
+        .results { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .results::-webkit-scrollbar { width: 9px; }
+        .results::-webkit-scrollbar-track { background: transparent; }
+        .results::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .results::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: padding-box; }
+
+        /* ── Card ── */
+        .card {
+            background: rgba(255,255,255,0.92);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+            transition: box-shadow .15s, transform .1s, border-color .15s;
+        }
+        .card:hover { box-shadow: 0 8px 22px rgba(225,29,72,.16); transform: translateY(-2px); border-color: #fecdd3; }
+        .card-photo {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 3 / 4;
+            background:
+                repeating-linear-gradient(45deg, transparent 0 14px, rgba(203,213,225,.18) 14px 28px),
+                #eef2f7;
+            overflow: hidden;
+        }
+        .card-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .card-photo .no-photo {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: #b6c1d1; font-size: 12px;
+        }
+        .gender-badge {
+            position: absolute;
+            top: 8px; left: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 999px;
+            color: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,.25);
+        }
+        .gender-badge.m { background: #2563eb; }
+        .gender-badge.f { background: #db2777; }
+        .tag-row { position: absolute; bottom: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+        .care-tag {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(180,35,24,.92);
+            color: #fff;
+            backdrop-filter: blur(2px);
+        }
+        .card-body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 4px; }
+        .card-name { font-size: 15px; font-weight: 700; color: #1e293b; letter-spacing: .04em; }
+        .card-sub { font-size: 12px; color: #64748b; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+        .card-sub b { color: #334155; font-weight: 700; }
+        .card-date { font-size: 11px; color: #be123c; font-weight: 600; margin-top: 1px; }
+
+        /* ── Empty / error states ── */
+        .state {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            padding: 50px 20px;
+            line-height: 1.6;
+        }
+        .state.err { color: #991b1b; }
+        .state .retry { margin-top: 14px; }
+        .skeleton {
+            background: rgba(255,255,255,0.7);
+            border: 1.5px solid #eef2f7;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .skeleton .sk-photo { width: 100%; aspect-ratio: 3 / 4; background: linear-gradient(90deg,#eef2f7 25%,#e2e8f0 37%,#eef2f7 63%); background-size: 400% 100%; animation: shimmer 1.3s infinite; }
+        .skeleton .sk-line { height: 11px; margin: 9px 11px; border-radius: 4px; background: linear-gradient(90deg,#eef2f7 25%,#e2e8f0 37%,#eef2f7 63%); background-size: 400% 100%; animation: shimmer 1.3s infinite; }
+        .skeleton .sk-line.short { width: 50%; }
+        @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+        /* ── Source note ── */
+        .source-note {
+            flex-shrink: 0;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.6;
+            padding-top: 10px;
+            margin-top: 4px;
+            border-top: 1px dashed #e2e8f0;
+        }
+        .source-note a { color: #e11d48; text-decoration: none; font-weight: 600; }
+        .source-note a:hover { text-decoration: underline; }
+        .source-note .warn { color: #b45309; font-weight: 700; }
+
+        /* ── Detail modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 24px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 680px;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4);
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            flex-shrink: 0;
+        }
+        .modal-close {
+            background: transparent;
+            border: none;
+            width: 30px; height: 30px;
+            border-radius: 7px;
+            font-size: 21px;
+            line-height: 1;
+            cursor: pointer;
+            color: #64748b;
+            font-family: inherit;
+            transition: background .12s, color .12s;
+        }
+        .modal-close:hover { background: #fef2f2; color: #b91c1c; }
+        .modal-body {
+            overflow-y: auto;
+            padding: 18px;
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+        .modal-body { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .modal-body::-webkit-scrollbar { width: 9px; }
+        .modal-body::-webkit-scrollbar-track { background: transparent; }
+        .modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .modal-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: padding-box; }
+        .detail-photo {
+            flex: 0 0 200px;
+            width: 200px;
+        }
+        .detail-photo img {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            display: block;
+        }
+        .detail-photo .no-photo {
+            width: 100%; aspect-ratio: 3/4; border-radius: 10px;
+            border: 1px solid #e2e8f0; background: #eef2f7;
+            display: flex; align-items: center; justify-content: center; color: #b6c1d1; font-size: 13px;
+        }
+        .detail-info { flex: 1 1 280px; min-width: 240px; }
+        .detail-title { font-size: 20px; font-weight: 800; color: #1e293b; letter-spacing: .05em; display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .detail-care { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 14px; }
+        .kv-grid {
+            display: grid;
+            grid-template-columns: 82px minmax(0, 1fr);
+            gap: 7px 10px;
+            font-size: 13px;
+        }
+        .kv-grid dt { color: #64748b; font-weight: 600; }
+        .kv-grid dd { color: #1e293b; margin: 0; overflow-wrap: anywhere; }
+        .detail-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+        .detail-actions .btn { flex: 1 1 auto; text-align: center; }
+        @media (max-width: 460px) {
+            .detail-photo { flex: 0 0 100%; width: 100%; }
+        }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b;
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 8px 28px rgba(0,0,0,.3);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s, transform .2s;
+            z-index: 200;
+            max-width: 90vw;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast.err { background: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>🔎 失蹤人口協尋查詢</h1>
+        <div class="header-meta">
+            <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="filters">
+                <div class="field kw-wrap">
+                    <span class="field-label">關鍵字</span>
+                    <input type="text" class="txt" id="kw" placeholder="姓名、衣著、特徵、髮型…" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="field">
+                    <span class="field-label">性別</span>
+                    <select class="sel" id="fGender">
+                        <option value="">全部</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <span class="field-label">年齡範圍</span>
+                    <div class="age-row">
+                        <input type="number" class="txt" id="ageMin" placeholder="0" min="0" max="120">
+                        <span>—</span>
+                        <input type="number" class="txt" id="ageMax" placeholder="120" min="0" max="120">
+                    </div>
+                </div>
+                <div class="field">
+                    <span class="field-label">心智特徵</span>
+                    <select class="sel" id="fMind">
+                        <option value="">全部</option>
+                        <option value="1">正常</option>
+                        <option value="2">智語能障礙</option>
+                        <option value="3">精神疾病</option>
+                        <option value="4">失智症</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <span class="field-label">血型</span>
+                    <select class="sel" id="fBld">
+                        <option value="">全部</option>
+                        <option value="1">A</option>
+                        <option value="2">B</option>
+                        <option value="3">O</option>
+                        <option value="4">AB</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <span class="field-label">聽力</span>
+                    <select class="sel" id="fHear">
+                        <option value="">全部</option>
+                        <option value="3">正常</option>
+                        <option value="1">重聽</option>
+                        <option value="2">聾啞</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-secondary" id="clearBtn">清除條件</button>
+                <button type="button" class="btn btn-primary" id="reloadBtn">重新整理</button>
+            </div>
+
+            <div class="results-bar">
+                <div class="count-text" id="countText">載入中…</div>
+                <div class="sort-wrap">
+                    <label for="sortSel">排序</label>
+                    <select class="sel" id="sortSel">
+                        <option value="date">失蹤日期（新→舊）</option>
+                        <option value="ageAsc">年齡（小→大）</option>
+                        <option value="ageDesc">年齡（大→小）</option>
+                        <option value="name">姓名</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="results" id="results"></div>
+
+            <div class="source-note">
+                資料來源：<a href="https://od.moi.gov.tw/adm/missingPersons" target="_blank" rel="noopener">內政部警政署「失蹤人口查尋」開放資料</a>，
+                僅含公開協尋名單（最近約 30 日），不含受保護或家屬不願公開之案件。姓名依規定去識別化。
+                <span class="warn">若您發現相關人士，請立即撥打 110 或洽當地警察機關。</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>協尋詳細資料</span>
+                <button type="button" class="modal-close" id="detailClose">&times;</button>
+            </div>
+            <div class="modal-body" id="detailBody"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // ── DOM refs ──
+    const $ = id => document.getElementById(id);
+    const $results = $('results'), $countText = $('countText'), $statusPill = $('statusPill'), $statusText = $('statusText');
+    const $kw = $('kw'), $fGender = $('fGender'), $ageMin = $('ageMin'), $ageMax = $('ageMax');
+    const $fMind = $('fMind'), $fBld = $('fBld'), $fHear = $('fHear'), $sortSel = $('sortSel');
+    const $clearBtn = $('clearBtn'), $reloadBtn = $('reloadBtn');
+    const $detailModal = $('detailModal'), $detailBody = $('detailBody'), $detailClose = $('detailClose');
+    const $toast = $('toast');
+
+    // ── Code → label maps (authoritative, from od.moi.gov.tw query form) ──
+    const BLD  = { '1': 'A', '2': 'B', '3': 'O', '4': 'AB' };
+    const HEAR = { '1': '重聽', '2': '聾啞', '3': '正常' };
+    const MIND = { '1': '正常', '2': '智語能障礙', '3': '精神疾病', '4': '失智症' };
+    // E8_OC_PLACE is a numeric occurrence-location code that the official open-data
+    // service itself does not publish a key for, so it is intentionally not shown.
+
+    // ── Data source ──
+    // The NPA API sends no CORS header, so JSON is fetched through a CORS proxy.
+    // Photos load directly via <img> (images aren't CORS-restricted for display).
+    const SRC = {
+        Male:   'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson/json/Male',
+        Female: 'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson/json/Female',
+    };
+    const PROXIES = [
+        u => 'https://api.codetabs.com/v1/proxy/?quest=' + u,
+        u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    ];
+
+    let DATA = [];   // normalized records
+
+    // ── Helpers ──
+    const clean = v => (v == null ? '' : String(v)).trim();
+    function esc(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function setStatus(text, kind) {
+        $statusText.textContent = text;
+        $statusPill.classList.remove('idle','busy','ok','err');
+        $statusPill.classList.add(kind || 'idle');
+    }
+    let toastTimer = null;
+    function toast(msg, kind) {
+        $toast.textContent = msg;
+        $toast.classList.toggle('err', kind === 'err');
+        $toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $toast.classList.remove('show'), 2600);
+    }
+
+    function parseBirth(s) {
+        s = clean(s);
+        if (s.length !== 8) return null;
+        const y = +s.slice(0,4), m = +s.slice(4,6), d = +s.slice(6,8);
+        if (!y) return null;
+        return { y, m, d };
+    }
+    function ageOf(b) {
+        if (!b) return null;
+        const n = new Date();
+        let a = n.getFullYear() - b.y;
+        const mo = n.getMonth() + 1;
+        if (mo < b.m || (mo === b.m && n.getDate() < b.d)) a--;
+        return a >= 0 && a <= 130 ? a : null;
+    }
+    const fmtDate = s => { s = clean(s); return s.length === 8 ? `${s.slice(0,4)}/${s.slice(4,6)}/${s.slice(6,8)}` : (s || '—'); };
+    const fmtBirth = b => b ? `${b.y}/${String(b.m).padStart(2,'0')}/${String(b.d).padStart(2,'0')}` : '—';
+
+    function normalize(raw, gender) {
+        const b = parseBirth(raw.E8_SJ_BIRTH_YEAR);
+        const r = {
+            name:    clean(raw.E8_SJ_NM) || '（未提供）',
+            gender:  clean(raw.E8_SJ_GENDER) || (gender === 'Male' ? '男' : '女'),
+            birth:   b,
+            age:     ageOf(b),
+            bldCode: clean(raw.E8_SJ_BLD_TYPE),
+            height:  clean(raw.E8_SJ_HEIGHT),
+            shape:   clean(raw.E8_SJ_SHAPE),
+            sight:   clean(raw.E8_SJ_SIGHT),
+            hearCode:clean(raw.E8_SJ_HEAR),
+            hairS:   clean(raw.E8_SJ_HAIRSTYLE),
+            hairC:   clean(raw.E8_SJ_HAIRCOLOR),
+            lan:     clean(raw.E8_SJ_LAN),
+            shirt:   clean(raw.E8_SJ_SHIRT),
+            pant:    clean(raw.E8_SJ_PANT),
+            shoe:    clean(raw.E8_SJ_SHOE),
+            wearing: clean(raw.E8_SJ_WEARING),
+            scar:    clean(raw.E8_SJ_SCAR),
+            feature: clean(raw.E8_SJ_FEATURE),
+            mindCode:clean(raw.E8_SJ_MIND),
+            ocDate:  clean(raw.E8_OC_DATE),
+            pic:     clean(raw.E8_PIC_URL),
+        };
+        r.search = [r.name, r.shirt, r.pant, r.shoe, r.wearing, r.scar, r.feature,
+                    r.hairS, r.hairC, r.shape, r.sight, r.lan].join(' ').toLowerCase();
+        return r;
+    }
+
+    // ── Fetch via proxy chain ──
+    async function fetchJSON(url) {
+        let lastErr;
+        for (const build of PROXIES) {
+            try {
+                const res = await fetch(build(url), { cache: 'no-store' });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (!Array.isArray(data)) throw new Error('非預期的回應格式');
+                return data;
+            } catch (e) { lastErr = e; }
+        }
+        throw lastErr || new Error('全部代理伺服器皆失敗');
+    }
+
+    function renderSkeleton(n = 8) {
+        let h = '';
+        for (let i = 0; i < n; i++) {
+            h += '<div class="skeleton"><div class="sk-photo"></div><div class="sk-line"></div><div class="sk-line short"></div></div>';
+        }
+        $results.innerHTML = h;
+    }
+
+    async function loadData() {
+        setStatus('載入中…', 'busy');
+        $countText.textContent = '載入中…';
+        $reloadBtn.disabled = true;
+        renderSkeleton();
+        try {
+            const [male, female] = await Promise.all([fetchJSON(SRC.Male), fetchJSON(SRC.Female)]);
+            DATA = [
+                ...male.map(r => normalize(r, 'Male')),
+                ...female.map(r => normalize(r, 'Female')),
+            ];
+            setStatus(`已載入 ${DATA.length} 筆`, 'ok');
+            applyFilters();
+        } catch (e) {
+            console.error(e);
+            setStatus('載入失敗', 'err');
+            $countText.textContent = '';
+            $results.innerHTML =
+                `<div class="state err">無法取得失蹤人口資料。<br>（${esc(e.message || e)}）
+                 <div class="retry"><button type="button" class="btn btn-primary" onclick="loadData()">重試</button></div></div>`;
+        } finally {
+            $reloadBtn.disabled = false;
+        }
+    }
+
+    // ── Filtering + sorting ──
+    function applyFilters() {
+        const kw = $kw.value.trim().toLowerCase();
+        const g  = $fGender.value;
+        const mn = $ageMin.value === '' ? null : +$ageMin.value;
+        const mx = $ageMax.value === '' ? null : +$ageMax.value;
+        const mind = $fMind.value, bld = $fBld.value, hear = $fHear.value;
+
+        let list = DATA.filter(r => {
+            if (g && r.gender !== g) return false;
+            if (mind && r.mindCode !== mind) return false;
+            if (bld && r.bldCode !== bld) return false;
+            if (hear && r.hearCode !== hear) return false;
+            if (mn != null && (r.age == null || r.age < mn)) return false;
+            if (mx != null && (r.age == null || r.age > mx)) return false;
+            if (kw && !r.search.includes(kw)) return false;
+            return true;
+        });
+
+        const sort = $sortSel.value;
+        list.sort((a, b) => {
+            if (sort === 'ageAsc')  return (a.age ?? 999) - (b.age ?? 999);
+            if (sort === 'ageDesc') return (b.age ?? -1)  - (a.age ?? -1);
+            if (sort === 'name')    return a.name.localeCompare(b.name, 'zh-Hant');
+            return (b.ocDate || '').localeCompare(a.ocDate || ''); // date new→old
+        });
+
+        renderCards(list);
+        $countText.innerHTML = DATA.length
+            ? `符合條件 <b>${list.length}</b> 筆 ／ 共 ${DATA.length} 筆`
+            : '';
+    }
+
+    function careTags(r) {
+        const t = [];
+        if (r.mindCode && r.mindCode !== '1' && MIND[r.mindCode]) t.push(MIND[r.mindCode]);
+        if (r.hearCode && r.hearCode !== '3' && HEAR[r.hearCode]) t.push(HEAR[r.hearCode]);
+        return t;
+    }
+
+    function renderCards(list) {
+        if (!list.length) {
+            $results.innerHTML = '<div class="state">沒有符合條件的資料。<br>請調整或清除篩選條件。</div>';
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        list.forEach((r, i) => {
+            const idx = DATA.indexOf(r);
+            const el = document.createElement('div');
+            el.className = 'card';
+            el.dataset.idx = idx;
+            const gcls = r.gender === '女' ? 'f' : 'm';
+            const tags = careTags(r).map(t => `<span class="care-tag">${esc(t)}</span>`).join('');
+            const ageTxt = r.age != null ? `${r.age} 歲` : '年齡不詳';
+            const photo = r.pic
+                ? `<img src="${esc(r.pic)}" alt="協尋照片" loading="lazy" referrerpolicy="no-referrer"
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                   <div class="no-photo" style="display:none">無照片</div>`
+                : `<div class="no-photo">無照片</div>`;
+            el.innerHTML = `
+                <div class="card-photo">
+                    <span class="gender-badge ${gcls}">${esc(r.gender)}</span>
+                    ${photo}
+                    ${tags ? `<div class="tag-row">${tags}</div>` : ''}
+                </div>
+                <div class="card-body">
+                    <div class="card-name">${esc(r.name)}</div>
+                    <div class="card-sub">
+                        <span>${esc(ageTxt)}</span>
+                        ${r.height ? `<span><b>${esc(r.height)}</b> cm</span>` : ''}
+                        ${r.shape ? `<span>${esc(r.shape)}</span>` : ''}
+                    </div>
+                    <div class="card-date">失蹤日期 ${esc(fmtDate(r.ocDate))}</div>
+                </div>`;
+            frag.appendChild(el);
+        });
+        $results.innerHTML = '';
+        $results.appendChild(frag);
+    }
+
+    // ── Detail modal ──
+    function row(label, value) {
+        const v = clean(value);
+        if (!v) return '';
+        return `<dt>${esc(label)}</dt><dd>${esc(v)}</dd>`;
+    }
+    function openDetail(r) {
+        const tags = careTags(r).map(t => `<span class="care-tag">${esc(t)}</span>`).join('');
+        const photo = r.pic
+            ? `<img src="${esc(r.pic)}" alt="協尋照片" referrerpolicy="no-referrer"
+                    onerror="this.outerHTML='<div class=\\'no-photo\\'>無照片</div>';">`
+            : `<div class="no-photo">無照片</div>`;
+        const ageTxt = r.age != null ? `${r.age} 歲` : '不詳';
+        $detailBody.innerHTML = `
+            <div class="detail-photo">${photo}</div>
+            <div class="detail-info">
+                <div class="detail-title">${esc(r.name)}
+                    <span class="gender-badge ${r.gender === '女' ? 'f' : 'm'}" style="position:static;box-shadow:none">${esc(r.gender)}</span>
+                </div>
+                ${tags ? `<div class="detail-care">${tags}</div>` : ''}
+                <dl class="kv-grid">
+                    ${row('年齡', r.age != null ? ageTxt : '')}
+                    ${row('出生', fmtBirth(r.birth))}
+                    ${row('失蹤日期', fmtDate(r.ocDate))}
+                    ${row('身高', r.height ? r.height + ' cm' : '')}
+                    ${row('體型', r.shape)}
+                    ${row('血型', BLD[r.bldCode])}
+                    ${row('聽力', HEAR[r.hearCode])}
+                    ${row('心智特徵', MIND[r.mindCode])}
+                    ${row('視力', r.sight)}
+                    ${row('髮型', r.hairS)}
+                    ${row('髮色', r.hairC)}
+                    ${row('慣用語言', r.lan)}
+                    ${row('上衣', r.shirt)}
+                    ${row('褲（裙）', r.pant)}
+                    ${row('鞋', r.shoe)}
+                    ${row('配戴物品', r.wearing)}
+                    ${row('痣（疤）位置', r.scar)}
+                    ${row('其他特徵', r.feature)}
+                </dl>
+                <div class="detail-actions">
+                    <a class="btn btn-primary" href="tel:110">📞 撥打 110 報案</a>
+                </div>
+            </div>`;
+        $detailModal.classList.add('show');
+    }
+    function closeDetail() { $detailModal.classList.remove('show'); }
+
+    // ── Events ──
+    let kwTimer = null;
+    $kw.addEventListener('input', () => { clearTimeout(kwTimer); kwTimer = setTimeout(applyFilters, 180); });
+    [$fGender, $fMind, $fBld, $fHear, $sortSel].forEach(el => el.addEventListener('change', applyFilters));
+    [$ageMin, $ageMax].forEach(el => el.addEventListener('input', () => { clearTimeout(kwTimer); kwTimer = setTimeout(applyFilters, 200); }));
+
+    $clearBtn.addEventListener('click', () => {
+        $kw.value = ''; $fGender.value = ''; $ageMin.value = ''; $ageMax.value = '';
+        $fMind.value = ''; $fBld.value = ''; $fHear.value = ''; $sortSel.value = 'date';
+        applyFilters();
+        toast('已清除篩選條件');
+    });
+    $reloadBtn.addEventListener('click', loadData);
+
+    $results.addEventListener('click', e => {
+        const card = e.target.closest('.card');
+        if (!card) return;
+        const r = DATA[+card.dataset.idx];
+        if (r) openDetail(r);
+    });
+
+    $detailClose.addEventListener('click', closeDetail);
+    $detailModal.addEventListener('click', e => { if (e.target === $detailModal) closeDetail(); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && $detailModal.classList.contains('show')) closeDetail();
+    });
+
+    // ── Init ──
+    loadData();
+    </script>
+</body>
+</html>
