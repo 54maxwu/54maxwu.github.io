@@ -85,12 +85,57 @@
             border: 1.5px solid rgba(255,255,255,0.7);
             border-bottom: 1.5px solid rgba(40,40,40,0.15);
             border-right: 1.5px solid rgba(40,40,40,0.15);
-            padding: 18px 20px;
+            padding: 16px 20px;
             flex: 1;
             min-height: 0;
             display: flex;
             flex-direction: column;
         }
+
+        /* ── Mode tabs ── */
+        .mode-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .mode-tabs {
+            display: inline-flex;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 3px;
+            gap: 3px;
+        }
+        .mode-tab {
+            border: none;
+            background: transparent;
+            padding: 7px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .15s, color .15s, box-shadow .15s;
+        }
+        .mode-tab.active { background: #fff; color: #e11d48; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        .mode-tab:hover:not(.active) { color: #334155; }
+        .settings-btn {
+            margin-left: auto;
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            color: #64748b;
+            transition: border-color .15s, color .15s, background .15s;
+        }
+        .settings-btn:hover { border-color: #e11d48; color: #e11d48; }
+        .settings-btn.unset { border-color: #f59e0b; color: #b45309; background: #fffbeb; }
 
         /* ── Filters ── */
         .filters {
@@ -110,6 +155,7 @@
             text-transform: uppercase;
             letter-spacing: .06em;
         }
+        .field-label.req::after { content: ' *'; color: #e11d48; }
         .kw-wrap { flex: 1 1 240px; }
         .txt, .sel {
             width: 100%;
@@ -126,9 +172,10 @@
         .txt:focus, .sel:focus { border-color: #e11d48; box-shadow: 0 0 0 3px rgba(225,29,72,.12); }
         .txt::placeholder { color: #94a3b8; }
         .sel { cursor: pointer; }
-        .age-row { display: flex; align-items: center; gap: 6px; }
+        .age-row, .date-row { display: flex; align-items: center; gap: 6px; }
         .age-row .txt { width: 64px; text-align: center; }
-        .age-row span { color: #94a3b8; font-size: 12px; }
+        .date-row .txt { width: 96px; text-align: center; }
+        .age-row span, .date-row span { color: #94a3b8; font-size: 12px; }
 
         .btn {
             padding: 8px 16px;
@@ -170,16 +217,18 @@
         .sort-wrap label { font-size: 12px; color: #64748b; }
         .sort-wrap .sel { width: auto; padding: 6px 8px; font-size: 12px; }
 
-        /* ── Results grid (scrollable) ── */
+        /* ── Results (flex wrap, scrollable) ── */
         .results {
             flex: 1;
             min-height: 0;
             overflow-y: auto;
             padding: 4px 6px 6px 2px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            /* flexbox wrap (not grid): a flex line always sizes to its tallest item, so
+               cards never overlap — avoids the grid auto-row track-sizing quirk seen here. */
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
             gap: 14px;
-            align-content: start;
         }
         .results { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
         .results::-webkit-scrollbar { width: 9px; }
@@ -188,14 +237,17 @@
         .results::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: padding-box; }
 
         /* ── Card ── */
+        .card, .skeleton {
+            flex: 1 1 210px;
+            max-width: 300px;
+        }
         .card {
             background: rgba(255,255,255,0.92);
             border: 1.5px solid #e2e8f0;
             border-radius: 12px;
             overflow: hidden;
             cursor: pointer;
-            display: flex;
-            flex-direction: column;
+            display: block;
             box-shadow: 0 1px 3px rgba(0,0,0,.05);
             transition: box-shadow .15s, transform .1s, border-color .15s;
         }
@@ -203,13 +255,13 @@
         .card-photo {
             position: relative;
             width: 100%;
-            aspect-ratio: 3 / 4;
+            height: 230px;
             background:
                 repeating-linear-gradient(45deg, transparent 0 14px, rgba(203,213,225,.18) 14px 28px),
                 #eef2f7;
             overflow: hidden;
         }
-        .card-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .card-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
         .card-photo .no-photo {
             position: absolute; inset: 0;
             display: flex; align-items: center; justify-content: center;
@@ -245,41 +297,29 @@
 
         /* ── Empty / error states ── */
         .state {
-            grid-column: 1 / -1;
+            flex: 1 1 100%;
+            max-width: none;
             text-align: center;
             color: #94a3b8;
             font-size: 13px;
             padding: 50px 20px;
-            line-height: 1.6;
+            line-height: 1.7;
         }
         .state.err { color: #991b1b; }
         .state .retry { margin-top: 14px; }
+        .state a { color: #e11d48; font-weight: 600; cursor: pointer; }
         .skeleton {
             background: rgba(255,255,255,0.7);
             border: 1.5px solid #eef2f7;
             border-radius: 12px;
             overflow: hidden;
         }
-        .skeleton .sk-photo { width: 100%; aspect-ratio: 3 / 4; background: linear-gradient(90deg,#eef2f7 25%,#e2e8f0 37%,#eef2f7 63%); background-size: 400% 100%; animation: shimmer 1.3s infinite; }
+        .skeleton .sk-photo { width: 100%; height: 230px; background: linear-gradient(90deg,#eef2f7 25%,#e2e8f0 37%,#eef2f7 63%); background-size: 400% 100%; animation: shimmer 1.3s infinite; }
         .skeleton .sk-line { height: 11px; margin: 9px 11px; border-radius: 4px; background: linear-gradient(90deg,#eef2f7 25%,#e2e8f0 37%,#eef2f7 63%); background-size: 400% 100%; animation: shimmer 1.3s infinite; }
         .skeleton .sk-line.short { width: 50%; }
         @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
-        /* ── Source note ── */
-        .source-note {
-            flex-shrink: 0;
-            font-size: 11px;
-            color: #64748b;
-            line-height: 1.6;
-            padding-top: 10px;
-            margin-top: 4px;
-            border-top: 1px dashed #e2e8f0;
-        }
-        .source-note a { color: #e11d48; text-decoration: none; font-weight: 600; }
-        .source-note a:hover { text-decoration: underline; }
-        .source-note .warn { color: #b45309; font-weight: 700; }
-
-        /* ── Detail modal ── */
+        /* ── Modal (shared) ── */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -334,23 +374,23 @@
             gap: 18px;
             flex-wrap: wrap;
         }
-        .modal-body { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-        .modal-body::-webkit-scrollbar { width: 9px; }
-        .modal-body::-webkit-scrollbar-track { background: transparent; }
-        .modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
-        .modal-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: padding-box; }
-        .detail-photo {
-            flex: 0 0 200px;
-            width: 200px;
+        .modal-body, .setup-body { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .modal-body::-webkit-scrollbar, .setup-body::-webkit-scrollbar { width: 9px; }
+        .modal-body::-webkit-scrollbar-track, .setup-body::-webkit-scrollbar-track { background: transparent; }
+        .modal-body::-webkit-scrollbar-thumb, .setup-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        .modal-body::-webkit-scrollbar-thumb:hover, .setup-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: padding-box; }
+        #detailModal .modal-box { max-width: 780px; }
+        .detail-photo { flex: 0 0 320px; width: 320px; }
+        .detail-photo .photo-frame {
+            width: 320px; height: 320px; max-width: 100%; border-radius: 10px;
+            border: 1px solid #e2e8f0; background: #eef2f7; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
         }
-        .detail-photo img {
-            width: 100%;
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-            display: block;
-        }
+        .detail-photo .photo-frame img { max-width: 100%; max-height: 100%; display: block; transition: transform .25s ease; }
+        .photo-rotate { display: flex; gap: 8px; margin-top: 10px; }
+        .photo-rotate .btn { flex: 1 1 0; padding: 6px 8px; font-size: 12px; }
         .detail-photo .no-photo {
-            width: 100%; aspect-ratio: 3/4; border-radius: 10px;
+            width: 100%; height: 267px; border-radius: 10px;
             border: 1px solid #e2e8f0; background: #eef2f7;
             display: flex; align-items: center; justify-content: center; color: #b6c1d1; font-size: 13px;
         }
@@ -365,11 +405,52 @@
         }
         .kv-grid dt { color: #64748b; font-weight: 600; }
         .kv-grid dd { color: #1e293b; margin: 0; overflow-wrap: anywhere; }
-        .detail-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
-        .detail-actions .btn { flex: 1 1 auto; text-align: center; }
         @media (max-width: 460px) {
             .detail-photo { flex: 0 0 100%; width: 100%; }
         }
+
+        /* ── Setup (proxy) modal ── */
+        .setup-body { display: block; padding: 18px; overflow-y: auto; }
+        .setup-step { font-size: 13px; color: #334155; line-height: 1.75; margin-bottom: 6px; }
+        .setup-step a { color: #e11d48; font-weight: 600; }
+        .setup-note { font-size: 12px; color: #64748b; line-height: 1.6; margin-top: 12px; }
+        .code-wrap { position: relative; margin: 12px 0 4px; }
+        .code-block {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 14px;
+            margin: 0;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 11.5px;
+            line-height: 1.5;
+            white-space: pre;
+            overflow: auto;
+            max-height: 230px;
+        }
+        .code-block { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .code-block::-webkit-scrollbar { width: 8px; height: 8px; }
+        .code-block::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+        .copy-btn {
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.2);
+            color: #e2e8f0;
+            border-radius: 7px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .12s;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,.22); }
+        .proxy-label { font-size: 12px; font-weight: 700; color: #be123c; margin: 16px 0 6px; }
+        .proxy-input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .proxy-input-row .txt { flex: 1 1 240px; font-family: ui-monospace, Consolas, monospace; }
+        .proxy-status { font-size: 12px; margin-top: 8px; font-weight: 600; }
+        .proxy-status.set { color: #15803d; }
+        .proxy-status.unset { color: #b45309; }
 
         /* ── Toast ── */
         .toast {
@@ -404,7 +485,16 @@
 
     <div class="page-content">
         <div class="glass">
-            <div class="filters">
+            <div class="mode-bar">
+                <div class="mode-tabs">
+                    <button type="button" class="mode-tab active" data-mode="recent">近期協尋名單</button>
+                    <button type="button" class="mode-tab" data-mode="history">歷史查詢</button>
+                </div>
+                <button type="button" class="settings-btn" id="settingsBtn" title="設定歷史查詢代理">⚙</button>
+            </div>
+
+            <!-- 近期協尋名單：抓全部 → 前端篩選 -->
+            <div class="filters" id="filtersRecent">
                 <div class="field kw-wrap">
                     <span class="field-label">關鍵字</span>
                     <input type="text" class="txt" id="kw" placeholder="姓名、衣著、特徵、髮型…" autocomplete="off" spellcheck="false">
@@ -458,6 +548,39 @@
                 <button type="button" class="btn btn-primary" id="reloadBtn">重新整理</button>
             </div>
 
+            <!-- 歷史查詢：依官方 API 條件 POST(透過自架代理) -->
+            <div class="filters" id="filtersHistory" hidden>
+                <div class="field">
+                    <span class="field-label req">發生縣市</span>
+                    <select class="sel" id="hCity"></select>
+                </div>
+                <div class="field">
+                    <span class="field-label">性別</span>
+                    <select class="sel" id="hGender">
+                        <option value="">全部</option>
+                        <option value="Male">男</option>
+                        <option value="Female">女</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <span class="field-label req">發現年月（民國）</span>
+                    <div class="date-row">
+                        <input type="text" class="txt" id="hStart" placeholder="110/01" autocomplete="off" spellcheck="false">
+                        <span>至</span>
+                        <input type="text" class="txt" id="hEnd" placeholder="115/05" autocomplete="off" spellcheck="false">
+                    </div>
+                </div>
+                <div class="field">
+                    <span class="field-label">年齡範圍</span>
+                    <div class="age-row">
+                        <input type="number" class="txt" id="hAgeMin" placeholder="0" min="0" max="120">
+                        <span>—</span>
+                        <input type="number" class="txt" id="hAgeMax" placeholder="120" min="0" max="120">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" id="historySearchBtn">查詢</button>
+            </div>
+
             <div class="results-bar">
                 <div class="count-text" id="countText">載入中…</div>
                 <div class="sort-wrap">
@@ -472,15 +595,10 @@
             </div>
 
             <div class="results" id="results"></div>
-
-            <div class="source-note">
-                資料來源：<a href="https://od.moi.gov.tw/adm/missingPersons" target="_blank" rel="noopener">內政部警政署「失蹤人口查尋」開放資料</a>，
-                僅含公開協尋名單（最近約 30 日），不含受保護或家屬不願公開之案件。姓名依規定去識別化。
-                <span class="warn">若您發現相關人士，請立即撥打 110 或洽當地警察機關。</span>
-            </div>
         </div>
     </div>
 
+    <!-- 詳細資料 -->
     <div class="modal-overlay" id="detailModal">
         <div class="modal-box">
             <div class="modal-header">
@@ -491,17 +609,52 @@
         </div>
     </div>
 
+    <!-- 代理設定 -->
+    <div class="modal-overlay" id="setupModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>設定歷史查詢代理（一次性）</span>
+                <button type="button" class="modal-close" id="setupClose">&times;</button>
+            </div>
+            <div class="setup-body">
+                <div class="setup-step">「歷史查詢」需向政府 API 發送 POST 請求,但該 API 未開放跨網域(CORS)。請用免費的 <b>Cloudflare Workers</b> 建立一個小代理(約 2 分鐘):</div>
+                <div class="setup-step">1. 登入 <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">dash.cloudflare.com</a> → 左側 <b>Workers &amp; Pages</b> → <b>Create</b> → <b>Create Worker</b>。</div>
+                <div class="setup-step">2. 進入編輯器,把下方程式碼<b>整段貼上</b>取代範本 → <b>Deploy</b>。</div>
+                <div class="code-wrap">
+                    <pre class="code-block" id="codeBlock"></pre>
+                    <button type="button" class="copy-btn" id="copyCode">複製</button>
+                </div>
+                <div class="setup-step">3. 部署後複製你的 Worker 網址(形如 <code>https://xxxx.你的帳號.workers.dev</code>),貼到下方並儲存:</div>
+                <div class="proxy-label">代理網址</div>
+                <div class="proxy-input-row">
+                    <input type="text" class="txt" id="proxyInput" placeholder="https://xxxx.your-name.workers.dev" autocomplete="off" spellcheck="false">
+                    <button type="button" class="btn btn-primary" id="proxySave">儲存</button>
+                    <button type="button" class="btn btn-secondary" id="proxyClear">清除</button>
+                </div>
+                <div class="proxy-status" id="proxyStatus"></div>
+                <div class="setup-note">說明:代理只是把你的查詢條件原封轉送給警政署 API 並補上 CORS 標頭,不會儲存任何資料。也可改用 Val.town、Deno Deploy 等其他平台,只要能轉送 POST 並回 <code>Access-Control-Allow-Origin</code> 即可。</div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <script>
     // ── DOM refs ──
     const $ = id => document.getElementById(id);
     const $results = $('results'), $countText = $('countText'), $statusPill = $('statusPill'), $statusText = $('statusText');
+    const $filtersRecent = $('filtersRecent'), $filtersHistory = $('filtersHistory');
     const $kw = $('kw'), $fGender = $('fGender'), $ageMin = $('ageMin'), $ageMax = $('ageMax');
     const $fMind = $('fMind'), $fBld = $('fBld'), $fHear = $('fHear'), $sortSel = $('sortSel');
     const $clearBtn = $('clearBtn'), $reloadBtn = $('reloadBtn');
+    const $hCity = $('hCity'), $hGender = $('hGender'), $hStart = $('hStart'), $hEnd = $('hEnd');
+    const $hAgeMin = $('hAgeMin'), $hAgeMax = $('hAgeMax'), $historySearchBtn = $('historySearchBtn');
     const $detailModal = $('detailModal'), $detailBody = $('detailBody'), $detailClose = $('detailClose');
+    const $settingsBtn = $('settingsBtn'), $setupModal = $('setupModal'), $setupClose = $('setupClose');
+    const $codeBlock = $('codeBlock'), $copyCode = $('copyCode');
+    const $proxyInput = $('proxyInput'), $proxySave = $('proxySave'), $proxyClear = $('proxyClear'), $proxyStatus = $('proxyStatus');
     const $toast = $('toast');
+    const modeTabs = [...document.querySelectorAll('.mode-tab')];
 
     // ── Code → label maps (authoritative, from od.moi.gov.tw query form) ──
     const BLD  = { '1': 'A', '2': 'B', '3': 'O', '4': 'AB' };
@@ -510,19 +663,57 @@
     // E8_OC_PLACE is a numeric occurrence-location code that the official open-data
     // service itself does not publish a key for, so it is intentionally not shown.
 
-    // ── Data source ──
-    // The NPA API sends no CORS header, so JSON is fetched through a CORS proxy.
-    // Photos load directly via <img> (images aren't CORS-restricted for display).
-    const SRC = {
-        Male:   'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson/json/Male',
-        Female: 'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson/json/Female',
-    };
-    const PROXIES = [
+    // 發生縣市(戶籍) — value→label, only the cities the API accepts (the *_COUNTY merged
+    // duplicates are rejected as 無效參數, so they're excluded).
+    const CITIES = [
+        ['NEW_TAIPEI','新北市'], ['TAIPEI','臺北市'], ['TAOYUAN','桃園市'], ['TAICHUNG','臺中市'],
+        ['TAINAN','臺南市'], ['KAOHSIUNG','高雄市'], ['KEELUNG','基隆市'], ['HSINCHU','新竹市'],
+        ['CHIAYI','嘉義市'], ['HSINCHU_COUNTY','新竹縣'], ['MIAOLI','苗栗縣'], ['CHANGHUA','彰化縣'],
+        ['NANTOU','南投縣'], ['YUNLIN','雲林縣'], ['CHIAYI_COUNTY','嘉義縣'], ['PINGTUNG','屏東縣'],
+        ['YILAN','宜蘭縣'], ['HUALIEN','花蓮縣'], ['TAITUNG','臺東縣'], ['PENGHU','澎湖縣'],
+        ['KINMEN','金門縣'], ['LIENCHIANG','連江縣'],
+    ];
+
+    // ── Data sources ──
+    // The NPA API sends no CORS header. The recent feed is GET → works through a public
+    // read-only proxy. The historical query is POST → needs the user's own proxy (no
+    // reliable free public POST proxy exists). Photos load directly via <img>.
+    const NPA = 'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson';
+    const SRC = { Male: NPA + '/json/Male', Female: NPA + '/json/Female' };
+    const GET_PROXIES = [
         u => 'https://api.codetabs.com/v1/proxy/?quest=' + u,
         u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
     ];
+    const PROXY_KEY = 'mp_history_proxy';
+    const DEFAULT_PROXY = 'https://missing.54maxwu.workers.dev';
+    const DATE_RE = /^\d{3}\/(0[1-9]|1[0-2])$/;
 
-    let DATA = [];   // normalized records
+    const WORKER_CODE =
+`export default {
+  async fetch(request) {
+    const CORS = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+    if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+    if (request.method !== 'POST') return new Response('POST only', { status: 405, headers: CORS });
+    const upstream = await fetch(
+      'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson/json',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: await request.text() }
+    );
+    const text = await upstream.text();
+    return new Response(text, {
+      status: upstream.status,
+      headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+};`;
+
+    let mode = 'recent';
+    let DATA = [];            // currently-displayed normalized records (card click reads this)
+    let recentCache = null;   // recent feed, fetched once
+    let historyCache = null;  // last history query result
 
     // ── Helpers ──
     const clean = v => (v == null ? '' : String(v)).trim();
@@ -540,8 +731,10 @@
         $toast.classList.toggle('err', kind === 'err');
         $toast.classList.add('show');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => $toast.classList.remove('show'), 2600);
+        toastTimer = setTimeout(() => $toast.classList.remove('show'), 2800);
     }
+    const getProxy = () => { try { return localStorage.getItem(PROXY_KEY) || DEFAULT_PROXY; } catch { return DEFAULT_PROXY; } };
+    const setProxyStore = v => { try { v ? localStorage.setItem(PROXY_KEY, v) : localStorage.removeItem(PROXY_KEY); } catch {} };
 
     function parseBirth(s) {
         s = clean(s);
@@ -591,10 +784,10 @@
         return r;
     }
 
-    // ── Fetch via proxy chain ──
+    // ── Fetch (recent feed, GET via public proxy) ──
     async function fetchJSON(url) {
         let lastErr;
-        for (const build of PROXIES) {
+        for (const build of GET_PROXIES) {
             try {
                 const res = await fetch(build(url), { cache: 'no-store' });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -606,6 +799,19 @@
         throw lastErr || new Error('全部代理伺服器皆失敗');
     }
 
+    // ── POST (historical query, via user proxy) ──
+    async function postHistory(proxy, body) {
+        // No Content-Type header → browser uses text/plain (CORS-safe) → no preflight.
+        const res = await fetch(proxy, { method: 'POST', body: JSON.stringify(body), cache: 'no-store' });
+        const text = await res.text();
+        if (!res.ok) throw new Error('代理回應 HTTP ' + res.status);
+        let data;
+        try { data = JSON.parse(text); }
+        catch { throw new Error(text.slice(0, 80) || '回應格式錯誤'); }
+        if (!Array.isArray(data)) throw new Error(typeof data === 'string' ? data : (data.message || '查詢失敗'));
+        return data;
+    }
+
     function renderSkeleton(n = 8) {
         let h = '';
         for (let i = 0; i < n; i++) {
@@ -614,6 +820,7 @@
         $results.innerHTML = h;
     }
 
+    // ── Recent feed ──
     async function loadData() {
         setStatus('載入中…', 'busy');
         $countText.textContent = '載入中…';
@@ -621,11 +828,12 @@
         renderSkeleton();
         try {
             const [male, female] = await Promise.all([fetchJSON(SRC.Male), fetchJSON(SRC.Female)]);
-            DATA = [
+            recentCache = [
                 ...male.map(r => normalize(r, 'Male')),
                 ...female.map(r => normalize(r, 'Female')),
             ];
-            setStatus(`已載入 ${DATA.length} 筆`, 'ok');
+            DATA = recentCache;
+            setStatus(`已載入 ${recentCache.length} 筆`, 'ok');
             applyFilters();
         } catch (e) {
             console.error(e);
@@ -639,8 +847,9 @@
         }
     }
 
-    // ── Filtering + sorting ──
     function applyFilters() {
+        if (mode !== 'recent') return;
+        DATA = recentCache || [];
         const kw = $kw.value.trim().toLowerCase();
         const g  = $fGender.value;
         const mn = $ageMin.value === '' ? null : +$ageMin.value;
@@ -657,19 +866,71 @@
             if (kw && !r.search.includes(kw)) return false;
             return true;
         });
+        sortList(list);
+        renderCards(list);
+        $countText.innerHTML = DATA.length ? `符合條件 <b>${list.length}</b> 筆 ／ 共 ${DATA.length} 筆` : '';
+    }
 
+    // ── Historical query ──
+    function rocNow() {
+        const n = new Date();
+        return { y: n.getFullYear() - 1911, m: String(n.getMonth() + 1).padStart(2, '0') };
+    }
+    async function runHistory() {
+        const proxy = getProxy();
+        if (!proxy) { toast('請先設定代理網址', 'err'); openSetup(); return; }
+
+        const city = $hCity.value;
+        if (!city) { toast('請選擇發生縣市', 'err'); return; }
+        const sd = $hStart.value.trim(), ed = $hEnd.value.trim();
+        if (!DATE_RE.test(sd) || !DATE_RE.test(ed)) { toast('年月格式須為 民國YYY/MM,例如 110/01', 'err'); return; }
+        const sa = $hAgeMin.value === '' ? '0' : String(+$hAgeMin.value);
+        const ea = $hAgeMax.value === '' ? '130' : String(+$hAgeMax.value);
+        const genders = $hGender.value ? [$hGender.value] : ['Male', 'Female'];
+
+        setStatus('查詢中…', 'busy');
+        $countText.textContent = '查詢中…';
+        $historySearchBtn.disabled = true;
+        renderSkeleton();
+        try {
+            let all = [];
+            for (const g of genders) {
+                const body = { Gender: g, City: city, StartDate: sd, EndDate: ed, StartAge: sa, EndAge: ea };
+                const arr = await postHistory(proxy, body);
+                all = all.concat(arr.map(r => normalize(r, g)));
+            }
+            historyCache = all;
+            DATA = all;
+            setStatus(`查詢結果 ${all.length} 筆`, all.length ? 'ok' : 'idle');
+            renderHistory();
+        } catch (e) {
+            console.error(e);
+            setStatus('查詢失敗', 'err');
+            $countText.textContent = '';
+            $results.innerHTML =
+                `<div class="state err">查詢失敗：${esc(e.message || e)}<br>
+                 請確認代理網址正確,或<a onclick="openSetup()">重新設定代理</a>。</div>`;
+        } finally {
+            $historySearchBtn.disabled = false;
+        }
+    }
+    function renderHistory() {
+        if (mode !== 'history') return;
+        DATA = historyCache || [];
+        const list = DATA.slice();
+        sortList(list);
+        renderCards(list);
+        $countText.innerHTML = `查詢結果 <b>${list.length}</b> 筆`;
+    }
+
+    function sortList(list) {
         const sort = $sortSel.value;
         list.sort((a, b) => {
             if (sort === 'ageAsc')  return (a.age ?? 999) - (b.age ?? 999);
             if (sort === 'ageDesc') return (b.age ?? -1)  - (a.age ?? -1);
             if (sort === 'name')    return a.name.localeCompare(b.name, 'zh-Hant');
-            return (b.ocDate || '').localeCompare(a.ocDate || ''); // date new→old
+            return (b.ocDate || '').localeCompare(a.ocDate || '');
         });
-
-        renderCards(list);
-        $countText.innerHTML = DATA.length
-            ? `符合條件 <b>${list.length}</b> 筆 ／ 共 ${DATA.length} 筆`
-            : '';
     }
 
     function careTags(r) {
@@ -681,11 +942,11 @@
 
     function renderCards(list) {
         if (!list.length) {
-            $results.innerHTML = '<div class="state">沒有符合條件的資料。<br>請調整或清除篩選條件。</div>';
+            $results.innerHTML = '<div class="state">沒有符合條件的資料。<br>請調整查詢/篩選條件。</div>';
             return;
         }
         const frag = document.createDocumentFragment();
-        list.forEach((r, i) => {
+        list.forEach(r => {
             const idx = DATA.indexOf(r);
             const el = document.createElement('div');
             el.className = 'card';
@@ -728,8 +989,14 @@
     function openDetail(r) {
         const tags = careTags(r).map(t => `<span class="care-tag">${esc(t)}</span>`).join('');
         const photo = r.pic
-            ? `<img src="${esc(r.pic)}" alt="協尋照片" referrerpolicy="no-referrer"
-                    onerror="this.outerHTML='<div class=\\'no-photo\\'>無照片</div>';">`
+            ? `<div class="photo-frame">
+                    <img src="${esc(r.pic)}" alt="協尋照片" referrerpolicy="no-referrer"
+                         onerror="this.closest('.detail-photo').innerHTML='<div class=\\'no-photo\\'>無照片</div>';">
+               </div>
+               <div class="photo-rotate">
+                    <button type="button" class="btn btn-secondary" data-rot="-90" title="向左旋轉">↺ 左轉</button>
+                    <button type="button" class="btn btn-secondary" data-rot="90" title="向右旋轉">↻ 右轉</button>
+               </div>`
             : `<div class="no-photo">無照片</div>`;
         const ageTxt = r.age != null ? `${r.age} 歲` : '不詳';
         $detailBody.innerHTML = `
@@ -759,19 +1026,82 @@
                     ${row('痣（疤）位置', r.scar)}
                     ${row('其他特徵', r.feature)}
                 </dl>
-                <div class="detail-actions">
-                    <a class="btn btn-primary" href="tel:110">📞 撥打 110 報案</a>
-                </div>
             </div>`;
         $detailModal.classList.add('show');
+
+        const img = $detailBody.querySelector('.photo-frame img');
+        if (img) {
+            let rot = 0;
+            $detailBody.querySelectorAll('.photo-rotate button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    rot = (rot + Number(btn.dataset.rot)) % 360;
+                    img.style.transform = `rotate(${rot}deg)`;
+                });
+            });
+        }
     }
     function closeDetail() { $detailModal.classList.remove('show'); }
+
+    // ── Setup (proxy) modal ──
+    function refreshProxyUI() {
+        const has = !!getProxy();
+        $settingsBtn.classList.toggle('unset', !has);
+        $settingsBtn.title = has ? '歷史查詢代理：已設定' : '尚未設定歷史查詢代理';
+    }
+    function openSetup() {
+        $proxyInput.value = getProxy();
+        const has = !!getProxy();
+        $proxyStatus.className = 'proxy-status ' + (has ? 'set' : 'unset');
+        $proxyStatus.textContent = has ? '✓ 已設定代理' : '尚未設定';
+        $setupModal.classList.add('show');
+    }
+    function closeSetup() { $setupModal.classList.remove('show'); }
+    function saveProxy() {
+        let v = $proxyInput.value.trim();
+        if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+        if (v) {
+            try { new URL(v); } catch { toast('網址格式不正確', 'err'); return; }
+        }
+        setProxyStore(v);
+        refreshProxyUI();
+        $proxyStatus.className = 'proxy-status ' + (v ? 'set' : 'unset');
+        $proxyStatus.textContent = v ? '✓ 已儲存' : '已清除';
+        toast(v ? '代理已儲存' : '代理已清除');
+        if (v && mode === 'history' && !historyCache) {
+            // ready to use — nudge the prompt
+            setMode('history');
+        }
+    }
+
+    // ── Mode switching ──
+    function setMode(m) {
+        mode = m;
+        modeTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+        $filtersRecent.hidden = m !== 'recent';
+        $filtersHistory.hidden = m !== 'history';
+        if (m === 'recent') {
+            if (recentCache) { applyFilters(); }
+            else { loadData(); }
+        } else {
+            if (historyCache) { renderHistory(); }
+            else {
+                DATA = [];
+                $countText.textContent = '';
+                const has = !!getProxy();
+                setStatus(has ? '可開始查詢' : '需設定代理', 'idle');
+                $results.innerHTML = has
+                    ? '<div class="state">設定發生縣市、年月與年齡後,按「查詢」搜尋歷史失蹤資料。</div>'
+                    : '<div class="state">歷史查詢需先設定免費代理。<br><a onclick="openSetup()">點此設定（一次性,約 2 分鐘）</a></div>';
+            }
+        }
+    }
 
     // ── Events ──
     let kwTimer = null;
     $kw.addEventListener('input', () => { clearTimeout(kwTimer); kwTimer = setTimeout(applyFilters, 180); });
-    [$fGender, $fMind, $fBld, $fHear, $sortSel].forEach(el => el.addEventListener('change', applyFilters));
+    [$fGender, $fMind, $fBld, $fHear].forEach(el => el.addEventListener('change', applyFilters));
     [$ageMin, $ageMax].forEach(el => el.addEventListener('input', () => { clearTimeout(kwTimer); kwTimer = setTimeout(applyFilters, 200); }));
+    $sortSel.addEventListener('change', () => (mode === 'recent' ? applyFilters() : renderHistory()));
 
     $clearBtn.addEventListener('click', () => {
         $kw.value = ''; $fGender.value = ''; $ageMin.value = ''; $ageMax.value = '';
@@ -780,6 +1110,10 @@
         toast('已清除篩選條件');
     });
     $reloadBtn.addEventListener('click', loadData);
+    $historySearchBtn.addEventListener('click', runHistory);
+    [$hStart, $hEnd].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') runHistory(); }));
+
+    modeTabs.forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
 
     $results.addEventListener('click', e => {
         const card = e.target.closest('.card');
@@ -790,11 +1124,35 @@
 
     $detailClose.addEventListener('click', closeDetail);
     $detailModal.addEventListener('click', e => { if (e.target === $detailModal) closeDetail(); });
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && $detailModal.classList.contains('show')) closeDetail();
+    $settingsBtn.addEventListener('click', openSetup);
+    $setupClose.addEventListener('click', closeSetup);
+    $setupModal.addEventListener('click', e => { if (e.target === $setupModal) closeSetup(); });
+    $proxySave.addEventListener('click', saveProxy);
+    $proxyInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveProxy(); });
+    $proxyClear.addEventListener('click', () => { $proxyInput.value = ''; saveProxy(); });
+    $copyCode.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(WORKER_CODE); toast('已複製程式碼'); }
+        catch { toast('複製失敗,請手動選取', 'err'); }
     });
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        if ($setupModal.classList.contains('show')) closeSetup();
+        else if ($detailModal.classList.contains('show')) closeDetail();
+    });
+    window.openSetup = openSetup;
+    window.loadData = loadData;
 
     // ── Init ──
+    CITIES.forEach(([v, label]) => {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = label;
+        $hCity.appendChild(o);
+    });
+    const r = rocNow();
+    $hStart.value = `${r.y - 5}/01`;
+    $hEnd.value = `${r.y}/${r.m}`;
+    $codeBlock.textContent = WORKER_CODE;
+    refreshProxyUI();
     loadData();
     </script>
 </body>
