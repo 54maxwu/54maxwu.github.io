@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>OG 圖片產生器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            z-index: 10;
+            gap: 14px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color .2s, color .2s, border-color .2s;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+
+        .page-content {
+            padding: 12px 20px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
+
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 18px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Two-column layout ── */
+        .og-layout {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            gap: 18px;
+        }
+        @media (max-width: 900px) {
+            .og-layout { flex-direction: column; overflow: auto; }
+        }
+
+        /* ── Controls panel ── */
+        .og-controls {
+            width: 500px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        @media (max-width: 900px) {
+            .og-controls { width: 100%; }
+        }
+
+        .tpl-pick {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.8);
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s;
+            flex-shrink: 0;
+        }
+        .tpl-pick:hover { border-color: #0d9488; box-shadow: 0 2px 10px rgba(13,148,136,.15); }
+        .tpl-pick .tp-swatch {
+            width: 56px; height: 30px; border-radius: 6px; flex-shrink: 0;
+            background: linear-gradient(135deg, #3a1490, #7c3aed);
+            border: 1px solid rgba(0,0,0,.08);
+        }
+        .tpl-pick .tp-info { flex: 1; min-width: 0; }
+        .tpl-pick .tp-label { font-size: 10px; font-weight: 700; color: #0d9488; text-transform: uppercase; letter-spacing: .08em; }
+        .tpl-pick .tp-name { font-size: 14px; font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tpl-pick .tp-chevron { font-size: 12px; color: #94a3b8; font-weight: 700; }
+
+        .form-fields {
+            margin-top: 14px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+        .form-fields { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .form-fields::-webkit-scrollbar { width: 8px; }
+        .form-fields::-webkit-scrollbar-track { background: transparent; }
+        .form-fields::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .form-fields::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        #sharedFields, #tplFields {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-flow: row dense;
+            gap: 13px 16px;
+            align-items: start;
+        }
+        .field-group { margin-bottom: 0; min-width: 0; }
+        .fg-wide { grid-column: 1 / -1; }
+        .field-label {
+            font-size: .72rem;
+            font-weight: 700;
+            color: #0d9488;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            margin-bottom: 6px;
+            display: block;
+        }
+        .ctl-input, .ctl-textarea {
+            width: 100%;
+            font-size: 14px;
+            padding: 9px 11px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            color: #1e293b;
+            font-family: inherit;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .ctl-input:focus, .ctl-textarea:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+        .ctl-textarea { resize: vertical; line-height: 1.5; min-height: 60px; }
+        .ctl-textarea { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .ctl-textarea::-webkit-scrollbar { width: 8px; }
+        .ctl-textarea::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+
+        /* color field */
+        .color-row { display: flex; align-items: center; gap: 8px; }
+        .color-row input[type=color] {
+            width: 42px; height: 38px; padding: 0; border: 1.5px solid #cbd5e1;
+            border-radius: 8px; background: #fff; cursor: pointer; flex-shrink: 0;
+        }
+        .color-row .ctl-input { flex: 1; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
+
+        /* image field */
+        .img-field { display: flex; align-items: center; gap: 10px; }
+        .img-thumb {
+            width: 64px; height: 40px; border-radius: 7px; flex-shrink: 0;
+            border: 1.5px dashed #cbd5e1; background: #f8fafc center/cover no-repeat;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: #94a3b8; overflow: hidden;
+        }
+        .img-thumb.has-img { border-style: solid; border-color: #0d9488; }
+        .img-btns { display: flex; gap: 6px; flex: 1; }
+        .ctl-btn-sm {
+            padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: 7px;
+            border: 1.5px solid #cbd5e1; background: #fff; color: #475569; cursor: pointer;
+            font-family: inherit; transition: background .12s, color .12s, border-color .12s;
+        }
+        .ctl-btn-sm:hover { border-color: #0d9488; color: #0d9488; }
+        .ctl-btn-sm.ghost { color: #94a3b8; }
+        .ctl-btn-sm.ghost:hover { border-color: #ef4444; color: #ef4444; }
+
+        /* ── Preview panel ── */
+        .og-preview {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255,255,255,0.6);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        @media (max-width: 900px) {
+            .og-preview { min-height: 320px; }
+        }
+        .preview-stage {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+            overflow: auto;
+            background:
+                repeating-conic-gradient(#eef2f6 0% 25%, #f8fafc 0% 50%) 50%/22px 22px;
+        }
+        .preview-stage { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .preview-stage::-webkit-scrollbar { width: 8px; height: 8px; }
+        .preview-stage::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        #canvas {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.22);
+        }
+        .preview-bar {
+            border-top: 1px solid #e2e8f0;
+            background: #fff;
+            padding: 11px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .preview-bar .dims {
+            font-size: 12px; color: #64748b; font-family: ui-monospace, Consolas, monospace;
+        }
+        .bar-actions { display: flex; gap: 8px; }
+
+        .btn {
+            padding: 10px 22px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: .04em;
+            font-family: inherit;
+            transition: background .15s, box-shadow .15s, transform .08s;
+        }
+        .btn-primary {
+            background: linear-gradient(145deg, #14b8a6, #0d9488);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(13,148,136,0.35);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 14px rgba(13,148,136,0.45); }
+        .btn-primary:active { transform: scale(.97); }
+        .btn-secondary {
+            background: #fff;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-secondary:hover { background: #f8fafc; color: #0d9488; border-color: #0d9488; }
+        .btn-secondary:active { transform: scale(.97); }
+
+        /* ── Shared field divider + hints ── */
+        .field-divider {
+            margin: 6px 0 14px;
+            font-size: 11px;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: .09em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .field-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+        .field-hint { font-size: 11px; color: #94a3b8; margin-top: 5px; }
+        .field-hint.ok { color: #15803d; }
+
+        /* ── Preview tabs ── */
+        .pv-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px 10px 0;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+        .pv-tab {
+            padding: 9px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            border-bottom: 2px solid transparent;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            font-family: inherit;
+            transition: color .12s, border-color .12s;
+        }
+        .pv-tab:hover { color: #0d9488; }
+        .pv-tab.active { color: #0d9488; border-bottom-color: #0d9488; }
+        .pv-body { flex: 1; min-height: 0; display: flex; }
+        .pv-pane { display: none; flex: 1; min-height: 0; min-width: 0; flex-direction: column; }
+        .pv-pane.active { display: flex; }
+
+        /* ── Social preview ── */
+        .social-bar {
+            display: flex;
+            gap: 8px;
+            padding: 14px 16px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #e2e8f0;
+            background: #fff;
+            flex-shrink: 0;
+        }
+        .sbtn {
+            width: 42px; height: 42px;
+            border-radius: 10px;
+            border: 1.5px solid #e2e8f0;
+            background: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: transform .1s, box-shadow .12s, border-color .12s;
+        }
+        .sbtn svg { width: 21px; height: 21px; fill: currentColor; }
+        .sbtn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+        .sbtn.active { border-color: transparent; color: #fff; }
+
+        .feed {
+            flex: 1; min-height: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+            transition: background .2s;
+        }
+        #scHost, #insScHost {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        /* card scales proportionally via JS transform; this keeps the origin centered */
+        #scHost > .sc, #insScHost > .sc { transform-origin: center center; }
+        .feed { scrollbar-width: thin; scrollbar-color: rgba(120,120,120,.5) transparent; }
+        .feed::-webkit-scrollbar { width: 9px; }
+        .feed::-webkit-scrollbar-thumb { background: rgba(120,120,120,.5); border-radius: 999px; }
+        .feed-facebook { background: #f0f2f5; }
+        .feed-whatsapp { background: #d9d2c8; }
+        .feed-x        { background: #ffffff; }
+        .feed-linkedin { background: #f4f2ee; }
+        .feed-discord  { background: #313338; }
+        .feed-line     { background: #a3c1de; }
+        .feed-telegram { background: #c3dbef; }
+
+        .sc { width: 100%; max-width: 524px; font-family: -apple-system, 'Segoe UI', 'Noto Sans TC', sans-serif; }
+        .sc img.og { display: block; width: 100%; height: auto; }
+        .clamp1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+        .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* Facebook */
+        .sc-fb { border: 1px solid #dadde1; border-radius: 8px; overflow: hidden; background: #fff; }
+        .sc-fb .meta { background: #f2f3f5; padding: 10px 12px; }
+        .sc-fb .dom { font-size: 12px; color: #606770; text-transform: uppercase; }
+        .sc-fb .ttl { font-size: 16px; font-weight: 700; color: #1d2129; margin-top: 3px; line-height: 1.3; }
+        .sc-fb .desc { font-size: 14px; color: #606770; margin-top: 3px; line-height: 1.35; }
+
+        /* X / Twitter */
+        .sc-x .imgwrap { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid #cfd9de; }
+        .sc-x .ttl-pill {
+            position: absolute; left: 12px; bottom: 12px;
+            background: rgba(0,0,0,.77); color: #fff; font-size: 13px;
+            padding: 2px 7px; border-radius: 4px; max-width: 92%;
+        }
+        .sc-x .from { margin-top: 7px; font-size: 14px; color: #536471; }
+
+        /* LinkedIn */
+        .sc-li { display: flex; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; overflow: hidden; }
+        .sc-li .thumb { width: 128px; flex-shrink: 0; background: #eee center/cover no-repeat; }
+        .sc-li .meta { padding: 12px 16px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+        .sc-li .ttl { font-weight: 600; color: rgba(0,0,0,.9); font-size: 15px; line-height: 1.3; }
+        .sc-li .dom { font-size: 12px; color: rgba(0,0,0,.6); margin-top: 6px; }
+
+        /* WhatsApp */
+        .sc-wa { max-width: 360px; background: #dcf8c6; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 1px rgba(0,0,0,.15); }
+        .sc-wa .meta { padding: 8px 10px 10px; }
+        .sc-wa .ttl { font-size: 14px; font-weight: 600; color: #111b21; line-height: 1.3; }
+        .sc-wa .desc { font-size: 13px; color: #667781; margin-top: 2px; line-height: 1.35; }
+        .sc-wa .dom { font-size: 12px; color: #8696a0; margin-top: 4px; }
+
+        /* Discord */
+        .sc-dc { max-width: 432px; background: #2b2d31; border-radius: 4px; border-left: 4px solid #5865f2; padding: 12px 16px 16px; }
+        .sc-dc .dom { font-size: 12px; color: #b5bac1; margin-bottom: 7px; }
+        .sc-dc .ttl { font-size: 16px; font-weight: 600; color: #00a8fc; line-height: 1.3; margin-bottom: 8px; }
+        .sc-dc .desc { font-size: 14px; color: #dbdee1; line-height: 1.4; margin-bottom: 12px; }
+        .sc-dc img.og { border-radius: 4px; max-width: 400px; }
+
+        /* LINE */
+        .sc-line { max-width: 320px; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+        .sc-line .meta { padding: 10px 12px; }
+        .sc-line .ttl { font-size: 14px; font-weight: 600; color: #1f1f1f; line-height: 1.3; }
+        .sc-line .desc { font-size: 12px; color: #8c8c8c; margin-top: 3px; line-height: 1.35; }
+        .sc-line .dom { font-size: 11px; color: #aeb6bd; margin-top: 5px; }
+
+        /* Telegram */
+        .sc-tg { max-width: 420px; background: #fff; border-radius: 10px; padding: 7px 9px; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+        .sc-tg .lp { border-left: 3px solid #3390ec; padding-left: 9px; }
+        .sc-tg .site { color: #3390ec; font-weight: 600; font-size: 14px; }
+        .sc-tg .ttl { color: #111; font-weight: 600; font-size: 14px; margin-top: 1px; line-height: 1.3; }
+        .sc-tg .desc { color: #222; font-size: 13px; margin-top: 1px; line-height: 1.35; }
+        .sc-tg img.og { margin-top: 6px; border-radius: 6px; }
+
+        /* ── Meta tags code ── */
+        .meta-pane { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; padding: 14px 16px; }
+        .code-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 8px; flex-shrink: 0;
+        }
+        .code-head .ttl { font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: .09em; text-transform: uppercase; }
+        .code-block {
+            flex: 1; min-height: 0; margin: 0;
+            background: #0f172a; color: #e2e8f0;
+            padding: 14px 16px; border-radius: 10px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12.5px; line-height: 1.55;
+            white-space: pre; overflow: auto;
+        }
+        .code-block { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .code-block::-webkit-scrollbar { width: 9px; height: 9px; }
+        .code-block::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+
+        /* ── Mode switch ── */
+        .mode-switch {
+            display: flex;
+            gap: 4px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 3px;
+        }
+        .mode-btn {
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            border-radius: 7px;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .12s, color .12s;
+        }
+        .mode-btn:hover { color: #0d9488; }
+        .mode-btn.active { background: #fff; color: #0d9488; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        .status-pill.err { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+
+        /* ── URL inspector ── */
+        .ins-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        .ins-search {
+            display: flex; gap: 12px; align-items: center; justify-content: center;
+            padding: 4px 0 16px; flex-shrink: 0;
+        }
+        .ins-search input {
+            flex: 1; max-width: 720px; font-size: 15px; padding: 12px 16px;
+            border: 1.5px solid #cbd5e1; border-radius: 10px; outline: none;
+            background: #fff; color: #1e293b; font-family: inherit;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .ins-search input:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+        .ins-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .ins-empty {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            text-align: center; color: #94a3b8; font-size: 14px;
+            padding: 40px 24px; line-height: 1.7; max-width: 640px; margin: 0 auto;
+        }
+        .ins-results { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+
+        /* Top row: social preview (left) + meta detail (right) */
+        .ins-grid {
+            flex: 1; min-height: 0;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 20px;
+        }
+        .ins-col { min-height: 0; display: flex; flex-direction: column; }
+
+        .ins-section-title {
+            font-size: 12px; font-weight: 800; color: #334155; letter-spacing: .04em;
+            margin: 6px 0 10px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+        }
+        .ins-section-title:first-child { margin-top: 0; }
+
+        .ins-feed {
+            flex: 1; min-height: 0; overflow: hidden; padding: 14px;
+            border: 1px solid #e2e8f0; border-radius: 12px;
+        }
+        .ins-detail {
+            flex: 1; min-height: 0; overflow: auto;
+            border: 1px solid #e2e8f0; border-radius: 10px;
+        }
+        .ins-detail { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .ins-detail::-webkit-scrollbar { width: 9px; }
+        .ins-detail::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .ins-detail { overflow: auto; }
+        .ins-detail::-webkit-scrollbar { height: 9px; }
+        .ins-detail table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .ins-detail td { padding: 9px 12px; vertical-align: top; border-bottom: 1px solid #eef2f6; white-space: nowrap; }
+        .ins-detail tr:last-child td { border-bottom: none; }
+        .ins-detail td.k {
+            color: #475569; background: #f1f5f9; position: sticky; left: 0;
+            font-family: ui-monospace, Consolas, monospace;
+        }
+        .ins-detail td.v { color: #1e293b; }
+
+        /* Bottom: issues, compact multi-column so they read at a glance */
+        .ins-issues-wrap { flex-shrink: 0; max-height: 30%; display: flex; flex-direction: column; }
+        #insIssues {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 8px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        #insIssues { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        #insIssues::-webkit-scrollbar { width: 8px; }
+        #insIssues::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .issue-card {
+            background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px;
+            padding: 9px 13px; display: flex; gap: 10px;
+            align-items: center; color: #92400e; font-size: 13px; line-height: 1.4;
+        }
+        .issue-card .ic { width: 18px; text-align: center; flex-shrink: 0; font-weight: 800; }
+        .issue-card.ins-ok { background: #ecfdf5; border-color: #bbf7d0; color: #15803d; }
+
+        @media (max-width: 860px) {
+            .ins-body { overflow-y: auto; }
+            .ins-grid { grid-template-columns: 1fr; }
+            .ins-feed, .ins-detail { flex: none; min-height: 260px; }
+            .ins-issues-wrap { max-height: none; }
+        }
+
+        /* ── Proxy setup modal ── */
+        .proxy-body { padding: 18px; overflow-y: auto; }
+        .proxy-note { font-size: 13px; color: #475569; line-height: 1.6; margin-bottom: 10px; }
+        .proxy-note code { background: #f1f5f9; padding: 1px 6px; border-radius: 5px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #be123c; }
+        .proxy-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .proxy-row .ctl-input { flex: 1 1 240px; font-family: ui-monospace, Consolas, monospace; }
+        .proxy-status { font-size: 12px; margin-top: 8px; font-weight: 600; min-height: 16px; }
+        .proxy-status.set { color: #15803d; }
+        .proxy-status.unset { color: #b45309; }
+        .proxy-code { flex: none; max-height: 320px; margin-top: 8px; }
+
+        /* ── Template chooser modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 24px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 860px;
+            max-height: 86vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4);
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .modal-close {
+            background: transparent;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            color: #64748b;
+            font-family: inherit;
+            transition: background .12s, color .12s;
+        }
+        .modal-close:hover { background: #fef2f2; color: #b91c1c; }
+        .tpl-grid {
+            padding: 18px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        .tpl-grid { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .tpl-grid::-webkit-scrollbar { width: 8px; }
+        .tpl-grid::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .tpl-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            background: #fff;
+            transition: border-color .15s, transform .1s, box-shadow .15s;
+        }
+        .tpl-card:hover { border-color: #0d9488; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(13,148,136,.18); }
+        .tpl-card.selected { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.18); }
+        .tpl-thumb { width: 100%; display: block; aspect-ratio: 1200/630; background: #0f172a; }
+        .tpl-name { padding: 9px 12px; font-size: 13px; font-weight: 600; color: #334155; text-align: center; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,.4);
+            opacity: 0;
+            transition: opacity .2s, transform .2s;
+            z-index: 200;
+            pointer-events: none;
+            border: 1px solid #334155;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1 id="appTitle">OG 圖片產生器</h1>
+        <div class="mode-switch">
+            <button type="button" class="mode-btn active" data-mode="gen">圖片產生器</button>
+            <button type="button" class="mode-btn" data-mode="inspect">網址檢查</button>
+        </div>
+        <div class="header-meta">
+            <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">準備就緒</span></span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="og-layout" id="genView">
+                <div class="og-controls">
+                    <div class="tpl-pick" id="tplPick">
+                        <div class="tp-swatch" id="tpSwatch"></div>
+                        <div class="tp-info">
+                            <div class="tp-label">樣版 Template</div>
+                            <div class="tp-name" id="tpName">—</div>
+                        </div>
+                        <div class="tp-chevron">更換 ▾</div>
+                    </div>
+                    <div class="form-fields">
+                        <div class="field-divider">分享資訊 Share Info</div>
+                        <div id="sharedFields"></div>
+                        <div class="field-divider">圖片內容 Image Content</div>
+                        <div id="tplFields"></div>
+                    </div>
+                </div>
+
+                <div class="og-preview">
+                    <div class="pv-tabs">
+                        <button type="button" class="pv-tab active" data-pane="canvas">圖片</button>
+                        <button type="button" class="pv-tab" data-pane="social">社群預覽</button>
+                        <button type="button" class="pv-tab" data-pane="meta">Meta 標籤</button>
+                    </div>
+                    <div class="pv-body">
+                        <div class="pv-pane active" data-pane="canvas">
+                            <div class="preview-stage">
+                                <canvas id="canvas" width="1200" height="630"></canvas>
+                            </div>
+                            <div class="preview-bar">
+                                <span class="dims" id="dims">1200 × 630 px</span>
+                                <div class="bar-actions">
+                                    <button type="button" class="btn btn-secondary" id="resetBtn">還原預設</button>
+                                    <button type="button" class="btn btn-primary" id="downloadBtn">下載 PNG ↓</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pv-pane" data-pane="social">
+                            <div class="social-bar" id="socialBar"></div>
+                            <div class="feed feed-facebook" id="feed"><div class="sc-host" id="scHost"></div></div>
+                        </div>
+                        <div class="pv-pane" data-pane="meta">
+                            <div class="meta-pane">
+                                <div class="code-head">
+                                    <span class="ttl">Meta Tags Code</span>
+                                    <button type="button" class="btn btn-secondary" id="copyMeta" style="padding:6px 14px;">⧉ 複製</button>
+                                </div>
+                                <pre class="code-block" id="metaCode"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ins-view" id="insView" hidden>
+                <div class="ins-search">
+                    <input id="insUrl" type="text" placeholder="輸入完整網址，例如 https://example.com" autocomplete="off" spellcheck="false">
+                    <button type="button" class="btn btn-primary" id="insBtn">檢查網址</button>
+                    <button type="button" class="btn btn-secondary" id="insProxyBtn" title="設定代理 Worker">⚙ 代理</button>
+                </div>
+                <div class="ins-body">
+                    <div class="ins-empty" id="insEmpty">輸入網址後按「檢查網址」，即可預覽各平台分享外觀、發現中繼資料問題，並查看完整 meta 標籤。</div>
+                    <div class="ins-results" id="insResults" hidden>
+                        <div class="ins-grid">
+                            <div class="ins-col">
+                                <div class="ins-section-title">各平台分享預覽</div>
+                                <div class="social-bar" id="insSocialBar"></div>
+                                <div class="feed ins-feed feed-facebook" id="insFeed"><div id="insScHost"></div></div>
+                            </div>
+                            <div class="ins-col">
+                                <div class="ins-section-title">詳細 Meta 資訊</div>
+                                <div class="ins-detail" id="insDetail"></div>
+                            </div>
+                        </div>
+                        <div class="ins-issues-wrap">
+                            <div class="ins-section-title" id="insIssuesTitle">中繼資料檢查</div>
+                            <div id="insIssues"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="tplModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>選擇樣版 Template</span>
+                <button type="button" class="modal-close" id="tplClose">&times;</button>
+            </div>
+            <div class="tpl-grid" id="tplGrid"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="proxyModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span>設定代理 Worker</span>
+                <button type="button" class="modal-close" id="proxyClose">&times;</button>
+            </div>
+            <div class="proxy-body">
+                <p class="proxy-note">瀏覽器無法直接抓取其他網站的 HTML（跨域限制），需經過一個代理。建議使用你自己的 Cloudflare Worker（免費、穩定、不受公用代理限流）。</p>
+                <p class="proxy-note">注意：你現有的 <code>missing.54maxwu.workers.dev</code> 只會轉發到警政署 API（且僅接受 POST），無法當作通用代理。請部署下方這支「通用 <code>?url=</code> 代理」Worker，再把網址貼到下面。留空則改用公用代理。</p>
+                <label class="field-label">代理網址</label>
+                <div class="proxy-row">
+                    <input type="text" class="ctl-input" id="proxyInput" placeholder="https://og.你的帳號.workers.dev" autocomplete="off" spellcheck="false">
+                    <button type="button" class="btn btn-primary" id="proxySave" style="padding:9px 16px;">儲存</button>
+                    <button type="button" class="btn btn-secondary" id="proxyClear" style="padding:9px 16px;">清除</button>
+                </div>
+                <div class="proxy-status" id="proxyStatus"></div>
+                <div class="code-head" style="margin-top:16px;">
+                    <span class="ttl">通用代理 Worker 程式碼</span>
+                    <button type="button" class="btn btn-secondary" id="proxyCopy" style="padding:6px 14px;">⧉ 複製</button>
+                </div>
+                <pre class="code-block proxy-code" id="proxyCode"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    const FF = "'Microsoft JhengHei','PingFang TC','Noto Sans TC',-apple-system,'Segoe UI',sans-serif";
+
+    // ── Canvas drawing helpers ─────────────────────────────
+    function roundRect(ctx, x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y,     x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x,     y + h, r);
+        ctx.arcTo(x,     y + h, x,     y,     r);
+        ctx.arcTo(x,     y,     x + w, y,     r);
+        ctx.closePath();
+    }
+    function hexToRgb(h) {
+        h = String(h || '#000').replace('#', '');
+        if (h.length === 3) h = h.split('').map(c => c + c).join('');
+        const n = parseInt(h, 16) || 0;
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+    function hexA(h, a) { const { r, g, b } = hexToRgb(h); return `rgba(${r},${g},${b},${a})`; }
+    function lighten(h, p) { const { r, g, b } = hexToRgb(h); const f = v => Math.round(v + (255 - v) * p / 100); return `rgb(${f(r)},${f(g)},${f(b)})`; }
+    function darken(h, p)  { const { r, g, b } = hexToRgb(h); const f = v => Math.round(v * (1 - p / 100));        return `rgb(${f(r)},${f(g)},${f(b)})`; }
+    function setLS(ctx, v) { try { ctx.letterSpacing = v; } catch (e) {} }
+
+    const CJK = '\\u3000-\\u303f\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uff00-\\uffef';
+    function tokenize(str) {
+        const re = new RegExp(`\\s+|[${CJK}]|[^\\s${CJK}]+`, 'g');
+        return String(str).match(re) || [];
+    }
+    function wrapLines(ctx, text, maxW) {
+        const out = [];
+        String(text == null ? '' : text).split('\n').forEach(para => {
+            if (para === '') { out.push(''); return; }
+            let line = '';
+            for (const tk of tokenize(para)) {
+                const test = line + tk;
+                if (line && ctx.measureText(test).width > maxW) {
+                    out.push(line.replace(/\s+$/, ''));
+                    line = /^\s+$/.test(tk) ? '' : tk;
+                } else line = test;
+            }
+            out.push(line.replace(/\s+$/, ''));
+        });
+        return out;
+    }
+    function drawImageCover(ctx, img, x, y, w, h, r) {
+        ctx.save();
+        roundRect(ctx, x, y, w, h, r || 0);
+        ctx.clip();
+        const ir = img.width / img.height, br = w / h;
+        let dw, dh, dx, dy;
+        if (ir > br) { dh = h; dw = h * ir; dx = x - (dw - w) / 2; dy = y; }
+        else         { dw = w; dh = w / ir; dx = x; dy = y - (dh - h) / 2; }
+        ctx.drawImage(img, dx, dy, dw, dh);
+        ctx.restore();
+    }
+    function placeholderImg(ctx, x, y, w, h, r, text) {
+        ctx.save();
+        roundRect(ctx, x, y, w, h, r);
+        ctx.clip();
+        const g = ctx.createLinearGradient(x, y, x + w, y + h);
+        g.addColorStop(0, '#1e293b'); g.addColorStop(1, '#0f172a');
+        ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = 'rgba(255,255,255,.4)';
+        ctx.font = `600 22px ${FF}`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(text, x + w / 2, y + h / 2);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.restore();
+    }
+    // Draw a "browser window" frame and return inner image rect
+    function browserFrame(ctx, x, y, w, h, r) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(15,23,42,.22)';
+        ctx.shadowBlur = 30; ctx.shadowOffsetY = 14;
+        roundRect(ctx, x, y, w, h, r);
+        ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.restore();
+        const bar = 34;
+        ctx.save();
+        roundRect(ctx, x, y, w, bar, r);
+        ctx.fillStyle = '#f1f5f9'; ctx.fill();
+        ctx.fillRect(x, y + bar - r, w, r);
+        ctx.restore();
+        ['#fb7185', '#fbbf24', '#34d399'].forEach((c, i) => {
+            ctx.beginPath(); ctx.arc(x + 20 + i * 18, y + bar / 2, 5, 0, Math.PI * 2);
+            ctx.fillStyle = c; ctx.fill();
+        });
+        return { ix: x + 8, iy: y + bar, iw: w - 16, ih: h - bar - 8 };
+    }
+
+    // Rotated image inside a white "polaroid" card (for scattered layouts).
+    function drawImageRot(ctx, img, cx, cy, w, h, r, ang) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(ang);
+        ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 10;
+        roundRect(ctx, -w / 2, -h / 2, w, h, r); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.shadowColor = 'transparent';
+        if (img) drawImageCover(ctx, img, -w / 2 + 8, -h / 2 + 8, w - 16, h - 16, Math.max(0, r - 4));
+        else placeholderImg(ctx, -w / 2 + 8, -h / 2 + 8, w - 16, h - 16, Math.max(0, r - 4), '圖片');
+        ctx.restore();
+    }
+    // Circular avatar crop.
+    function avatarImg(ctx, img, cx, cy, r) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+        if (img) {
+            const s = Math.max(2 * r / img.width, 2 * r / img.height);
+            const dw = img.width * s, dh = img.height * s;
+            ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+        } else { ctx.fillStyle = '#cbd5e1'; ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r); }
+        ctx.restore();
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.1)'; ctx.stroke();
+    }
+
+    // ── Templates ──────────────────────────────────────────
+    const TEMPLATES = [
+    {
+        id: 'gaming-glow', name: 'Gaming Entertainment Glow', w: 1200, h: 630,
+        fields: [
+            { key: 'logo',     type: 'text',     label: '品牌 Logo 文字', default: 'KD88' },
+            { key: 'badge',    type: 'text',     label: '徽章標籤',         default: 'KD-88 空地導彈' },
+            { key: 'title',    type: 'textarea', label: '主標題', rows: 2,  default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'subtitle', type: 'textarea', label: '副標說明', rows: 2, default: 'KD-88 是一款防區外的空對地/空對艦精確打擊武器，主要配備於中國的轟-6K 與殲-16 等戰機。' },
+            { key: 'cta',      type: 'text',     label: '按鈕文字',         default: '了解更多' },
+            { key: 'domain',   type: 'text',     label: '網域文字',         default: 'kd88.com' },
+            { key: 'accent',   type: 'color',    label: '主題色（按鈕/徽章）', default: '#f5c518' },
+            { key: 'bg1',      type: 'color',    label: '背景漸層起點',     default: '#3a1490' },
+            { key: 'bg2',      type: 'color',    label: '背景漸層終點',     default: '#7c3aed' },
+            { key: 'cardBg1',  type: 'color',    label: '卡片底色（起）',   default: '#0c1226' },
+            { key: 'cardBg2',  type: 'color',    label: '卡片底色（終）',   default: '#171f3e' },
+            { key: 'titleColor', type: 'color',  label: '主標題色',         default: '#ffffff' },
+            { key: 'subColor', type: 'color',    label: '副標色',           default: '#bcb6da' },
+            { key: 'image',    type: 'image',    label: '右側主視覺圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, W, H);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+            const cx = 26, cy = 26, cw = W - 52, ch = H - 52, cr = 34;
+            ctx.save();
+            roundRect(ctx, cx, cy, cw, ch, cr); ctx.clip();
+            let cg = ctx.createLinearGradient(cx, cy, cx + cw, cy + ch);
+            cg.addColorStop(0, v.cardBg1); cg.addColorStop(1, v.cardBg2);
+            ctx.fillStyle = cg; ctx.fillRect(cx, cy, cw, ch);
+            const gx = cx + cw * 0.72, gy = cy + ch * 0.5;
+            let rg = ctx.createRadialGradient(gx, gy, 20, gx, gy, 380);
+            rg.addColorStop(0, hexA(v.bg2, 0.5)); rg.addColorStop(1, hexA(v.bg2, 0));
+            ctx.fillStyle = rg; ctx.fillRect(cx, cy, cw, ch);
+            ctx.restore();
+            ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+            roundRect(ctx, cx, cy, cw, ch, cr); ctx.stroke();
+
+            const padX = 70, left = cx + padX;
+            const prodW = 408, prodH = 408, prodX = cx + cw - prodW - 56, prodY = cy + (ch - prodH) / 2;
+            const maxW = prodX - 40 - left;
+
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            setLS(ctx, '2px');
+            ctx.font = `800 italic 48px ${FF}`;
+            let lg = ctx.createLinearGradient(left, 0, left + 280, 0);
+            lg.addColorStop(0, '#f1f1f8'); lg.addColorStop(1, '#a9afca');
+            ctx.fillStyle = lg;
+            ctx.fillText(String(v.logo || '').toUpperCase(), left, cy + 96);
+            setLS(ctx, '0px');
+
+            let y = cy + 150;
+            if (v.badge) {
+                ctx.font = `700 17px ${FF}`;
+                const tw = ctx.measureText(v.badge).width, bw = tw + 38, bh = 38;
+                roundRect(ctx, left, y, bw, bh, bh / 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill();
+                ctx.lineWidth = 1.5; ctx.strokeStyle = hexA(v.accent, 0.55);
+                roundRect(ctx, left, y, bw, bh, bh / 2); ctx.stroke();
+                ctx.fillStyle = v.accent; ctx.textBaseline = 'middle';
+                ctx.fillText(v.badge, left + 19, y + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic';
+                y += bh + 28;
+            }
+            ctx.fillStyle = v.titleColor; ctx.font = `800 50px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 60;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 42));
+            y += tlines.length * tlh + 24;
+
+            ctx.fillStyle = v.subColor; ctx.font = `400 23px ${FF}`;
+            const slines = wrapLines(ctx, v.subtitle, maxW), slh = 34;
+            slines.forEach((ln, i) => ctx.fillText(ln, left, y + i * slh + 20));
+            y += slines.length * slh + 20;
+
+            if (v.cta) {
+                const ctaY = Math.min(Math.max(y + 4, cy + ch - 116), cy + ch - 100);
+                ctx.font = `800 21px ${FF}`;
+                const tw = ctx.measureText(v.cta).width, bw = tw + 72, bh = 54;
+                let bg = ctx.createLinearGradient(left, ctaY, left, ctaY + bh);
+                bg.addColorStop(0, lighten(v.accent, 14)); bg.addColorStop(1, v.accent);
+                roundRect(ctx, left, ctaY, bw, bh, bh / 2); ctx.fillStyle = bg; ctx.fill();
+                ctx.fillStyle = darken(v.accent, 78);
+                ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+                ctx.fillText(v.cta, left + bw / 2, ctaY + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+            }
+
+            roundRect(ctx, prodX, prodY, prodW, prodH, 28);
+            ctx.fillStyle = '#070b18'; ctx.fill();
+            if (im.image) drawImageCover(ctx, im.image, prodX + 10, prodY + 10, prodW - 20, prodH - 20, 20);
+            else placeholderImg(ctx, prodX + 10, prodY + 10, prodW - 20, prodH - 20, 20, '上傳主視覺圖片');
+            ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+            roundRect(ctx, prodX, prodY, prodW, prodH, 28); ctx.stroke();
+
+            if (v.domain) {
+                ctx.font = `700 18px ${FF}`; ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.textAlign = 'right';
+                ctx.fillText(String(v.domain).toUpperCase(), cx + cw - 56, cy + ch - 40);
+                ctx.textAlign = 'left';
+            }
+        }
+    },
+    {
+        id: 'tech-product', name: 'Tech Product Page', w: 1200, h: 630,
+        fields: [
+            { key: 'brand',    type: 'text',     label: '品牌 / 標籤',     default: 'KD88' },
+            { key: 'title',    type: 'textarea', label: '主標題', rows: 2,  default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'subtitle', type: 'textarea', label: '副標說明', rows: 2, default: 'KD-88 是一款防區外的空對地/空對艦精確打擊武器，主要配備於中國的轟-6K 與殲-16 等戰機。' },
+            { key: 'cta',      type: 'text',     label: '按鈕文字',         default: '了解更多' },
+            { key: 'accent',   type: 'color',    label: '主題色',           default: '#4f46e5' },
+            { key: 'bg1',      type: 'color',    label: '背景色（上）',     default: '#ffffff' },
+            { key: 'bg2',      type: 'color',    label: '背景色（下）',     default: '#eef2ff' },
+            { key: 'titleColor', type: 'color',  label: '主標題色',         default: '#0f172a' },
+            { key: 'subColor', type: 'color',    label: '副標色',           default: '#64748b' },
+            { key: 'image',    type: 'image',    label: '右側截圖 / 產品圖' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, 0, H);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            // accent corner
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(W, 0); ctx.lineTo(W, 250); ctx.lineTo(W - 320, 0); ctx.closePath();
+            ctx.fillStyle = hexA(v.accent, 0.12); ctx.fill();
+            ctx.restore();
+
+            const left = 80, colW = 560;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            if (v.brand) {
+                ctx.font = `800 16px ${FF}`; setLS(ctx, '2px');
+                ctx.fillStyle = v.accent;
+                ctx.fillText(String(v.brand).toUpperCase(), left, 118);
+                setLS(ctx, '0px');
+            }
+            let y = 150;
+            ctx.fillStyle = v.titleColor; ctx.font = `800 50px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, colW), tlh = 60;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 42));
+            y += tlines.length * tlh + 26;
+            ctx.fillStyle = v.subColor; ctx.font = `400 23px ${FF}`;
+            const slines = wrapLines(ctx, v.subtitle, colW), slh = 34;
+            slines.forEach((ln, i) => ctx.fillText(ln, left, y + i * slh + 20));
+            y += slines.length * slh + 28;
+            if (v.cta) {
+                ctx.font = `700 20px ${FF}`;
+                const tw = ctx.measureText(v.cta).width, bw = tw + 56, bh = 52;
+                roundRect(ctx, left, y, bw, bh, 10); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+                ctx.fillText(v.cta, left + bw / 2, y + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+            }
+            const fx = 690, fw = 440, fh = 300, fy = (H - fh) / 2;
+            const r = browserFrame(ctx, fx, fy, fw, fh, 16);
+            if (im.image) drawImageCover(ctx, im.image, r.ix, r.iy, r.iw, r.ih, 0);
+            else placeholderImg(ctx, r.ix, r.iy, r.iw, r.ih, 0, '上傳截圖');
+        }
+    },
+    {
+        id: 'blog-cover', name: 'Blog / Article Cover', w: 1200, h: 630,
+        fields: [
+            { key: 'category', type: 'text',     label: '分類標籤',         default: '軍事科技' },
+            { key: 'title',    type: 'textarea', label: '文章標題', rows: 3, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'author',   type: 'text',     label: '作者',             default: 'KD88 編輯部' },
+            { key: 'date',     type: 'text',     label: '日期',             default: '2025' },
+            { key: 'accent',   type: 'color',    label: '標籤主題色',       default: '#ec4899' },
+            { key: 'titleColor', type: 'color',  label: '標題色',           default: '#ffffff' },
+            { key: 'image',    type: 'image',    label: '封面背景圖' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            if (im.image) drawImageCover(ctx, im.image, 0, 0, W, H, 0);
+            else {
+                let g = ctx.createLinearGradient(0, 0, W, H);
+                g.addColorStop(0, darken(v.accent, 30)); g.addColorStop(1, lighten(v.accent, 10));
+                ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            }
+            let ov = ctx.createLinearGradient(0, H * 0.32, 0, H);
+            ov.addColorStop(0, 'rgba(8,11,22,0)'); ov.addColorStop(1, 'rgba(8,11,22,0.88)');
+            ctx.fillStyle = ov; ctx.fillRect(0, 0, W, H);
+
+            const left = 70, maxW = W - 140;
+            ctx.textAlign = 'left';
+            ctx.fillStyle = v.titleColor; ctx.font = `800 52px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 64;
+            const meta = (v.author || v.date) ? 40 : 0;
+            const blockH = tlines.length * tlh + meta;
+            let y = H - 64 - blockH;
+            if (v.category) {
+                ctx.font = `800 16px ${FF}`; setLS(ctx, '2px');
+                const tw = ctx.measureText(String(v.category).toUpperCase()).width, bw = tw + 32, bh = 36;
+                roundRect(ctx, left, y - 56, bw, bh, bh / 2); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+                ctx.fillText(String(v.category).toUpperCase(), left + 16, y - 56 + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic'; setLS(ctx, '0px');
+            }
+            ctx.fillStyle = v.titleColor; ctx.font = `800 52px ${FF}`;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 46));
+            y += tlines.length * tlh + 6;
+            if (meta) {
+                ctx.font = `500 20px ${FF}`; ctx.fillStyle = hexA(v.titleColor, .8);
+                const parts = [v.author, v.date].filter(Boolean).join('   •   ');
+                ctx.fillText(parts, left, y + 24);
+            }
+        }
+    },
+    {
+        id: 'shop-product', name: 'Shop Product Page', w: 1200, h: 630,
+        fields: [
+            { key: 'brand',  type: 'text',  label: '品牌',       default: 'KD88' },
+            { key: 'title',  type: 'textarea', label: '商品名稱', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'price',  type: 'text',  label: '價格 / 規格', default: '射程 200 km' },
+            { key: 'cta',    type: 'text',  label: '按鈕文字',   default: '了解更多' },
+            { key: 'accent', type: 'color', label: '主題色',     default: '#d97706' },
+            { key: 'bg1',    type: 'color', label: '背景色（上）', default: '#fffdf8' },
+            { key: 'bg2',    type: 'color', label: '背景色（下）', default: '#f6efe2' },
+            { key: 'cardBg', type: 'color', label: '商品框底色',   default: '#ffffff' },
+            { key: 'titleColor', type: 'color', label: '商品名稱色', default: '#1c1917' },
+            { key: 'image',  type: 'image', label: '商品圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, 0, H);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+            const pw = 440, ph = 440, px = W - pw - 70, py = (H - ph) / 2;
+            roundRect(ctx, px, py, pw, ph, 24);
+            ctx.fillStyle = v.cardBg; ctx.fill();
+            ctx.lineWidth = 1.5; ctx.strokeStyle = '#ece3d3';
+            roundRect(ctx, px, py, pw, ph, 24); ctx.stroke();
+            if (im.image) drawImageCover(ctx, im.image, px + 18, py + 18, pw - 36, ph - 36, 14);
+            else placeholderImg(ctx, px + 18, py + 18, pw - 36, ph - 36, 14, '上傳商品圖片');
+
+            const left = 80, maxW = px - 40 - left;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            if (v.brand) {
+                ctx.font = `800 17px ${FF}`; setLS(ctx, '2px'); ctx.fillStyle = v.accent;
+                ctx.fillText(String(v.brand).toUpperCase(), left, 175); setLS(ctx, '0px');
+            }
+            let y = 205;
+            ctx.fillStyle = v.titleColor; ctx.font = `800 52px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 62;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 44));
+            y += tlines.length * tlh + 30;
+            if (v.price) {
+                ctx.font = `800 46px ${FF}`; ctx.fillStyle = v.accent;
+                ctx.fillText(v.price, left, y + 40); y += 88;
+            }
+            if (v.cta) {
+                ctx.font = `700 21px ${FF}`;
+                const tw = ctx.measureText(v.cta).width, bw = tw + 64, bh = 56;
+                roundRect(ctx, left, y, bw, bh, bh / 2); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+                ctx.fillText(v.cta, left + bw / 2, y + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+            }
+        }
+    },
+    {
+        id: 'minimal-quote', name: 'Centered Statement', w: 1200, h: 630,
+        fields: [
+            { key: 'brand',    type: 'text',     label: '頂部品牌',         default: 'KD88' },
+            { key: 'title',    type: 'textarea', label: '主標題', rows: 2,   default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'subtitle', type: 'textarea', label: '副標說明', rows: 2, default: 'KD-88 是一款防區外的空對地/空對艦精確打擊武器，主要配備於中國的轟-6K 與殲-16 等戰機。' },
+            { key: 'bg1',      type: 'color',    label: '背景色（起）',      default: '#0d9488' },
+            { key: 'bg2',      type: 'color',    label: '背景色（終）',      default: '#0f766e' },
+            { key: 'titleColor', type: 'color',  label: '主標題色',         default: '#ffffff' },
+            { key: 'subColor', type: 'color',    label: '副標色',           default: '#ffffff' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, W, H);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            // soft center glow
+            let rg = ctx.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, 520);
+            rg.addColorStop(0, 'rgba(255,255,255,0.10)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+
+            ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+
+            if (v.brand) {
+                ctx.font = `800 18px ${FF}`; setLS(ctx, '3px');
+                ctx.fillStyle = hexA(v.titleColor, .7);
+                ctx.fillText(String(v.brand).toUpperCase(), W / 2, 96); setLS(ctx, '0px');
+            }
+
+            const maxW = W - 240;
+            ctx.font = `800 66px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 82;
+            ctx.font = `500 27px ${FF}`;
+            const slines = v.subtitle ? wrapLines(ctx, v.subtitle, maxW - 80) : [], slh = 38;
+            const hasDivider = tlines.length && slines.length, dividerGap = hasDivider ? 46 : 0;
+            const blockH = tlines.length * tlh + dividerGap + slines.length * slh;
+            let y = (H - blockH) / 2 + 8;
+
+            ctx.fillStyle = v.titleColor; ctx.font = `800 66px ${FF}`;
+            tlines.forEach((ln, i) => ctx.fillText(ln, W / 2, y + i * tlh + 58));
+            y += tlines.length * tlh;
+
+            if (hasDivider) {
+                ctx.fillStyle = hexA(v.titleColor, 0.45);
+                ctx.fillRect(W / 2 - 28, y + 21, 56, 3);
+                y += dividerGap;
+            }
+
+            if (slines.length) {
+                ctx.fillStyle = hexA(v.subColor, .88); ctx.font = `500 27px ${FF}`;
+                slines.forEach((ln, i) => ctx.fillText(ln, W / 2, y + i * slh + 27));
+            }
+
+            ctx.textAlign = 'left';
+        }
+    },
+    {
+        id: 'resource', name: 'Resource / Landing', w: 1200, h: 630,
+        fields: [
+            { key: 'label',    type: 'text',     label: '頂部標籤',         default: '技術資料' },
+            { key: 'title',    type: 'textarea', label: '主標題', rows: 2,   default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'subtitle', type: 'textarea', label: '副標說明', rows: 2, default: 'KD-88 是一款防區外的空對地/空對艦精確打擊武器，主要配備於中國的轟-6K 與殲-16 等戰機。' },
+            { key: 'cta',      type: 'text',     label: '按鈕文字',         default: '了解更多' },
+            { key: 'accent',   type: 'color',    label: '主題色',           default: '#7c3aed' },
+            { key: 'bg',       type: 'color',    label: '背景底色',         default: '#1e1b4b' },
+            { key: 'titleColor', type: 'color',  label: '主標題色',         default: '#ffffff' },
+            { key: 'subColor', type: 'color',    label: '副標色',           default: '#ffffff' },
+            { key: 'image',    type: 'image',    label: '右側圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, W, H);
+            g.addColorStop(0, v.bg); g.addColorStop(1, darken(v.accent, 30));
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            // soft glow
+            let rg = ctx.createRadialGradient(W * 0.85, H * 0.2, 20, W * 0.85, H * 0.2, 420);
+            rg.addColorStop(0, hexA(v.accent, 0.4)); rg.addColorStop(1, hexA(v.accent, 0));
+            ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+
+            const imgOn = !!im.image;
+            const left = 72, colW = imgOn ? 560 : W - 200;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            if (v.label) {
+                ctx.font = `800 16px ${FF}`; setLS(ctx, '2px');
+                const tw = ctx.measureText(String(v.label).toUpperCase()).width, bw = tw + 30, bh = 34;
+                roundRect(ctx, left, 90, bw, bh, bh / 2);
+                ctx.fillStyle = hexA(v.accent, 0.9); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+                ctx.fillText(String(v.label).toUpperCase(), left + 15, 90 + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic'; setLS(ctx, '0px');
+            }
+            let y = 165;
+            ctx.fillStyle = v.titleColor; ctx.font = `800 46px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, colW), tlh = 56;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 40));
+            y += tlines.length * tlh + 22;
+            ctx.fillStyle = hexA(v.subColor, .78); ctx.font = `400 22px ${FF}`;
+            const slines = wrapLines(ctx, v.subtitle, colW), slh = 32;
+            slines.forEach((ln, i) => ctx.fillText(ln, left, y + i * slh + 18));
+            y += slines.length * slh + 26;
+            if (v.cta) {
+                ctx.font = `700 20px ${FF}`;
+                const tw = ctx.measureText(v.cta).width, bw = tw + 56, bh = 52;
+                roundRect(ctx, left, y, bw, bh, 10); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+                ctx.fillText(v.cta, left + bw / 2, y + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+            }
+            if (imgOn) {
+                const pw = 380, ph = 380, px = W - pw - 64, py = (H - ph) / 2;
+                roundRect(ctx, px, py, pw, ph, 22);
+                ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fill();
+                drawImageCover(ctx, im.image, px + 12, py + 12, pw - 24, ph - 24, 14);
+                ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.18)';
+                roundRect(ctx, px, py, pw, ph, 22); ctx.stroke();
+            }
+        }
+    },
+    {
+        id: 'news-ribbon', name: 'News Article Ribbon', w: 1200, h: 630,
+        fields: [
+            { key: 'author', type: 'text', label: '作者', default: 'KD88 編輯部' },
+            { key: 'date',   type: 'text', label: '日期', default: '2025' },
+            { key: 'title',  type: 'textarea', label: '標題', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'cta',    type: 'text', label: '按鈕文字', default: '了解更多' },
+            { key: 'accent', type: 'color', label: '緞帶主題色', default: '#7a1f2b' },
+            { key: 'titleColor', type: 'color', label: '標題/文字色', default: '#ffffff' },
+            { key: 'image',  type: 'image', label: '背景圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            if (im.image) drawImageCover(ctx, im.image, 0, 0, W, H, 0);
+            else { ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0, 0, W, H); placeholderImg(ctx, 0, 0, W, H, 0, '上傳背景圖片'); }
+            const rh = 150, ry = H - 210, rx = 50, rw = 840, notch = 26;
+            ctx.beginPath();
+            ctx.moveTo(rx, ry); ctx.lineTo(rx + rw, ry);
+            ctx.lineTo(rx + rw - notch, ry + rh / 2); ctx.lineTo(rx + rw, ry + rh);
+            ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + notch, ry + rh / 2);
+            ctx.closePath(); ctx.fillStyle = v.accent; ctx.fill();
+            const pad = rx + notch + 28;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            ctx.font = `700 20px ${FF}`; ctx.fillStyle = hexA(v.titleColor, .92);
+            let ax = pad;
+            if (v.author) { ctx.fillText(v.author, ax, ry + 46); ax += ctx.measureText(v.author).width + 18; }
+            if (v.author && v.date) { ctx.fillStyle = hexA(v.titleColor, .4); ctx.fillRect(ax, ry + 24, 2, 26); ax += 18; ctx.fillStyle = hexA(v.titleColor, .92); }
+            if (v.date) ctx.fillText(v.date, ax, ry + 46);
+            ctx.fillStyle = v.titleColor; ctx.font = `800 34px ${FF}`;
+            wrapLines(ctx, v.title, rw - notch - 56).slice(0, 2).forEach((ln, i) => ctx.fillText(ln, pad, ry + 94 + i * 40));
+            if (v.cta) {
+                const bw = 210, bh = 64, bx = rx + rw + 24, by = ry + rh / 2 - bh / 2;
+                ctx.beginPath();
+                ctx.moveTo(bx, by); ctx.lineTo(bx + bw, by);
+                ctx.lineTo(bx + bw - 18, by + bh / 2); ctx.lineTo(bx + bw, by + bh);
+                ctx.lineTo(bx, by + bh); ctx.lineTo(bx + 18, by + bh / 2);
+                ctx.closePath(); ctx.fillStyle = darken(v.accent, 14); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = `700 20px ${FF}`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(v.cta, bx + bw / 2, by + bh / 2 + 1);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            }
+        }
+    },
+    {
+        id: 'doc-split', name: 'Documentation (Gold)', w: 1200, h: 630,
+        fields: [
+            { key: 'title',    type: 'textarea', label: '標題', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'subtitle', type: 'textarea', label: '說明', rows: 3, default: 'KD-88 是一款防區外的空對地/空對艦精確打擊武器，主要配備於中國的轟-6K 與殲-16 等戰機。' },
+            { key: 'bg1',      type: 'color', label: '背景金（亮）', default: '#d8b878' },
+            { key: 'bg2',      type: 'color', label: '背景金（暗）', default: '#9a7b45' },
+            { key: 'titleColor', type: 'color', label: '標題色', default: '#2b2110' },
+            { key: 'subColor', type: 'color', label: '說明色', default: '#2b2110' },
+            { key: 'image',    type: 'image', label: '左側圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, W, H);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            let s = ctx.createLinearGradient(0, H, W, 0);
+            s.addColorStop(0, 'rgba(255,255,255,0)'); s.addColorStop(.5, 'rgba(255,255,255,.16)'); s.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = s; ctx.fillRect(0, 0, W, H);
+            const pw = 360, ph = 360, px = 80, py = (H - ph) / 2;
+            ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
+            roundRect(ctx, px, py, pw, ph, 22); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fill(); ctx.restore();
+            if (im.image) drawImageCover(ctx, im.image, px + 14, py + 14, pw - 28, ph - 28, 14);
+            else placeholderImg(ctx, px + 14, py + 14, pw - 28, ph - 28, 14, '上傳圖片');
+            ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.5)'; roundRect(ctx, px, py, pw, ph, 22); ctx.stroke();
+            const left = px + pw + 56, maxW = W - left - 70;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = v.titleColor; ctx.font = `800 44px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 54;
+            let y = H / 2 - (tlines.length * tlh) / 2 - 34;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 38));
+            y += tlines.length * tlh + 18;
+            ctx.fillStyle = hexA(v.subColor, .82); ctx.font = `400 22px ${FF}`;
+            wrapLines(ctx, v.subtitle, maxW).forEach((ln, i) => ctx.fillText(ln, left, y + i * 32 + 18));
+        }
+    },
+    {
+        id: 'resource-blue', name: 'Resource (Dual Image)', w: 1200, h: 630,
+        fields: [
+            { key: 'logo',   type: 'text', label: '品牌 Logo', default: 'KD88' },
+            { key: 'title',  type: 'textarea', label: '標題', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'cta',    type: 'text', label: '連結文字', default: '了解更多' },
+            { key: 'accent', type: 'color', label: '連結色', default: '#ffd23f' },
+            { key: 'bg1',    type: 'color', label: '背景藍（亮）', default: '#2f74c0' },
+            { key: 'bg2',    type: 'color', label: '背景藍（暗）', default: '#15407a' },
+            { key: 'titleColor', type: 'color', label: 'Logo/標題色', default: '#ffffff' },
+            { key: 'image',  type: 'image', label: '圖片 1' },
+            { key: 'image2', type: 'image', label: '圖片 2' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, W, H);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 2;
+            [[980, 90, 150, 28], [1090, 250, 120, 24], [860, 30, 90, 18]].forEach(([cx, cy, sz, a]) => {
+                ctx.save(); ctx.translate(cx, cy); ctx.rotate(a * Math.PI / 180);
+                roundRect(ctx, -sz / 2, -sz / 2, sz, sz, 16); ctx.stroke(); ctx.restore();
+            });
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            setLS(ctx, '3px'); ctx.font = `800 italic 40px ${FF}`; ctx.fillStyle = v.titleColor;
+            ctx.fillText(String(v.logo || '').toUpperCase(), 72, 120); setLS(ctx, '0px');
+            ctx.fillStyle = v.titleColor; ctx.font = `800 46px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, 540), tlh = 56;
+            let y = 230;
+            tlines.forEach((ln, i) => ctx.fillText(ln, 72, y + i * tlh + 40));
+            y += tlines.length * tlh + 30;
+            if (v.cta) { ctx.font = `700 24px ${FF}`; ctx.fillStyle = v.accent; ctx.fillText(v.cta, 72, y + 24); }
+            drawImageRot(ctx, im.image, 880, 250, 300, 300, 22, -8 * Math.PI / 180);
+            drawImageRot(ctx, im.image2 || im.image, 1010, 410, 300, 300, 22, 6 * Math.PI / 180);
+        }
+    },
+    {
+        id: 'blog-purple', name: 'Blog Post (Purple)', w: 1200, h: 630,
+        fields: [
+            { key: 'title',    type: 'textarea', label: '標題', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'subtitle', type: 'textarea', label: '說明', rows: 3, default: 'KD-88 是一款防區外的空對地/空對艦精確打擊武器，主要配備於中國的轟-6K 與殲-16 等戰機。' },
+            { key: 'cta',      type: 'text', label: '按鈕文字', default: '了解更多' },
+            { key: 'accent',   type: 'color', label: '主題色', default: '#a855f7' },
+            { key: 'bg1',      type: 'color', label: '背景色（亮）', default: '#efe7fb' },
+            { key: 'bg2',      type: 'color', label: '背景色（暗）', default: '#e2d3f6' },
+            { key: 'titleColor', type: 'color', label: '標題色', default: '#2e1065' },
+            { key: 'subColor', type: 'color', label: '說明色', default: '#2e1065' },
+            { key: 'image',    type: 'image', label: '左側圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            let g = ctx.createLinearGradient(0, 0, W, H);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            const pw = 470;
+            if (im.image) drawImageCover(ctx, im.image, 0, 0, pw, H, 0);
+            else placeholderImg(ctx, 0, 0, pw, H, 0, '上傳圖片');
+            const left = pw + 60, maxW = W - left - 70;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = v.titleColor; ctx.font = `800 46px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 56;
+            let y = 150;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 40));
+            y += tlines.length * tlh + 22;
+            ctx.fillStyle = hexA(v.subColor, .7); ctx.font = `400 22px ${FF}`;
+            const slines = wrapLines(ctx, v.subtitle, maxW), slh = 32;
+            slines.forEach((ln, i) => ctx.fillText(ln, left, y + i * slh + 18));
+            y += slines.length * slh + 28;
+            if (v.cta) {
+                ctx.font = `700 19px ${FF}`; setLS(ctx, '1px');
+                const tw = ctx.measureText(v.cta).width, bw = tw + 52, bh = 52;
+                roundRect(ctx, left, y, bw, bh, bh / 2); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(v.cta, left + bw / 2, y + bh / 2 + 1);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; setLS(ctx, '0px');
+            }
+        }
+    },
+    {
+        id: 'realestate', name: 'Real Estate (Dark/Gold)', w: 1200, h: 630,
+        fields: [
+            { key: 'logo',   type: 'text', label: '品牌 Logo', default: 'KD88' },
+            { key: 'title',  type: 'textarea', label: '標題', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'price',  type: 'text', label: '價格 / 規格', default: '射程 200 km' },
+            { key: 'cta',    type: 'text', label: '按鈕文字', default: '了解更多' },
+            { key: 'accent', type: 'color', label: '金色', default: '#d4af37' },
+            { key: 'bg',     type: 'color', label: '背景色', default: '#0a0a0a' },
+            { key: 'titleColor', type: 'color', label: 'Logo/標題色', default: '#ffffff' },
+            { key: 'image',  type: 'image', label: '圖片 1' },
+            { key: 'image2', type: 'image', label: '圖片 2' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            ctx.fillStyle = v.bg; ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = v.accent; ctx.lineWidth = 2; ctx.strokeRect(24, 24, W - 48, H - 48);
+            const iw = 240, ih = 440, iy = (H - ih) / 2, gap = 14, ix = 70;
+            [im.image, im.image2 || im.image].forEach((img, k) => {
+                const x = ix + k * (iw + gap);
+                ctx.save(); roundRect(ctx, x, iy, iw, ih, 12); ctx.clip();
+                if (img) drawImageCover(ctx, img, x, iy, iw, ih, 0);
+                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(x, iy, iw, ih); }
+                ctx.restore();
+            });
+            const dx = ix + 2 * iw + gap + 40;
+            ctx.strokeStyle = hexA(v.accent, .5); ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(dx, 120); ctx.lineTo(dx, H - 120); ctx.stroke();
+            const left = dx + 40, maxW = W - left - 60;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            setLS(ctx, '3px'); ctx.font = `800 italic 34px ${FF}`; ctx.fillStyle = hexA(v.titleColor, .9);
+            ctx.fillText(String(v.logo || '').toUpperCase(), left, 150); setLS(ctx, '0px');
+            ctx.fillStyle = v.titleColor; ctx.font = `800 38px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 48;
+            let y = 200;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 34));
+            y += tlines.length * tlh + 24;
+            if (v.price) { ctx.font = `800 40px ${FF}`; ctx.fillStyle = v.accent; ctx.fillText(v.price, left, y + 34); y += 80; }
+            if (v.cta) {
+                ctx.font = `700 19px ${FF}`; setLS(ctx, '1px');
+                const tw = ctx.measureText(v.cta).width, bw = tw + 56, bh = 54;
+                roundRect(ctx, left, y, bw, bh, bh / 2); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = '#1a1306'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(v.cta, left + bw / 2, y + bh / 2 + 1);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; setLS(ctx, '0px');
+            }
+        }
+    },
+    {
+        id: 'overlay-arrow', name: 'Image Overlay + Arrow', w: 1200, h: 630,
+        fields: [
+            { key: 'domain', type: 'text', label: '網域標籤', default: 'kd88.com' },
+            { key: 'title',  type: 'textarea', label: '標題', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'accent', type: 'color', label: '按鈕色', default: '#facc15' },
+            { key: 'titleColor', type: 'color', label: '標題色', default: '#ffffff' },
+            { key: 'image',  type: 'image', label: '背景圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            if (im.image) drawImageCover(ctx, im.image, 0, 0, W, H, 0);
+            else { ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0, 0, W, H); placeholderImg(ctx, 0, 0, W, H, 0, '上傳背景圖片'); }
+            let ov = ctx.createLinearGradient(0, 0, 0, H);
+            ov.addColorStop(0, 'rgba(0,0,0,.18)'); ov.addColorStop(.55, 'rgba(0,0,0,.3)'); ov.addColorStop(1, 'rgba(0,0,0,.5)');
+            ctx.fillStyle = ov; ctx.fillRect(0, 0, W, H);
+            ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+            if (v.domain) {
+                ctx.font = `600 18px ${FF}`;
+                const tw = ctx.measureText(v.domain).width, bw = tw + 30, bh = 34, bx = W / 2 - bw / 2, by = 66;
+                roundRect(ctx, bx, by, bw, bh, bh / 2); ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fill();
+                ctx.fillStyle = '#334155'; ctx.textBaseline = 'middle'; ctx.fillText(v.domain, W / 2, by + bh / 2 + 1); ctx.textBaseline = 'alphabetic';
+            }
+            ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 2;
+            ctx.fillStyle = v.titleColor; ctx.font = `800 50px ${FF}`;
+            const lines = wrapLines(ctx, v.title, W - 220), lh = 62;
+            let y = H / 2 - (lines.length * lh) / 2 - 10;
+            lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y + i * lh + 44));
+            ctx.restore();
+            y += lines.length * lh + 30;
+            const r = 34, ay = Math.min(y + r, H - 66);
+            ctx.beginPath(); ctx.arc(W / 2, ay, r, 0, Math.PI * 2); ctx.fillStyle = v.accent; ctx.fill();
+            ctx.strokeStyle = darken(v.accent, 55); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(W / 2 - 12, ay); ctx.lineTo(W / 2 + 12, ay);
+            ctx.moveTo(W / 2 + 3, ay - 9); ctx.lineTo(W / 2 + 12, ay); ctx.lineTo(W / 2 + 3, ay + 9);
+            ctx.stroke();
+        }
+    },
+    {
+        id: 'author-feature', name: 'Author Feature', w: 1200, h: 630,
+        fields: [
+            { key: 'domain', type: 'text', label: '網域', default: 'kd88.com' },
+            { key: 'title',  type: 'textarea', label: '標題', rows: 3, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'author', type: 'text', label: '作者', default: 'KD88 編輯部' },
+            { key: 'cta',    type: 'text', label: '按鈕文字', default: '了解更多' },
+            { key: 'accent', type: 'color', label: '按鈕色', default: '#0f172a' },
+            { key: 'bg',     type: 'color', label: '背景色', default: '#ffffff' },
+            { key: 'titleColor', type: 'color', label: '標題色', default: '#0f172a' },
+            { key: 'subColor', type: 'color', label: '作者文字色', default: '#475569' },
+            { key: 'avatar', type: 'image', label: '作者頭像' },
+            { key: 'image',  type: 'image', label: '右側圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            ctx.fillStyle = v.bg; ctx.fillRect(0, 0, W, H);
+            const ix = 620, iw = W - ix;
+            if (im.image) drawImageCover(ctx, im.image, ix, 0, iw, H, 0);
+            else placeholderImg(ctx, ix, 0, iw, H, 0, '上傳圖片');
+            const left = 72, maxW = ix - left - 50;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            if (v.domain) { ctx.font = `400 15px ${FF}`; setLS(ctx, '1px'); ctx.fillStyle = '#94a3b8'; ctx.fillText(v.domain, left, 108); setLS(ctx, '0px'); }
+            ctx.fillStyle = v.titleColor; ctx.font = `800 40px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 50;
+            let y = 148;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 36));
+            y += tlines.length * tlh + 34;
+            const ar = 24;
+            avatarImg(ctx, im.avatar, left + ar, y + ar, ar);
+            if (v.author) { ctx.font = `500 19px ${FF}`; ctx.fillStyle = v.subColor; ctx.textBaseline = 'middle'; ctx.fillText(v.author, left + 2 * ar + 16, y + ar + 1); ctx.textBaseline = 'alphabetic'; }
+            y += 2 * ar + 34;
+            if (v.cta) {
+                ctx.font = `700 18px ${FF}`; setLS(ctx, '1px');
+                const tw = ctx.measureText(v.cta).width, bw = tw + 52, bh = 52;
+                roundRect(ctx, left, y, bw, bh, 8); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(v.cta, left + bw / 2, y + bh / 2 + 1);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; setLS(ctx, '0px');
+            }
+        }
+    },
+    {
+        id: 'diagonal-split', name: 'Diagonal Split (Dark)', w: 1200, h: 630,
+        fields: [
+            { key: 'title',  type: 'textarea', label: '標題', rows: 2, default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+            { key: 'cta',    type: 'text', label: '按鈕文字', default: '了解更多' },
+            { key: 'accent', type: 'color', label: '主題色', default: '#f0b429' },
+            { key: 'bg',     type: 'color', label: '背景色', default: '#0a0a0a' },
+            { key: 'titleColor', type: 'color', label: '標題色', default: '#ffffff' },
+            { key: 'image',  type: 'image', label: '右側圖片' },
+        ],
+        draw(ctx, v, im) {
+            const W = this.w, H = this.h;
+            ctx.fillStyle = v.bg; ctx.fillRect(0, 0, W, H);
+            const topX = 640, botX = 520;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(topX, 0); ctx.lineTo(W, 0); ctx.lineTo(W, H); ctx.lineTo(botX, H); ctx.closePath();
+            ctx.clip();
+            if (im.image) drawImageCover(ctx, im.image, botX - 20, 0, W - (botX - 20), H, 0);
+            else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, W, H); placeholderImg(ctx, topX, 0, W - topX, H, 0, '上傳圖片'); }
+            ctx.restore();
+            ctx.strokeStyle = v.accent; ctx.lineWidth = 8;
+            ctx.beginPath(); ctx.moveTo(topX, 0); ctx.lineTo(botX, H); ctx.stroke();
+            const left = 72, maxW = botX - left - 60;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = v.titleColor; ctx.font = `800 48px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 58;
+            let y = H / 2 - (tlines.length * tlh) / 2 - 24;
+            tlines.forEach((ln, i) => ctx.fillText(ln, left, y + i * tlh + 42));
+            y += tlines.length * tlh + 26;
+            if (v.cta) {
+                ctx.font = `700 20px ${FF}`;
+                const tw = ctx.measureText(v.cta).width, bw = tw + 56, bh = 54;
+                roundRect(ctx, left, y, bw, bh, 8); ctx.fillStyle = v.accent; ctx.fill();
+                ctx.fillStyle = darken(v.accent, 70); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(v.cta, left + bw / 2, y + bh / 2 + 1);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            }
+        }
+    },
+    ];
+
+    // ── State ──────────────────────────────────────────────
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let current = TEMPLATES[0];
+    const values = {};   // key -> string (template-specific image content)
+    const images = {};   // key -> HTMLImageElement
+    let ogDataUrl = '';  // generated image, used by social previews
+
+    // Shared share-meta (og:title / og:description / og:url / og:image),
+    // independent of the template — drives social previews + meta tags code.
+    const SHARED = [
+        { key: 'title', type: 'text',     label: 'OG 標題 (og:title)',       hint: [50, 60],   default: 'KD-88 空地導彈 | 防區外精確打擊武器' },
+        { key: 'desc',  type: 'textarea', label: 'OG 說明 (og:description)', hint: [110, 160], default: 'KD-88 是一款防區外的空對地/空對艦精確打擊武器，主要配備於中國的轟-6K 與殲-16 等戰機。', rows: 3 },
+        { key: 'url',   type: 'text',     label: '網站網址 (og:url)',         default: 'https://www.kd88.com/' },
+        { key: 'image', type: 'text',     label: '圖片網址 (og:image)',       note: '下載圖片後上傳到你的網站，再把網址填這裡', wide: true, default: 'https://www.kd88.com/images/og-image.png' },
+    ];
+    const meta = {};
+    SHARED.forEach(f => meta[f.key] = f.default);
+
+    const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    function host(u) {
+        try { return new URL(u).host.replace(/^www\./, ''); }
+        catch { return String(u || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]; }
+    }
+
+    function defaultsFor(t) {
+        const o = {};
+        t.fields.forEach(f => { if (f.type !== 'image') o[f.key] = f.default ?? ''; });
+        return o;
+    }
+
+    function render() {
+        canvas.width = current.w;
+        canvas.height = current.h;
+        ctx.clearRect(0, 0, current.w, current.h);
+        try { current.draw(ctx, values, images); }
+        catch (e) { console.error(e); }
+        document.getElementById('dims').textContent = `${current.w} × ${current.h} px`;
+        try { ogDataUrl = canvas.toDataURL('image/png'); } catch (e) {}
+        if (activePane === 'social') refreshSocial();
+        setStatus('已生成預覽', 'ok');
+    }
+
+    // ── Status / toast ─────────────────────────────────────
+    const $statusPill = document.getElementById('statusPill');
+    const $statusText = document.getElementById('statusText');
+    function setStatus(text, kind) {
+        $statusText.textContent = text;
+        $statusPill.classList.remove('idle', 'ok', 'busy');
+        $statusPill.classList.add(kind || 'idle');
+    }
+    const $toast = document.getElementById('toast');
+    let toastTimer = null;
+    function toast(msg) {
+        $toast.textContent = msg;
+        $toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $toast.classList.remove('show'), 1800);
+    }
+
+    // ── Shared share-info fields ───────────────────────────
+    const sharedFields = document.getElementById('sharedFields');
+    function buildShared() {
+        sharedFields.innerHTML = '';
+        SHARED.forEach(f => {
+            const group = document.createElement('div');
+            group.className = 'field-group';
+            if (f.type === 'textarea' || f.wide) group.classList.add('fg-wide');
+            const label = document.createElement('label');
+            label.className = 'field-label';
+            label.textContent = f.label;
+            group.appendChild(label);
+
+            const ctl = document.createElement(f.type === 'textarea' ? 'textarea' : 'input');
+            ctl.className = f.type === 'textarea' ? 'ctl-textarea' : 'ctl-input';
+            if (f.type === 'textarea') ctl.rows = f.rows || 3; else ctl.type = 'text';
+            ctl.value = meta[f.key] ?? '';
+            group.appendChild(ctl);
+
+            let hintEl = null;
+            if (f.hint || f.note) {
+                hintEl = document.createElement('div');
+                hintEl.className = 'field-hint';
+                group.appendChild(hintEl);
+            }
+            const updateHint = () => {
+                if (!hintEl) return;
+                if (f.hint) {
+                    const n = (meta[f.key] || '').length, [lo, hi] = f.hint;
+                    const ok = n >= lo && n <= hi;
+                    hintEl.textContent = `${n} 字元 · 建議 ${lo}–${hi}`;
+                    hintEl.classList.toggle('ok', ok);
+                } else {
+                    hintEl.textContent = f.note;
+                }
+            };
+            updateHint();
+            ctl.addEventListener('input', () => {
+                meta[f.key] = ctl.value;
+                updateHint();
+                refreshSocial();
+                refreshMeta();
+            });
+            sharedFields.appendChild(group);
+        });
+    }
+
+    // ── Form builder (template-specific) ───────────────────
+    const formFields = document.getElementById('tplFields');
+    function buildForm() {
+        formFields.innerHTML = '';
+        current.fields.forEach(f => {
+            const group = document.createElement('div');
+            group.className = 'field-group';
+            if (f.type === 'textarea' || f.type === 'image' || f.wide) group.classList.add('fg-wide');
+            const label = document.createElement('label');
+            label.className = 'field-label';
+            label.textContent = f.label;
+            group.appendChild(label);
+
+            if (f.type === 'text') {
+                const i = document.createElement('input');
+                i.type = 'text'; i.className = 'ctl-input';
+                i.value = values[f.key] ?? '';
+                i.addEventListener('input', () => { values[f.key] = i.value; render(); });
+                group.appendChild(i);
+            } else if (f.type === 'textarea') {
+                const t = document.createElement('textarea');
+                t.className = 'ctl-textarea'; t.rows = f.rows || 2;
+                t.value = values[f.key] ?? '';
+                t.addEventListener('input', () => { values[f.key] = t.value; render(); });
+                group.appendChild(t);
+            } else if (f.type === 'color') {
+                const row = document.createElement('div');
+                row.className = 'color-row';
+                const c = document.createElement('input');
+                c.type = 'color'; c.value = values[f.key] || '#000000';
+                const hex = document.createElement('input');
+                hex.type = 'text'; hex.className = 'ctl-input';
+                hex.value = values[f.key] || '';
+                c.addEventListener('input', () => { values[f.key] = c.value; hex.value = c.value; render(); });
+                hex.addEventListener('input', () => {
+                    let val = hex.value.trim();
+                    if (/^#?[0-9a-fA-F]{6}$/.test(val) || /^#?[0-9a-fA-F]{3}$/.test(val)) {
+                        if (val[0] !== '#') val = '#' + val;
+                        values[f.key] = val; c.value = val; render();
+                    }
+                });
+                row.appendChild(c); row.appendChild(hex);
+                group.appendChild(row);
+            } else if (f.type === 'image') {
+                const wrap = document.createElement('div');
+                wrap.className = 'img-field';
+                const thumb = document.createElement('div');
+                thumb.className = 'img-thumb';
+                const file = document.createElement('input');
+                file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
+                const pick = document.createElement('button');
+                pick.type = 'button'; pick.className = 'ctl-btn-sm'; pick.textContent = '選擇圖片';
+                const clear = document.createElement('button');
+                clear.type = 'button'; clear.className = 'ctl-btn-sm ghost'; clear.textContent = '清除';
+                const btns = document.createElement('div');
+                btns.className = 'img-btns'; btns.appendChild(pick); btns.appendChild(clear);
+
+                function refreshThumb() {
+                    if (images[f.key]) {
+                        thumb.classList.add('has-img');
+                        thumb.style.backgroundImage = `url(${images[f.key].src})`;
+                        thumb.textContent = '';
+                    } else {
+                        thumb.classList.remove('has-img');
+                        thumb.style.backgroundImage = '';
+                        thumb.textContent = '無';
+                    }
+                }
+                pick.addEventListener('click', () => file.click());
+                thumb.addEventListener('click', () => file.click());
+                thumb.style.cursor = 'pointer';
+                file.addEventListener('change', () => {
+                    const fl = file.files[0];
+                    if (!fl) return;
+                    const rd = new FileReader();
+                    rd.onload = () => {
+                        const img = new Image();
+                        img.onload = () => { images[f.key] = img; refreshThumb(); render(); };
+                        img.src = rd.result;
+                    };
+                    rd.readAsDataURL(fl);
+                });
+                clear.addEventListener('click', () => {
+                    delete images[f.key]; file.value = ''; refreshThumb(); render();
+                });
+                refreshThumb();
+                wrap.appendChild(thumb); wrap.appendChild(btns); wrap.appendChild(file);
+                group.appendChild(wrap);
+            }
+            formFields.appendChild(group);
+        });
+    }
+
+    function syncHeader() {
+        document.getElementById('tpName').textContent = current.name;
+        // swatch from first two color fields if present
+        const cols = current.fields.filter(f => f.type === 'color').map(f => values[f.key]);
+        const sw = document.getElementById('tpSwatch');
+        if (cols.length >= 2) sw.style.background = `linear-gradient(135deg, ${cols[0]}, ${cols[1]})`;
+        else if (cols.length === 1) sw.style.background = cols[0];
+        else sw.style.background = 'linear-gradient(135deg, #334155, #0f172a)';
+    }
+
+    function selectTemplate(t, keepValues) {
+        const old = { ...values };
+        current = t;
+        // seed: keep matching keys (when switching) else defaults
+        const defs = defaultsFor(t);
+        Object.keys(values).forEach(k => delete values[k]);
+        t.fields.forEach(f => {
+            if (f.type === 'image') return;
+            values[f.key] = (keepValues && f.key in old) ? old[f.key] : defs[f.key];
+        });
+        // drop images whose key no longer exists
+        Object.keys(images).forEach(k => {
+            if (!t.fields.some(f => f.key === k && f.type === 'image')) delete images[k];
+        });
+        buildForm();
+        syncHeader();
+        render();
+    }
+
+    // ── Template chooser modal ─────────────────────────────
+    const tplModal = document.getElementById('tplModal');
+    const tplGrid = document.getElementById('tplGrid');
+    function openChooser() {
+        tplGrid.innerHTML = '';
+        TEMPLATES.forEach(t => {
+            const card = document.createElement('div');
+            card.className = 'tpl-card' + (t.id === current.id ? ' selected' : '');
+            const thumb = document.createElement('canvas');
+            thumb.className = 'tpl-thumb';
+            thumb.width = 360; thumb.height = 189;
+            renderThumb(t, thumb);
+            const name = document.createElement('div');
+            name.className = 'tpl-name'; name.textContent = t.name;
+            card.appendChild(thumb); card.appendChild(name);
+            card.addEventListener('click', () => { selectTemplate(t, true); closeChooser(); });
+            tplGrid.appendChild(card);
+        });
+        tplModal.classList.add('show');
+    }
+    function closeChooser() { tplModal.classList.remove('show'); }
+
+    // Render a template at thumbnail size (full-res offscreen, then scaled down)
+    const offscreen = document.createElement('canvas');
+    function renderThumb(t, thumbCanvas) {
+        offscreen.width = t.w; offscreen.height = t.h;
+        const octx = offscreen.getContext('2d');
+        octx.clearRect(0, 0, t.w, t.h);
+        const tv = defaultsFor(t);
+        // reuse current values where keys match so the thumb reflects edits
+        Object.keys(values).forEach(k => { if (k in tv) tv[k] = values[k]; });
+        const ti = {};
+        t.fields.forEach(f => { if (f.type === 'image' && images[f.key]) ti[f.key] = images[f.key]; });
+        try { t.draw(octx, tv, ti); } catch (e) { console.error(e); }
+        const tc = thumbCanvas.getContext('2d');
+        tc.clearRect(0, 0, thumbCanvas.width, thumbCanvas.height);
+        tc.drawImage(offscreen, 0, 0, thumbCanvas.width, thumbCanvas.height);
+    }
+
+    // ── Wire up ────────────────────────────────────────────
+    document.getElementById('tplPick').addEventListener('click', openChooser);
+    document.getElementById('tplClose').addEventListener('click', closeChooser);
+    tplModal.addEventListener('click', e => { if (e.target === tplModal) closeChooser(); });
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        if (tplModal.classList.contains('show')) closeChooser();
+        if (document.getElementById('proxyModal').classList.contains('show')) document.getElementById('proxyModal').classList.remove('show');
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+        render(); // ensure latest
+        try {
+            const a = document.createElement('a');
+            a.download = `og-${current.id}-${Date.now()}.png`;
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+            toast('已下載 PNG');
+        } catch (e) {
+            console.error(e);
+            toast('下載失敗');
+        }
+    });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        Object.keys(images).forEach(k => delete images[k]);
+        selectTemplate(current, false);
+        toast('已還原預設內容');
+    });
+
+    // ── Preview tabs ───────────────────────────────────────
+    let activePane = 'canvas';
+    function switchPane(name) {
+        activePane = name;
+        document.querySelectorAll('.pv-tab').forEach(t => t.classList.toggle('active', t.dataset.pane === name));
+        document.querySelectorAll('.pv-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === name));
+        if (name === 'social') refreshSocial();
+        if (name === 'meta') refreshMeta();
+    }
+    document.querySelectorAll('.pv-tab').forEach(t => t.addEventListener('click', () => switchPane(t.dataset.pane)));
+
+    // ── Social share previews ──────────────────────────────
+    const PLATFORMS = [
+        { id: 'facebook', name: 'Facebook', color: '#1877f2', d: 'M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z' },
+        { id: 'whatsapp', name: 'WhatsApp', color: '#25d366', d: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c0-5.445 4.436-9.88 9.888-9.88 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.445-4.437 9.88-9.881 9.88M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.359.101 11.892c0 2.096.549 4.142 1.595 5.945L0 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.582 0 11.94-5.359 11.943-11.893a11.821 11.821 0 0 0-3.495-8.453' },
+        { id: 'x', name: 'X', color: '#000000', d: 'M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z' },
+        { id: 'linkedin', name: 'LinkedIn', color: '#0a66c2', d: 'M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z' },
+        { id: 'discord', name: 'Discord', color: '#5865f2', d: 'M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z' },
+        { id: 'line', name: 'LINE', color: '#06c755', d: 'M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.072 9.436-6.974C23.176 14.393 24 12.458 24 10.314' },
+        { id: 'telegram', name: 'Telegram', color: '#26a5e4', d: 'M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z' },
+    ];
+    // Pure renderer: given a platform id + data, return the share-card HTML.
+    function socialCardHTML(platform, d) {
+        const title = esc(d.title || '');
+        const desc = esc(d.desc || '');
+        const dom = esc(d.domain || 'example.com');
+        const accent = d.accent || '#5865f2';
+        const img = d.imgSrc
+            ? `<img class="og" src="${esc(d.imgSrc)}" alt="" onerror="this.style.visibility='hidden'">`
+            : `<div class="og" style="aspect-ratio:1200/630;background:#e2e8f0;"></div>`;
+        const bg = d.imgSrc ? `url("${d.imgSrc}")` : 'none';
+        switch (platform) {
+            case 'facebook':
+                return `<div class="sc sc-fb">${img}
+                    <div class="meta">
+                        <div class="dom">${dom}</div>
+                        <div class="ttl clamp2">${title}</div>
+                        <div class="desc clamp1">${desc}</div>
+                    </div></div>`;
+            case 'x':
+                return `<div class="sc sc-x">
+                    <div class="imgwrap">${img}<div class="ttl-pill clamp1">${title}</div></div>
+                    <div class="from">From ${dom}</div></div>`;
+            case 'linkedin':
+                return `<div class="sc sc-li">
+                    <div class="thumb" style="background-image:${bg}"></div>
+                    <div class="meta">
+                        <div class="ttl clamp2">${title}</div>
+                        <div class="dom">${dom}</div>
+                    </div></div>`;
+            case 'whatsapp':
+                return `<div class="sc sc-wa">${img}
+                    <div class="meta">
+                        <div class="ttl clamp2">${title}</div>
+                        <div class="desc clamp2">${desc}</div>
+                        <div class="dom">${dom}</div>
+                    </div></div>`;
+            case 'discord':
+                return `<div class="sc sc-dc" style="border-left-color:${esc(accent)}">
+                    <div class="dom">${dom}</div>
+                    <div class="ttl clamp2">${title}</div>
+                    <div class="desc clamp3">${desc}</div>
+                    ${img}</div>`;
+            case 'line':
+                return `<div class="sc sc-line">${img}
+                    <div class="meta">
+                        <div class="ttl clamp2">${title}</div>
+                        <div class="desc clamp2">${desc}</div>
+                        <div class="dom">${dom}</div>
+                    </div></div>`;
+            case 'telegram':
+                return `<div class="sc sc-tg"><div class="lp">
+                    <div class="site clamp1">${dom}</div>
+                    <div class="ttl clamp2">${title}</div>
+                    <div class="desc clamp3">${desc}</div>
+                    ${img}</div></div>`;
+        }
+        return '';
+    }
+
+    // Scale the rendered card down (never up) so it fits its host box without
+    // a scrollbar, preserving aspect ratio. Re-fits after the og image loads.
+    function fitCard(host) {
+        const card = host.firstElementChild;
+        if (!card) return;
+        card.style.transform = 'none';
+        const availW = host.clientWidth, availH = host.clientHeight;
+        const cw = card.offsetWidth, ch = card.offsetHeight;
+        if (!cw || !ch || !availW || !availH) return;
+        const scale = Math.min(availW / cw, availH / ch, 1);
+        card.style.transform = `scale(${scale})`;
+    }
+    function fitAndWatch(host) {
+        fitCard(host);
+        const img = host.querySelector('img.og');
+        if (img && !img.complete) img.addEventListener('load', () => fitCard(host), { once: true });
+    }
+
+    // Reusable platform icon bar. getActive/setActive read+write the owner's
+    // current platform; onChange fires after a click so the owner can re-render.
+    function makeSocialBar(container, getActive, setActive, onChange) {
+        function render() {
+            container.innerHTML = '';
+            PLATFORMS.forEach(p => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                const active = getActive() === p.id;
+                b.className = 'sbtn' + (active ? ' active' : '');
+                b.title = p.name;
+                b.style.color = active ? '#fff' : p.color;
+                b.style.background = active ? p.color : '';
+                b.innerHTML = `<svg viewBox="0 0 24 24"><path d="${p.d}"/></svg>`;
+                b.addEventListener('click', () => { setActive(p.id); render(); onChange(p.id); });
+                container.appendChild(b);
+            });
+        }
+        return render;
+    }
+
+    // ── Generator social preview ───────────────────────────
+    let genPlatform = 'facebook';
+    const feed = document.getElementById('feed');
+    const scHost = document.getElementById('scHost');
+    const renderGenBar = makeSocialBar(
+        document.getElementById('socialBar'),
+        () => genPlatform, v => genPlatform = v, () => refreshSocial()
+    );
+    function refreshSocial() {
+        feed.className = 'feed feed-' + genPlatform;
+        scHost.innerHTML = socialCardHTML(genPlatform, {
+            imgSrc: ogDataUrl,
+            title: meta.title, desc: meta.desc,
+            domain: host(meta.url) || 'example.com',
+            accent: values.accent || '#5865f2',
+        });
+        fitAndWatch(scHost);
+    }
+
+    // ── Meta tags code ─────────────────────────────────────
+    const metaCodeEl = document.getElementById('metaCode');
+    function buildMetaText() {
+        const dom = host(meta.url) || 'example.com';
+        const t = meta.title || '', d = meta.desc || '', u = meta.url || '', img = meta.image || '';
+        return [
+            '<!-- HTML Meta Tags -->',
+            `<title>${t}</title>`,
+            `<meta name="description" content="${d}">`,
+            '',
+            '<!-- Facebook Meta Tags -->',
+            `<meta property="og:url" content="${u}">`,
+            '<meta property="og:type" content="website">',
+            `<meta property="og:title" content="${t}">`,
+            `<meta property="og:description" content="${d}">`,
+            `<meta property="og:image" content="${img}">`,
+            '',
+            '<!-- Twitter Meta Tags -->',
+            '<meta name="twitter:card" content="summary_large_image">',
+            `<meta property="twitter:domain" content="${dom}">`,
+            `<meta property="twitter:url" content="${u}">`,
+            `<meta name="twitter:title" content="${t}">`,
+            `<meta name="twitter:description" content="${d}">`,
+            `<meta name="twitter:image" content="${img}">`,
+        ].join('\n');
+    }
+    function refreshMeta() { metaCodeEl.textContent = buildMetaText(); }
+    document.getElementById('copyMeta').addEventListener('click', async () => {
+        const txt = buildMetaText();
+        try { await navigator.clipboard.writeText(txt); toast('已複製 Meta 標籤'); }
+        catch {
+            const ta = document.createElement('textarea');
+            ta.value = txt; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); toast('已複製 Meta 標籤'); } catch { toast('複製失敗'); }
+            document.body.removeChild(ta);
+        }
+    });
+
+    // ── URL inspector ──────────────────────────────────────
+    // Arbitrary cross-origin HTML can't be fetched directly from the browser.
+    // Primary route is the user's own Cloudflare Worker (generic ?url= passthrough),
+    // configurable via the ⚙ button. Public proxies are a graceful fallback.
+    const OG_PROXY_KEY = 'og_inspect_proxy';
+    const OG_DEFAULT_PROXY = 'https://missing.54maxwu.workers.dev/';
+    const getOgProxy = () => { try { return (localStorage.getItem(OG_PROXY_KEY) ?? OG_DEFAULT_PROXY).trim(); } catch { return OG_DEFAULT_PROXY; } };
+    const OG_WORKER_CODE =
+`export default {
+  async fetch(request) {
+    const CORS = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+    if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+    const target = new URL(request.url).searchParams.get('url');
+    if (!target) return new Response('missing ?url=', { status: 400, headers: CORS });
+    try {
+      const upstream = await fetch(target, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OGInspector/1.0)' },
+        redirect: 'follow',
+      });
+      const body = await upstream.text();
+      return new Response(body, {
+        status: upstream.status,
+        headers: { ...CORS, 'Content-Type': upstream.headers.get('content-type') || 'text/html; charset=utf-8' },
+      });
+    } catch (e) {
+      return new Response('proxy error: ' + e.message, { status: 502, headers: CORS });
+    }
+  }
+};`;
+    function proxyList() {
+        const list = [];
+        const p = getOgProxy();
+        if (p) list.push(u => p + (p.includes('?') ? '&' : (p.endsWith('/') ? '' : '/')) + '?url=' + encodeURIComponent(u));
+        list.push(
+            u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+            u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+            u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+        );
+        return list;
+    }
+    async function fetchHtml(u) {
+        // Prefer a DIRECT fetch first: the target sees the real visitor and the
+        // result is most accurate. Proxy IPs are sometimes blocked by the target,
+        // so only fall back to a proxy when the direct (CORS) request fails.
+        try {
+            const r = await fetch(u, { cache: 'no-store' });
+            if (r.ok) { const t = await r.text(); if (t && t.length > 40) return t; }
+        } catch (e) { /* CORS-blocked → fall through to proxies */ }
+        let lastErr;
+        for (const make of proxyList()) {
+            try {
+                const r = await fetch(make(u), { cache: 'no-store' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const t = await r.text();
+                if (t && t.length > 40) return t;
+                throw new Error('空白回應');
+            } catch (e) { lastErr = e; }
+        }
+        throw lastErr || new Error('無法取得內容');
+    }
+    function resolveUrl(u, base) {
+        if (!u) return '';
+        try { return new URL(u, base).href; } catch { return u; }
+    }
+    function imgSize(src) {
+        return new Promise(res => {
+            if (!src) return res(null);
+            const im = new Image();
+            im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight });
+            im.onerror = () => res(null);
+            im.src = src;
+        });
+    }
+    function parseMeta(html, baseUrl) {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const mp = name => {
+            const e = doc.querySelector(`meta[property="${name}"]`) || doc.querySelector(`meta[name="${name}"]`);
+            return (e && e.getAttribute('content')) || '';
+        };
+        const htmlTitle = (doc.querySelector('title')?.textContent || '').trim();
+        const data = {
+            htmlTitle,
+            title: mp('og:title') || htmlTitle,
+            desc: mp('og:description') || mp('description'),
+            image: resolveUrl(mp('og:image') || mp('og:image:url'), baseUrl),
+            url: mp('og:url') || baseUrl,
+            type: mp('og:type'),
+            siteName: mp('og:site_name'),
+            imageAlt: mp('og:image:alt'),
+            description: mp('description'),
+            twCard: mp('twitter:card'),
+        };
+        const rows = [];
+        if (htmlTitle) rows.push(['title', htmlTitle]);
+        doc.querySelectorAll('meta[property], meta[name]').forEach(m => {
+            const k = (m.getAttribute('property') || m.getAttribute('name') || '').toLowerCase();
+            const v = m.getAttribute('content') || '';
+            if (/^(og:|twitter:|fb:|article:)/.test(k)) rows.push([k, v]);
+            else if (k === 'description') rows.push([k, v]);
+        });
+        data.rows = rows;
+        return data;
+    }
+    function computeIssues(data, size) {
+        const out = [];
+        if (!data.image) out.push({ ic: '⛶', text: '缺少 og:image，社群分享時不會顯示縮圖。' });
+        else if (!size) out.push({ ic: '⛶', text: '無法載入 og:image（可能有防盜連或 CORS 限制）。' });
+        else if (size.w !== 1200 || size.h !== 630) out.push({ ic: '⛶', text: `圖片為 ${size.w}x${size.h}px，建議尺寸為 1200x630px。` });
+        const tl = (data.title || '').length;
+        if (!data.title) out.push({ ic: 'T', text: '缺少 og:title。' });
+        else if (tl < 50) out.push({ ic: 'T', text: `標題偏短（${tl} 字元），最佳為 50–60 字元。` });
+        else if (tl > 60) out.push({ ic: 'T', text: `標題偏長（${tl} 字元），最佳為 50–60 字元。` });
+        const dl = (data.desc || '').length;
+        if (!data.desc) out.push({ ic: 'T', text: '缺少 og:description。' });
+        else if (dl < 110) out.push({ ic: 'T', text: `說明偏短（${dl} 字元），最佳為 110–160 字元。` });
+        else if (dl > 160) out.push({ ic: 'T', text: `說明偏長（${dl} 字元），最佳為 110–160 字元。` });
+        if (!data.twCard) out.push({ ic: '⚑', text: '缺少 twitter:card（建議 summary_large_image）。' });
+        return out;
+    }
+
+    const insUrl = document.getElementById('insUrl');
+    const insBtn = document.getElementById('insBtn');
+    const insEmpty = document.getElementById('insEmpty');
+    const insResults = document.getElementById('insResults');
+    const insIssues = document.getElementById('insIssues');
+    const insIssuesTitle = document.getElementById('insIssuesTitle');
+    const insDetail = document.getElementById('insDetail');
+    const insFeed = document.getElementById('insFeed');
+    const insScHost = document.getElementById('insScHost');
+    let insPlatform = 'facebook';
+    let insData = null;
+    const renderInsBar = makeSocialBar(
+        document.getElementById('insSocialBar'),
+        () => insPlatform, v => insPlatform = v, () => refreshInsSocial()
+    );
+    function refreshInsSocial() {
+        if (!insData) return;
+        insFeed.className = 'feed ins-feed feed-' + insPlatform;
+        insScHost.innerHTML = socialCardHTML(insPlatform, insData);
+        fitAndWatch(insScHost);
+    }
+    function renderIssues(issues) {
+        if (!issues.length) {
+            insIssuesTitle.textContent = '中繼資料檢查';
+            insIssues.innerHTML = '<div class="issue-card ins-ok"><span class="ic">✓</span><span>太好了！沒有發現中繼資料問題。</span></div>';
+            return;
+        }
+        insIssuesTitle.textContent = `發現 ${issues.length} 個中繼資料問題`;
+        insIssues.innerHTML = issues.map(i =>
+            `<div class="issue-card"><span class="ic">${esc(i.ic || '⚠')}</span><span>${esc(i.text)}</span></div>`).join('');
+    }
+    function renderDetail(data) {
+        const rows = data.rows || [];
+        if (!rows.length) { insDetail.innerHTML = '<div style="padding:16px;color:#94a3b8;">沒有找到 og / twitter meta 標籤。</div>'; return; }
+        insDetail.innerHTML = '<table>' + rows.map(([k, v]) =>
+            `<tr><td class="k">${esc(k)}</td><td class="v">${v ? esc(v) : '<span style="color:#94a3b8">—</span>'}</td></tr>`).join('') + '</table>';
+    }
+    async function runInspect() {
+        let url = (insUrl.value || '').trim();
+        if (!url) { toast('請輸入網址'); insUrl.focus(); return; }
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        setStatus('檢查中…', 'busy');
+        insBtn.disabled = true;
+        insEmpty.hidden = false; insResults.hidden = true;
+        insEmpty.textContent = '正在抓取網頁與 meta 資訊…';
+        try {
+            const html = await fetchHtml(url);
+            const data = parseMeta(html, url);
+            const size = await imgSize(data.image);
+            insData = {
+                imgSrc: data.image,
+                title: data.title,
+                desc: data.desc,
+                domain: host(data.url || url) || host(url),
+                accent: '#5865f2',
+            };
+            renderIssues(computeIssues(data, size));
+            renderInsBar();
+            refreshInsSocial();
+            renderDetail(data);
+            insEmpty.hidden = true; insResults.hidden = false;
+            setStatus('檢查完成', 'ok');
+        } catch (e) {
+            console.error(e);
+            insResults.hidden = true; insEmpty.hidden = false;
+            insEmpty.textContent = '無法取得該網址內容：' + (e.message || e) + '。代理伺服器可能暫時無法使用，或該網站封鎖了跨域存取，請稍後再試或換個網址。';
+            setStatus('檢查失敗', 'err');
+        } finally {
+            insBtn.disabled = false;
+        }
+    }
+    insBtn.addEventListener('click', runInspect);
+    insUrl.addEventListener('keydown', e => { if (e.key === 'Enter') runInspect(); });
+
+    // ── Proxy setup modal ──────────────────────────────────
+    const proxyModal = document.getElementById('proxyModal');
+    const proxyInput = document.getElementById('proxyInput');
+    const proxyStatus = document.getElementById('proxyStatus');
+    document.getElementById('proxyCode').textContent = OG_WORKER_CODE;
+    function refreshProxyStatus() {
+        const v = (localStorage.getItem(OG_PROXY_KEY) ?? OG_DEFAULT_PROXY).trim();
+        proxyStatus.className = 'proxy-status ' + (v ? 'set' : 'unset');
+        proxyStatus.textContent = v ? `✓ 目前使用：${v}` : '未設定，將使用公用代理';
+    }
+    function openProxy() {
+        proxyInput.value = (localStorage.getItem(OG_PROXY_KEY) ?? OG_DEFAULT_PROXY).trim();
+        refreshProxyStatus();
+        proxyModal.classList.add('show');
+    }
+    function closeProxy() { proxyModal.classList.remove('show'); }
+    // Only surface the proxy-config button when no default proxy is hard-coded.
+    document.getElementById('insProxyBtn').hidden = !!OG_DEFAULT_PROXY;
+    document.getElementById('insProxyBtn').addEventListener('click', openProxy);
+    document.getElementById('proxyClose').addEventListener('click', closeProxy);
+    proxyModal.addEventListener('click', e => { if (e.target === proxyModal) closeProxy(); });
+    document.getElementById('proxySave').addEventListener('click', () => {
+        let v = proxyInput.value.trim();
+        if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+        try { v ? localStorage.setItem(OG_PROXY_KEY, v) : localStorage.removeItem(OG_PROXY_KEY); } catch {}
+        proxyInput.value = v;
+        refreshProxyStatus();
+        toast(v ? '已儲存代理網址' : '已清除，改用公用代理');
+    });
+    document.getElementById('proxyClear').addEventListener('click', () => {
+        try { localStorage.removeItem(OG_PROXY_KEY); } catch {}
+        proxyInput.value = '';
+        refreshProxyStatus();
+        toast('已清除，改用公用代理');
+    });
+    document.getElementById('proxyCopy').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(OG_WORKER_CODE); toast('已複製 Worker 程式碼'); }
+        catch {
+            const ta = document.createElement('textarea');
+            ta.value = OG_WORKER_CODE; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); toast('已複製 Worker 程式碼'); } catch { toast('複製失敗'); }
+            document.body.removeChild(ta);
+        }
+    });
+
+    // ── Mode switch (generator / inspector) ────────────────
+    const genView = document.getElementById('genView');
+    const insView = document.getElementById('insView');
+    function setMode(m) {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+        genView.hidden = m !== 'gen';
+        insView.hidden = m !== 'inspect';
+        document.getElementById('appTitle').textContent = m === 'gen' ? 'OG 圖片產生器' : 'OG 網址檢查';
+        if (m === 'inspect') insUrl.focus();
+    }
+    document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+    let resizeRAF = null;
+    window.addEventListener('resize', () => {
+        cancelAnimationFrame(resizeRAF);
+        resizeRAF = requestAnimationFrame(() => {
+            if (!genView.hidden && activePane === 'social') fitCard(scHost);
+            if (!insView.hidden && !insResults.hidden) fitCard(insScHost);
+        });
+    });
+
+    // ── Init ───────────────────────────────────────────────
+    buildShared();
+    renderGenBar();
+    refreshMeta();
+    selectTemplate(TEMPLATES[0], false);
+    setStatus('準備就緒', 'idle');
+    render();
+    </script>
+</body>
+</html>
