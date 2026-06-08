@@ -726,7 +726,8 @@
     const NPA = 'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson';
     const SRC = { Male: NPA + '/json/Male', Female: NPA + '/json/Female' };
     const GET_PROXIES = [
-        u => 'https://api.codetabs.com/v1/proxy/?quest=' + u,
+        u => { const p = getProxy(); return p ? p + '?url=' + encodeURIComponent(u) : null; },
+        u => 'https://corsproxy.io/?' + encodeURIComponent(u),
         u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
     ];
     const PROXY_KEY = 'mp_history_proxy';
@@ -738,10 +739,17 @@
   async fetch(request) {
     const CORS = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+    if (request.method === 'GET') {
+      const url = new URL(request.url).searchParams.get('url');
+      if (!url) return new Response('Missing url', { status: 400, headers: CORS });
+      const upstream = await fetch(url);
+      const text = await upstream.text();
+      return new Response(text, { status: upstream.status, headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' } });
+    }
     if (request.method !== 'POST') return new Response('POST only', { status: 405, headers: CORS });
     const upstream = await fetch(
       'https://eze8.npa.gov.tw/E82OpendataWebE/api/MissPerson/json',
@@ -833,8 +841,10 @@
     async function fetchJSON(url) {
         let lastErr;
         for (const build of GET_PROXIES) {
+            const proxyUrl = build(url);
+            if (!proxyUrl) continue;
             try {
-                const res = await fetch(build(url), { cache: 'no-store' });
+                const res = await fetch(proxyUrl, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 if (!Array.isArray(data)) throw new Error('非預期的回應格式');
@@ -1091,9 +1101,8 @@
     // ── Setup (proxy) modal ──
     function refreshProxyUI() {
         const has = !!getProxy();
-        $settingsBtn.hidden = has;
         $settingsBtn.classList.toggle('unset', !has);
-        $settingsBtn.title = has ? '歷史查詢代理：已設定' : '尚未設定歷史查詢代理';
+        $settingsBtn.title = has ? '歷史查詢代理：已設定（點此更新）' : '尚未設定歷史查詢代理';
     }
     function openSetup() {
         $proxyInput.value = getProxy();
