@@ -330,6 +330,13 @@ body {
   z-index: 4;
 }
 .pip-view video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+/* Swap-which-is-main button, sits top-left over the stage */
+.pip-swap-btn {
+  position: absolute; top: 10px; left: 10px; z-index: 5;
+  background: rgba(0,0,0,.55); color: #fff; border: none;
+  padding: 6px 10px; font-size: 12px;
+}
+.pip-swap-btn:hover { background: rgba(0,0,0,.75); }
 
 #leaveFloat {
   position: absolute;
@@ -469,10 +476,14 @@ body {
   <section id="share-view" hidden>
     <div class="share-grid">
       <div class="card video-card" style="position:relative;">
-        <video id="previewVideo" autoplay muted playsinline></video>
-        <div class="pip-view" id="senderPeerPip" hidden>
-          <video id="senderPeerVideo" autoplay playsinline></video>
+        <!-- Main stage shows the PEER by default; the sharer's own stream goes
+             to the corner PiP. The swap button flips which is which. -->
+        <video id="shareMainVideo" autoplay muted playsinline></video>
+        <div class="video-overlay" id="shareMainOverlay">等待對方鏡頭…</div>
+        <div class="pip-view" id="sharePip" hidden>
+          <video id="sharePipVideo" autoplay muted playsinline></video>
         </div>
+        <button class="btn btn-ghost pip-swap-btn" id="shareSwapBtn" hidden>⇄ 切換</button>
       </div>
       <div class="card">
         <div class="field-label">連線代碼</div>
@@ -761,7 +772,6 @@ async function startSender(source) {
 
   $('picker').hidden = true;
   $('share-view').hidden = false;
-  $('previewVideo').srcObject = stream;
 
   const roomId = randomId();
   $('roomIdView').textContent = roomId;
@@ -773,7 +783,37 @@ async function startSender(source) {
   $('connState').textContent = '等待對方連入';
 
   const ws = openSignal(roomId);
-  senderState = { ws, pc: null, stream };
+  // selfStream = our outgoing media; peerStream = the viewer's returned camera.
+  // swapped=false → peer in main, self in PiP (default). The creator is the
+  // offerer; it keeps the room and re-offers if the peer leaves.
+  senderState = { ws, pc: null, stream, peerStream: null, swapped: false, isOfferer: true };
+
+  // Render self/peer into main vs PiP. Default (swapped=false): peer in main,
+  // self in PiP. But until the peer sends video, show OUR OWN stream in main so
+  // the sharer can see what they're sharing (peer corner stays hidden).
+  const renderShareVideos = () => {
+    const main = $('shareMainVideo'), pipWrap = $('sharePip'), pip = $('sharePipVideo');
+    const self = senderState.stream, peer = senderState.peerStream;
+    let mainStream, pipStream;
+    if (!peer) {
+      mainStream = self; pipStream = null;       // solo: own stream fills the stage
+    } else if (senderState.swapped) {
+      mainStream = self; pipStream = peer;        // swapped: self big, peer corner
+    } else {
+      mainStream = peer; pipStream = self;        // default: peer big, self corner
+    }
+    main.srcObject = mainStream;
+    main.muted = (mainStream === self);          // never echo our own audio
+    pip.srcObject = pipStream;
+    pip.muted = (pipStream === self);
+    $('shareMainOverlay').hidden = !!mainStream;
+    pipWrap.hidden = !pipStream;
+    $('shareSwapBtn').hidden = !peer;            // swap only meaningful with a peer
+    main.play?.().catch(() => {});
+    if (pipStream) pip.play?.().catch(() => {});
+  };
+  senderState.renderShareVideos = renderShareVideos;
+  renderShareVideos();
 
   // buildPc() creates a FRESH PeerConnection wired with our outgoing tracks.
   // It's called on first peer-join and again whenever the peer leaves and a new
@@ -784,13 +824,11 @@ async function startSender(source) {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     senderState.pc = pc;
     stream.getTracks().forEach(t => pc.addTrack(t, stream));
-    // If the viewer turns on their camera, their track arrives here → show it
-    // in the corner picture-in-picture. (Audio tracks ride along silently.)
+    // If the viewer turns on their camera, their track arrives here → it becomes
+    // the main stage (default), with our own stream shown in the PiP corner.
     pc.ontrack = e => {
-      const v = $('senderPeerVideo');
-      v.srcObject = e.streams[0];
-      $('senderPeerPip').hidden = false;
-      v.play?.().catch(() => {});
+      senderState.peerStream = e.streams[0];
+      senderState.renderShareVideos();
     };
     pc.onicecandidate = e => {
       if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
@@ -804,7 +842,6 @@ async function startSender(source) {
       } else if (s === 'failed' || s === 'disconnected') {
         setStatus('連線中斷', 'err');
         $('connType').textContent = '—';
-        $('senderPeerPip').hidden = true;
       }
     };
     return pc;
@@ -813,31 +850,34 @@ async function startSender(source) {
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
     if (handleRoomFull(msg)) return;
+    const st = senderState;
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      // A peer is present. Build a fresh pc if we don't have a live one, then
-      // offer. Guard against duplicate signals (room-state + peer-joined) which
-      // would otherwise cause renegotiation glare.
-      if ((msg.peerCount ?? 1) >= 1) {
-        const pc = senderState.pc || buildPc();
+      // Only the offerer initiates. A peer is present → (re)offer. Guard against
+      // duplicate signals (room-state + peer-joined) causing glare.
+      if (st.isOfferer && (msg.peerCount ?? 1) >= 1) {
+        const pc = st.pc || buildPc();
         await makeOffer(pc, ws);
       }
     } else if (msg.type === 'answer') {
-      if (senderState.pc?.signalingState !== 'stable') await senderState.pc.setRemoteDescription(msg.sdp);
+      if (st.pc?.signalingState !== 'stable') await st.pc.setRemoteDescription(msg.sdp);
     } else if (msg.type === 'renegotiate') {
       // Viewer added/removed its camera and needs us to re-offer so the new
       // track is negotiated. makeOffer no-ops if a negotiation is already mid-flight.
-      if (senderState.pc) await makeOffer(senderState.pc, ws);
+      if (st.pc) await makeOffer(st.pc, ws);
     } else if (msg.type === 'ice') {
-      try { await senderState.pc?.addIceCandidate(msg.candidate); } catch {}
+      try { await st.pc?.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
-      // Peer gone — discard the dead pc so the next joiner gets a clean offer.
+      // Peer gone, but the room is still ours. Stay the offerer and wait for the
+      // next viewer; only release the room when WE stop sharing.
       setStatus('對方離線，等待重新連入', 'busy');
       $('connState').textContent = '對方離線，等待重連';
       $('connType').textContent = '—';
-      $('senderPeerPip').hidden = true;
-      $('senderPeerVideo').srcObject = null;
-      try { senderState.pc?.close(); } catch {}
-      senderState.pc = null;
+      st.peerStream = null;
+      st.swapped = false;
+      st.renderShareVideos();
+      try { st.pc?.close(); } catch {}
+      st.pc = null;
+      st.isOfferer = true;
     }
   };
 
@@ -861,9 +901,23 @@ function stopSender(reason) {
   try { pc?.close(); } catch {}
   try { ws.close(); } catch {}
   senderState = null;
+  // Clear video elements + PiP so a fresh share doesn't show a stale/empty box.
+  $('shareMainVideo').srcObject = null;
+  $('sharePipVideo').srcObject = null;
+  $('sharePip').hidden = true;
+  $('shareSwapBtn').hidden = true;
+  $('shareMainOverlay').hidden = false;
+  $('shareMainOverlay').textContent = '等待對方鏡頭…';
   if (reason) toast(reason);
   showPicker();
 }
+
+// Swap which stream is in the main stage vs the corner PiP (sharer side).
+$('shareSwapBtn')?.addEventListener('click', () => {
+  if (!senderState) return;
+  senderState.swapped = !senderState.swapped;
+  senderState.renderShareVideos();
+});
 
 // Shared: detect the worker's "room full" signal (a control message, or the
 // 4001 close code) and surface a clear message instead of a generic disconnect.
@@ -890,7 +944,9 @@ async function startViewer(roomId) {
   const ws = openSignal(roomId);
   // camStream holds the viewer's own camera once enabled, so it can be re-added
   // to every rebuilt pc (reconnect / re-offer) and survive renegotiation.
-  viewerState = { ws, pc: null, camStream: null };
+  // isOfferer flips to true if the sharer leaves, so the viewer takes over the
+  // room and (re)offers to the next person rather than waiting forever.
+  viewerState = { ws, pc: null, camStream: null, isOfferer: false };
 
   // A fresh PeerConnection, wired to render the incoming stream. Rebuilt if the
   // sharer leaves and a new offer arrives, so a stale pc never blocks reconnect.
@@ -961,32 +1017,48 @@ async function startViewer(roomId) {
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
     if (handleRoomFull(msg)) return;
+    const st = viewerState;
     if (msg.type === 'room-state') {
       if (msg.peerCount === 0) {
         $('viewerOverlay').textContent = '等待分享者開始…';
         setStatus('等待分享者', 'busy');
       }
+    } else if (msg.type === 'peer-joined') {
+      // Someone joined. If we've taken over the room AND have media (our camera),
+      // we initiate; otherwise we stay the answerer and wait for their offer.
+      if (st.isOfferer && st.camStream) {
+        const pc = st.pc || buildPc();
+        await makeOffer(pc, ws);
+      }
     } else if (msg.type === 'offer') {
+      // Receiving an offer makes us the answerer for this negotiation.
+      st.isOfferer = false;
       // A re-offer on a healthy pc (e.g. after we enabled our camera) is a
       // renegotiation — reuse the existing pc so our added track and live ICE
       // survive. Only a fresh/dead pc warrants a rebuild (first connect or
       // reconnect after the sharer left).
-      const live = viewerState.pc &&
-        ['connecting', 'connected'].includes(viewerState.pc.connectionState) &&
-        viewerState.pc.signalingState === 'stable';
-      const pc = live ? viewerState.pc : buildPc();
+      const live = st.pc &&
+        ['connecting', 'connected'].includes(st.pc.connectionState) &&
+        st.pc.signalingState === 'stable';
+      const pc = live ? st.pc : buildPc();
       await pc.setRemoteDescription(msg.sdp);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'answer', sdp: answer }));
+    } else if (msg.type === 'answer') {
+      if (st.pc?.signalingState !== 'stable') await st.pc.setRemoteDescription(msg.sdp);
     } else if (msg.type === 'ice') {
-      try { await viewerState.pc?.addIceCandidate(msg.candidate); } catch {}
+      try { await st.pc?.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
+      // Sharer gone, but the room is still ours — keep it and wait for a new
+      // sharer (or, if our camera is on, offer to the next joiner ourselves).
       setStatus('分享者已離開，等待重新連入', 'busy');
       $('viewerOverlay').hidden = false;
-      $('viewerOverlay').textContent = '分享者已離開，等待重連…';
-      try { viewerState.pc?.close(); } catch {}
-      viewerState.pc = null;
+      $('viewerOverlay').textContent = '分享者已離開，房間保留中，等待新的分享者…';
+      $('viewerVideo').srcObject = null;
+      try { st.pc?.close(); } catch {}
+      st.pc = null;
+      st.isOfferer = !!st.camStream; // become offerer only if we have media to send
     }
   };
 
