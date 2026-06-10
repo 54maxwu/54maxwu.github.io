@@ -254,6 +254,18 @@ body {
 
 .actions { display: flex; gap: 8px; margin-top: 12px; }
 
+/* ── File transfer ─────────────────────────────────── */
+.file-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 900px) { .file-grid { grid-template-columns: 1fr; } }
+.dropzone { border: 1.5px dashed #99f6e4; background: linear-gradient(180deg,#f0fdfa,#ffffff); border-radius: 14px; padding: 16px; min-height: 150px; display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: center; text-align: center; color: #0f766e; cursor: pointer; }
+.dropzone.dragover { border-color: #0d9488; background: #ecfdf5; }
+.dropzone small { color: #64748b; line-height: 1.5; }
+.file-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #1e293b; }
+.file-chip strong { display: block; font-size: 13px; color: #0f172a; }
+.file-chip span { color: #64748b; font-size: 11px; }
+.file-list { display: flex; flex-direction: column; gap: 8px; }
+.mini-label { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #0d9488; font-weight: 700; }
+
 /* ── Viewer (full-bleed) ────────────────────────────── */
 #viewer-stage {
   background: #000;
@@ -375,6 +387,15 @@ body {
         <span class="label">後鏡頭</span>
         <span class="desc">面向外側（拍景）</span>
       </button>
+      <button class="pick-btn" id="btnFileSend">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v10"/>
+          <path d="M8 7l4 4 4-4"/>
+          <path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
+        </svg>
+        <span class="label">傳檔案</span>
+        <span class="desc">內網點對點傳輸（WebRTC）</span>
+      </button>
     </div>
 
     <div class="join-divider"><span>或</span></div>
@@ -383,7 +404,12 @@ body {
              placeholder="輸入 6 位數連線代碼" maxlength="32">
       <button class="btn btn-primary" id="joinBtn">觀看</button>
     </div>
-    <div class="join-hint">也可以直接貼上分享連結</div>
+    <div class="join-row" style="margin-top:8px;">
+      <input id="fileJoinInput" type="text" inputmode="numeric" autocomplete="off"
+             placeholder="輸入檔案房號（如 123456）" maxlength="32">
+      <button class="btn btn-ghost" id="fileJoinBtn">接收檔案</button>
+    </div>
+    <div class="join-hint">也可以直接貼上分享連結；檔案模式會用同一組 signaling room。</div>
   </section>
 
   <!-- mode B: sharing -->
@@ -412,7 +438,52 @@ body {
     </div>
   </section>
 
-  <!-- mode C: viewing -->
+  <!-- mode C: file sender -->
+  <section id="file-send-view" hidden>
+    <div class="file-grid">
+      <div class="card">
+        <div class="field-label">內網檔案傳輸</div>
+        <div class="code-big" id="fileRoomIdView">—</div>
+        <div class="field-label" style="margin-top:6px;">分享連結</div>
+        <div class="link-box">
+          <input id="fileShareUrl" type="text" readonly>
+          <button class="btn btn-primary" id="fileCopyBtn">複製</button>
+        </div>
+        <div class="info-row"><span class="k">連線狀態</span><span class="v" id="fileConnState">等待對方連入</span></div>
+        <div class="info-row"><span class="k">傳輸路徑</span><span class="v" id="fileConnType">WebRTC DataChannel</span></div>
+        <div class="actions">
+          <button class="btn btn-danger" id="fileStopBtn">停止傳送</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="mini-label">選擇檔案</div>
+        <label class="dropzone" id="fileDropZone" for="fileInput">
+          <strong>拖曳檔案到這裡，或點擊選擇</strong>
+          <small>支援單一檔案傳輸；大小與速度依照你們的 LAN / Wi-Fi 而定。</small>
+          <input id="fileInput" type="file" hidden>
+        </label>
+        <div class="hint" style="margin-top:8px;">提醒：檔案本體是 WebRTC P2P 傳輸，但 signaling 與 ICE 仍會依你目前設定的 server / STUN 路徑運作。</div>
+        <div class="file-list" id="fileList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- mode D: file receiver -->
+  <section id="file-recv-view" hidden>
+    <div class="card">
+      <div class="field-label">接收檔案</div>
+      <div class="code-big" id="fileRecvRoomId">—</div>
+      <div class="info-row"><span class="k">連線狀態</span><span class="v" id="fileRecvState">等待中</span></div>
+      <div class="info-row"><span class="k">檔案名稱</span><span class="v" id="fileRecvName">—</span></div>
+      <div class="info-row"><span class="k">進度</span><span class="v" id="fileRecvProgress">0%</span></div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="fileRecvBackBtn">返回</button>
+      </div>
+      <div id="fileRecvNote" class="hint" style="margin-top:10px;">等待傳送端建立連線…</div>
+    </div>
+  </section>
+
+  <!-- mode E: viewing -->
   <section id="viewer-view" hidden>
     <div id="viewer-stage">
       <video id="viewerVideo" autoplay playsinline muted></video>
@@ -478,8 +549,7 @@ function randomId() {
 
 function extractCode(input) {
   if (!input) return '';
-  // Accept either a pure code or a full URL containing #view=
-  const m = input.match(/#view=([a-zA-Z0-9_-]+)/);
+  const m = input.match(/#(?:view|file)=([a-zA-Z0-9_-]+)/);
   if (m) return m[1];
   return input.trim();
 }
@@ -488,7 +558,7 @@ function extractCode(input) {
 function parseHash() {
   const h = location.hash.replace(/^#/, '');
   const params = new URLSearchParams(h);
-  return { view: params.get('view') };
+  return { view: params.get('view'), file: params.get('file') };
 }
 
 function boot() {
@@ -508,15 +578,18 @@ function boot() {
     $('btnFront').style.display = 'none';
     $('btnBack').style.display = 'none';
   }
-  const { view } = parseHash();
+  const { view, file } = parseHash();
   if (view) startViewer(view);
-  else      showPicker();
+  else if (file) startFileReceiver(file);
+  else showPicker();
 }
 
 function showPicker() {
   $('picker').hidden = false;
   $('share-view').hidden = true;
   $('viewer-view').hidden = true;
+  $('file-send-view').hidden = true;
+  $('file-recv-view').hidden = true;
   setStatus('待機中');
 }
 
@@ -733,7 +806,9 @@ $('btnScreen').addEventListener('click', () => startSender('screen'));
 $('btnCamera').addEventListener('click', () => startSender('camera-front'));
 $('btnFront').addEventListener('click', () => startSender('camera-front'));
 $('btnBack').addEventListener('click', () => startSender('camera-back'));
+$('btnFileSend').addEventListener('click', startFileSender);
 $('stopBtn').addEventListener('click', () => stopSender());
+$('fileStopBtn').addEventListener('click', stopFileSender);
 
 function joinByCode() {
   const code = extractCode($('joinInput').value);
@@ -759,6 +834,22 @@ $('copyBtn').addEventListener('click', async () => {
     toast('已複製連結');
   }
 });
+
+$('fileJoinBtn').addEventListener('click', () => {
+  const code = extractCode($('fileJoinInput').value);
+  if (!code) { toast('請輸入檔案房號'); return; }
+  location.hash = 'file=' + code;
+  startFileReceiver(code);
+});
+$('fileJoinInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('fileJoinBtn').click(); });
+
+$('fileCopyBtn').addEventListener('click', async () => {
+  const url = $('fileShareUrl').value;
+  try { await navigator.clipboard.writeText(url); toast('已複製檔案連結'); }
+  catch { $('fileShareUrl').select(); document.execCommand('copy'); toast('已複製檔案連結'); }
+});
+
+$('fileRecvBackBtn').addEventListener('click', stopFileReceiver);
 
 function stopViewer() {
   if (viewerState) {
@@ -798,8 +889,263 @@ $('fsBtn').addEventListener('click', () => {
   else                                     toast('此瀏覽器不支援全螢幕');
 });
 
+// ── File transfer flow ───────────────────────────────
+const FILE_CHUNK_SIZE = 48 * 1022;
+let fileSenderState = null;
+let fileReceiverState = null;
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function showFileSender() {
+  $('picker').hidden = true;
+  $('share-view').hidden = true;
+  $('viewer-view').hidden = true;
+  $('file-send-view').hidden = false;
+  $('file-recv-view').hidden = true;
+}
+
+function showFileReceiver() {
+  $('picker').hidden = true;
+  $('share-view').hidden = true;
+  $('viewer-view').hidden = true;
+  $('file-send-view').hidden = true;
+  $('file-recv-view').hidden = false;
+}
+
+async function startFileSender() {
+  const roomId = randomId();
+  const ws = openSignal(roomId);
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const dc = pc.createDataChannel('pingl-file', { ordered: true });
+  fileSenderState = { ws, pc, dc, roomId, file: null };
+
+  showFileSender();
+  $('fileRoomIdView').textContent = roomId;
+  $('fileShareUrl').value = `${location.origin}${location.pathname}#file=${roomId}`;
+  $('fileConnState').textContent = '等待對方連入';
+  setStatus('準備傳檔案', 'busy');
+
+  dc.onopen = () => {
+    $('fileConnState').textContent = '已連線';
+    setStatus('可傳輸檔案', 'ok');
+    toast('對方已連上，可開始傳送檔案');
+  };
+  dc.onclose = () => {
+    $('fileConnState').textContent = '連線已關閉';
+    setStatus('傳輸結束', 'ok');
+  };
+
+  pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    $('fileConnState').textContent = s === 'connected' ? '已連線' : s;
+    if (s === 'failed' || s === 'disconnected') setStatus('傳輸中斷', 'err');
+  };
+
+  ws.onmessage = async ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'room-state' || msg.type === 'peer-joined') {
+      await makeOffer(pc, ws);
+    } else if (msg.type === 'answer') {
+      await pc.setRemoteDescription(msg.sdp);
+    } else if (msg.type === 'ice') {
+      try { await pc.addIceCandidate(msg.candidate); } catch {}
+    } else if (msg.type === 'peer-left') {
+      $('fileConnState').textContent = '對方已離線';
+      setStatus('對方已離線', 'err');
+    }
+  };
+  ws.onerror = () => setStatus('signaling 連線失敗', 'err');
+  ws.onclose = () => { if (fileSenderState) setStatus('signaling 已斷', 'err'); };
+
+  const dropZone = $('fileDropZone');
+  const fileInput = $('fileInput');
+  const updateList = () => {
+    const list = $('fileList');
+    list.innerHTML = '';
+    if (!fileSenderState.file) {
+      list.innerHTML = '<div class="hint">先選擇一個檔案，拖曳或點擊上方區塊即可開始。</div>';
+      return;
+    }
+    const file = fileSenderState.file;
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    const size = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+    chip.innerHTML = `<div><strong>${file.name}</strong><span>${size} · 點擊傳送</span></div><button class="btn btn-primary" id="sendFileBtn">傳送</button>`;
+    list.appendChild(chip);
+    chip.querySelector('#sendFileBtn').addEventListener('click', () => sendSelectedFile(file));
+  };
+  updateList();
+
+  const chooseFile = async e => {
+    const [file] = e.target.files || e.dataTransfer?.files || [];
+    if (!file) return;
+    fileSenderState.file = file;
+    updateList();
+    toast(`已選擇 ${file.name}`);
+  };
+  fileInput.addEventListener('change', chooseFile);
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); chooseFile(e); });
+}
+
+async function sendSelectedFile(file) {
+  if (!fileSenderState || !fileSenderState.dc || fileSenderState.dc.readyState !== 'open') {
+    toast('對方尚未連線完成');
+    return;
+  }
+  const ok = window.confirm('提醒：這是 WebRTC P2P 檔案傳輸；檔案本體會直接連線，但 signaling 與 ICE 仍可能使用你目前設定的 server / STUN。是否繼續？');
+  if (!ok) {
+    toast('已取消傳送');
+    return;
+  }
+  const dc = fileSenderState.dc;
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  const totalChunks = Math.ceil(file.size / FILE_CHUNK_SIZE);
+  try {
+    dc.send(JSON.stringify({ type: 'file-meta', fileId: id, name: file.name, size: file.size, type: file.type, totalChunks }));
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * FILE_CHUNK_SIZE;
+      const end = Math.min(start + FILE_CHUNK_SIZE, bytes.length);
+      const chunk = bytes.subarray(start, end);
+      dc.send(JSON.stringify({ type: 'file-chunk', fileId: id, index: i, data: arrayBufferToBase64(chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)) }));
+      $('fileConnState').textContent = `傳送中 ${Math.round((i + 1) / totalChunks * 100)}%`;
+    }
+    toast(`已送出 ${file.name}`);
+    $('fileConnState').textContent = '傳送完成';
+  } catch (err) {
+    toast('傳送失敗：' + (err.message || err));
+  }
+}
+
+function stopFileSender() {
+  if (!fileSenderState) return;
+  try { fileSenderState.dc.close(); } catch {}
+  try { fileSenderState.pc.close(); } catch {}
+  try { fileSenderState.ws.close(); } catch {}
+  fileSenderState = null;
+  showPicker();
+}
+
+async function startFileReceiver(roomId) {
+  showFileReceiver();
+  $('fileRecvRoomId').textContent = roomId;
+  $('fileRecvState').textContent = '連線中…';
+  $('fileRecvName').textContent = '—';
+  $('fileRecvProgress').textContent = '0%';
+  $('fileRecvNote').textContent = '等待分享者建立連線…';
+  setStatus('連線中…', 'busy');
+
+  const ws = openSignal(roomId);
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const chunks = {};
+  let meta = null;
+  fileReceiverState = { ws, pc, chunks, meta };
+
+  pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    $('fileRecvState').textContent = s;
+    if (s === 'connected') setStatus('已連線', 'ok');
+    else if (s === 'failed' || s === 'disconnected') setStatus('連線中斷', 'err');
+  };
+
+  pc.ondatachannel = e => {
+    const dc = e.channel;
+    dc.onopen = () => {
+      $('fileRecvState').textContent = '已連線';
+      setStatus('已連線，可接收檔案', 'ok');
+      $('fileRecvNote').textContent = '連線成功，等候檔案資料…';
+    };
+    dc.onmessage = async ev => {
+      const text = typeof ev.data === 'string' ? ev.data : await ev.data.text();
+      const msg = JSON.parse(text);
+      if (msg.type === 'file-meta') {
+        meta = msg;
+        $('fileRecvName').textContent = msg.name;
+        $('fileRecvNote').textContent = `收到檔案：${msg.name}`;
+      } else if (msg.type === 'file-chunk' && meta) {
+        chunks[msg.index] = base64ToArrayBuffer(msg.data);
+        const received = Object.keys(chunks).length;
+        const total = meta.totalChunks || 0;
+        const progress = total ? Math.min(100, Math.round(received / total * 100)) : 0;
+        $('fileRecvProgress').textContent = `${progress}%`;
+        if (received >= total) {
+          const blob = new Blob(Object.values(chunks), { type: meta.type || 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = meta.name;
+          a.click();
+          URL.revokeObjectURL(url);
+          $('fileRecvNote').textContent = `傳輸完成：${meta.name}`;
+          $('fileRecvProgress').textContent = '100%';
+          toast(`已下載 ${meta.name}`);
+        }
+      }
+    };
+  };
+
+  ws.onmessage = async ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'room-state') {
+      if (msg.peerCount === 0) {
+        $('fileRecvNote').textContent = '等待分享者開始傳輸…';
+        setStatus('等待分享者', 'busy');
+      }
+    } else if (msg.type === 'offer') {
+      await pc.setRemoteDescription(msg.sdp);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ type: 'answer', sdp: answer }));
+    } else if (msg.type === 'ice') {
+      try { await pc.addIceCandidate(msg.candidate); } catch {}
+    } else if (msg.type === 'peer-left') {
+      $('fileRecvState').textContent = '對方已離開';
+      setStatus('對方已離開', 'err');
+      $('fileRecvNote').textContent = '傳送端已離開';
+    }
+  };
+  ws.onerror = () => {
+    setStatus('signaling 連線失敗', 'err');
+    $('fileRecvNote').textContent = 'signaling 連線失敗';
+  };
+  ws.onclose = () => {
+    if (fileReceiverState) setStatus('signaling 已斷', 'err');
+  };
+}
+
+function stopFileReceiver() {
+  if (!fileReceiverState) return;
+  try { fileReceiverState.pc.close(); } catch {}
+  try { fileReceiverState.ws.close(); } catch {}
+  fileReceiverState = null;
+  history.replaceState(null, '', location.pathname + location.search);
+  showPicker();
+}
+
 window.addEventListener('beforeunload', () => {
   stopSender();
+  stopFileSender();
+  stopFileReceiver();
   if (viewerState) { try { viewerState.pc.close(); viewerState.ws.close(); } catch {} }
 });
 

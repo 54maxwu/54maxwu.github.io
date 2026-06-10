@@ -14,6 +14,29 @@ body {
   min-height: 100vh;
 }
 
+.tab-row {
+  display: flex;
+  gap: 8px;
+  padding: 8px 20px 0;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.tab-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tab-btn.active {
+  background: #0891b2;
+  color: #fff;
+  border-color: #0891b2;
+}
+
 .app-header {
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
@@ -154,6 +177,36 @@ textarea#input:focus {
 #output.error { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
 #output.empty { color: #94a3b8; font-style: italic; }
 
+.checksum-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 16px;
+  align-items: start;
+}
+.checksum-drop {
+  border: 1.5px dashed #67e8f9;
+  border-radius: 12px;
+  padding: 16px;
+  background: linear-gradient(180deg, #ecfeff, #fff);
+  color: #0f766e;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  justify-content: center;
+}
+.checksum-drop strong { font-size: 15px; color: #0f172a; }
+.checksum-drop small { color: #475569; line-height: 1.5; }
+.checksum-list { display: grid; gap: 8px; }
+.checksum-item {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.checksum-item .name { font-size: 12px; color: #0f766e; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.checksum-item .value { font-family: 'Consolas','Courier New',monospace; font-size: 12px; color: #1e293b; word-break: break-all; margin-top: 4px; }
+
 /* Hex / Binary dump table */
 .dump {
   display: grid;
@@ -180,7 +233,13 @@ textarea#input:focus {
   <h1>編碼 / 解碼工具</h1>
 </div>
 
+<div class="tab-row">
+  <button class="tab-btn active" data-tab="encoder">編碼 / 解碼</button>
+  <button class="tab-btn" data-tab="checksum">Checksum 驗證</button>
+</div>
+
 <div class="page-content">
+  <section id="encoder-panel">
   <div class="card">
     <div class="row">
       <div class="col-input">
@@ -207,6 +266,27 @@ textarea#input:focus {
     </div>
     <div id="output" class="empty">（輸入內容後會即時顯示結果）</div>
   </div>
+
+  </section>
+
+  <section id="checksum-panel" hidden>
+    <div class="card">
+      <div class="result-header">
+        <h3>檔案雜湊驗證（本地）</h3>
+        <button class="copy-btn" id="checksum-copy-btn">複製全部</button>
+      </div>
+      <div class="checksum-grid">
+        <label class="checksum-drop" for="file-input">
+          <strong>選擇檔案進行本地驗證</strong>
+          <small>這裡只在瀏覽器本地計算 SHA-1 / SHA-256 / SHA-512，不會上傳到任何雲端。</small>
+          <input id="file-input" type="file" hidden>
+        </label>
+        <div id="checksum-output" class="checksum-list">
+          <div class="checksum-item"><div class="name">提示</div><div class="value">請選擇一個檔案，工具會即時顯示各種雜湊值。</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -248,6 +328,9 @@ function bytesToBin(b)   { let s = ''; for (let i = 0; i < b.length; i++) s += S
 function binToBytes(s)   { const o = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) o[i] = s.charCodeAt(i); return o; }
 function bytesToB64(b)   { return btoa(bytesToBin(b)); }
 function b64ToBytes(s)   { return binToBytes(atob(s)); }
+function bufToHex(buf) {
+  return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
+}
 function hexToBytes(h) {
   h = h.replace(/\s+/g, '').replace(/^0x/i, '');
   if (h.length % 2) throw new Error('十六進位字串長度必須為偶數');
@@ -391,6 +474,50 @@ const md5 = (() => {
     return out;
   };
 })();
+
+// ── Local file checksum validation ───────────────────
+async function digestFile(file) {
+  const buf = await file.arrayBuffer();
+  const digestAlg = ['SHA-1', 'SHA-256', 'SHA-512'];
+  const out = {};
+  for (const alg of digestAlg) out[alg] = bufToHex(await crypto.subtle.digest(alg, buf));
+  return out;
+}
+
+function renderChecksum(file, digests) {
+  const wrap = document.getElementById('checksum-output');
+  if (!file) {
+    wrap.innerHTML = '<div class="checksum-item"><div class="name">提示</div><div class="value">請選擇一個檔案，工具會即時顯示各種雜湊值。</div></div>';
+    return;
+  }
+  wrap.innerHTML = [
+    ['檔案名稱', file.name],
+    ['大小', `${(file.size / 1024).toFixed(2)} KB`],
+    ['SHA-1', digests['SHA-1']],
+    ['SHA-256', digests['SHA-256']],
+    ['SHA-512', digests['SHA-512']],
+  ].map(([k, v]) => `<div class="checksum-item"><div class="name">${k}</div><div class="value">${v}</div></div>`).join('');
+}
+
+async function handleChecksumFile(file) {
+  if (!file) return;
+  try {
+    const digests = await digestFile(file);
+    renderChecksum(file, digests);
+  } catch (e) {
+    document.getElementById('checksum-output').innerHTML = `<div class="checksum-item"><div class="name">錯誤</div><div class="value">${e.message || '雜湊計算失敗'}</div></div>`;
+  }
+}
+
+async function copyAllChecksums() {
+  const items = [...document.querySelectorAll('.checksum-item .value')];
+  const text = items.map(x => x.parentElement.querySelector('.name').textContent + ': ' + x.textContent).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    document.getElementById('checksum-copy-btn').textContent = '已複製';
+    setTimeout(() => document.getElementById('checksum-copy-btn').textContent = '複製全部', 1200);
+  } catch {}
+}
 
 // ── SAML (deflate-raw + base64) ───────────────────────
 async function samlEncode(s) {
@@ -595,6 +722,26 @@ copyBtn.addEventListener('click', async () => {
 
 showEmpty();
 inputEl.focus();
+
+// ── Tab switcher ───────────────────────────────────
+const tabButtons = document.querySelectorAll('.tab-btn');
+const encoderPanel = document.getElementById('encoder-panel');
+const checksumPanel = document.getElementById('checksum-panel');
+
+tabButtons.forEach(btn => btn.addEventListener('click', () => {
+  const target = btn.getAttribute('data-tab');
+  tabButtons.forEach(b => b.classList.toggle('active', b === btn));
+  encoderPanel.hidden = target !== 'encoder';
+  checksumPanel.hidden = target !== 'checksum';
+}));
+
+// ── Local checksum hooks ────────────────────────────
+const fileInput = document.getElementById('file-input');
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  await handleChecksumFile(file);
+});
+document.getElementById('checksum-copy-btn').addEventListener('click', copyAllChecksums);
 </script>
 </body>
 </html>
