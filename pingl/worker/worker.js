@@ -12,15 +12,23 @@ export class Room {
     if (req.headers.get('Upgrade') !== 'websocket') {
       return new Response('expected websocket upgrade', { status: 426 });
     }
-    if (this.sockets.size >= 2) {
-      return new Response('room full', { status: 403 });
-    }
 
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
-
     server.accept();
+
+    // Room holds at most 2 peers. A 3rd connection is accepted only long enough
+    // to tell the client the room is full (so it can show a clear message), then
+    // closed. Returning a 403 before the upgrade would arrive as an opaque socket
+    // error the browser can't distinguish from a network failure.
+    if (this.sockets.size >= 2) {
+      try { server.send(JSON.stringify({ type: 'room-full', max: 2 })); } catch {}
+      // 4001: app-defined close code so the client can also detect full-on-close.
+      try { server.close(4001, 'room full'); } catch {}
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
     server.send(JSON.stringify({ type: 'room-state', peerCount: this.sockets.size }));
 
     for (const s of this.sockets) {

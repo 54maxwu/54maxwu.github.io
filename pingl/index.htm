@@ -746,40 +746,56 @@ async function startSender(source) {
   $('connState').textContent = '等待對方連入';
 
   const ws = openSignal(roomId);
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  senderState = { ws, pc, stream };
+  senderState = { ws, pc: null, stream };
 
-  stream.getTracks().forEach(t => pc.addTrack(t, stream));
-
-  pc.onicecandidate = e => {
-    if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
-  };
-
-  pc.onconnectionstatechange = async () => {
-    const s = pc.connectionState;
-    $('connState').textContent = s;
-    if (s === 'connected') {
-      setStatus('已連線', 'ok');
-      showTransportType(pc, $('connType'));
-    } else if (s === 'failed' || s === 'disconnected') {
-      setStatus('連線中斷', 'err');
-      $('connType').textContent = '—';
-    }
+  // buildPc() creates a FRESH PeerConnection wired with our outgoing tracks.
+  // It's called on first peer-join and again whenever the peer leaves and a new
+  // one joins — a stale pc bound to the departed peer can't renegotiate cleanly,
+  // so we tear it down and rebuild rather than reuse.
+  const buildPc = () => {
+    try { senderState.pc?.close(); } catch {}
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    senderState.pc = pc;
+    stream.getTracks().forEach(t => pc.addTrack(t, stream));
+    pc.onicecandidate = e => {
+      if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+    };
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      $('connState').textContent = s;
+      if (s === 'connected') {
+        setStatus('已連線', 'ok');
+        showTransportType(pc, $('connType'));
+      } else if (s === 'failed' || s === 'disconnected') {
+        setStatus('連線中斷', 'err');
+        $('connType').textContent = '—';
+      }
+    };
+    return pc;
   };
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
+    if (handleRoomFull(msg)) return;
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      // Either signal means a peer is present. Guard against firing twice
-      // (room-state + peer-joined) which would cause renegotiation glare.
-      if ((msg.peerCount ?? 1) >= 1) await makeOffer(pc, ws);
+      // A peer is present. Build a fresh pc if we don't have a live one, then
+      // offer. Guard against duplicate signals (room-state + peer-joined) which
+      // would otherwise cause renegotiation glare.
+      if ((msg.peerCount ?? 1) >= 1) {
+        const pc = senderState.pc || buildPc();
+        await makeOffer(pc, ws);
+      }
     } else if (msg.type === 'answer') {
-      if (pc.signalingState !== 'stable') await pc.setRemoteDescription(msg.sdp);
+      if (senderState.pc?.signalingState !== 'stable') await senderState.pc.setRemoteDescription(msg.sdp);
     } else if (msg.type === 'ice') {
-      try { await pc.addIceCandidate(msg.candidate); } catch {}
+      try { await senderState.pc?.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
-      setStatus('對方離線', 'err');
-      $('connState').textContent = '對方離線';
+      // Peer gone — discard the dead pc so the next joiner gets a clean offer.
+      setStatus('對方離線，等待重新連入', 'busy');
+      $('connState').textContent = '對方離線，等待重連';
+      $('connType').textContent = '—';
+      try { senderState.pc?.close(); } catch {}
+      senderState.pc = null;
     }
   };
 
@@ -800,11 +816,23 @@ function stopSender(reason) {
   if (!senderState) return;
   const { ws, pc, stream } = senderState;
   try { stream.getTracks().forEach(t => t.stop()); } catch {}
-  try { pc.close(); } catch {}
+  try { pc?.close(); } catch {}
   try { ws.close(); } catch {}
   senderState = null;
   if (reason) toast(reason);
   showPicker();
+}
+
+// Shared: detect the worker's "room full" signal (a control message, or the
+// 4001 close code) and surface a clear message instead of a generic disconnect.
+// Returns true if the message was a room-full notice (caller should stop).
+function handleRoomFull(msg) {
+  if (msg && msg.type === 'room-full') {
+    setStatus(`房間已滿（最多 ${msg.max || 2} 人），請稍後再試`, 'err');
+    toast('此房號已有 2 人連線，無法加入');
+    return true;
+  }
+  return false;
 }
 
 // ── Viewer flow ───────────────────────────────────────
@@ -818,61 +846,69 @@ async function startViewer(roomId) {
   setStatus('連線中…', 'busy');
 
   const ws = openSignal(roomId);
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  viewerState = { ws, pc };
+  viewerState = { ws, pc: null };
 
-  pc.ontrack = async e => {
-    const v = $('viewerVideo');
-    v.srcObject = e.streams[0];
-    $('viewerOverlay').hidden = true;
-    try {
-      await v.play();
-    } catch {
-      // iOS / Safari autoplay blocked — show tap-to-play
-      const ov = $('viewerOverlay');
-      ov.hidden = false;
-      ov.textContent = '▶ 點擊播放';
-      ov.style.pointerEvents = 'auto';
-      ov.style.cursor = 'pointer';
-      ov.onclick = async () => {
-        try { await v.play(); ov.hidden = true; } catch {}
-      };
-    }
-  };
-
-  pc.onicecandidate = e => {
-    if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
-  };
-
-  pc.onconnectionstatechange = () => {
-    const s = pc.connectionState;
-    $('viewerConnState').textContent = s;
-    if (s === 'connected') setStatus('已連線', 'ok');
-    else if (s === 'failed' || s === 'disconnected') {
-      setStatus('連線中斷', 'err');
-      $('viewerOverlay').hidden = false;
-      $('viewerOverlay').textContent = '連線中斷';
-    }
+  // A fresh PeerConnection, wired to render the incoming stream. Rebuilt if the
+  // sharer leaves and a new offer arrives, so a stale pc never blocks reconnect.
+  const buildPc = () => {
+    try { viewerState.pc?.close(); } catch {}
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    viewerState.pc = pc;
+    pc.ontrack = async e => {
+      const v = $('viewerVideo');
+      v.srcObject = e.streams[0];
+      $('viewerOverlay').hidden = true;
+      try {
+        await v.play();
+      } catch {
+        // iOS / Safari autoplay blocked — show tap-to-play
+        const ov = $('viewerOverlay');
+        ov.hidden = false;
+        ov.textContent = '▶ 點擊播放';
+        ov.style.pointerEvents = 'auto';
+        ov.style.cursor = 'pointer';
+        ov.onclick = async () => { try { await v.play(); ov.hidden = true; } catch {} };
+      }
+    };
+    pc.onicecandidate = e => {
+      if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+    };
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      $('viewerConnState').textContent = s;
+      if (s === 'connected') setStatus('已連線', 'ok');
+      else if (s === 'failed' || s === 'disconnected') {
+        setStatus('連線中斷', 'err');
+        $('viewerOverlay').hidden = false;
+        $('viewerOverlay').textContent = '連線中斷';
+      }
+    };
+    return pc;
   };
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
+    if (handleRoomFull(msg)) return;
     if (msg.type === 'room-state') {
       if (msg.peerCount === 0) {
         $('viewerOverlay').textContent = '等待分享者開始…';
         setStatus('等待分享者', 'busy');
       }
     } else if (msg.type === 'offer') {
+      // Each offer (including a re-offer after reconnect) gets a fresh pc.
+      const pc = buildPc();
       await pc.setRemoteDescription(msg.sdp);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'answer', sdp: answer }));
     } else if (msg.type === 'ice') {
-      try { await pc.addIceCandidate(msg.candidate); } catch {}
+      try { await viewerState.pc?.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
-      setStatus('對方已離開', 'err');
+      setStatus('分享者已離開，等待重新連入', 'busy');
       $('viewerOverlay').hidden = false;
-      $('viewerOverlay').textContent = '分享者已離開';
+      $('viewerOverlay').textContent = '分享者已離開，等待重連…';
+      try { viewerState.pc?.close(); } catch {}
+      viewerState.pc = null;
     }
   };
 
@@ -881,7 +917,7 @@ async function startViewer(roomId) {
     $('viewerOverlay').textContent = 'signaling 連線失敗';
   };
   ws.onclose = () => {
-    if (viewerState && pc.connectionState !== 'connected') {
+    if (viewerState && viewerState.pc?.connectionState !== 'connected') {
       setStatus('signaling 已斷', 'err');
     }
   };
@@ -939,7 +975,7 @@ $('fileRecvBackBtn').addEventListener('click', stopFileReceiver);
 
 function stopViewer() {
   if (viewerState) {
-    try { viewerState.pc.close(); } catch {}
+    try { viewerState.pc?.close(); } catch {}
     try { viewerState.ws.close(); } catch {}
     viewerState = null;
   }
@@ -1126,9 +1162,7 @@ function showFileReceiver() {
 async function startFileSender() {
   const roomId = randomId();
   const ws = openSignal(roomId);
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  const dc = pc.createDataChannel('pingl-file', { ordered: true });
-  fileSenderState = { ws, pc, dc, roomId, sending: false, recv: null };
+  fileSenderState = { ws, pc: null, dc: null, roomId, sending: false, recv: null };
   activeFileSession = fileSenderState;
 
   showFileSender();
@@ -1138,50 +1172,66 @@ async function startFileSender() {
   const ct = $('fileConnType'); ct.textContent = '— (連線後顯示)'; ct.removeAttribute('data-transport');
   setStatus('準備傳檔案', 'busy');
 
-  // The sender's channel is also wired to RECEIVE, so the peer can send back.
-  fileSenderState.recv = attachFileReceiver(dc, {
-    block: 'fileSendRecvBlock', name: 'fileSendRecvName', progress: 'fileSendRecvProgress',
-    download: 'fileSendRecvDownload', preview: 'fileSendRecvPreview',
-  });
+  // Fresh pc + DataChannel, wired to send AND receive (bidirectional). Rebuilt
+  // whenever the peer leaves and a new one joins, so reconnect gets a clean
+  // channel rather than a stale one bound to the departed peer.
+  const buildPc = () => {
+    try { fileSenderState.recv?.lastUrl && URL.revokeObjectURL(fileSenderState.recv.lastUrl); } catch {}
+    try { fileSenderState.pc?.close(); } catch {}
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const dc = pc.createDataChannel('pingl-file', { ordered: true });
+    fileSenderState.pc = pc;
+    fileSenderState.dc = dc;
 
-  dc.onopen = () => {
-    $('fileConnState').textContent = '已連線';
-    setStatus('可傳輸檔案', 'ok');
-    toast('對方已連上，可開始傳送檔案');
-  };
-  dc.onclose = () => {
-    $('fileConnState').textContent = '連線已關閉';
-    setStatus('傳輸結束', 'ok');
-  };
+    // The sender's channel is also wired to RECEIVE, so the peer can send back.
+    fileSenderState.recv = attachFileReceiver(dc, {
+      block: 'fileSendRecvBlock', name: 'fileSendRecvName', progress: 'fileSendRecvProgress',
+      download: 'fileSendRecvDownload', preview: 'fileSendRecvPreview',
+    });
 
-  pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
-  pc.onconnectionstatechange = () => {
-    const s = pc.connectionState;
-    $('fileConnState').textContent = s === 'connected' ? '已連線' : s;
-    if (s === 'connected') {
-      // Reveal the real path (Wi-Fi/LAN vs external) BEFORE any file is sent,
-      // shown inline in the 傳輸路徑 row — no alert.
-      $('fileConnType').textContent = '判斷中…';
-      showTransportType(pc, $('fileConnType')).then(info => {
-        if (info?.kind === 'wan') toast('注意：此連線走外網，非區網直連');
-      });
-    } else if (s === 'failed' || s === 'disconnected') {
-      setStatus('傳輸中斷', 'err');
-      $('fileConnType').textContent = '—';
-    }
+    dc.onopen = () => {
+      $('fileConnState').textContent = '已連線';
+      setStatus('可傳輸檔案', 'ok');
+      toast('對方已連上，可開始傳送檔案');
+    };
+    dc.onclose = () => { $('fileConnState').textContent = '連線已關閉'; };
+
+    pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      $('fileConnState').textContent = s === 'connected' ? '已連線' : s;
+      if (s === 'connected') {
+        $('fileConnType').textContent = '判斷中…';
+        showTransportType(pc, $('fileConnType')).then(info => {
+          if (info?.kind === 'wan') toast('注意：此連線走外網，非區網直連');
+        });
+      } else if (s === 'failed' || s === 'disconnected') {
+        setStatus('傳輸中斷', 'err');
+        $('fileConnType').textContent = '—';
+      }
+    };
+    return pc;
   };
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
+    if (handleRoomFull(msg)) return;
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      if ((msg.peerCount ?? 1) >= 1) await makeOffer(pc, ws);
+      if ((msg.peerCount ?? 1) >= 1) {
+        const pc = fileSenderState.pc || buildPc();
+        await makeOffer(pc, ws);
+      }
     } else if (msg.type === 'answer') {
-      if (pc.signalingState !== 'stable') await pc.setRemoteDescription(msg.sdp);
+      if (fileSenderState.pc?.signalingState !== 'stable') await fileSenderState.pc.setRemoteDescription(msg.sdp);
     } else if (msg.type === 'ice') {
-      try { await pc.addIceCandidate(msg.candidate); } catch {}
+      try { await fileSenderState.pc?.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
-      $('fileConnState').textContent = '對方已離線';
-      setStatus('對方已離線', 'err');
+      setStatus('對方已離線，等待重新連入', 'busy');
+      $('fileConnState').textContent = '對方已離線，等待重連';
+      $('fileConnType').textContent = '—';
+      try { fileSenderState.pc?.close(); } catch {}
+      fileSenderState.pc = null;
+      fileSenderState.dc = null;
     }
   };
   ws.onerror = () => setStatus('signaling 連線失敗', 'err');
@@ -1281,8 +1331,8 @@ function requestSendFile(file, getDc) {
 function stopFileSender() {
   if (!fileSenderState) return;
   try { if (fileSenderState.recv?.lastUrl) URL.revokeObjectURL(fileSenderState.recv.lastUrl); } catch {}
-  try { fileSenderState.dc.close(); } catch {}
-  try { fileSenderState.pc.close(); } catch {}
+  try { fileSenderState.dc?.close(); } catch {}
+  try { fileSenderState.pc?.close(); } catch {}
   try { fileSenderState.ws.close(); } catch {}
   if (activeFileSession === fileSenderState) activeFileSession = null;
   fileSenderState = null;
@@ -1299,51 +1349,66 @@ async function startFileReceiver(roomId) {
   setStatus('連線中…', 'busy');
 
   const ws = openSignal(roomId);
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  fileReceiverState = { ws, pc, dc: null, recv: null, sending: false };
+  fileReceiverState = { ws, pc: null, dc: null, recv: null, sending: false };
   activeFileSession = fileReceiverState;
 
-  pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
-  pc.onconnectionstatechange = () => {
-    const s = pc.connectionState;
-    $('fileRecvState').textContent = s === 'connected' ? '已連線' : s;
-    if (s === 'connected') { setStatus('已連線', 'ok'); showTransportType(pc, $('fileRecvState')); }
-    else if (s === 'failed' || s === 'disconnected') setStatus('連線中斷', 'err');
-  };
+  // A fresh pc that answers an offer and exposes the incoming DataChannel (which
+  // is also used to send back). Rebuilt on every offer so a re-offer after the
+  // sharer reconnects gets a clean pc instead of choking on stale state.
+  const buildPc = () => {
+    try { fileReceiverState.recv?.lastUrl && URL.revokeObjectURL(fileReceiverState.recv.lastUrl); } catch {}
+    try { fileReceiverState.pc?.close(); } catch {}
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    fileReceiverState.pc = pc;
+    fileReceiverState.dc = null;
 
-  pc.ondatachannel = e => {
-    const dc = e.channel;
-    fileReceiverState.dc = dc; // keep it so this side can also SEND back
-    dc.onopen = () => {
-      $('fileRecvState').textContent = '已連線';
-      setStatus('已連線，可雙向傳檔', 'ok');
-      $('fileRecvNote').textContent = '連線成功，可接收或回傳檔案。';
+    pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      $('fileRecvState').textContent = s === 'connected' ? '已連線' : s;
+      if (s === 'connected') { setStatus('已連線', 'ok'); showTransportType(pc, $('fileRecvState')); }
+      else if (s === 'failed' || s === 'disconnected') setStatus('連線中斷', 'err');
     };
-    // Same shared receive handler the sender uses — renders into the recv card.
-    fileReceiverState.recv = attachFileReceiver(dc, {
-      name: 'fileRecvName', progress: 'fileRecvProgress', download: 'fileRecvDownload',
-      preview: 'fileRecvPreview', note: 'fileRecvNote',
-    });
+    pc.ondatachannel = e => {
+      const dc = e.channel;
+      fileReceiverState.dc = dc; // keep it so this side can also SEND back
+      dc.onopen = () => {
+        $('fileRecvState').textContent = '已連線';
+        setStatus('已連線，可雙向傳檔', 'ok');
+        $('fileRecvNote').textContent = '連線成功，可接收或回傳檔案。';
+      };
+      // Same shared receive handler the sender uses — renders into the recv card.
+      fileReceiverState.recv = attachFileReceiver(dc, {
+        name: 'fileRecvName', progress: 'fileRecvProgress', download: 'fileRecvDownload',
+        preview: 'fileRecvPreview', note: 'fileRecvNote',
+      });
+    };
+    return pc;
   };
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
+    if (handleRoomFull(msg)) return;
     if (msg.type === 'room-state') {
       if (msg.peerCount === 0) {
         $('fileRecvNote').textContent = '等待分享者開始傳輸…';
         setStatus('等待分享者', 'busy');
       }
     } else if (msg.type === 'offer') {
+      const pc = buildPc();
       await pc.setRemoteDescription(msg.sdp);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'answer', sdp: answer }));
     } else if (msg.type === 'ice') {
-      try { await pc.addIceCandidate(msg.candidate); } catch {}
+      try { await fileReceiverState.pc?.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
-      $('fileRecvState').textContent = '對方已離開';
-      setStatus('對方已離開', 'err');
-      $('fileRecvNote').textContent = '傳送端已離開';
+      setStatus('對方已離開，等待重新連入', 'busy');
+      $('fileRecvState').textContent = '對方已離開，等待重連';
+      $('fileRecvNote').textContent = '傳送端已離開，等待重新連入…';
+      try { fileReceiverState.pc?.close(); } catch {}
+      fileReceiverState.pc = null;
+      fileReceiverState.dc = null;
     }
   };
   ws.onerror = () => {
@@ -1364,7 +1429,7 @@ async function startFileReceiver(roomId) {
 function stopFileReceiver() {
   if (!fileReceiverState) return;
   try { if (fileReceiverState.recv?.lastUrl) URL.revokeObjectURL(fileReceiverState.recv.lastUrl); } catch {}
-  try { fileReceiverState.pc.close(); } catch {}
+  try { fileReceiverState.pc?.close(); } catch {}
   try { fileReceiverState.ws.close(); } catch {}
   if (activeFileSession === fileReceiverState) activeFileSession = null;
   fileReceiverState = null;
@@ -1393,7 +1458,7 @@ window.addEventListener('beforeunload', () => {
   stopSender();
   stopFileSender();
   stopFileReceiver();
-  if (viewerState) { try { viewerState.pc.close(); viewerState.ws.close(); } catch {} }
+  if (viewerState) { try { viewerState.pc?.close(); viewerState.ws.close(); } catch {} }
 });
 
 boot();

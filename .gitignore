@@ -39,3 +39,6 @@ build/
 # Vite/Rollup build output for the tip/ subapp (regenerate via build, don't commit)
 tip/assets/
 
+
+# Wrangler local build cache
+.wrangler/
