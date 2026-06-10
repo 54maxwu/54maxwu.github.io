@@ -616,6 +616,11 @@ const ICE_SERVERS = [
   { urls: 'stun:stun.cloudflare.com:3478' },
 ];
 
+// Set window.PINGL_DEBUG = true in the console (or append #debug) to log the
+// full signaling/negotiation flow — handy for diagnosing connection issues.
+const DEBUG = /[#&]debug/.test(location.hash);
+function dbg(...a) { if (DEBUG || window.PINGL_DEBUG) console.log('[pingl]', ...a); }
+
 // ── DOM refs ──────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const pill       = $('statusPill');
@@ -709,18 +714,27 @@ function openSignal(roomId) {
 // start() once a peer is present and onSignal() for every relayed message.
 // `onBeforeOffer(pc)` (optional) runs on the offerer right before it creates an
 // offer — used by the file flows to create the DataChannel on the offering side.
-function createNegotiator({ ws, mk, onBeforeOffer }) {
+// `preferOfferer` (optional) biases the tie-break so the media owner (the
+// sharer) tends to be the offerer — the side WITH media should drive the offer
+// so its tracks always get an m-line. Tokens still break true ties.
+function createNegotiator({ ws, mk, onBeforeOffer, preferOfferer }) {
   const neg = { pc: null };
   const myToken = (() => {
     const b = new Uint32Array(2); crypto.getRandomValues(b);
-    return b[0] * 4294967296 + b[1]; // 53-bit-ish random, plenty for tie-break
+    // Put the bias in the top bit so a preferring side outranks a non-preferring
+    // one regardless of the random part; two preferers still tie-break randomly.
+    const r = b[0] * 4294967296 + b[1];
+    return preferOfferer ? r + 1e16 : r;
   })();
   let peerToken = null;
   let started = false;        // a peer is present and we've sent our hello
   let negotiating = false;    // guard re-entrancy
 
   function ensurePc() {
-    if (neg.pc) return neg.pc;
+    // Reuse a live pc; rebuild if it's gone bad (failed/closed) so a reconnect
+    // never tries to negotiate on a dead connection.
+    if (neg.pc && !['failed', 'closed'].includes(neg.pc.connectionState)) return neg.pc;
+    try { neg.pc?.close(); } catch {}
     const pc = mk();
     neg.pc = pc;
     pc.onicecandidate = e => {
@@ -734,62 +748,82 @@ function createNegotiator({ ws, mk, onBeforeOffer }) {
   function amOfferer() { return peerToken != null && myToken > peerToken; }
 
   async function maybeOffer() {
-    if (!amOfferer() || negotiating) return;
+    if (!amOfferer()) { dbg('maybeOffer: not offerer', { myToken, peerToken }); return; }
+    if (negotiating) { dbg('maybeOffer: busy'); return; }
     const pc = ensurePc();
-    if (pc.signalingState !== 'stable') return;
+    if (pc.signalingState !== 'stable') { dbg('maybeOffer: not stable', pc.signalingState); return; }
     try {
       negotiating = true;
       onBeforeOffer && onBeforeOffer(pc); // offerer creates its DataChannel here
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      dbg('→ offer');
       ws.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription }));
-    } catch {} finally { negotiating = false; }
+    } catch (e) { dbg('offer error', e); } finally { negotiating = false; }
   }
 
   // Called when the worker tells us a peer is in the room. Announce ourselves;
   // both sides do this, learn each other's token, and the higher one offers.
+  // If we have a pc that isn't connected (stale from a previous peer), drop it
+  // so this handshake starts clean — this is what makes reconnect reliable.
   function start() {
-    if (started) { ws.send(JSON.stringify({ type: 'hello', token: myToken })); return; }
     started = true;
+    if (neg.pc && !['connected', 'connecting'].includes(neg.pc.connectionState)) {
+      dbg('start: dropping stale pc', neg.pc.connectionState);
+      try { neg.pc.close(); } catch {}
+      neg.pc = null;
+      peerToken = null; // stale round — re-learn the peer's token
+    }
+    dbg('→ hello', myToken);
     ws.send(JSON.stringify({ type: 'hello', token: myToken }));
   }
 
   async function onSignal(msg) {
-    if (msg.type === 'hello') {
+    dbg('← ' + msg.type, msg.type === 'hello' || msg.type === 'hello-ack' ? msg.token : '');
+    if (msg.type === 'hello' || msg.type === 'hello-ack') {
       peerToken = msg.token;
-      // Make sure the other side has our token too (covers ordering races).
-      ws.send(JSON.stringify({ type: 'hello-ack', token: myToken }));
-      ensurePc();
-      await maybeOffer();
-    } else if (msg.type === 'hello-ack') {
-      peerToken = msg.token;
+      // Echo our token back on a plain hello so the other side learns ours too
+      // (covers the case where our own hello hadn't reached them yet).
+      if (msg.type === 'hello') ws.send(JSON.stringify({ type: 'hello-ack', token: myToken }));
       ensurePc();
       await maybeOffer();
     } else if (msg.type === 'offer') {
       const pc = ensurePc();
-      // Only the answerer should get offers. If we somehow receive one while we
-      // believe we're the offerer, the higher token still wins: ignore theirs.
-      if (amOfferer()) return;
+      // The lower-token side answers. If we're the offerer we ignore a colliding
+      // offer (our own higher-token offer wins).
+      if (amOfferer()) { dbg('ignoring offer (we are offerer)'); return; }
       await pc.setRemoteDescription(msg.sdp);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      dbg('→ answer');
       ws.send(JSON.stringify({ type: 'answer', sdp: pc.localDescription }));
     } else if (msg.type === 'answer') {
       const pc = neg.pc;
       if (pc && pc.signalingState === 'have-local-offer') {
         await pc.setRemoteDescription(msg.sdp);
+        dbg('applied answer');
+      } else {
+        dbg('answer ignored, state=', pc?.signalingState);
       }
     } else if (msg.type === 'please-offer') {
-      // The answerer added a track and needs us (the offerer) to re-offer.
+      // The answerer added media (e.g. its camera) and needs us (the offerer)
+      // to re-offer. Add recvonly slots so the new inbound tracks have m-lines.
+      const pc = ensurePc();
+      if (msg.kinds) {
+        for (const kind of msg.kinds) {
+          try { pc.addTransceiver(kind, { direction: 'recvonly' }); } catch {}
+        }
+      }
       await maybeOffer();
     } else if (msg.type === 'ice') {
       if (!neg.pc) return;
-      try { await neg.pc.addIceCandidate(msg.candidate); } catch {}
+      try { await neg.pc.addIceCandidate(msg.candidate); } catch (e) { dbg('ice error', e); }
     }
   }
 
   // Tear down the live pc (peer left); the next start()/hello rebuilds it.
   function reset() {
+    dbg('reset');
     try { neg.pc?.close(); } catch {}
     neg.pc = null;
     peerToken = null;
@@ -797,10 +831,12 @@ function createNegotiator({ ws, mk, onBeforeOffer }) {
     negotiating = false;
   }
 
-  // Force a fresh offer after local tracks change (camera toggle).
-  async function renegotiate() {
+  // Force a fresh offer after local tracks change (camera toggle). `kinds` lists
+  // the track kinds we just added (['video','audio']) so the offerer can open
+  // matching recvonly slots before re-offering.
+  async function renegotiate(kinds) {
     if (amOfferer()) { await maybeOffer(); }
-    else { ws.send(JSON.stringify({ type: 'please-offer' })); }
+    else { ws.send(JSON.stringify({ type: 'please-offer', kinds })); }
   }
 
   return { neg, ensurePc, start, onSignal, reset, renegotiate, maybeOffer };
@@ -949,7 +985,9 @@ async function startSender(source) {
     return pc;
   };
 
-  senderState.neg = createNegotiator({ ws, mk });
+  // The sharer owns the media, so prefer it as the offerer — its tracks then
+  // always drive the m-lines (the viewer just receives).
+  senderState.neg = createNegotiator({ ws, mk, preferOfferer: true });
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
@@ -1034,8 +1072,17 @@ async function startViewer(roomId) {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     if (viewerState.camStream) {
       viewerState.camStream.getTracks().forEach(t => pc.addTrack(t, viewerState.camStream));
+    } else {
+      // No outgoing media of our own. If WE end up the offerer (token tie-break),
+      // the offer must still carry recvonly m-lines or the sharer has no slot to
+      // send its audio/video into → black screen. Pre-declare them.
+      try {
+        pc.addTransceiver('video', { direction: 'recvonly' });
+        pc.addTransceiver('audio', { direction: 'recvonly' });
+      } catch {}
     }
     pc.ontrack = async e => {
+      dbg('viewer ontrack', e.track.kind);
       const v = $('viewerVideo');
       v.srcObject = e.streams[0];
       $('viewerOverlay').hidden = true;
@@ -1085,7 +1132,7 @@ async function startViewer(roomId) {
     const pc = viewerState.neg.neg.pc;
     if (pc) {
       cam.getTracks().forEach(t => pc.addTrack(t, cam));
-      await viewerState.neg.renegotiate();
+      await viewerState.neg.renegotiate(cam.getTracks().map(t => t.kind));
     }
   };
 
