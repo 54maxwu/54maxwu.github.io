@@ -695,91 +695,115 @@ function openSignal(roomId) {
   return new WebSocket(url);
 }
 
-// ── Perfect Negotiation ───────────────────────────────
-// Glare-free WebRTC negotiation (the standard polite/impolite pattern). Both
-// peers may try to offer at once (e.g. two sharers reconnecting on one code);
-// the "impolite" peer wins and the "polite" peer rolls back and answers, so a
-// connection always forms instead of two offers deadlocking.
+// ── Negotiation (token tie-break) ─────────────────────
+// Glare-free WebRTC negotiation that works even when BOTH peers want to send
+// (e.g. two sharers / both cameras on, reconnecting on the same code).
 //
-// Role is derived from JOIN ORDER, which both sides can compute from the
-// worker's signals without exchanging anything extra:
-//   • first into the room / already present  → IMPOLITE
-//   • later joiner (saw peerCount >= 1)       → POLITE
+// Instead of guessing roles from join order, both peers exchange a random token
+// via a `hello` message; the HIGHER token becomes the offerer, the lower one the
+// answerer. This is fully deterministic — both sides compute the same winner —
+// so there is never a double-offer deadlock and no dependence on event timing.
 //
-// `mk` builds a fresh RTCPeerConnection (adding tracks / datachannel / ontrack
-// etc.) and returns it. The negotiator owns offer/answer/ice plumbing and calls
-// `mk` lazily. Returns handles the flow uses to react to worker messages.
-function createNegotiator({ ws, mk, polite, onState }) {
-  const neg = {
-    pc: null,
-    polite,
-    makingOffer: false,
-    ignoreOffer: false,
-  };
+// `mk()` builds a fresh RTCPeerConnection (adding tracks / datachannel / ontrack)
+// and returns it. The negotiator owns hello/offer/answer/ice. The flow calls
+// start() once a peer is present and onSignal() for every relayed message.
+// `onBeforeOffer(pc)` (optional) runs on the offerer right before it creates an
+// offer — used by the file flows to create the DataChannel on the offering side.
+function createNegotiator({ ws, mk, onBeforeOffer }) {
+  const neg = { pc: null };
+  const myToken = (() => {
+    const b = new Uint32Array(2); crypto.getRandomValues(b);
+    return b[0] * 4294967296 + b[1]; // 53-bit-ish random, plenty for tie-break
+  })();
+  let peerToken = null;
+  let started = false;        // a peer is present and we've sent our hello
+  let negotiating = false;    // guard re-entrancy
 
   function ensurePc() {
-    if (neg.pc && neg.pc.connectionState !== 'closed' && neg.pc.signalingState !== 'closed') {
-      return neg.pc;
-    }
+    if (neg.pc) return neg.pc;
     const pc = mk();
     neg.pc = pc;
-
     pc.onicecandidate = e => {
       if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
     };
-    // Fires whenever (re)negotiation is needed: initial tracks, or a track
-    // added later (camera toggle). The impolite/polite logic below handles glare.
-    pc.onnegotiationneeded = async () => {
-      try {
-        neg.makingOffer = true;
-        await pc.setLocalDescription();
-        ws.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription }));
-      } catch (err) {
-        // benign if we rolled back mid-offer
-      } finally {
-        neg.makingOffer = false;
-      }
-    };
-    onState && onState(pc);
     return pc;
   }
 
-  // Kick off a connection from this side (used by the impolite/initiating peer).
-  // onnegotiationneeded does the actual offer once tracks/datachannel exist.
-  function start() { ensurePc(); }
+  // Are WE the offerer? Higher token wins; exact ties (astronomically unlikely)
+  // fall back to false so at most one side offers.
+  function amOfferer() { return peerToken != null && myToken > peerToken; }
+
+  async function maybeOffer() {
+    if (!amOfferer() || negotiating) return;
+    const pc = ensurePc();
+    if (pc.signalingState !== 'stable') return;
+    try {
+      negotiating = true;
+      onBeforeOffer && onBeforeOffer(pc); // offerer creates its DataChannel here
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription }));
+    } catch {} finally { negotiating = false; }
+  }
+
+  // Called when the worker tells us a peer is in the room. Announce ourselves;
+  // both sides do this, learn each other's token, and the higher one offers.
+  function start() {
+    if (started) { ws.send(JSON.stringify({ type: 'hello', token: myToken })); return; }
+    started = true;
+    ws.send(JSON.stringify({ type: 'hello', token: myToken }));
+  }
 
   async function onSignal(msg) {
-    if (msg.type === 'offer' || msg.type === 'answer') {
+    if (msg.type === 'hello') {
+      peerToken = msg.token;
+      // Make sure the other side has our token too (covers ordering races).
+      ws.send(JSON.stringify({ type: 'hello-ack', token: myToken }));
+      ensurePc();
+      await maybeOffer();
+    } else if (msg.type === 'hello-ack') {
+      peerToken = msg.token;
+      ensurePc();
+      await maybeOffer();
+    } else if (msg.type === 'offer') {
       const pc = ensurePc();
-      const offerCollision =
-        msg.type === 'offer' &&
-        (neg.makingOffer || pc.signalingState !== 'stable');
-
-      // Impolite peer ignores a colliding offer (it keeps its own); the polite
-      // peer accepts — setRemoteDescription auto-rolls-back its in-flight offer.
-      neg.ignoreOffer = !neg.polite && offerCollision;
-      if (neg.ignoreOffer) return;
-
+      // Only the answerer should get offers. If we somehow receive one while we
+      // believe we're the offerer, the higher token still wins: ignore theirs.
+      if (amOfferer()) return;
       await pc.setRemoteDescription(msg.sdp);
-      if (msg.type === 'offer') {
-        await pc.setLocalDescription();
-        ws.send(JSON.stringify({ type: 'answer', sdp: pc.localDescription }));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ type: 'answer', sdp: pc.localDescription }));
+    } else if (msg.type === 'answer') {
+      const pc = neg.pc;
+      if (pc && pc.signalingState === 'have-local-offer') {
+        await pc.setRemoteDescription(msg.sdp);
       }
+    } else if (msg.type === 'please-offer') {
+      // The answerer added a track and needs us (the offerer) to re-offer.
+      await maybeOffer();
     } else if (msg.type === 'ice') {
       if (!neg.pc) return;
       try { await neg.pc.addIceCandidate(msg.candidate); } catch {}
     }
   }
 
-  // Tear down the live pc (peer left); a later start()/offer rebuilds it.
+  // Tear down the live pc (peer left); the next start()/hello rebuilds it.
   function reset() {
     try { neg.pc?.close(); } catch {}
     neg.pc = null;
-    neg.makingOffer = false;
-    neg.ignoreOffer = false;
+    peerToken = null;
+    started = false;
+    negotiating = false;
   }
 
-  return { neg, ensurePc, start, onSignal, reset };
+  // Force a fresh offer after local tracks change (camera toggle).
+  async function renegotiate() {
+    if (amOfferer()) { await maybeOffer(); }
+    else { ws.send(JSON.stringify({ type: 'please-offer' })); }
+  }
+
+  return { neg, ensurePc, start, onSignal, reset, renegotiate, maybeOffer };
 }
 
 // Inspect the selected ICE candidate pair and write a human-readable transport
@@ -872,7 +896,7 @@ async function startSender(source) {
   const ws = openSignal(roomId);
   // selfStream = our outgoing media; peerStream = the viewer's returned camera.
   // swapped=false → peer in main, self in PiP (default).
-  senderState = { ws, neg: null, stream, peerStream: null, swapped: false, politeKnown: false };
+  senderState = { ws, neg: null, stream, peerStream: null, swapped: false };
 
   // Render self/peer into main vs PiP. Default (swapped=false): peer in main,
   // self in PiP. But until the peer sends video, show OUR OWN stream in main so
@@ -901,9 +925,7 @@ async function startSender(source) {
   senderState.renderShareVideos = renderShareVideos;
   renderShareVideos();
 
-  // Build a fresh PeerConnection wired with our outgoing tracks. The negotiator
-  // owns offer/answer/ice; onnegotiationneeded (re)offers automatically when
-  // tracks change, so camera toggles need no manual 'renegotiate' message.
+  // Build a fresh PeerConnection wired with our outgoing tracks.
   const mk = () => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     stream.getTracks().forEach(t => pc.addTrack(t, stream));
@@ -927,21 +949,14 @@ async function startSender(source) {
     return pc;
   };
 
+  senderState.neg = createNegotiator({ ws, mk });
+
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
     if (handleRoomFull(msg)) return;
     const st = senderState;
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      // Derive politeness from join order on the first signal: present-first =
-      // impolite, later-joiner = polite. The negotiator then wins/yields glare.
-      if (!st.politeKnown) {
-        const polite = msg.type === 'room-state' && (msg.peerCount ?? 0) >= 1;
-        st.neg = createNegotiator({ ws, mk, polite });
-        st.politeKnown = true;
-      }
-      if ((msg.peerCount ?? 1) >= 1) st.neg.start(); // a peer is here → connect
-    } else if (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice') {
-      if (st.neg) await st.neg.onSignal(msg);
+      if ((msg.peerCount ?? 1) >= 1) st.neg.start(); // a peer is here → handshake
     } else if (msg.type === 'peer-left') {
       // Peer gone, but the room is still ours. Keep waiting for the next viewer;
       // only release the room when WE stop sharing.
@@ -951,8 +966,9 @@ async function startSender(source) {
       st.peerStream = null;
       st.swapped = false;
       st.renderShareVideos();
-      st.neg?.reset();
-      st.politeKnown = false; // re-derive role for the next peer
+      st.neg.reset();
+    } else {
+      await st.neg.onSignal(msg); // hello / hello-ack / offer / answer / ice / please-offer
     }
   };
 
@@ -1009,13 +1025,11 @@ async function startViewer(roomId) {
 
   const ws = openSignal(roomId);
   // camStream holds the viewer's own camera once enabled, so it can be re-added
-  // to every rebuilt pc and survive renegotiation. politeKnown gates one-time
-  // role derivation from join order.
-  viewerState = { ws, neg: null, camStream: null, politeKnown: false };
+  // to every rebuilt pc and survive renegotiation.
+  viewerState = { ws, neg: null, camStream: null };
 
   // Build a fresh PeerConnection wired to render the incoming stream and carry
-  // our own camera (if enabled). onnegotiationneeded (in the negotiator) handles
-  // re-offers automatically when we add a camera track — no manual renegotiate.
+  // our own camera (if enabled).
   const mk = () => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     if (viewerState.camStream) {
@@ -1050,8 +1064,10 @@ async function startViewer(roomId) {
     return pc;
   };
 
-  // Toggle the viewer's own camera. Adding tracks to the live pc fires
-  // onnegotiationneeded, which re-offers automatically (perfect negotiation).
+  viewerState.neg = createNegotiator({ ws, mk });
+
+  // Toggle the viewer's own camera. After adding tracks, ask the negotiator to
+  // renegotiate (it re-offers if we're the offerer, else asks the peer to).
   viewerState.enableCamera = async () => {
     if (viewerState.camStream) return; // already on
     let cam;
@@ -1066,16 +1082,11 @@ async function startViewer(roomId) {
     $('viewerSelfPip').hidden = false;
     $('viewerCamBtn').textContent = '鏡頭已開啟';
     $('viewerCamBtn').disabled = true;
-    const pc = viewerState.neg?.neg.pc;
-    if (pc) cam.getTracks().forEach(t => pc.addTrack(t, cam));
-  };
-
-  const ensureNeg = msg => {
-    if (viewerState.politeKnown) return;
-    // Later joiner (peerCount>=1) is polite; first-in-empty-room is impolite.
-    const polite = !(msg.type === 'room-state' && (msg.peerCount ?? 0) === 0);
-    viewerState.neg = createNegotiator({ ws, mk, polite });
-    viewerState.politeKnown = true;
+    const pc = viewerState.neg.neg.pc;
+    if (pc) {
+      cam.getTracks().forEach(t => pc.addTrack(t, cam));
+      await viewerState.neg.renegotiate();
+    }
   };
 
   ws.onmessage = async ev => {
@@ -1083,27 +1094,23 @@ async function startViewer(roomId) {
     if (handleRoomFull(msg)) return;
     const st = viewerState;
     if (msg.type === 'room-state') {
-      ensureNeg(msg);
       if (msg.peerCount === 0) {
         $('viewerOverlay').textContent = '等待分享者開始…';
         setStatus('等待分享者', 'busy');
       } else {
-        // A sharer is already here — open our pc so their offer has a home.
-        st.neg.start();
+        st.neg.start(); // a sharer is already here → handshake
       }
     } else if (msg.type === 'peer-joined') {
-      ensureNeg(msg);
-      st.neg.start(); // a peer arrived → bring up the pc (offer if we have media)
-    } else if (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice') {
-      ensureNeg(msg);
-      await st.neg.onSignal(msg);
+      st.neg.start();
     } else if (msg.type === 'peer-left') {
       // Sharer gone, but the room is still ours — keep it and wait for a new peer.
       setStatus('分享者已離開，等待重新連入', 'busy');
       $('viewerOverlay').hidden = false;
       $('viewerOverlay').textContent = '分享者已離開，房間保留中，等待新的分享者…';
       $('viewerVideo').srcObject = null;
-      st.neg?.reset();
+      st.neg.reset();
+    } else {
+      await st.neg.onSignal(msg);
     }
   };
 
@@ -1420,7 +1427,7 @@ function showFileReceiver() {
 async function startFileSender() {
   const roomId = randomId();
   const ws = openSignal(roomId);
-  fileSenderState = { ws, neg: null, dc: null, roomId, sending: false, recv: null, politeKnown: false };
+  fileSenderState = { ws, neg: null, dc: null, roomId, sending: false, recv: null };
   activeFileSession = fileSenderState;
 
   showFileSender();
@@ -1447,11 +1454,10 @@ async function startFileSender() {
 }
 
 // Shared file-peer wiring for BOTH the file-sender and file-receiver cards.
-// Uses perfect negotiation; the impolite peer creates the DataChannel and the
-// polite peer receives it via ondatachannel. Either side can send (symmetric).
+// Token tie-break decides the offerer; the offerer creates the DataChannel
+// (onBeforeOffer) and the other side receives it via ondatachannel. Symmetric:
+// either side can send files once the channel is open.
 function startFilePeer({ ws, getState, recvUi, ui }) {
-  const st = getState();
-
   const setupDc = dc => {
     const s = getState();
     s.dc = dc;
@@ -1469,12 +1475,9 @@ function startFilePeer({ ws, getState, recvUi, ui }) {
     revokeRecvUrls(s.recv);
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     s.dc = null;
-    // Impolite peer owns the DataChannel; polite peer waits for it.
-    if (!s.neg.neg.polite) {
-      setupDc(pc.createDataChannel('pingl-file', { ordered: true }));
-    } else {
-      pc.ondatachannel = e => setupDc(e.channel);
-    }
+    // Whichever side ends up the answerer receives the channel here. The offerer
+    // creates it in onBeforeOffer (below), so exactly one channel is created.
+    pc.ondatachannel = e => { if (!s.dc) setupDc(e.channel); };
     pc.onconnectionstatechange = () => {
       const cs = pc.connectionState;
       $(ui.connState).textContent = cs === 'connected' ? '已連線' : cs;
@@ -1491,33 +1494,29 @@ function startFilePeer({ ws, getState, recvUi, ui }) {
     return pc;
   };
 
-  const ensureNeg = msg => {
+  // The offerer (higher token) creates the DataChannel right before offering.
+  const onBeforeOffer = pc => {
     const s = getState();
-    if (s.politeKnown) return;
-    // Later joiner (saw a peer already present) is polite; first-in is impolite.
-    const polite = !(msg.type === 'room-state' && (msg.peerCount ?? 0) === 0);
-    s.neg = createNegotiator({ ws, mk, polite });
-    s.politeKnown = true;
+    if (!s.dc) setupDc(pc.createDataChannel('pingl-file', { ordered: true }));
   };
+
+  getState().neg = createNegotiator({ ws, mk, onBeforeOffer });
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
     if (handleRoomFull(msg)) return;
     const s = getState();
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      ensureNeg(msg);
       if ((msg.peerCount ?? 1) >= 1) s.neg.start();
-    } else if (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice') {
-      ensureNeg(msg);
-      await s.neg.onSignal(msg);
     } else if (msg.type === 'peer-left') {
       // Peer gone, but the room is still ours — keep it for the next joiner.
       setStatus('對方已離線，等待重新連入', 'busy');
       $(ui.connState).textContent = '對方已離線，等待重連';
       $(ui.connType).textContent = '—';
-      s.neg?.reset();
+      s.neg.reset();
       s.dc = null;
-      s.politeKnown = false; // re-derive role for the next peer
+    } else {
+      await s.neg.onSignal(msg);
     }
   };
   ws.onerror = () => setStatus('signaling 連線失敗', 'err');
@@ -1640,7 +1639,7 @@ async function startFileReceiver(roomId) {
   setStatus('連線中…', 'busy');
 
   const ws = openSignal(roomId);
-  fileReceiverState = { ws, neg: null, dc: null, recv: null, sending: false, politeKnown: false };
+  fileReceiverState = { ws, neg: null, dc: null, recv: null, sending: false };
   activeFileSession = fileReceiverState;
 
   startFilePeer({
