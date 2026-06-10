@@ -22,7 +22,14 @@
       "Bash(npm install *)",
       "Bash(git reset *)",
       "Bash(awk 'NR==185' \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
-      "Bash(grep -oE 'gVe=[^,]{1,400}')"
+      "Bash(grep -oE 'gVe=[^,]{1,400}')",
+      "Bash(awk '/<script>/{f=1;next} /<\\\\/script>/{f=0} f' pingl/index.htm)",
+      "Bash(node --check /tmp/pingl.js)",
+      "Read(//tmp/**)",
+      "Bash(awk '/<script>/{f=1;next} /<\\\\/script>/{f=0} f' pingl/index.htm > /tmp/pingl.js && node --check /tmp/pingl.js && echo \"✓ Syntax OK\")"
+    ],
+    "additionalDirectories": [
+      "/private/tmp"
     ]
   }
 }

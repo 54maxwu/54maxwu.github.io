@@ -251,6 +251,9 @@ body {
 .info-row:last-child { border-bottom: none; }
 .info-row .k { color: #64748b; }
 .info-row .v { color: #1e293b; font-weight: 600; font-family: ui-monospace, monospace; }
+/* Transport path: green = stays on LAN/Wi-Fi, amber = leaves to the internet */
+.info-row .v[data-transport="lan"] { color: #15803d; }
+.info-row .v[data-transport="wan"] { color: #b45309; }
 
 .actions { display: flex; gap: 8px; margin-top: 12px; }
 
@@ -474,7 +477,7 @@ body {
           <button class="btn btn-primary" id="fileCopyBtn">複製</button>
         </div>
         <div class="info-row"><span class="k">連線狀態</span><span class="v" id="fileConnState">等待對方連入</span></div>
-        <div class="info-row"><span class="k">傳輸路徑</span><span class="v" id="fileConnType">WebRTC DataChannel</span></div>
+        <div class="info-row"><span class="k">傳輸路徑</span><span class="v" id="fileConnType">— (連線後顯示)</span></div>
         <div class="actions">
           <button class="btn btn-danger" id="fileStopBtn">停止傳送</button>
         </div>
@@ -634,6 +637,43 @@ function openSignal(roomId) {
   return new WebSocket(url);
 }
 
+// Inspect the selected ICE candidate pair and write a human-readable transport
+// label ("區網直連 (Wi-Fi/LAN)" vs "外網 / STUN 打洞" vs "TURN 中繼") into `el`.
+// host = same LAN (Wi-Fi/有線), srflx/prflx = punched through to public internet,
+// relay = routed via a TURN relay server.
+const TRANSPORT_LABELS = {
+  host:  { text: '區網直連 (Wi-Fi/LAN)', kind: 'lan' },
+  srflx: { text: '外網 / STUN 打洞',     kind: 'wan' },
+  prflx: { text: '外網 / STUN 打洞',     kind: 'wan' },
+  relay: { text: '外網 / TURN 中繼',     kind: 'wan' },
+};
+
+async function showTransportType(pc, el) {
+  if (!el) return;
+  try {
+    const stats = await pc.getStats();
+    let localType = '', remoteType = '';
+    stats.forEach(r => {
+      if (r.type === 'candidate-pair' && r.nominated &&
+          (r.state === 'succeeded' || r.selected)) {
+        const local = stats.get(r.localCandidateId);
+        const remote = stats.get(r.remoteCandidateId);
+        if (local) localType = local.candidateType;
+        if (remote) remoteType = remote.candidateType;
+      }
+    });
+    // If either side is non-host, traffic is leaving the LAN.
+    const isLan = localType === 'host' && (remoteType === 'host' || !remoteType);
+    const info = isLan ? TRANSPORT_LABELS.host
+                       : (TRANSPORT_LABELS[localType] || TRANSPORT_LABELS[remoteType] || { text: localType || '—', kind: '' });
+    el.textContent = info.text;
+    el.dataset.transport = info.kind;
+    return info;
+  } catch {
+    return null;
+  }
+}
+
 // ── Sender flow ───────────────────────────────────────
 let senderState = null;
 
@@ -700,19 +740,7 @@ async function startSender(source) {
     $('connState').textContent = s;
     if (s === 'connected') {
       setStatus('已連線', 'ok');
-      // Inspect selected candidate pair to show transport type (host/srflx/relay)
-      try {
-        const stats = await pc.getStats();
-        let pairType = '';
-        stats.forEach(r => {
-          if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated) {
-            const local = stats.get(r.localCandidateId);
-            if (local) pairType = local.candidateType;
-          }
-        });
-        const label = { host: '區網直連', srflx: 'STUN 打洞', prflx: 'STUN 打洞', relay: 'TURN 中繼' }[pairType] || pairType || '—';
-        $('connType').textContent = label;
-      } catch {}
+      showTransportType(pc, $('connType'));
     } else if (s === 'failed' || s === 'disconnected') {
       setStatus('連線中斷', 'err');
       $('connType').textContent = '—';
@@ -721,12 +749,12 @@ async function startSender(source) {
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
-    if (msg.type === 'room-state') {
-      if (msg.peerCount >= 1) await makeOffer(pc, ws);
-    } else if (msg.type === 'peer-joined') {
-      await makeOffer(pc, ws);
+    if (msg.type === 'room-state' || msg.type === 'peer-joined') {
+      // Either signal means a peer is present. Guard against firing twice
+      // (room-state + peer-joined) which would cause renegotiation glare.
+      if ((msg.peerCount ?? 1) >= 1) await makeOffer(pc, ws);
     } else if (msg.type === 'answer') {
-      await pc.setRemoteDescription(msg.sdp);
+      if (pc.signalingState !== 'stable') await pc.setRemoteDescription(msg.sdp);
     } else if (msg.type === 'ice') {
       try { await pc.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
@@ -740,6 +768,9 @@ async function startSender(source) {
 }
 
 async function makeOffer(pc, ws) {
+  // Only initiate when there's no negotiation already in flight, otherwise a
+  // duplicate room-state/peer-joined pair triggers an offer during an offer (glare).
+  if (pc.signalingState !== 'stable') return;
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   ws.send(JSON.stringify({ type: 'offer', sdp: offer }));
@@ -925,28 +956,14 @@ $('fsBtn').addEventListener('click', () => {
 });
 
 // ── File transfer flow ───────────────────────────────
-// Smaller chunks are more reliable on mobile browsers and avoid oversized RTCDataChannel messages.
+// 16KB binary chunks are reliable across browsers and stay well under the
+// RTCDataChannel message-size limit. Control messages (meta/done) go as JSON
+// strings; payload chunks go as raw ArrayBuffers — no base64 (~33% smaller,
+// far less CPU, and the receiver never has to decode).
 const FILE_CHUNK_SIZE = 16 * 1024;
 let fileSenderState = null;
 let fileReceiverState = null;
 let pendingTransferFile = null;
-
-function arrayBufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
-
-function base64ToArrayBuffer(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
 
 function showFileSender() {
   $('picker').hidden = true;
@@ -969,12 +986,13 @@ async function startFileSender() {
   const ws = openSignal(roomId);
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   const dc = pc.createDataChannel('pingl-file', { ordered: true });
-  fileSenderState = { ws, pc, dc, roomId, file: null };
+  fileSenderState = { ws, pc, dc, roomId, file: null, sending: false };
 
   showFileSender();
   $('fileRoomIdView').textContent = roomId;
   $('fileShareUrl').value = `${location.origin}${location.pathname}#file=${roomId}`;
   $('fileConnState').textContent = '等待對方連入';
+  const ct = $('fileConnType'); ct.textContent = '— (連線後顯示)'; ct.removeAttribute('data-transport');
   setStatus('準備傳檔案', 'busy');
 
   dc.onopen = () => {
@@ -991,15 +1009,25 @@ async function startFileSender() {
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
     $('fileConnState').textContent = s === 'connected' ? '已連線' : s;
-    if (s === 'failed' || s === 'disconnected') setStatus('傳輸中斷', 'err');
+    if (s === 'connected') {
+      // Reveal the real path (Wi-Fi/LAN vs external) BEFORE any file is sent,
+      // shown inline in the 傳輸路徑 row — no alert.
+      $('fileConnType').textContent = '判斷中…';
+      showTransportType(pc, $('fileConnType')).then(info => {
+        if (info?.kind === 'wan') toast('注意：此連線走外網，非區網直連');
+      });
+    } else if (s === 'failed' || s === 'disconnected') {
+      setStatus('傳輸中斷', 'err');
+      $('fileConnType').textContent = '—';
+    }
   };
 
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      await makeOffer(pc, ws);
+      if ((msg.peerCount ?? 1) >= 1) await makeOffer(pc, ws);
     } else if (msg.type === 'answer') {
-      await pc.setRemoteDescription(msg.sdp);
+      if (pc.signalingState !== 'stable') await pc.setRemoteDescription(msg.sdp);
     } else if (msg.type === 'ice') {
       try { await pc.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
@@ -1049,29 +1077,68 @@ function showFileConfirmModal(show) {
   document.body.style.overflow = show ? 'hidden' : '';
 }
 
+// Wait until the DataChannel's send buffer drains below the low threshold.
+// Without this, a tight send-loop overflows bufferedAmount and the channel
+// silently closes mid-transfer (the classic "progress never moves" failure).
+const DC_BUFFER_HIGH = 4 * 1024 * 1024; // pause sending above this
+const DC_BUFFER_LOW  = 1 * 1024 * 1024; // resume once drained below this
+
+function waitForBufferDrain(dc) {
+  return new Promise((resolve, reject) => {
+    if (dc.readyState !== 'open') { reject(new Error('連線已關閉')); return; }
+    dc.bufferedAmountLowThreshold = DC_BUFFER_LOW;
+    const onLow = () => { dc.removeEventListener('bufferedamountlow', onLow); resolve(); };
+    dc.addEventListener('bufferedamountlow', onLow);
+  });
+}
+
 async function doSendSelectedFile(file) {
   if (!fileSenderState || !fileSenderState.dc || fileSenderState.dc.readyState !== 'open') {
     toast('對方尚未連線完成');
     return;
   }
+  if (fileSenderState.sending) { toast('正在傳送中，請稍候'); return; }
   const dc = fileSenderState.dc;
+  // Receive raw binary as ArrayBuffer (not Blob) so the receiver can use it directly.
+  dc.binaryType = 'arraybuffer';
   const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-  const totalChunks = Math.ceil(file.size / FILE_CHUNK_SIZE);
+  const totalChunks = Math.max(1, Math.ceil(file.size / FILE_CHUNK_SIZE));
+  fileSenderState.sending = true;
   try {
-    dc.send(JSON.stringify({ type: 'file-meta', fileId: id, name: file.name, size: file.size, type: file.type, totalChunks }));
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * FILE_CHUNK_SIZE;
-      const end = Math.min(start + FILE_CHUNK_SIZE, bytes.length);
-      const chunk = bytes.subarray(start, end);
-      dc.send(JSON.stringify({ type: 'file-chunk', fileId: id, index: i, data: arrayBufferToBase64(chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)) }));
-      $('fileConnState').textContent = `傳送中 ${Math.round((i + 1) / totalChunks * 100)}%`;
+    // Header first: receiver resets its buffers when it sees a new fileId.
+    dc.send(JSON.stringify({ type: 'file-meta', fileId: id, name: file.name, size: file.size, mime: file.type, totalChunks }));
+
+    let offset = 0, index = 0;
+    while (offset < file.size) {
+      if (dc.readyState !== 'open') throw new Error('連線已關閉');
+
+      // Read+send one slice at a time so we never hold the whole file in memory.
+      const slice = file.slice(offset, offset + FILE_CHUNK_SIZE);
+      const buf = await slice.arrayBuffer();
+      dc.send(buf);
+      offset += FILE_CHUNK_SIZE;
+      index++;
+
+      const pct = Math.min(100, Math.round(offset / file.size * 100));
+      $('fileConnState').textContent = `傳送中 ${pct}%`;
+
+      // Backpressure: pause when the send buffer fills, which also yields to the
+      // event loop so the progress UI repaints.
+      if (dc.bufferedAmount > DC_BUFFER_HIGH) await waitForBufferDrain(dc);
     }
+
+    // Wait for the buffer to fully flush before signalling completion, otherwise
+    // 'file-done' could arrive (and the channel close) before the last chunks.
+    while (dc.readyState === 'open' && dc.bufferedAmount > 0) await waitForBufferDrain(dc);
+    if (dc.readyState === 'open') dc.send(JSON.stringify({ type: 'file-done', fileId: id }));
+
     toast(`已送出 ${file.name}`);
     $('fileConnState').textContent = '傳送完成';
   } catch (err) {
     toast('傳送失敗：' + (err.message || err));
+    $('fileConnState').textContent = '傳送失敗';
+  } finally {
+    fileSenderState.sending = false;
   }
 }
 
@@ -1104,50 +1171,61 @@ async function startFileReceiver(roomId) {
 
   const ws = openSignal(roomId);
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  const chunks = {};
-  let meta = null;
-  fileReceiverState = { ws, pc, chunks, meta };
+  // recv holds the in-progress file: ordered binary chunks + metadata.
+  const recv = { meta: null, parts: [], received: 0 };
+  fileReceiverState = { ws, pc, recv };
 
   pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
-    $('fileRecvState').textContent = s;
-    if (s === 'connected') setStatus('已連線', 'ok');
+    $('fileRecvState').textContent = s === 'connected' ? '已連線' : s;
+    if (s === 'connected') { setStatus('已連線', 'ok'); showTransportType(pc, $('fileRecvState')); }
     else if (s === 'failed' || s === 'disconnected') setStatus('連線中斷', 'err');
   };
 
   pc.ondatachannel = e => {
     const dc = e.channel;
+    dc.binaryType = 'arraybuffer';
     dc.onopen = () => {
       $('fileRecvState').textContent = '已連線';
       setStatus('已連線，可接收檔案', 'ok');
       $('fileRecvNote').textContent = '連線成功，等候檔案資料…';
     };
-    dc.onmessage = async ev => {
-      const text = typeof ev.data === 'string' ? ev.data : await ev.data.text();
-      const msg = JSON.parse(text);
+    dc.onmessage = ev => {
+      // Binary frame → a file chunk. String frame → a control message (JSON).
+      if (typeof ev.data !== 'string') {
+        if (!recv.meta) return; // chunk arrived before its header; ignore
+        recv.parts.push(ev.data);
+        recv.received += ev.data.byteLength;
+        const total = recv.meta.size || 0;
+        const pct = total ? Math.min(100, Math.round(recv.received / total * 100)) : 0;
+        $('fileRecvProgress').textContent = `${pct}%`;
+        return;
+      }
+      const msg = JSON.parse(ev.data);
       if (msg.type === 'file-meta') {
-        meta = msg;
+        // New file: reset buffers (handles sending a second file on the same channel).
+        recv.meta = msg;
+        recv.parts = [];
+        recv.received = 0;
         $('fileRecvName').textContent = msg.name;
+        $('fileRecvProgress').textContent = '0%';
         $('fileRecvNote').textContent = `收到檔案：${msg.name}`;
-      } else if (msg.type === 'file-chunk' && meta) {
-        chunks[msg.index] = base64ToArrayBuffer(msg.data);
-        const received = Object.keys(chunks).length;
-        const total = meta.totalChunks || 0;
-        const progress = total ? Math.min(100, Math.round(received / total * 100)) : 0;
-        $('fileRecvProgress').textContent = `${progress}%`;
-        if (received >= total) {
-          const blob = new Blob(Object.values(chunks), { type: meta.type || 'application/octet-stream' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = meta.name;
-          a.click();
-          URL.revokeObjectURL(url);
-          $('fileRecvNote').textContent = `傳輸完成：${meta.name}`;
-          $('fileRecvProgress').textContent = '100%';
-          toast(`已下載 ${meta.name}`);
-        }
+      } else if (msg.type === 'file-done' && recv.meta) {
+        const blob = new Blob(recv.parts, { type: recv.meta.mime || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = recv.meta.name;
+        a.click();
+        // Defer revoke so the download has a chance to start (Safari/iOS).
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        $('fileRecvNote').textContent = `傳輸完成：${recv.meta.name}`;
+        $('fileRecvProgress').textContent = '100%';
+        toast(`已下載 ${recv.meta.name}`);
+        recv.meta = null;
+        recv.parts = [];
+        recv.received = 0;
       }
     };
   };
