@@ -265,6 +265,30 @@ body {
 .file-chip span { color: #64748b; font-size: 11px; }
 .file-list { display: flex; flex-direction: column; gap: 8px; }
 .mini-label { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #0d9488; font-weight: 700; }
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 200;
+}
+.modal-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .18);
+  padding: 16px;
+}
+.modal-text {
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
 
 /* ── Viewer (full-bleed) ────────────────────────────── */
 #viewer-stage {
@@ -509,6 +533,17 @@ body {
 </main>
 
 <div id="toast"></div>
+
+<div id="fileConfirmModal" class="modal-backdrop" hidden>
+  <div class="modal-card">
+    <div class="field-label">確認傳送檔案</div>
+    <p class="modal-text">這是 WebRTC P2P 傳輸；檔案本體會直接在兩台裝置間傳送，但 signaling 與 ICE 仍可能走你目前設定的 server / STUN。</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;">
+      <button class="btn btn-ghost" id="fileConfirmCancel">取消</button>
+      <button class="btn btn-primary" id="fileConfirmOk">繼續傳送</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── 設定 ──────────────────────────────────────────────
@@ -890,9 +925,11 @@ $('fsBtn').addEventListener('click', () => {
 });
 
 // ── File transfer flow ───────────────────────────────
-const FILE_CHUNK_SIZE = 48 * 1022;
+// Smaller chunks are more reliable on mobile browsers and avoid oversized RTCDataChannel messages.
+const FILE_CHUNK_SIZE = 16 * 1024;
 let fileSenderState = null;
 let fileReceiverState = null;
+let pendingTransferFile = null;
 
 function arrayBufferToBase64(buffer) {
   let binary = '';
@@ -1005,14 +1042,16 @@ async function startFileSender() {
   dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); chooseFile(e); });
 }
 
-async function sendSelectedFile(file) {
+function showFileConfirmModal(show) {
+  const modal = $('fileConfirmModal');
+  if (!modal) return;
+  modal.hidden = !show;
+  document.body.style.overflow = show ? 'hidden' : '';
+}
+
+async function doSendSelectedFile(file) {
   if (!fileSenderState || !fileSenderState.dc || fileSenderState.dc.readyState !== 'open') {
     toast('對方尚未連線完成');
-    return;
-  }
-  const ok = window.confirm('提醒：這是 WebRTC P2P 檔案傳輸；檔案本體會直接連線，但 signaling 與 ICE 仍可能使用你目前設定的 server / STUN。是否繼續？');
-  if (!ok) {
-    toast('已取消傳送');
     return;
   }
   const dc = fileSenderState.dc;
@@ -1034,6 +1073,15 @@ async function sendSelectedFile(file) {
   } catch (err) {
     toast('傳送失敗：' + (err.message || err));
   }
+}
+
+async function sendSelectedFile(file) {
+  if (!fileSenderState || !fileSenderState.dc || fileSenderState.dc.readyState !== 'open') {
+    toast('對方尚未連線完成');
+    return;
+  }
+  pendingTransferFile = file;
+  showFileConfirmModal(true);
 }
 
 function stopFileSender() {
@@ -1141,6 +1189,19 @@ function stopFileReceiver() {
   history.replaceState(null, '', location.pathname + location.search);
   showPicker();
 }
+
+$('fileConfirmCancel')?.addEventListener('click', () => {
+  showFileConfirmModal(false);
+  pendingTransferFile = null;
+  toast('已取消傳送');
+});
+
+$('fileConfirmOk')?.addEventListener('click', async () => {
+  const file = pendingTransferFile;
+  showFileConfirmModal(false);
+  pendingTransferFile = null;
+  if (file) await doSendSelectedFile(file);
+});
 
 window.addEventListener('beforeunload', () => {
   stopSender();

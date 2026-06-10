@@ -278,7 +278,7 @@ textarea#input:focus {
       <div class="checksum-grid">
         <label class="checksum-drop" for="file-input">
           <strong>選擇檔案進行本地驗證</strong>
-          <small>這裡只在瀏覽器本地計算 SHA-1 / SHA-256 / SHA-512，不會上傳到任何雲端。</small>
+          <small>這裡只在瀏覽器本地計算 MD5 / SHA-1 / SHA-256 / SHA-512，不會上傳到任何雲端。</small>
           <input id="file-input" type="file" hidden>
         </label>
         <div id="checksum-output" class="checksum-list">
@@ -478,7 +478,7 @@ const md5 = (() => {
 // ── Local file checksum validation ───────────────────
 async function digestFile(file) {
   const buf = await file.arrayBuffer();
-  const digestAlg = ['SHA-1', 'SHA-256', 'SHA-512'];
+  const digestAlg = ['MD5', 'SHA-1', 'SHA-256', 'SHA-512'];
   const out = {};
   for (const alg of digestAlg) out[alg] = bufToHex(await crypto.subtle.digest(alg, buf));
   return out;
@@ -493,6 +493,7 @@ function renderChecksum(file, digests) {
   wrap.innerHTML = [
     ['檔案名稱', file.name],
     ['大小', `${(file.size / 1024).toFixed(2)} KB`],
+    ['MD5', digests['MD5']],
     ['SHA-1', digests['SHA-1']],
     ['SHA-256', digests['SHA-256']],
     ['SHA-512', digests['SHA-512']],
