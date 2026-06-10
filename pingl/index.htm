@@ -268,6 +268,16 @@ body {
 .file-chip span { color: #64748b; font-size: 11px; }
 .file-list { display: flex; flex-direction: column; gap: 8px; }
 .mini-label { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #0d9488; font-weight: 700; }
+/* One card per received file, so multiple transfers stack instead of overwriting */
+.recv-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.recv-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+.recv-item .rname { font-size: 13px; font-weight: 700; color: #0f172a; word-break: break-all; }
+.recv-item .rprog { font-size: 11px; color: #64748b; font-family: ui-monospace, monospace; margin-top: 2px; }
+.recv-item .rbar { height: 5px; border-radius: 999px; background: #e2e8f0; overflow: hidden; margin-top: 6px; }
+.recv-item .rbar > i { display: block; height: 100%; width: 0; background: #0d9488; transition: width .15s; }
+.recv-item a.rdl { display: inline-block; margin-top: 8px; text-decoration: none; }
+.recv-item .rpreview { margin-top: 8px; }
+.recv-item .rpreview img, .recv-item .rpreview video { max-width: 100%; border-radius: 8px; border: 1px solid #e2e8f0; }
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -302,8 +312,24 @@ body {
   position: relative;
   margin-bottom: 14px;
 }
-#viewer-stage video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+#viewer-stage > video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 #viewer-stage .video-overlay { font-size: 14px; }
+
+/* Picture-in-picture self/peer view, shared by viewer (my camera) and
+   sharer (the peer's camera). Sits in a corner over the main stage. */
+.pip-view {
+  position: absolute;
+  right: 10px; bottom: 10px;
+  width: 26%; max-width: 200px;
+  aspect-ratio: 16/9;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,.7);
+  background: #000;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4);
+  z-index: 4;
+}
+.pip-view video { width: 100%; height: 100%; object-fit: cover; background: #000; }
 
 #leaveFloat {
   position: absolute;
@@ -442,8 +468,11 @@ body {
   <!-- mode B: sharing -->
   <section id="share-view" hidden>
     <div class="share-grid">
-      <div class="card video-card">
+      <div class="card video-card" style="position:relative;">
         <video id="previewVideo" autoplay muted playsinline></video>
+        <div class="pip-view" id="senderPeerPip" hidden>
+          <video id="senderPeerVideo" autoplay playsinline></video>
+        </div>
       </div>
       <div class="card">
         <div class="field-label">連線代碼</div>
@@ -486,17 +515,14 @@ body {
         <div class="mini-label">選擇檔案</div>
         <label class="dropzone" id="fileDropZone" for="fileInput">
           <strong>拖曳檔案到這裡，或點擊選擇</strong>
-          <small>支援單一檔案傳輸；大小與速度依照你們的 LAN / Wi-Fi 而定。</small>
-          <input id="fileInput" type="file" hidden>
+          <small>可一次選多個檔案；大小與速度依照你們的 LAN / Wi-Fi 而定。</small>
+          <input id="fileInput" type="file" hidden multiple>
         </label>
         <div class="hint" style="margin-top:8px;">提醒：檔案本體是 WebRTC P2P 傳輸，但 signaling 與 ICE 仍會依你目前設定的 server / STUN 路徑運作。</div>
         <div class="file-list" id="fileList"></div>
         <div id="fileSendRecvBlock" hidden style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">
           <div class="mini-label">對方傳來的檔案</div>
-          <div class="info-row"><span class="k">檔案名稱</span><span class="v" id="fileSendRecvName">—</span></div>
-          <div class="info-row"><span class="k">進度</span><span class="v" id="fileSendRecvProgress">0%</span></div>
-          <a id="fileSendRecvDownload" class="btn btn-primary" style="display:none;width:100%;text-align:center;text-decoration:none;margin-top:12px;" download>⬇️ 下載檔案</a>
-          <div id="fileSendRecvPreview" style="margin-top:12px;"></div>
+          <div class="recv-list" id="fileSendRecvList"></div>
         </div>
       </div>
     </div>
@@ -509,10 +535,7 @@ body {
         <div class="field-label">接收檔案</div>
         <div class="code-big" id="fileRecvRoomId">—</div>
         <div class="info-row"><span class="k">連線狀態</span><span class="v" id="fileRecvState">等待中</span></div>
-        <div class="info-row"><span class="k">檔案名稱</span><span class="v" id="fileRecvName">—</span></div>
-        <div class="info-row"><span class="k">進度</span><span class="v" id="fileRecvProgress">0%</span></div>
-        <a id="fileRecvDownload" class="btn btn-primary" style="display:none;width:100%;text-align:center;text-decoration:none;margin-top:12px;" download>⬇️ 下載檔案</a>
-        <div id="fileRecvPreview" style="margin-top:12px;"></div>
+        <div class="recv-list" id="fileRecvList"></div>
         <div class="actions">
           <button class="btn btn-ghost" id="fileRecvBackBtn">返回</button>
         </div>
@@ -522,8 +545,8 @@ body {
         <div class="mini-label">回傳檔案給對方</div>
         <label class="dropzone" id="fileRecvDropZone" for="fileRecvInput">
           <strong>拖曳檔案到這裡，或點擊選擇</strong>
-          <small>連線成功後即可雙向互傳；大小與速度依照你們的 LAN / Wi-Fi 而定。</small>
-          <input id="fileRecvInput" type="file" hidden>
+          <small>連線成功後即可雙向互傳，可一次選多個檔案。</small>
+          <input id="fileRecvInput" type="file" hidden multiple>
         </label>
         <div class="file-list" id="fileRecvSendList"></div>
       </div>
@@ -535,12 +558,16 @@ body {
     <div id="viewer-stage">
       <video id="viewerVideo" autoplay playsinline muted></video>
       <div class="video-overlay" id="viewerOverlay">連線中…</div>
+      <div class="pip-view" id="viewerSelfPip" hidden>
+        <video id="viewerSelfVideo" autoplay playsinline muted></video>
+      </div>
       <button id="leaveFloat" title="返回" aria-label="返回">×</button>
     </div>
     <div class="card">
       <div class="info-row"><span class="k">Room ID</span><span class="v" id="viewerRoomId">—</span></div>
       <div class="info-row"><span class="k">連線狀態</span><span class="v" id="viewerConnState">等待中</span></div>
       <div class="actions">
+        <button class="btn btn-primary" id="viewerCamBtn">開啟我的鏡頭</button>
         <button class="btn btn-ghost" id="muteBtn">取消靜音</button>
         <button class="btn btn-ghost" id="fsBtn">全螢幕</button>
         <button class="btn btn-danger" id="leaveBtn" style="margin-left:auto;">返回</button>
@@ -757,6 +784,14 @@ async function startSender(source) {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     senderState.pc = pc;
     stream.getTracks().forEach(t => pc.addTrack(t, stream));
+    // If the viewer turns on their camera, their track arrives here → show it
+    // in the corner picture-in-picture. (Audio tracks ride along silently.)
+    pc.ontrack = e => {
+      const v = $('senderPeerVideo');
+      v.srcObject = e.streams[0];
+      $('senderPeerPip').hidden = false;
+      v.play?.().catch(() => {});
+    };
     pc.onicecandidate = e => {
       if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
     };
@@ -769,6 +804,7 @@ async function startSender(source) {
       } else if (s === 'failed' || s === 'disconnected') {
         setStatus('連線中斷', 'err');
         $('connType').textContent = '—';
+        $('senderPeerPip').hidden = true;
       }
     };
     return pc;
@@ -787,6 +823,10 @@ async function startSender(source) {
       }
     } else if (msg.type === 'answer') {
       if (senderState.pc?.signalingState !== 'stable') await senderState.pc.setRemoteDescription(msg.sdp);
+    } else if (msg.type === 'renegotiate') {
+      // Viewer added/removed its camera and needs us to re-offer so the new
+      // track is negotiated. makeOffer no-ops if a negotiation is already mid-flight.
+      if (senderState.pc) await makeOffer(senderState.pc, ws);
     } else if (msg.type === 'ice') {
       try { await senderState.pc?.addIceCandidate(msg.candidate); } catch {}
     } else if (msg.type === 'peer-left') {
@@ -794,6 +834,8 @@ async function startSender(source) {
       setStatus('對方離線，等待重新連入', 'busy');
       $('connState').textContent = '對方離線，等待重連';
       $('connType').textContent = '—';
+      $('senderPeerPip').hidden = true;
+      $('senderPeerVideo').srcObject = null;
       try { senderState.pc?.close(); } catch {}
       senderState.pc = null;
     }
@@ -846,7 +888,9 @@ async function startViewer(roomId) {
   setStatus('連線中…', 'busy');
 
   const ws = openSignal(roomId);
-  viewerState = { ws, pc: null };
+  // camStream holds the viewer's own camera once enabled, so it can be re-added
+  // to every rebuilt pc (reconnect / re-offer) and survive renegotiation.
+  viewerState = { ws, pc: null, camStream: null };
 
   // A fresh PeerConnection, wired to render the incoming stream. Rebuilt if the
   // sharer leaves and a new offer arrives, so a stale pc never blocks reconnect.
@@ -854,6 +898,10 @@ async function startViewer(roomId) {
     try { viewerState.pc?.close(); } catch {}
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     viewerState.pc = pc;
+    // Re-attach the viewer's own camera (if on) so it persists across rebuilds.
+    if (viewerState.camStream) {
+      viewerState.camStream.getTracks().forEach(t => pc.addTrack(t, viewerState.camStream));
+    }
     pc.ontrack = async e => {
       const v = $('viewerVideo');
       v.srcObject = e.streams[0];
@@ -886,6 +934,30 @@ async function startViewer(roomId) {
     return pc;
   };
 
+  // Toggle the viewer's own camera. On enable: getUserMedia, add tracks to the
+  // live pc, show the self-PiP, and ask the sharer to re-offer so our track is
+  // negotiated. (The button is wired once, below — see viewerCamBtn handler.)
+  viewerState.enableCamera = async () => {
+    if (viewerState.camStream) return; // already on
+    let cam;
+    try {
+      cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+    } catch (err) {
+      toast('無法開啟鏡頭：' + (err.message || err));
+      return;
+    }
+    viewerState.camStream = cam;
+    $('viewerSelfVideo').srcObject = cam;
+    $('viewerSelfPip').hidden = false;
+    $('viewerCamBtn').textContent = '鏡頭已開啟';
+    $('viewerCamBtn').disabled = true;
+    // Add to the current pc and trigger renegotiation (sharer will re-offer).
+    if (viewerState.pc) {
+      cam.getTracks().forEach(t => viewerState.pc.addTrack(t, cam));
+      ws.send(JSON.stringify({ type: 'renegotiate' }));
+    }
+  };
+
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
     if (handleRoomFull(msg)) return;
@@ -895,8 +967,14 @@ async function startViewer(roomId) {
         setStatus('等待分享者', 'busy');
       }
     } else if (msg.type === 'offer') {
-      // Each offer (including a re-offer after reconnect) gets a fresh pc.
-      const pc = buildPc();
+      // A re-offer on a healthy pc (e.g. after we enabled our camera) is a
+      // renegotiation — reuse the existing pc so our added track and live ICE
+      // survive. Only a fresh/dead pc warrants a rebuild (first connect or
+      // reconnect after the sharer left).
+      const live = viewerState.pc &&
+        ['connecting', 'connected'].includes(viewerState.pc.connectionState) &&
+        viewerState.pc.signalingState === 'stable';
+      const pc = live ? viewerState.pc : buildPc();
       await pc.setRemoteDescription(msg.sdp);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -975,12 +1053,16 @@ $('fileRecvBackBtn').addEventListener('click', stopFileReceiver);
 
 function stopViewer() {
   if (viewerState) {
+    try { viewerState.camStream?.getTracks().forEach(t => t.stop()); } catch {}
     try { viewerState.pc?.close(); } catch {}
     try { viewerState.ws.close(); } catch {}
     viewerState = null;
   }
-  const v = $('viewerVideo');
-  v.srcObject = null;
+  $('viewerVideo').srcObject = null;
+  $('viewerSelfVideo').srcObject = null;
+  $('viewerSelfPip').hidden = true;
+  $('viewerCamBtn').textContent = '開啟我的鏡頭';
+  $('viewerCamBtn').disabled = false;
   // Clear hash so refresh won't auto-reconnect
   history.replaceState(null, '', location.pathname + location.search);
   showPicker();
@@ -988,6 +1070,7 @@ function stopViewer() {
 
 $('leaveBtn').addEventListener('click', stopViewer);
 $('leaveFloat').addEventListener('click', stopViewer);
+$('viewerCamBtn').addEventListener('click', () => viewerState?.enableCamera?.());
 
 $('muteBtn').addEventListener('click', () => {
   const v = $('viewerVideo');
@@ -1031,33 +1114,49 @@ let activeFileSession = null;
 // surface connection text in its own status element.
 function attachFileReceiver(dc, ui, onState) {
   dc.binaryType = 'arraybuffer';
-  const recv = { meta: null, parts: [], received: 0, done: false, lastUrl: null };
+  // One channel can carry many files. `cur` is the file being received right now;
+  // every completed file keeps its own card + object URL so nothing is overwritten.
+  const recv = { cur: null, urls: [] };
 
-  function reveal(el) { if (el) el.hidden = false; }
+  // Build a fresh card in the list for an incoming file and return its handles.
+  function makeCard(meta) {
+    const list = $(ui.list);
+    if (ui.block) { const b = $(ui.block); if (b) b.hidden = false; }
+    const item = document.createElement('div');
+    item.className = 'recv-item';
+    item.innerHTML =
+      `<div class="rname"></div>` +
+      `<div class="rprog">0%</div>` +
+      `<div class="rbar"><i></i></div>` +
+      `<div class="rpreview"></div>`;
+    item.querySelector('.rname').textContent = meta.name;
+    list.appendChild(item);
+    return {
+      prog: item.querySelector('.rprog'),
+      bar: item.querySelector('.rbar > i'),
+      preview: item.querySelector('.rpreview'),
+      item,
+    };
+  }
 
   dc.addEventListener('message', ev => {
     if (typeof ev.data !== 'string') {
-      if (!recv.meta) return; // chunk before its header; ignore
-      recv.parts.push(ev.data);
-      recv.received += ev.data.byteLength;
-      const total = recv.meta.size || 0;
-      const pct = total ? Math.min(100, Math.round(recv.received / total * 100)) : 0;
-      $(ui.progress).textContent = `${pct}%`;
-      if (total && recv.received >= total) finishReceive();
+      const c = recv.cur;
+      if (!c) return; // chunk before its header; ignore
+      c.parts.push(ev.data);
+      c.received += ev.data.byteLength;
+      const total = c.meta.size || 0;
+      const pct = total ? Math.min(100, Math.round(c.received / total * 100)) : 0;
+      c.card.prog.textContent = `${pct}%`;
+      c.card.bar.style.width = `${pct}%`;
+      if (total && c.received >= total) finishReceive();
       return;
     }
     const msg = JSON.parse(ev.data);
     if (msg.type === 'file-meta') {
-      recv.meta = msg;
-      recv.parts = [];
-      recv.received = 0;
-      recv.done = false;
-      reveal($(ui.block));
-      $(ui.name).textContent = msg.name;
-      $(ui.progress).textContent = '0%';
-      if (ui.note) $(ui.note).textContent = `收到檔案：${msg.name}`;
-      $(ui.download).style.display = 'none';
-      $(ui.preview).innerHTML = '';
+      // Start a new file → its own card; previous files stay in the list.
+      recv.cur = { meta: msg, parts: [], received: 0, done: false, card: makeCard(msg) };
+      if (ui.note) $(ui.note).textContent = `接收中：${msg.name}`;
       onState && onState(`接收中：${msg.name}`);
     } else if (msg.type === 'file-done') {
       finishReceive();
@@ -1065,41 +1164,48 @@ function attachFileReceiver(dc, ui, onState) {
   });
 
   function finishReceive() {
-    if (!recv.meta || recv.done) return;
-    recv.done = true;
-    const meta = recv.meta;
-    const blob = new Blob(recv.parts, { type: meta.mime || 'application/octet-stream' });
+    const c = recv.cur;
+    if (!c || c.done) return;
+    c.done = true;
+    const meta = c.meta;
+    const blob = new Blob(c.parts, { type: meta.mime || 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
-    if (recv.lastUrl) URL.revokeObjectURL(recv.lastUrl);
-    recv.lastUrl = url;
+    recv.urls.push(url);
+    c.parts = null; // free the chunk references; the blob owns the data now
 
-    const dl = $(ui.download);
+    c.card.prog.textContent = `100% · ${(meta.size / 1024 / 1024).toFixed(2)} MB`;
+    c.card.bar.style.width = '100%';
+
+    const dl = document.createElement('a');
+    dl.className = 'btn btn-primary rdl';
     dl.href = url;
     dl.download = meta.name;
-    dl.style.display = 'block';
+    dl.textContent = '⬇️ 下載';
+    c.card.item.insertBefore(dl, c.card.preview);
 
-    const preview = $(ui.preview);
-    preview.innerHTML = '';
     const mime = meta.mime || '';
     if (mime.startsWith('image/')) {
       const img = document.createElement('img');
       img.src = url;
-      img.style.cssText = 'max-width:100%;border-radius:10px;border:1px solid #e2e8f0;';
-      preview.appendChild(img);
+      c.card.preview.appendChild(img);
     } else if (mime.startsWith('video/')) {
       const vid = document.createElement('video');
       vid.src = url; vid.controls = true; vid.playsInline = true;
-      vid.style.cssText = 'max-width:100%;border-radius:10px;';
-      preview.appendChild(vid);
+      c.card.preview.appendChild(vid);
     }
 
-    if (ui.note) $(ui.note).textContent = `傳輸完成：${meta.name}（點按鈕下載）`;
-    $(ui.progress).textContent = '100%';
+    if (ui.note) $(ui.note).textContent = `已收到：${meta.name}（可繼續接收更多檔案）`;
     onState && onState('傳輸完成');
     toast(`已收到 ${meta.name}`);
+    recv.cur = null;
   }
 
-  return recv; // caller keeps it for cleanup (revokeObjectURL)
+  return recv; // caller keeps it for cleanup (revoke all urls)
+}
+
+// Revoke every object URL a recv handed out (called on rebuild / teardown).
+function revokeRecvUrls(recv) {
+  try { recv?.urls?.forEach(u => URL.revokeObjectURL(u)); } catch {}
 }
 
 // ── Shared send picker ────────────────────────────────
@@ -1109,36 +1215,71 @@ function attachFileReceiver(dc, ui, onState) {
 function attachFilePicker(ui, getDc) {
   const dropZone = $(ui.dropZone);
   const fileInput = $(ui.input);
-  const session = { file: null };
+  // Queue of selected-but-not-yet-sent files. Each can be sent individually,
+  // or all at once via 全部傳送.
+  const session = { files: [] };
 
   const updateList = () => {
     const list = $(ui.list);
     list.innerHTML = '';
-    if (!session.file) {
-      list.innerHTML = '<div class="hint">先選擇一個檔案，拖曳或點擊上方區塊即可開始。</div>';
+    if (!session.files.length) {
+      list.innerHTML = '<div class="hint">先選擇檔案（可多選），拖曳或點擊上方區塊即可開始。</div>';
       return;
     }
-    const file = session.file;
-    const chip = document.createElement('div');
-    chip.className = 'file-chip';
-    const size = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-    chip.innerHTML = `<div><strong>${file.name}</strong><span>${size} · 點擊傳送</span></div><button class="btn btn-primary">傳送</button>`;
-    list.appendChild(chip);
-    chip.querySelector('button').addEventListener('click', () => requestSendFile(file, getDc));
+    if (session.files.length > 1) {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;';
+      bar.innerHTML = `<span class="hint">已選 ${session.files.length} 個檔案</span>`;
+      const all = document.createElement('button');
+      all.className = 'btn btn-primary';
+      all.textContent = '全部傳送';
+      all.addEventListener('click', () => sendAll());
+      bar.appendChild(all);
+      list.appendChild(bar);
+    }
+    session.files.forEach((file, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip';
+      const size = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+      chip.innerHTML = `<div><strong></strong><span>${size} · 點擊傳送</span></div>`;
+      chip.querySelector('strong').textContent = file.name;
+      const send = document.createElement('button');
+      send.className = 'btn btn-primary';
+      send.textContent = '傳送';
+      send.addEventListener('click', () => requestSendFile(file, getDc));
+      const rm = document.createElement('button');
+      rm.className = 'btn btn-ghost';
+      rm.textContent = '移除';
+      rm.addEventListener('click', () => { session.files.splice(i, 1); updateList(); });
+      const grp = document.createElement('div');
+      grp.style.cssText = 'display:flex;gap:6px;';
+      grp.append(send, rm);
+      chip.appendChild(grp);
+      list.appendChild(chip);
+    });
   };
   updateList();
 
-  const chooseFile = e => {
-    const [file] = e.target.files || e.dataTransfer?.files || [];
-    if (!file) return;
-    session.file = file;
+  // Send the whole queue sequentially (doSendSelectedFile guards concurrency,
+  // so we await each before starting the next).
+  async function sendAll() {
+    const dc = getDc();
+    if (!dc || dc.readyState !== 'open') { toast('對方尚未連線完成'); return; }
+    const queue = [...session.files];
+    for (const file of queue) await requestSendFile(file, getDc, true);
+  }
+
+  const chooseFiles = e => {
+    const picked = [...(e.target.files || e.dataTransfer?.files || [])];
+    if (!picked.length) return;
+    session.files.push(...picked);
     updateList();
-    toast(`已選擇 ${file.name}`);
+    toast(picked.length === 1 ? `已選擇 ${picked[0].name}` : `已選擇 ${picked.length} 個檔案`);
   };
-  fileInput.addEventListener('change', chooseFile);
+  fileInput.addEventListener('change', chooseFiles);
   dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); chooseFile(e); });
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); chooseFiles(e); });
 
   return session;
 }
@@ -1176,7 +1317,7 @@ async function startFileSender() {
   // whenever the peer leaves and a new one joins, so reconnect gets a clean
   // channel rather than a stale one bound to the departed peer.
   const buildPc = () => {
-    try { fileSenderState.recv?.lastUrl && URL.revokeObjectURL(fileSenderState.recv.lastUrl); } catch {}
+    revokeRecvUrls(fileSenderState.recv);
     try { fileSenderState.pc?.close(); } catch {}
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     const dc = pc.createDataChannel('pingl-file', { ordered: true });
@@ -1185,8 +1326,7 @@ async function startFileSender() {
 
     // The sender's channel is also wired to RECEIVE, so the peer can send back.
     fileSenderState.recv = attachFileReceiver(dc, {
-      block: 'fileSendRecvBlock', name: 'fileSendRecvName', progress: 'fileSendRecvProgress',
-      download: 'fileSendRecvDownload', preview: 'fileSendRecvPreview',
+      block: 'fileSendRecvBlock', list: 'fileSendRecvList',
     });
 
     dc.onopen = () => {
@@ -1320,17 +1460,28 @@ async function doSendSelectedFile(file, getDc, setProgress) {
   }
 }
 
-// Show the confirm modal, remembering what to send once confirmed.
-function requestSendFile(file, getDc) {
+// Actually transfer one file now, routing progress to the active side's status
+// element. Returns the doSendSelectedFile promise so batch sends can await it.
+function sendFileNow(file, getDc) {
+  const progressEl = activeFileSession === fileReceiverState ? 'fileRecvState' : 'fileConnState';
+  const setProgress = txt => { const el = $(progressEl); if (el) el.textContent = txt; };
+  return doSendSelectedFile(file, getDc, setProgress);
+}
+
+// Request a send. For a single file we pop the confirm modal once; for batch
+// sends (skipConfirm) we send straight away and await completion.
+function requestSendFile(file, getDc, skipConfirm) {
   const dc = getDc();
-  if (!dc || dc.readyState !== 'open') { toast('對方尚未連線完成'); return; }
+  if (!dc || dc.readyState !== 'open') { toast('對方尚未連線完成'); return Promise.resolve(); }
+  if (skipConfirm) return sendFileNow(file, getDc);
   pendingTransferFile = { file, getDc };
   showFileConfirmModal(true);
+  return Promise.resolve();
 }
 
 function stopFileSender() {
   if (!fileSenderState) return;
-  try { if (fileSenderState.recv?.lastUrl) URL.revokeObjectURL(fileSenderState.recv.lastUrl); } catch {}
+  revokeRecvUrls(fileSenderState.recv);
   try { fileSenderState.dc?.close(); } catch {}
   try { fileSenderState.pc?.close(); } catch {}
   try { fileSenderState.ws.close(); } catch {}
@@ -1343,8 +1494,7 @@ async function startFileReceiver(roomId) {
   showFileReceiver();
   $('fileRecvRoomId').textContent = roomId;
   $('fileRecvState').textContent = '連線中…';
-  $('fileRecvName').textContent = '—';
-  $('fileRecvProgress').textContent = '0%';
+  $('fileRecvList').innerHTML = '';
   $('fileRecvNote').textContent = '等待分享者建立連線…';
   setStatus('連線中…', 'busy');
 
@@ -1356,7 +1506,7 @@ async function startFileReceiver(roomId) {
   // is also used to send back). Rebuilt on every offer so a re-offer after the
   // sharer reconnects gets a clean pc instead of choking on stale state.
   const buildPc = () => {
-    try { fileReceiverState.recv?.lastUrl && URL.revokeObjectURL(fileReceiverState.recv.lastUrl); } catch {}
+    revokeRecvUrls(fileReceiverState.recv);
     try { fileReceiverState.pc?.close(); } catch {}
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     fileReceiverState.pc = pc;
@@ -1379,8 +1529,7 @@ async function startFileReceiver(roomId) {
       };
       // Same shared receive handler the sender uses — renders into the recv card.
       fileReceiverState.recv = attachFileReceiver(dc, {
-        name: 'fileRecvName', progress: 'fileRecvProgress', download: 'fileRecvDownload',
-        preview: 'fileRecvPreview', note: 'fileRecvNote',
+        list: 'fileRecvList', note: 'fileRecvNote',
       });
     };
     return pc;
@@ -1428,7 +1577,7 @@ async function startFileReceiver(roomId) {
 
 function stopFileReceiver() {
   if (!fileReceiverState) return;
-  try { if (fileReceiverState.recv?.lastUrl) URL.revokeObjectURL(fileReceiverState.recv.lastUrl); } catch {}
+  revokeRecvUrls(fileReceiverState.recv);
   try { fileReceiverState.pc?.close(); } catch {}
   try { fileReceiverState.ws.close(); } catch {}
   if (activeFileSession === fileReceiverState) activeFileSession = null;
@@ -1448,17 +1597,14 @@ $('fileConfirmOk')?.addEventListener('click', async () => {
   showFileConfirmModal(false);
   pendingTransferFile = null;
   if (!pending) return;
-  // Progress goes to whichever side is active: sender card vs receiver card.
-  const progressEl = activeFileSession === fileReceiverState ? 'fileRecvState' : 'fileConnState';
-  const setProgress = txt => { const el = $(progressEl); if (el) el.textContent = txt; };
-  await doSendSelectedFile(pending.file, pending.getDc, setProgress);
+  await sendFileNow(pending.file, pending.getDc);
 });
 
 window.addEventListener('beforeunload', () => {
   stopSender();
   stopFileSender();
   stopFileReceiver();
-  if (viewerState) { try { viewerState.pc?.close(); viewerState.ws.close(); } catch {} }
+  if (viewerState) { try { viewerState.camStream?.getTracks().forEach(t => t.stop()); viewerState.pc?.close(); viewerState.ws.close(); } catch {} }
 });
 
 boot();
