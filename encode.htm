@@ -440,8 +440,13 @@ const md5 = (() => {
     return b;
   }
 
-  return function (str) {
-    const bytes = strToBytes(str);
+  return function (input) {
+    // Accept a string (UTF-8 encoded) or raw bytes (Uint8Array / ArrayBuffer).
+    // Binary files must pass bytes directly — encoding them as a string via
+    // TextEncoder would corrupt any non-UTF-8 byte and produce a wrong hash.
+    const bytes = input instanceof Uint8Array ? input
+                : input instanceof ArrayBuffer ? new Uint8Array(input)
+                : strToBytes(input);
     const n = bytes.length;
     const state = [1732584193, -271733879, -1732584194, 271733878];
 
@@ -478,9 +483,13 @@ const md5 = (() => {
 // ── Local file checksum validation ───────────────────
 async function digestFile(file) {
   const buf = await file.arrayBuffer();
-  const digestAlg = ['MD5', 'SHA-1', 'SHA-256', 'SHA-512'];
   const out = {};
-  for (const alg of digestAlg) out[alg] = bufToHex(await crypto.subtle.digest(alg, buf));
+  // Web Crypto's SubtleCrypto.digest() does NOT support MD5 — only SHA family.
+  // Compute MD5 with the local pure-JS implementation, the rest via Web Crypto.
+  out['MD5'] = md5(new Uint8Array(buf));
+  for (const alg of ['SHA-1', 'SHA-256', 'SHA-512']) {
+    out[alg] = bufToHex(await crypto.subtle.digest(alg, buf));
+  }
   return out;
 }
 
