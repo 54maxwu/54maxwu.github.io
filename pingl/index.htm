@@ -491,24 +491,42 @@ body {
         </label>
         <div class="hint" style="margin-top:8px;">提醒：檔案本體是 WebRTC P2P 傳輸，但 signaling 與 ICE 仍會依你目前設定的 server / STUN 路徑運作。</div>
         <div class="file-list" id="fileList"></div>
+        <div id="fileSendRecvBlock" hidden style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">
+          <div class="mini-label">對方傳來的檔案</div>
+          <div class="info-row"><span class="k">檔案名稱</span><span class="v" id="fileSendRecvName">—</span></div>
+          <div class="info-row"><span class="k">進度</span><span class="v" id="fileSendRecvProgress">0%</span></div>
+          <a id="fileSendRecvDownload" class="btn btn-primary" style="display:none;width:100%;text-align:center;text-decoration:none;margin-top:12px;" download>⬇️ 下載檔案</a>
+          <div id="fileSendRecvPreview" style="margin-top:12px;"></div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- mode D: file receiver -->
+  <!-- mode D: file receiver (now symmetric — can also send back) -->
   <section id="file-recv-view" hidden>
-    <div class="card">
-      <div class="field-label">接收檔案</div>
-      <div class="code-big" id="fileRecvRoomId">—</div>
-      <div class="info-row"><span class="k">連線狀態</span><span class="v" id="fileRecvState">等待中</span></div>
-      <div class="info-row"><span class="k">檔案名稱</span><span class="v" id="fileRecvName">—</span></div>
-      <div class="info-row"><span class="k">進度</span><span class="v" id="fileRecvProgress">0%</span></div>
-      <a id="fileRecvDownload" class="btn btn-primary" style="display:none;width:100%;text-align:center;text-decoration:none;margin-top:12px;" download>⬇️ 下載檔案</a>
-      <div id="fileRecvPreview" style="margin-top:12px;"></div>
-      <div class="actions">
-        <button class="btn btn-ghost" id="fileRecvBackBtn">返回</button>
+    <div class="file-grid">
+      <div class="card">
+        <div class="field-label">接收檔案</div>
+        <div class="code-big" id="fileRecvRoomId">—</div>
+        <div class="info-row"><span class="k">連線狀態</span><span class="v" id="fileRecvState">等待中</span></div>
+        <div class="info-row"><span class="k">檔案名稱</span><span class="v" id="fileRecvName">—</span></div>
+        <div class="info-row"><span class="k">進度</span><span class="v" id="fileRecvProgress">0%</span></div>
+        <a id="fileRecvDownload" class="btn btn-primary" style="display:none;width:100%;text-align:center;text-decoration:none;margin-top:12px;" download>⬇️ 下載檔案</a>
+        <div id="fileRecvPreview" style="margin-top:12px;"></div>
+        <div class="actions">
+          <button class="btn btn-ghost" id="fileRecvBackBtn">返回</button>
+        </div>
+        <div id="fileRecvNote" class="hint" style="margin-top:10px;">等待傳送端建立連線…</div>
       </div>
-      <div id="fileRecvNote" class="hint" style="margin-top:10px;">等待傳送端建立連線…</div>
+      <div class="card">
+        <div class="mini-label">回傳檔案給對方</div>
+        <label class="dropzone" id="fileRecvDropZone" for="fileRecvInput">
+          <strong>拖曳檔案到這裡，或點擊選擇</strong>
+          <small>連線成功後即可雙向互傳；大小與速度依照你們的 LAN / Wi-Fi 而定。</small>
+          <input id="fileRecvInput" type="file" hidden>
+        </label>
+        <div class="file-list" id="fileRecvSendList"></div>
+      </div>
     </div>
   </section>
 
@@ -966,6 +984,128 @@ const FILE_CHUNK_SIZE = 16 * 1024;
 let fileSenderState = null;
 let fileReceiverState = null;
 let pendingTransferFile = null;
+// The DataChannel is symmetric, so either side can send. This holds whichever
+// side is active so the shared send-confirm flow knows where to send.
+let activeFileSession = null;
+
+// ── Shared receive handler ────────────────────────────
+// Attaches incoming-file handling to ANY open DataChannel, rendering into the
+// element ids given by `ui`. Both the sender card and the receiver card use
+// this, which is what makes transfers bidirectional. `onState` lets the caller
+// surface connection text in its own status element.
+function attachFileReceiver(dc, ui, onState) {
+  dc.binaryType = 'arraybuffer';
+  const recv = { meta: null, parts: [], received: 0, done: false, lastUrl: null };
+
+  function reveal(el) { if (el) el.hidden = false; }
+
+  dc.addEventListener('message', ev => {
+    if (typeof ev.data !== 'string') {
+      if (!recv.meta) return; // chunk before its header; ignore
+      recv.parts.push(ev.data);
+      recv.received += ev.data.byteLength;
+      const total = recv.meta.size || 0;
+      const pct = total ? Math.min(100, Math.round(recv.received / total * 100)) : 0;
+      $(ui.progress).textContent = `${pct}%`;
+      if (total && recv.received >= total) finishReceive();
+      return;
+    }
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'file-meta') {
+      recv.meta = msg;
+      recv.parts = [];
+      recv.received = 0;
+      recv.done = false;
+      reveal($(ui.block));
+      $(ui.name).textContent = msg.name;
+      $(ui.progress).textContent = '0%';
+      if (ui.note) $(ui.note).textContent = `收到檔案：${msg.name}`;
+      $(ui.download).style.display = 'none';
+      $(ui.preview).innerHTML = '';
+      onState && onState(`接收中：${msg.name}`);
+    } else if (msg.type === 'file-done') {
+      finishReceive();
+    }
+  });
+
+  function finishReceive() {
+    if (!recv.meta || recv.done) return;
+    recv.done = true;
+    const meta = recv.meta;
+    const blob = new Blob(recv.parts, { type: meta.mime || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    if (recv.lastUrl) URL.revokeObjectURL(recv.lastUrl);
+    recv.lastUrl = url;
+
+    const dl = $(ui.download);
+    dl.href = url;
+    dl.download = meta.name;
+    dl.style.display = 'block';
+
+    const preview = $(ui.preview);
+    preview.innerHTML = '';
+    const mime = meta.mime || '';
+    if (mime.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.cssText = 'max-width:100%;border-radius:10px;border:1px solid #e2e8f0;';
+      preview.appendChild(img);
+    } else if (mime.startsWith('video/')) {
+      const vid = document.createElement('video');
+      vid.src = url; vid.controls = true; vid.playsInline = true;
+      vid.style.cssText = 'max-width:100%;border-radius:10px;';
+      preview.appendChild(vid);
+    }
+
+    if (ui.note) $(ui.note).textContent = `傳輸完成：${meta.name}（點按鈕下載）`;
+    $(ui.progress).textContent = '100%';
+    onState && onState('傳輸完成');
+    toast(`已收到 ${meta.name}`);
+  }
+
+  return recv; // caller keeps it for cleanup (revokeObjectURL)
+}
+
+// ── Shared send picker ────────────────────────────────
+// Wires a dropzone + file input to a chosen-file chip + 傳送 button, rendering
+// into `ui`'s element ids. `getDc` resolves the DataChannel lazily at send time
+// (it may not be open yet when the picker is wired). Used by both cards.
+function attachFilePicker(ui, getDc) {
+  const dropZone = $(ui.dropZone);
+  const fileInput = $(ui.input);
+  const session = { file: null };
+
+  const updateList = () => {
+    const list = $(ui.list);
+    list.innerHTML = '';
+    if (!session.file) {
+      list.innerHTML = '<div class="hint">先選擇一個檔案，拖曳或點擊上方區塊即可開始。</div>';
+      return;
+    }
+    const file = session.file;
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    const size = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+    chip.innerHTML = `<div><strong>${file.name}</strong><span>${size} · 點擊傳送</span></div><button class="btn btn-primary">傳送</button>`;
+    list.appendChild(chip);
+    chip.querySelector('button').addEventListener('click', () => requestSendFile(file, getDc));
+  };
+  updateList();
+
+  const chooseFile = e => {
+    const [file] = e.target.files || e.dataTransfer?.files || [];
+    if (!file) return;
+    session.file = file;
+    updateList();
+    toast(`已選擇 ${file.name}`);
+  };
+  fileInput.addEventListener('change', chooseFile);
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); chooseFile(e); });
+
+  return session;
+}
 
 function showFileSender() {
   $('picker').hidden = true;
@@ -988,7 +1128,8 @@ async function startFileSender() {
   const ws = openSignal(roomId);
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   const dc = pc.createDataChannel('pingl-file', { ordered: true });
-  fileSenderState = { ws, pc, dc, roomId, file: null, sending: false };
+  fileSenderState = { ws, pc, dc, roomId, sending: false, recv: null };
+  activeFileSession = fileSenderState;
 
   showFileSender();
   $('fileRoomIdView').textContent = roomId;
@@ -996,6 +1137,12 @@ async function startFileSender() {
   $('fileConnState').textContent = '等待對方連入';
   const ct = $('fileConnType'); ct.textContent = '— (連線後顯示)'; ct.removeAttribute('data-transport');
   setStatus('準備傳檔案', 'busy');
+
+  // The sender's channel is also wired to RECEIVE, so the peer can send back.
+  fileSenderState.recv = attachFileReceiver(dc, {
+    block: 'fileSendRecvBlock', name: 'fileSendRecvName', progress: 'fileSendRecvProgress',
+    download: 'fileSendRecvDownload', preview: 'fileSendRecvPreview',
+  });
 
   dc.onopen = () => {
     $('fileConnState').textContent = '已連線';
@@ -1040,36 +1187,10 @@ async function startFileSender() {
   ws.onerror = () => setStatus('signaling 連線失敗', 'err');
   ws.onclose = () => { if (fileSenderState) setStatus('signaling 已斷', 'err'); };
 
-  const dropZone = $('fileDropZone');
-  const fileInput = $('fileInput');
-  const updateList = () => {
-    const list = $('fileList');
-    list.innerHTML = '';
-    if (!fileSenderState.file) {
-      list.innerHTML = '<div class="hint">先選擇一個檔案，拖曳或點擊上方區塊即可開始。</div>';
-      return;
-    }
-    const file = fileSenderState.file;
-    const chip = document.createElement('div');
-    chip.className = 'file-chip';
-    const size = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-    chip.innerHTML = `<div><strong>${file.name}</strong><span>${size} · 點擊傳送</span></div><button class="btn btn-primary" id="sendFileBtn">傳送</button>`;
-    list.appendChild(chip);
-    chip.querySelector('#sendFileBtn').addEventListener('click', () => sendSelectedFile(file));
-  };
-  updateList();
-
-  const chooseFile = async e => {
-    const [file] = e.target.files || e.dataTransfer?.files || [];
-    if (!file) return;
-    fileSenderState.file = file;
-    updateList();
-    toast(`已選擇 ${file.name}`);
-  };
-  fileInput.addEventListener('change', chooseFile);
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); chooseFile(e); });
+  attachFilePicker(
+    { dropZone: 'fileDropZone', input: 'fileInput', list: 'fileList' },
+    () => fileSenderState?.dc,
+  );
 }
 
 function showFileConfirmModal(show) {
@@ -1094,23 +1215,24 @@ function waitForBufferDrain(dc) {
   });
 }
 
-async function doSendSelectedFile(file) {
-  if (!fileSenderState || !fileSenderState.dc || fileSenderState.dc.readyState !== 'open') {
-    toast('對方尚未連線完成');
-    return;
-  }
-  if (fileSenderState.sending) { toast('正在傳送中，請稍候'); return; }
-  const dc = fileSenderState.dc;
+// Generic send: works for whichever side is active. `setProgress(text)` lets
+// each side write progress into its own status element (the sender card uses
+// 'fileConnState'; the receiver card uses 'fileRecvState').
+async function doSendSelectedFile(file, getDc, setProgress) {
+  const session = activeFileSession;
+  const dc = getDc();
+  if (!dc || dc.readyState !== 'open') { toast('對方尚未連線完成'); return; }
+  if (session?.sending) { toast('正在傳送中，請稍候'); return; }
   // Receive raw binary as ArrayBuffer (not Blob) so the receiver can use it directly.
   dc.binaryType = 'arraybuffer';
   const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
   const totalChunks = Math.max(1, Math.ceil(file.size / FILE_CHUNK_SIZE));
-  fileSenderState.sending = true;
+  if (session) session.sending = true;
   try {
     // Header first: receiver resets its buffers when it sees a new fileId.
     dc.send(JSON.stringify({ type: 'file-meta', fileId: id, name: file.name, size: file.size, mime: file.type, totalChunks }));
 
-    let offset = 0, index = 0;
+    let offset = 0;
     while (offset < file.size) {
       if (dc.readyState !== 'open') throw new Error('連線已關閉');
 
@@ -1119,10 +1241,9 @@ async function doSendSelectedFile(file) {
       const buf = await slice.arrayBuffer();
       dc.send(buf);
       offset += FILE_CHUNK_SIZE;
-      index++;
 
       const pct = Math.min(100, Math.round(offset / file.size * 100));
-      $('fileConnState').textContent = `傳送中 ${pct}%`;
+      setProgress(`傳送中 ${pct}%`);
 
       // Backpressure: pause when the send buffer fills, which also yields to the
       // event loop so the progress UI repaints.
@@ -1140,29 +1261,30 @@ async function doSendSelectedFile(file) {
     if (dc.readyState === 'open') dc.send(JSON.stringify({ type: 'file-done', fileId: id }));
 
     toast(`已送出 ${file.name}`);
-    $('fileConnState').textContent = '傳送完成';
+    setProgress('傳送完成');
   } catch (err) {
     toast('傳送失敗：' + (err.message || err));
-    $('fileConnState').textContent = '傳送失敗';
+    setProgress('傳送失敗');
   } finally {
-    fileSenderState.sending = false;
+    if (session) session.sending = false;
   }
 }
 
-async function sendSelectedFile(file) {
-  if (!fileSenderState || !fileSenderState.dc || fileSenderState.dc.readyState !== 'open') {
-    toast('對方尚未連線完成');
-    return;
-  }
-  pendingTransferFile = file;
+// Show the confirm modal, remembering what to send once confirmed.
+function requestSendFile(file, getDc) {
+  const dc = getDc();
+  if (!dc || dc.readyState !== 'open') { toast('對方尚未連線完成'); return; }
+  pendingTransferFile = { file, getDc };
   showFileConfirmModal(true);
 }
 
 function stopFileSender() {
   if (!fileSenderState) return;
+  try { if (fileSenderState.recv?.lastUrl) URL.revokeObjectURL(fileSenderState.recv.lastUrl); } catch {}
   try { fileSenderState.dc.close(); } catch {}
   try { fileSenderState.pc.close(); } catch {}
   try { fileSenderState.ws.close(); } catch {}
+  if (activeFileSession === fileSenderState) activeFileSession = null;
   fileSenderState = null;
   showPicker();
 }
@@ -1178,9 +1300,8 @@ async function startFileReceiver(roomId) {
 
   const ws = openSignal(roomId);
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  // recv holds the in-progress file: ordered binary chunks + metadata.
-  const recv = { meta: null, parts: [], received: 0, done: false };
-  fileReceiverState = { ws, pc, recv };
+  fileReceiverState = { ws, pc, dc: null, recv: null, sending: false };
+  activeFileSession = fileReceiverState;
 
   pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
   pc.onconnectionstatechange = () => {
@@ -1192,85 +1313,17 @@ async function startFileReceiver(roomId) {
 
   pc.ondatachannel = e => {
     const dc = e.channel;
-    dc.binaryType = 'arraybuffer';
+    fileReceiverState.dc = dc; // keep it so this side can also SEND back
     dc.onopen = () => {
       $('fileRecvState').textContent = '已連線';
-      setStatus('已連線，可接收檔案', 'ok');
-      $('fileRecvNote').textContent = '連線成功，等候檔案資料…';
+      setStatus('已連線，可雙向傳檔', 'ok');
+      $('fileRecvNote').textContent = '連線成功，可接收或回傳檔案。';
     };
-    dc.onmessage = ev => {
-      // Binary frame → a file chunk. String frame → a control message (JSON).
-      if (typeof ev.data !== 'string') {
-        if (!recv.meta) return; // chunk arrived before its header; ignore
-        recv.parts.push(ev.data);
-        recv.received += ev.data.byteLength;
-        const total = recv.meta.size || 0;
-        const pct = total ? Math.min(100, Math.round(recv.received / total * 100)) : 0;
-        $('fileRecvProgress').textContent = `${pct}%`;
-        // Fallback: if we've received the full byte count, finish even if the
-        // 'file-done' control message is delayed or lost.
-        if (total && recv.received >= total) finishReceive();
-        return;
-      }
-      const msg = JSON.parse(ev.data);
-      if (msg.type === 'file-meta') {
-        // New file: reset buffers (handles sending a second file on the same channel).
-        recv.meta = msg;
-        recv.parts = [];
-        recv.received = 0;
-        recv.done = false;
-        $('fileRecvName').textContent = msg.name;
-        $('fileRecvProgress').textContent = '0%';
-        $('fileRecvNote').textContent = `收到檔案：${msg.name}`;
-        // Clear any previous file's download button/preview.
-        $('fileRecvDownload').style.display = 'none';
-        $('fileRecvPreview').innerHTML = '';
-      } else if (msg.type === 'file-done') {
-        finishReceive();
-      }
-    };
-
-    // Assemble the received chunks into a downloadable blob + preview.
-    // Idempotent: the 'file-done' message and the byte-count fallback may both
-    // call this, but the `done` guard makes the second call a no-op.
-    function finishReceive() {
-      if (!recv.meta || recv.done) return;
-      recv.done = true;
-      const meta = recv.meta;
-      const blob = new Blob(recv.parts, { type: meta.mime || 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-
-      // Don't auto-click: mobile browsers (esp. iOS Safari) block programmatic
-      // downloads that aren't from a user gesture — that's why the file never
-      // appeared. Instead expose a real download button the user taps, and
-      // preview images/videos inline.
-      if (recv.lastUrl) URL.revokeObjectURL(recv.lastUrl);
-      recv.lastUrl = url;
-
-      const dl = $('fileRecvDownload');
-      dl.href = url;
-      dl.download = meta.name;
-      dl.style.display = 'block';
-
-      const preview = $('fileRecvPreview');
-      preview.innerHTML = '';
-      const mime = meta.mime || '';
-      if (mime.startsWith('image/')) {
-        const img = document.createElement('img');
-        img.src = url;
-        img.style.cssText = 'max-width:100%;border-radius:10px;border:1px solid #e2e8f0;';
-        preview.appendChild(img);
-      } else if (mime.startsWith('video/')) {
-        const vid = document.createElement('video');
-        vid.src = url; vid.controls = true; vid.playsInline = true;
-        vid.style.cssText = 'max-width:100%;border-radius:10px;';
-        preview.appendChild(vid);
-      }
-
-      $('fileRecvNote').textContent = `傳輸完成：${meta.name}（點下方按鈕下載）`;
-      $('fileRecvProgress').textContent = '100%';
-      toast(`已收到 ${meta.name}`);
-    }
+    // Same shared receive handler the sender uses — renders into the recv card.
+    fileReceiverState.recv = attachFileReceiver(dc, {
+      name: 'fileRecvName', progress: 'fileRecvProgress', download: 'fileRecvDownload',
+      preview: 'fileRecvPreview', note: 'fileRecvNote',
+    });
   };
 
   ws.onmessage = async ev => {
@@ -1300,6 +1353,12 @@ async function startFileReceiver(roomId) {
   ws.onclose = () => {
     if (fileReceiverState) setStatus('signaling 已斷', 'err');
   };
+
+  // This side can send back too (the DataChannel is symmetric).
+  attachFilePicker(
+    { dropZone: 'fileRecvDropZone', input: 'fileRecvInput', list: 'fileRecvSendList' },
+    () => fileReceiverState?.dc,
+  );
 }
 
 function stopFileReceiver() {
@@ -1307,6 +1366,7 @@ function stopFileReceiver() {
   try { if (fileReceiverState.recv?.lastUrl) URL.revokeObjectURL(fileReceiverState.recv.lastUrl); } catch {}
   try { fileReceiverState.pc.close(); } catch {}
   try { fileReceiverState.ws.close(); } catch {}
+  if (activeFileSession === fileReceiverState) activeFileSession = null;
   fileReceiverState = null;
   history.replaceState(null, '', location.pathname + location.search);
   showPicker();
@@ -1319,10 +1379,14 @@ $('fileConfirmCancel')?.addEventListener('click', () => {
 });
 
 $('fileConfirmOk')?.addEventListener('click', async () => {
-  const file = pendingTransferFile;
+  const pending = pendingTransferFile;
   showFileConfirmModal(false);
   pendingTransferFile = null;
-  if (file) await doSendSelectedFile(file);
+  if (!pending) return;
+  // Progress goes to whichever side is active: sender card vs receiver card.
+  const progressEl = activeFileSession === fileReceiverState ? 'fileRecvState' : 'fileConnState';
+  const setProgress = txt => { const el = $(progressEl); if (el) el.textContent = txt; };
+  await doSendSelectedFile(pending.file, pending.getDc, setProgress);
 });
 
 window.addEventListener('beforeunload', () => {
