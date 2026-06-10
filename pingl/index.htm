@@ -503,6 +503,8 @@ body {
       <div class="info-row"><span class="k">連線狀態</span><span class="v" id="fileRecvState">等待中</span></div>
       <div class="info-row"><span class="k">檔案名稱</span><span class="v" id="fileRecvName">—</span></div>
       <div class="info-row"><span class="k">進度</span><span class="v" id="fileRecvProgress">0%</span></div>
+      <a id="fileRecvDownload" class="btn btn-primary" style="display:none;width:100%;text-align:center;text-decoration:none;margin-top:12px;" download>⬇️ 下載檔案</a>
+      <div id="fileRecvPreview" style="margin-top:12px;"></div>
       <div class="actions">
         <button class="btn btn-ghost" id="fileRecvBackBtn">返回</button>
       </div>
@@ -1211,18 +1213,44 @@ async function startFileReceiver(roomId) {
         $('fileRecvName').textContent = msg.name;
         $('fileRecvProgress').textContent = '0%';
         $('fileRecvNote').textContent = `收到檔案：${msg.name}`;
+        // Clear any previous file's download button/preview.
+        $('fileRecvDownload').style.display = 'none';
+        $('fileRecvPreview').innerHTML = '';
       } else if (msg.type === 'file-done' && recv.meta) {
-        const blob = new Blob(recv.parts, { type: recv.meta.mime || 'application/octet-stream' });
+        const meta = recv.meta;
+        const blob = new Blob(recv.parts, { type: meta.mime || 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = recv.meta.name;
-        a.click();
-        // Defer revoke so the download has a chance to start (Safari/iOS).
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-        $('fileRecvNote').textContent = `傳輸完成：${recv.meta.name}`;
+
+        // Don't auto-click: mobile browsers (esp. iOS Safari) block programmatic
+        // downloads that aren't from a user gesture — that's why the file never
+        // appeared. Instead expose a real download button the user taps, and
+        // preview images/videos inline.
+        if (recv.lastUrl) URL.revokeObjectURL(recv.lastUrl);
+        recv.lastUrl = url;
+
+        const dl = $('fileRecvDownload');
+        dl.href = url;
+        dl.download = meta.name;
+        dl.style.display = 'block';
+
+        const preview = $('fileRecvPreview');
+        preview.innerHTML = '';
+        const mime = meta.mime || '';
+        if (mime.startsWith('image/')) {
+          const img = document.createElement('img');
+          img.src = url;
+          img.style.cssText = 'max-width:100%;border-radius:10px;border:1px solid #e2e8f0;';
+          preview.appendChild(img);
+        } else if (mime.startsWith('video/')) {
+          const vid = document.createElement('video');
+          vid.src = url; vid.controls = true; vid.playsInline = true;
+          vid.style.cssText = 'max-width:100%;border-radius:10px;';
+          preview.appendChild(vid);
+        }
+
+        $('fileRecvNote').textContent = `傳輸完成：${meta.name}（點下方按鈕下載）`;
         $('fileRecvProgress').textContent = '100%';
-        toast(`已下載 ${recv.meta.name}`);
+        toast(`已收到 ${meta.name}`);
         recv.meta = null;
         recv.parts = [];
         recv.received = 0;
@@ -1261,6 +1289,7 @@ async function startFileReceiver(roomId) {
 
 function stopFileReceiver() {
   if (!fileReceiverState) return;
+  try { if (fileReceiverState.recv?.lastUrl) URL.revokeObjectURL(fileReceiverState.recv.lastUrl); } catch {}
   try { fileReceiverState.pc.close(); } catch {}
   try { fileReceiverState.ws.close(); } catch {}
   fileReceiverState = null;
