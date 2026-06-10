@@ -1130,8 +1130,13 @@ async function doSendSelectedFile(file) {
     }
 
     // Wait for the buffer to fully flush before signalling completion, otherwise
-    // 'file-done' could arrive (and the channel close) before the last chunks.
-    while (dc.readyState === 'open' && dc.bufferedAmount > 0) await waitForBufferDrain(dc);
+    // 'file-done' could arrive before the last chunks. Poll bufferedAmount here
+    // rather than waiting on bufferedamountlow — that event only fires when the
+    // buffer *crosses* the threshold downward, so once it's already small (below
+    // DC_BUFFER_LOW) the event never fires again and the wait would hang forever.
+    while (dc.readyState === 'open' && dc.bufferedAmount > 0) {
+      await new Promise(r => setTimeout(r, 50));
+    }
     if (dc.readyState === 'open') dc.send(JSON.stringify({ type: 'file-done', fileId: id }));
 
     toast(`已送出 ${file.name}`);
@@ -1174,7 +1179,7 @@ async function startFileReceiver(roomId) {
   const ws = openSignal(roomId);
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   // recv holds the in-progress file: ordered binary chunks + metadata.
-  const recv = { meta: null, parts: [], received: 0 };
+  const recv = { meta: null, parts: [], received: 0, done: false };
   fileReceiverState = { ws, pc, recv };
 
   pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
@@ -1202,6 +1207,9 @@ async function startFileReceiver(roomId) {
         const total = recv.meta.size || 0;
         const pct = total ? Math.min(100, Math.round(recv.received / total * 100)) : 0;
         $('fileRecvProgress').textContent = `${pct}%`;
+        // Fallback: if we've received the full byte count, finish even if the
+        // 'file-done' control message is delayed or lost.
+        if (total && recv.received >= total) finishReceive();
         return;
       }
       const msg = JSON.parse(ev.data);
@@ -1210,52 +1218,59 @@ async function startFileReceiver(roomId) {
         recv.meta = msg;
         recv.parts = [];
         recv.received = 0;
+        recv.done = false;
         $('fileRecvName').textContent = msg.name;
         $('fileRecvProgress').textContent = '0%';
         $('fileRecvNote').textContent = `收到檔案：${msg.name}`;
         // Clear any previous file's download button/preview.
         $('fileRecvDownload').style.display = 'none';
         $('fileRecvPreview').innerHTML = '';
-      } else if (msg.type === 'file-done' && recv.meta) {
-        const meta = recv.meta;
-        const blob = new Blob(recv.parts, { type: meta.mime || 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-
-        // Don't auto-click: mobile browsers (esp. iOS Safari) block programmatic
-        // downloads that aren't from a user gesture — that's why the file never
-        // appeared. Instead expose a real download button the user taps, and
-        // preview images/videos inline.
-        if (recv.lastUrl) URL.revokeObjectURL(recv.lastUrl);
-        recv.lastUrl = url;
-
-        const dl = $('fileRecvDownload');
-        dl.href = url;
-        dl.download = meta.name;
-        dl.style.display = 'block';
-
-        const preview = $('fileRecvPreview');
-        preview.innerHTML = '';
-        const mime = meta.mime || '';
-        if (mime.startsWith('image/')) {
-          const img = document.createElement('img');
-          img.src = url;
-          img.style.cssText = 'max-width:100%;border-radius:10px;border:1px solid #e2e8f0;';
-          preview.appendChild(img);
-        } else if (mime.startsWith('video/')) {
-          const vid = document.createElement('video');
-          vid.src = url; vid.controls = true; vid.playsInline = true;
-          vid.style.cssText = 'max-width:100%;border-radius:10px;';
-          preview.appendChild(vid);
-        }
-
-        $('fileRecvNote').textContent = `傳輸完成：${meta.name}（點下方按鈕下載）`;
-        $('fileRecvProgress').textContent = '100%';
-        toast(`已收到 ${meta.name}`);
-        recv.meta = null;
-        recv.parts = [];
-        recv.received = 0;
+      } else if (msg.type === 'file-done') {
+        finishReceive();
       }
     };
+
+    // Assemble the received chunks into a downloadable blob + preview.
+    // Idempotent: the 'file-done' message and the byte-count fallback may both
+    // call this, but the `done` guard makes the second call a no-op.
+    function finishReceive() {
+      if (!recv.meta || recv.done) return;
+      recv.done = true;
+      const meta = recv.meta;
+      const blob = new Blob(recv.parts, { type: meta.mime || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+
+      // Don't auto-click: mobile browsers (esp. iOS Safari) block programmatic
+      // downloads that aren't from a user gesture — that's why the file never
+      // appeared. Instead expose a real download button the user taps, and
+      // preview images/videos inline.
+      if (recv.lastUrl) URL.revokeObjectURL(recv.lastUrl);
+      recv.lastUrl = url;
+
+      const dl = $('fileRecvDownload');
+      dl.href = url;
+      dl.download = meta.name;
+      dl.style.display = 'block';
+
+      const preview = $('fileRecvPreview');
+      preview.innerHTML = '';
+      const mime = meta.mime || '';
+      if (mime.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'max-width:100%;border-radius:10px;border:1px solid #e2e8f0;';
+        preview.appendChild(img);
+      } else if (mime.startsWith('video/')) {
+        const vid = document.createElement('video');
+        vid.src = url; vid.controls = true; vid.playsInline = true;
+        vid.style.cssText = 'max-width:100%;border-radius:10px;';
+        preview.appendChild(vid);
+      }
+
+      $('fileRecvNote').textContent = `傳輸完成：${meta.name}（點下方按鈕下載）`;
+      $('fileRecvProgress').textContent = '100%';
+      toast(`已收到 ${meta.name}`);
+    }
   };
 
   ws.onmessage = async ev => {
