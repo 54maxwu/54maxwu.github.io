@@ -1,32 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node -e \"const fs = require\\(''fs''\\); const c = fs.readFileSync\\(''d:/54maxwu.github.io/JSON/lib/json-formatter.min.js'',''utf8''\\); const idx = c.indexOf\\(''ng-init=''\\); console.log\\(c.substring\\(idx-10, idx+120\\)\\);\")",
-      "Bash(tail -c 200 \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
-      "Bash(grep -o \"import\\\\.meta[^;\"\"'''']\\\\{0,30\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
-      "Bash(grep -o \"__vite[^;\"\"'''']\\\\{0,60\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
-      "Bash(wc -c \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(head -c 2000 \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(grep -o \"background-color:[^;}\\\\\\)]\\\\{1,40\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(grep -o \"\\\\.ql-[^{]\\\\{1,40\\\\}{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(grep -o \"body[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(grep -o \"#app[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(grep -o \"\\\\.el-card[^{]*{[^}]\\\\{1,200\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(grep -o \"\\\\-\\\\-el-bg-color[^;}\\\\\\)]\\\\{0,50\\\\}\" \"d:/54maxwu.github.io/tip/assets/index-13712040.css\")",
-      "Bash(rm -rf lib app.js worker.js)",
-      "Read(//d/d/54maxwu.github.io/**)",
-      "Bash(npx --version)",
-      "Bash(npx --yes esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=src/bundle.js)",
-      "Bash(npx --yes esbuild src/frequency/worker.js --bundle --format=iife --target=es2020 --outfile=src/frequency/worker-bundle.js)",
-      "Bash(npm init *)",
-      "Bash(npm install *)",
-      "Bash(git reset *)",
-      "Bash(awk 'NR==185' \"d:/54maxwu.github.io/tip/assets/index-77aa0783.js\")",
-      "Bash(grep -oE 'gVe=[^,]{1,400}')",
-      "Bash(awk '/<script>/{f=1;next} /<\\\\/script>/{f=0} f' pingl/index.htm)",
-      "Bash(node --check /tmp/pingl.js)",
-      "Read(//tmp/**)",
-      "Bash(awk '/<script>/{f=1;next} /<\\\\/script>/{f=0} f' pingl/index.htm > /tmp/pingl.js && node --check /tmp/pingl.js && echo \"✓ Syntax OK\")"
+      "Bash(*)"
     ],
     "additionalDirectories": [
       "/private/tmp"
