@@ -572,6 +572,7 @@ body {
       <div class="pip-view" id="viewerSelfPip" hidden>
         <video id="viewerSelfVideo" autoplay playsinline muted></video>
       </div>
+      <button class="btn btn-ghost pip-swap-btn" id="viewerSwapBtn" hidden>⇄ 切換</button>
       <button id="leaveFloat" title="返回" aria-label="返回">×</button>
     </div>
     <div class="card">
@@ -996,15 +997,8 @@ async function startSender(source) {
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
       if ((msg.peerCount ?? 1) >= 1) st.neg.start(); // a peer is here → handshake
     } else if (msg.type === 'peer-left') {
-      // Peer gone, but the room is still ours. Keep waiting for the next viewer;
-      // only release the room when WE stop sharing.
-      setStatus('對方離線，等待重新連入', 'busy');
-      $('connState').textContent = '對方離線，等待重連';
-      $('connType').textContent = '—';
-      st.peerStream = null;
-      st.swapped = false;
-      st.renderShareVideos();
-      st.neg.reset();
+      // Peer left → close the room and return to the start. Simple and reliable.
+      stopSender('對方已離線，分享結束');
     } else {
       await st.neg.onSignal(msg); // hello / hello-ack / offer / answer / ice / please-offer
     }
@@ -1062,9 +1056,33 @@ async function startViewer(roomId) {
   setStatus('連線中…', 'busy');
 
   const ws = openSignal(roomId);
-  // camStream holds the viewer's own camera once enabled, so it can be re-added
-  // to every rebuilt pc and survive renegotiation.
-  viewerState = { ws, neg: null, camStream: null };
+  // camStream = our own camera (if enabled); peerStream = the sharer's stream.
+  // swapped=false → sharer in main, self in PiP corner.
+  viewerState = { ws, neg: null, camStream: null, peerStream: null, swapped: false };
+
+  // Render sharer vs self into the main stage vs the corner PiP. The self-PiP
+  // (and swap button) only appear once we have our own camera on.
+  const renderViewerVideos = () => {
+    const main = $('viewerVideo'), pip = $('viewerSelfVideo');
+    const self = viewerState.camStream, peer = viewerState.peerStream;
+    let mainStream, pipStream;
+    if (!self) {
+      mainStream = peer; pipStream = null;          // no own camera: sharer fills stage
+    } else if (viewerState.swapped) {
+      mainStream = self; pipStream = peer;          // swapped: self big, sharer corner
+    } else {
+      mainStream = peer; pipStream = self;          // default: sharer big, self corner
+    }
+    main.srcObject = mainStream || null;
+    main.muted = (mainStream === self);             // never echo our own audio
+    pip.srcObject = pipStream || null;
+    pip.muted = (pipStream === self);
+    $('viewerSelfPip').hidden = !pipStream;
+    $('viewerSwapBtn').hidden = !self;              // swap only meaningful with own camera
+    if (mainStream) { $('viewerOverlay').hidden = true; main.play?.().catch(() => {}); }
+    if (pipStream) pip.play?.().catch(() => {});
+  };
+  viewerState.renderViewerVideos = renderViewerVideos;
 
   // Build a fresh PeerConnection wired to render the incoming stream and carry
   // our own camera (if enabled).
@@ -1083,11 +1101,10 @@ async function startViewer(roomId) {
     }
     pc.ontrack = async e => {
       dbg('viewer ontrack', e.track.kind);
-      const v = $('viewerVideo');
-      v.srcObject = e.streams[0];
-      $('viewerOverlay').hidden = true;
+      viewerState.peerStream = e.streams[0];
+      renderViewerVideos();
       try {
-        await v.play();
+        await $('viewerVideo').play();
       } catch {
         // iOS / Safari autoplay blocked — show tap-to-play
         const ov = $('viewerOverlay');
@@ -1095,7 +1112,7 @@ async function startViewer(roomId) {
         ov.textContent = '▶ 點擊播放';
         ov.style.pointerEvents = 'auto';
         ov.style.cursor = 'pointer';
-        ov.onclick = async () => { try { await v.play(); ov.hidden = true; } catch {} };
+        ov.onclick = async () => { try { await $('viewerVideo').play(); ov.hidden = true; } catch {} };
       }
     };
     pc.onconnectionstatechange = () => {
@@ -1125,8 +1142,7 @@ async function startViewer(roomId) {
       return;
     }
     viewerState.camStream = cam;
-    $('viewerSelfVideo').srcObject = cam;
-    $('viewerSelfPip').hidden = false;
+    renderViewerVideos();
     $('viewerCamBtn').textContent = '鏡頭已開啟';
     $('viewerCamBtn').disabled = true;
     const pc = viewerState.neg.neg.pc;
@@ -1150,12 +1166,9 @@ async function startViewer(roomId) {
     } else if (msg.type === 'peer-joined') {
       st.neg.start();
     } else if (msg.type === 'peer-left') {
-      // Sharer gone, but the room is still ours — keep it and wait for a new peer.
-      setStatus('分享者已離開，等待重新連入', 'busy');
-      $('viewerOverlay').hidden = false;
-      $('viewerOverlay').textContent = '分享者已離開，房間保留中，等待新的分享者…';
-      $('viewerVideo').srcObject = null;
-      st.neg.reset();
+      // Sharer left → close and return to the start. Simple and reliable.
+      toast('分享者已離開');
+      stopViewer();
     } else {
       await st.neg.onSignal(msg);
     }
@@ -1232,6 +1245,7 @@ function stopViewer() {
   $('viewerVideo').srcObject = null;
   $('viewerSelfVideo').srcObject = null;
   $('viewerSelfPip').hidden = true;
+  $('viewerSwapBtn').hidden = true;
   $('viewerCamBtn').textContent = '開啟我的鏡頭';
   $('viewerCamBtn').disabled = false;
   // Clear hash so refresh won't auto-reconnect
@@ -1242,6 +1256,11 @@ function stopViewer() {
 $('leaveBtn').addEventListener('click', stopViewer);
 $('leaveFloat').addEventListener('click', stopViewer);
 $('viewerCamBtn').addEventListener('click', () => viewerState?.enableCamera?.());
+$('viewerSwapBtn')?.addEventListener('click', () => {
+  if (!viewerState) return;
+  viewerState.swapped = !viewerState.swapped;
+  viewerState.renderViewerVideos();
+});
 
 $('muteBtn').addEventListener('click', () => {
   const v = $('viewerVideo');
@@ -1492,6 +1511,7 @@ async function startFileSender() {
       connState: 'fileConnState', connType: 'fileConnType',
       onOpen: () => { setStatus('可傳輸檔案', 'ok'); toast('對方已連上，可開始傳送檔案'); },
     },
+    onPeerLeft: stopFileSender,
   });
 
   attachFilePicker(
@@ -1504,7 +1524,7 @@ async function startFileSender() {
 // Token tie-break decides the offerer; the offerer creates the DataChannel
 // (onBeforeOffer) and the other side receives it via ondatachannel. Symmetric:
 // either side can send files once the channel is open.
-function startFilePeer({ ws, getState, recvUi, ui }) {
+function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
   const setupDc = dc => {
     const s = getState();
     s.dc = dc;
@@ -1556,12 +1576,9 @@ function startFilePeer({ ws, getState, recvUi, ui }) {
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
       if ((msg.peerCount ?? 1) >= 1) s.neg.start();
     } else if (msg.type === 'peer-left') {
-      // Peer gone, but the room is still ours — keep it for the next joiner.
-      setStatus('對方已離線，等待重新連入', 'busy');
-      $(ui.connState).textContent = '對方已離線，等待重連';
-      $(ui.connType).textContent = '—';
-      s.neg.reset();
-      s.dc = null;
+      // Peer left → close the room and return to the start. Simple and reliable.
+      toast('對方已離線');
+      onPeerLeft();
     } else {
       await s.neg.onSignal(msg);
     }
@@ -1697,6 +1714,7 @@ async function startFileReceiver(roomId) {
       connState: 'fileRecvState', connType: 'fileRecvState',
       onOpen: () => { setStatus('已連線，可雙向傳檔', 'ok'); $('fileRecvNote').textContent = '連線成功，可接收或回傳檔案。'; },
     },
+    onPeerLeft: stopFileReceiver,
   });
 
   // This side can send back too (the DataChannel is symmetric).
