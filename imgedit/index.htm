@@ -192,6 +192,12 @@
     /* curves */
     #curveCanvas { width: 100%; height: 190px; display: block; background: #0f172a; border-radius: 8px; cursor: crosshair; touch-action: none; }
     .hint { font-size: 11px; color: #94a3b8; line-height: 1.5; margin-top: 7px; }
+    .auto-readout {
+        margin-top: 10px; padding: 9px 11px; border-radius: 8px;
+        background: #f0fdfa; border: 1px solid #99f6e4; color: #134e4a;
+        font-size: 11px; line-height: 1.6; font-family: ui-monospace, Consolas, monospace;
+    }
+    .auto-readout b { color: #0f766e; }
 
     .geo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
@@ -292,6 +298,8 @@ const P = {
 };
 const DEFAULTS = JSON.parse(JSON.stringify(P));
 let wbGain = [1,1,1];               // from eyedropper / auto white balance
+let autoBlk = [0,0,0];              // per-channel black point from smart-auto
+let autoWht = [1,1,1];              // per-channel white point from smart-auto
 
 // geometry (non-destructive)
 const geo = { rot:0, flipH:false, flipV:false, crop:[0,0,1,1] }; // crop = [sx0,sy0,sw,sh] in source uv
@@ -329,6 +337,8 @@ uniform float uUseCurve;
 uniform float uHDR;        // exposure-fusion amount 0..1
 uniform float uHdrSh;      // EV used for the brightened (shadow-recovery) virtual exposure
 uniform float uHdrHi;      // EV used for the darkened (highlight-recovery) virtual exposure
+uniform vec3 uAutoBlk;     // per-channel black point (smart-auto), default 0
+uniform vec3 uAutoWht;     // per-channel white point (smart-auto), default 1
 
 const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
 
@@ -351,6 +361,10 @@ void main(){
         b *= 0.25;
         c += uSharp * (c - b);
     }
+
+    // per-channel auto stretch (smart-auto): aligns each channel's black/white points
+    // → removes colour cast at both ends and maximises contrast in one step
+    c = clamp((c - uAutoBlk) / max(uAutoWht - uAutoBlk, vec3(1e-4)), 0.0, 1.0);
 
     // white balance
     c *= uWB * uTT;
@@ -442,7 +456,7 @@ if(gl){
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
 
-    for(const n of ['uTex','uCurve','uXform','uTexel','uWB','uTT','uExp','uContrast','uHi','uSh','uSat','uVib','uSharp','uInB','uInW','uGamma','uOutB','uOutW','uUseCurve','uHDR','uHdrSh','uHdrHi'])
+    for(const n of ['uTex','uCurve','uXform','uTexel','uWB','uTT','uExp','uContrast','uHi','uSh','uSat','uVib','uSharp','uInB','uInW','uGamma','uOutB','uOutW','uUseCurve','uHDR','uHdrSh','uHdrHi','uAutoBlk','uAutoWht'])
         U[n] = gl.getUniformLocation(prog, n);
 
     curveTex = gl.createTexture();
@@ -531,6 +545,8 @@ function render(){
     gl.uniform1f(U.uHDR, P.hdr/100);
     gl.uniform1f(U.uHdrSh, P.hdrShadow);
     gl.uniform1f(U.uHdrHi, P.hdrHighlight);
+    gl.uniform3fv(U.uAutoBlk, autoBlk);
+    gl.uniform3fv(U.uAutoWht, autoWht);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -743,7 +759,17 @@ function fmtVal(s, v){
     return String(Math.round(v));
 }
 function buildPanel(){
-    let html = '';
+    // smart-auto group (pinned at top)
+    let html = `<div class="group" data-key="auto">
+        <div class="group-head"><h3>智慧自動</h3><span class="chev">▾</span></div>
+        <div class="group-body">
+            <div class="btn-row">
+                <button class="btn btn-primary" id="smartAuto" style="flex:2 1 100%">分析直方圖並自動修圖</button>
+            </div>
+            <div class="btn-row"><button class="btn btn-ghost" id="resetAuto">清除自動</button></div>
+            <div class="auto-readout" id="autoReadout">讀取整張圖的 R/G/B 直方圖，自動推算黑白點、色偏、曝光與飽和度。</div>
+        </div>
+    </div>`;
     for(const g of GROUPS){
         html += `<div class="group" data-key="${g.key}">
             <div class="group-head"><h3>${g.title}</h3><span class="chev">▾</span></div>
@@ -817,6 +843,14 @@ function buildPanel(){
         lb.addEventListener('dblclick', ()=>{ const k=lb.dataset.reset; setSlider(k, DEFAULTS[k]); requestRender(); });
     });
 
+    // smart auto
+    $('smartAuto').addEventListener('click', smartAuto);
+    $('resetAuto').addEventListener('click', ()=>{
+        autoBlk=[0,0,0]; autoWht=[1,1,1]; wbGain=[1,1,1];
+        ['inBlack','inWhite','outBlack','outWhite','gamma','vibrance'].forEach(k=>setSlider(k,DEFAULTS[k]));
+        $('autoReadout').innerHTML='已清除自動修圖。';
+        requestRender(); toast('已清除自動修圖');
+    });
     // group buttons
     $('pickWB').addEventListener('click', togglePick);
     $('autoWB').addEventListener('click', autoWhiteBalance);
@@ -879,6 +913,109 @@ function autoLevels(){
     setSlider('inBlack', lo); setSlider('inWhite', hi);
     setSlider('outBlack',0); setSlider('outWhite',255);
     requestRender(); toast(`自動色階：黑場 ${lo} · 白場 ${hi}`);
+}
+
+// ── Smart auto: derive a colour-preserving edit from the histogram ──
+// Deliberately NOT per-channel min/max stretch (Photoshop "Auto Color"), which often
+// introduces a new cast and breaks intentional colour. Instead:
+//   • contrast = clip black/white on the LUMA histogram only (no hue shift)
+//   • white balance = "white-patch" estimate (brightest pixels should be neutral),
+//     applied as a damped per-channel gain so we never over-correct
+//   • exposure = midtone gamma toward a 50% target
+//   • vibrance = gentle, only when the image is genuinely dull
+const clamp01 = v => v<0?0:(v>1?1:v);
+function lumaPoints(hist, n, lowPct, highPct){
+    let lo=0, hi=255, acc=0;
+    const lc=n*lowPct, hc=n*highPct;
+    for(let i=0;i<256;i++){ acc+=hist[i]; if(acc>lc){ lo=i; break; } }
+    acc=0; for(let i=255;i>=0;i--){ acc+=hist[i]; if(acc>hc){ hi=i; break; } }
+    if(hi-lo<24){ lo=0; hi=255; }   // already-flat / low-contrast → don't force a stretch
+    return [lo, hi];
+}
+function smartAuto(){
+    if(!img.loaded) return;
+    autoBlk=[0,0,0]; autoWht=[1,1,1];          // never use the destructive per-channel stretch
+    const W=img.w, H=img.h, d=img.data;
+    const step=Math.max(1, Math.floor(Math.max(W,H)/600));
+
+    // pass 1: luma histogram + global channel means + bright-pixel channel means (white patch)
+    const hl=new Float32Array(256);
+    let n=0, sumR=0, sumG=0, sumB=0;
+    let bN=0, bR=0, bG=0, bB=0;                  // accumulate the brightest pixels
+    const BRIGHT=200;                            // luma threshold for "highlight" sampling
+    for(let y=0;y<H;y+=step) for(let x=0;x<W;x+=step){
+        const i=(y*W+x)*4, r=d[i], g=d[i+1], b=d[i+2];
+        const l=(r*0.2126+g*0.7152+b*0.0722)|0;
+        hl[l]++; sumR+=r; sumG+=g; sumB+=b; n++;
+        if(l>=BRIGHT){ bR+=r; bG+=g; bB+=b; bN++; }
+    }
+    const meanR=sumR/n, meanG=sumG/n, meanB=sumB/n;
+    const castSpread=Math.max(meanR,meanG,meanB)-Math.min(meanR,meanG,meanB);
+
+    // — white balance: only act on a clear cast, and damp it —
+    // (a small spread is usually intentional warmth/coolness — leave it alone)
+    let aR, aG, aB;
+    if(bN > n*0.01){ aR=bR/bN; aG=bG/bN; aB=bB/bN; }   // neutral target from highlights
+    else { aR=meanR; aG=meanG; aB=meanB; }
+    const tgt=(aR+aG+aB)/3;
+    const DAMP=0.5;
+    const clampGain=v=>Math.min(1.4, Math.max(0.78, v));
+    if(castSpread < 8){ wbGain=[1,1,1]; }              // negligible cast → don't touch colour
+    else {
+        wbGain=[
+            clampGain(1 + (tgt/Math.max(aR,1)-1)*DAMP),
+            clampGain(1 + (tgt/Math.max(aG,1)-1)*DAMP),
+            clampGain(1 + (tgt/Math.max(aB,1)-1)*DAMP),
+        ];
+    }
+
+    // — contrast: luma black/white clip (0.2%) → scalar levels, no hue shift —
+    const [lo,hi]=lumaPoints(hl, n, 0.002, 0.002);
+    setSlider('inBlack', lo); setSlider('inWhite', hi);
+    setSlider('outBlack', 0); setSlider('outWhite', 255);
+
+    // — exposure: only correct genuinely mis-exposed images, and only pull the midtone
+    //   toward the NEAREST edge of an acceptable band (never to a hard 50% — bright or
+    //   low-key scenes are usually correct). Then damp the correction. —
+    let acc=0, med=128; for(let i=0;i<256;i++){ acc+=hl[i]; if(acc>=n/2){ med=i; break; } }
+    const M=Math.min(0.98, Math.max(0.02, clamp01((med-lo)/Math.max(hi-lo,1))));
+    let gamma=1; const LOWOK=0.40, HIGHOK=0.62;
+    if(M < LOWOK || M > HIGHOK){
+        const aim = M<LOWOK ? LOWOK : HIGHOK;
+        let g = Math.log(M)/Math.log(aim);             // pow(M,1/g)=aim
+        g = 1 + (g-1)*0.55;                            // damp toward no-op
+        gamma = Math.min(1.5, Math.max(0.7, g));
+        if(Math.abs(gamma-1) < 0.04) gamma=1;
+    }
+    setSlider('gamma', +gamma.toFixed(2));
+
+    // — vibrance: gentle, only when dull —
+    let sat=0, m2=0;
+    for(let y=0;y<H;y+=step*2) for(let x=0;x<W;x+=step*2){
+        const i=(y*W+x)*4, r=d[i], g=d[i+1], b=d[i+2];
+        const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+        if(mx>12){ sat+=(mx-mn)/mx; m2++; }
+    }
+    const meanSat=m2?sat/m2:0;
+    const vib = meanSat<0.30 ? Math.round(Math.min(25,(0.30-meanSat)*90)) : 0;
+    setSlider('vibrance', vib);
+
+    requestRender();
+
+    // — transparent readout —
+    const means={R:meanR,G:meanG,B:meanB};
+    const strongest=Object.keys(means).reduce((a,b)=>means[a]>means[b]?a:b);
+    const castName={R:'偏紅',G:'偏綠',B:'偏藍'}[strongest];
+    const wbWord = (castSpread<8) ? '中性／刻意色調，未調整' : `${castName}，已校正`;
+    const lvlWord = (lo>0||hi<255) ? `黑場 ${lo} / 白場 ${hi}` : '對比充足，未調整';
+    const expWord = gamma>1.02?'提亮' : gamma<0.98?'壓暗' : '正常，未調整';
+    $('autoReadout').innerHTML =
+        `<b>依直方圖分析（保色彩）：</b><br>`+
+        `· 白平衡：${wbWord}<br>`+
+        `· 對比（亮度）：${lvlWord}<br>`+
+        `· 曝光：中位亮度 ${(M*100|0)}% → ${expWord}${gamma!==1?` (gamma ${gamma.toFixed(2)})`:''}<br>`+
+        `· 飽和度：平均 ${(meanSat*100|0)}% → ${vib?`自然飽和度 +${vib}`:'足夠，不調整'}`;
+    toast('已依直方圖自動修圖（保色彩）');
 }
 
 // eyedropper white-point pick
@@ -1011,7 +1148,7 @@ function loadImage(src){
         // reset everything for a fresh image
         Object.assign(P, JSON.parse(JSON.stringify(DEFAULTS)));
         for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
-        wbGain=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
+        wbGain=[1,1,1]; autoBlk=[0,0,0]; autoWht=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
         curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
         exitCrop();
         gl_canvas.classList.add('ready'); dropzone.classList.add('hide');
