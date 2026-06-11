@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>本地修圖工具</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+        background: #f1f5f9;
+        color: #2c3e50;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .app-header {
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 14px 24px;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 3px rgba(0,0,0,.06);
+        z-index: 10;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+    .app-header h1 { font-size: 16px; font-weight: 600; color: #1e293b; letter-spacing: .02em; }
+    .header-meta { display: flex; align-items: center; gap: 10px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .status-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 11px; padding: 4px 10px; border-radius: 999px;
+        border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b;
+        font-weight: 600; white-space: nowrap;
+        transition: background-color .2s, color .2s, border-color .2s;
+    }
+    .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .status-pill.idle { color: #64748b; }
+    .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+    .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+    .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+    .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+    .page-content { padding: 12px 20px 20px; max-width: 1400px; margin: 0 auto; width: 100%; flex: 1; min-height: 0; display: flex; }
+
+    .glass {
+        position: relative; border-radius: 14px;
+        backdrop-filter: blur(8px);
+        background-color: rgba(255,255,255,0.55);
+        box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+        border: 1.5px solid rgba(255,255,255,0.7);
+        border-bottom: 1.5px solid rgba(40,40,40,0.15);
+        border-right: 1.5px solid rgba(40,40,40,0.15);
+        padding: 16px;
+        flex: 1; min-height: 0;
+        display: flex; gap: 16px;
+    }
+
+    /* ── Editor split ── */
+    .stage {
+        flex: 1; min-width: 0; min-height: 0;
+        background:
+            repeating-conic-gradient(#e9eef5 0% 25%, #f6f8fb 0% 50%) 50% / 22px 22px;
+        border: 1.5px solid #e2e8f0; border-radius: 12px;
+        position: relative; overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+    }
+    #glcanvas { max-width: 100%; max-height: 100%; display: none; box-shadow: 0 4px 18px rgba(0,0,0,.18); }
+    #glcanvas.ready { display: block; }
+    .stage.picking #glcanvas { cursor: crosshair; }
+
+    .dropzone {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px; text-align: center; color: #64748b; padding: 24px;
+    }
+    .dropzone.hide { display: none; }
+    .dropzone .big { font-size: 44px; }
+    .dropzone h2 { font-size: 15px; color: #334155; font-weight: 700; }
+    .dropzone p { font-size: 12.5px; line-height: 1.6; }
+    .stage.dragover { outline: 3px dashed #14b8a6; outline-offset: -8px; background-color: rgba(20,184,166,.05); }
+
+    /* crop overlay */
+    #cropLayer { position: absolute; inset: 0; display: none; }
+    #cropLayer.on { display: block; }
+    .crop-rect {
+        position: absolute; border: 1px solid #fff;
+        box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 0 9999px rgba(0,0,0,.45);
+        cursor: move;
+    }
+    .crop-rect::before, .crop-rect::after,
+    .crop-rect .gv::before, .crop-rect .gv::after {
+        content: ''; position: absolute; background: rgba(255,255,255,.55);
+    }
+    .crop-rect::before { left: 33.33%; top: 0; bottom: 0; width: 1px; }
+    .crop-rect::after  { left: 66.66%; top: 0; bottom: 0; width: 1px; }
+    .crop-rect .gv::before { top: 33.33%; left: 0; right: 0; height: 1px; }
+    .crop-rect .gv::after  { top: 66.66%; left: 0; right: 0; height: 1px; }
+    .crop-h {
+        position: absolute; width: 14px; height: 14px; background: #fff;
+        border: 1px solid #0f172a; border-radius: 50%; transform: translate(-50%,-50%);
+    }
+
+    /* ── Control panel ── */
+    .panel {
+        width: 320px; flex: 0 0 320px; min-height: 0;
+        display: flex; flex-direction: column;
+        background: rgba(255,255,255,0.85);
+        border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+    }
+    .panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 0 12px; }
+    .panel-scroll { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+    .panel-scroll::-webkit-scrollbar { width: 9px; }
+    .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+    .panel-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid #fff; }
+    .panel-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    .group { border-bottom: 1px solid #eef2f7; }
+    .group-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 11px 14px; cursor: pointer; user-select: none;
+    }
+    .group-head h3 {
+        font-size: 11px; font-weight: 800; color: #0d9488;
+        letter-spacing: .07em; text-transform: uppercase;
+    }
+    .group-head .chev { color: #94a3b8; font-size: 11px; transition: transform .18s; }
+    .group.collapsed .chev { transform: rotate(-90deg); }
+    .group-body { padding: 2px 14px 14px; }
+    .group.collapsed .group-body { display: none; }
+
+    .slider-row { margin: 12px 0; }
+    .slider-row:first-child { margin-top: 4px; }
+    .slider-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+    .slider-top label { font-size: 12px; font-weight: 600; color: #475569; cursor: pointer; }
+    .slider-top .val {
+        font-size: 11px; color: #0f172a; font-family: ui-monospace, Consolas, monospace;
+        background: #f1f5f9; padding: 1px 7px; border-radius: 5px; min-width: 42px; text-align: right;
+    }
+    input[type=range] {
+        -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+        background: #e2e8f0; border-radius: 999px; outline: none; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+        border-radius: 50%; background: #0d9488; border: 2px solid #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: pointer;
+    }
+    input[type=range]::-moz-range-thumb {
+        width: 15px; height: 15px; border-radius: 50%; background: #0d9488;
+        border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: pointer;
+    }
+
+    .btn {
+        padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px;
+        border: none; cursor: pointer; letter-spacing: .02em; font-family: inherit;
+        transition: background .15s, box-shadow .15s, transform .08s, color .15s, border-color .15s;
+    }
+    .btn-primary { background: linear-gradient(145deg, #14b8a6, #0d9488); color: #fff; box-shadow: 0 2px 8px rgba(13,148,136,0.35); }
+    .btn-primary:hover { box-shadow: 0 4px 14px rgba(13,148,136,0.45); }
+    .btn-primary:active { transform: scale(.97); }
+    .btn-secondary { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+    .btn-secondary:hover { background: #f8fafc; color: #0d9488; border-color: #0d9488; }
+    .btn-secondary:active { transform: scale(.97); }
+    .btn-ghost { background: transparent; color: #64748b; border: 1px solid #e2e8f0; padding: 6px 10px; font-size: 11px; }
+    .btn-ghost:hover { background: #f8fafc; color: #0d9488; border-color: #0d9488; }
+    .btn-ghost.active { background: #0d9488; color: #fff; border-color: #0d9488; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .btn-row .btn { flex: 1 1 auto; }
+
+    /* histogram */
+    .hist-wrap { padding: 10px 14px 4px; }
+    #histCanvas { width: 100%; height: 90px; display: block; background: #0f172a; border-radius: 8px; }
+    .hist-ch { display: flex; gap: 6px; margin-top: 8px; }
+    .hist-ch button {
+        flex: 1; font-size: 10.5px; padding: 4px 0; border-radius: 6px;
+        border: 1px solid #e2e8f0; background: #fff; color: #64748b; cursor: pointer; font-family: inherit; font-weight: 700;
+    }
+    .hist-ch button.on { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+
+    /* curves */
+    #curveCanvas { width: 100%; height: 190px; display: block; background: #0f172a; border-radius: 8px; cursor: crosshair; touch-action: none; }
+    .hint { font-size: 11px; color: #94a3b8; line-height: 1.5; margin-top: 7px; }
+
+    .geo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* toast */
+    .toast {
+        position: fixed; bottom: 24px; left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #1e293b; color: #f1f5f9; padding: 9px 18px;
+        border-radius: 8px; font-size: 13px; font-weight: 600;
+        box-shadow: 0 6px 20px rgba(0,0,0,.4); opacity: 0;
+        transition: opacity .2s, transform .2s; z-index: 200; pointer-events: none;
+        border: 1px solid #334155;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 880px) {
+        .glass { flex-direction: column; }
+        .panel { width: auto; flex: 0 0 auto; max-height: 46vh; }
+        .stage { min-height: 240px; }
+    }
+</style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>本地修圖工具</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" id="openBtn">開啟圖片</button>
+            <button class="btn btn-secondary" id="resetAllBtn" disabled>重置全部</button>
+            <button class="btn btn-secondary" id="dlPngBtn" disabled>下載 PNG</button>
+            <button class="btn btn-primary" id="dlJpgBtn" disabled>下載 JPG</button>
+        </div>
+        <div class="header-meta">
+            <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">準備就緒 · 所有處理在本機完成</span></span>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="stage" id="stage">
+                <canvas id="glcanvas"></canvas>
+                <div id="cropLayer"></div>
+                <div class="dropzone" id="dropzone">
+                    <div class="big">🖼️</div>
+                    <h2>拖放、貼上或點「開啟圖片」</h2>
+                    <p>圖片只會載入到你的瀏覽器記憶體，<strong>不會上傳到任何伺服器</strong>。<br>所有調整由 WebGL 在本機 GPU 即時運算。</p>
+                    <button class="btn btn-primary" id="dzOpenBtn">選擇圖片</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="hist-wrap">
+                    <canvas id="histCanvas" width="600" height="180"></canvas>
+                    <div class="hist-ch" id="histCh">
+                        <button data-ch="rgb" class="on">RGB</button>
+                        <button data-ch="lum">亮度</button>
+                        <button data-ch="r">R</button>
+                        <button data-ch="g">G</button>
+                        <button data-ch="b">B</button>
+                    </div>
+                </div>
+
+                <div class="panel-scroll" id="panelScroll">
+                    <!-- groups injected by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+<script>
+// ───────────────────────── helpers ─────────────────────────
+const $ = id => document.getElementById(id);
+const stage = $('stage'), gl_canvas = $('glcanvas'), dropzone = $('dropzone');
+const statusPill = $('statusPill'), statusText = $('statusText');
+let toastTimer;
+function toast(msg){
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 1900);
+}
+function setStatus(text, kind){
+    statusText.textContent = text;
+    statusPill.classList.remove('idle','busy','ok','err');
+    statusPill.classList.add(kind||'idle');
+}
+
+// ───────────────────────── state ─────────────────────────
+// All color params (uniform name → value). Defaults are no-ops.
+const P = {
+    temp:0, tint:0,                 // white balance sliders
+    exposure:0, contrast:0,
+    highlights:0, shadows:0,
+    saturation:0, vibrance:0,
+    sharpen:0,
+    inBlack:0, inWhite:255, gamma:1.0, outBlack:0, outWhite:255,
+    hdr:0, hdrShadow:1.2, hdrHighlight:1.2,   // single-image exposure fusion
+};
+const DEFAULTS = JSON.parse(JSON.stringify(P));
+let wbGain = [1,1,1];               // from eyedropper / auto white balance
+
+// geometry (non-destructive)
+const geo = { rot:0, flipH:false, flipV:false, crop:[0,0,1,1] }; // crop = [sx0,sy0,sw,sh] in source uv
+
+// source image
+let img = { w:0, h:0, data:null, tex:null, loaded:false };
+
+// curves: master RGB, piecewise-linear LUT
+let curvePts = [{x:0,y:0},{x:1,y:1}];
+
+// ───────────────────────── WebGL ─────────────────────────
+const gl = gl_canvas.getContext('webgl', { preserveDrawingBuffer:true, premultipliedAlpha:false });
+if(!gl){ setStatus('此瀏覽器不支援 WebGL','err'); }
+
+const VERT = `
+attribute vec2 aPos; attribute vec2 aUV; varying vec2 vUV;
+void main(){ vUV = aUV; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+const FRAG = `
+precision highp float;
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform sampler2D uCurve;
+uniform mat3 uXform;
+uniform vec2 uTexel;
+uniform vec3 uWB;          // eyedropper/auto gain
+uniform vec3 uTT;          // temp/tint gain
+uniform float uExp;        // stops
+uniform float uContrast;   // -1..1
+uniform float uHi, uSh;    // -1..1
+uniform float uSat, uVib;  // -1..1
+uniform float uSharp;      // 0..2
+uniform float uInB, uInW, uGamma, uOutB, uOutW; // levels 0..1
+uniform float uUseCurve;
+uniform float uHDR;        // exposure-fusion amount 0..1
+uniform float uHdrSh;      // EV used for the brightened (shadow-recovery) virtual exposure
+uniform float uHdrHi;      // EV used for the darkened (highlight-recovery) virtual exposure
+
+const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
+
+// well-exposedness: favour tones near mid-grey, fall off toward pure black / white
+float wexp(float l){ float d = l - 0.5; return exp(-(d*d) / (2.0 * 0.2 * 0.2)); }
+
+vec2 srcUV(vec2 o){ vec3 p = uXform * vec3(o, 1.0); return p.xy; }
+
+void main(){
+    vec2 uv = srcUV(vUV);
+    vec3 c = texture2D(uTex, uv).rgb;
+
+    // unsharp mask
+    if(uSharp > 0.001){
+        vec3 b =
+            texture2D(uTex, srcUV(vUV + vec2(uTexel.x,0.0))).rgb +
+            texture2D(uTex, srcUV(vUV - vec2(uTexel.x,0.0))).rgb +
+            texture2D(uTex, srcUV(vUV + vec2(0.0,uTexel.y))).rgb +
+            texture2D(uTex, srcUV(vUV - vec2(0.0,uTexel.y))).rgb;
+        b *= 0.25;
+        c += uSharp * (c - b);
+    }
+
+    // white balance
+    c *= uWB * uTT;
+
+    // exposure
+    c *= exp2(uExp);
+
+    // HDR exposure fusion (single-image): blend a brightened + darkened virtual copy,
+    // each weighted by how well-exposed it is per pixel → shadows borrow from the bright
+    // copy, highlights from the dark copy. Mimics "duplicate layer, push exposure, blend".
+    if(uHDR > 0.001){
+        vec3 base  = c;
+        vec3 over  = clamp(base * exp2(uHdrSh),  0.0, 1.0);  // recover shadow detail
+        vec3 under = clamp(base * exp2(-uHdrHi), 0.0, 1.0);  // recover highlight detail
+        float lb = dot(base, LUM), lo = dot(over, LUM), lu = dot(under, LUM);
+        float wb = wexp(lb), wo = wexp(lo), wu = wexp(lu);
+        // don't pull from the darkened copy where the original is already clipped white
+        // (there's no detail to recover — it would just turn blown areas flat grey)
+        wu *= 1.0 - smoothstep(0.92, 1.0, lb);
+        float sum = wb + wo + wu + 1e-4;
+        vec3 fused = (base*wb + over*wo + under*wu) / sum;
+        c = mix(base, fused, uHDR);
+    }
+
+    // levels: input black/white, gamma, output black/white
+    c = clamp((c - uInB) / max(uInW - uInB, 1e-4), 0.0, 1.0);
+    c = pow(c, vec3(1.0 / uGamma));
+    c = uOutB + c * (uOutW - uOutB);
+
+    // shadows / highlights (luma-weighted lift)
+    float l = dot(c, LUM);
+    c += uSh * 0.5 * (1.0 - l) * (1.0 - l);
+    c += uHi * 0.5 * l * l;
+
+    // contrast around mid
+    c = (c - 0.5) * (1.0 + uContrast) + 0.5;
+
+    c = clamp(c, 0.0, 1.0);
+
+    // saturation
+    float lum = dot(c, LUM);
+    c = mix(vec3(lum), c, 1.0 + uSat);
+
+    // vibrance (boost the unsaturated more)
+    float mx = max(c.r, max(c.g, c.b));
+    float mn = min(c.r, min(c.g, c.b));
+    float sat = mx - mn;
+    float lum2 = dot(c, LUM);
+    c = mix(vec3(lum2), c, 1.0 + uVib * (1.0 - sat));
+
+    c = clamp(c, 0.0, 1.0);
+
+    // curves (master)
+    if(uUseCurve > 0.5){
+        c.r = texture2D(uCurve, vec2(c.r, 0.5)).r;
+        c.g = texture2D(uCurve, vec2(c.g, 0.5)).r;
+        c.b = texture2D(uCurve, vec2(c.b, 0.5)).r;
+    }
+
+    gl_FragColor = vec4(c, 1.0);
+}`;
+
+function compile(type, src){
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+}
+let prog, U = {}, curveTex;
+if(gl){
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+    gl.bindAttribLocation(prog, 0, 'aPos');
+    gl.bindAttribLocation(prog, 1, 'aUV');
+    gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) setStatus('Shader 連結失敗','err');
+    gl.useProgram(prog);
+
+    const quad = new Float32Array([
+        // aPos      aUV
+        -1, 1,       0,0,
+         1, 1,       1,0,
+        -1,-1,       0,1,
+         1,-1,       1,1,
+    ]);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
+
+    for(const n of ['uTex','uCurve','uXform','uTexel','uWB','uTT','uExp','uContrast','uHi','uSh','uSat','uVib','uSharp','uInB','uInW','uGamma','uOutB','uOutW','uUseCurve','uHDR','uHdrSh','uHdrHi'])
+        U[n] = gl.getUniformLocation(prog, n);
+
+    curveTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, curveTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+
+// ───────────────────────── mat3 (column-major for GL) ─────────────────────────
+function mul3(a, b){ // a*b, both column-major
+    const r = new Array(9);
+    for(let c=0;c<3;c++) for(let rI=0;rI<3;rI++){
+        r[c*3+rI] = a[0*3+rI]*b[c*3+0] + a[1*3+rI]*b[c*3+1] + a[2*3+rI]*b[c*3+2];
+    }
+    return r;
+}
+function apply3(m, x, y){ // m * [x,y,1]
+    return [ m[0]*x + m[3]*y + m[6], m[1]*x + m[4]*y + m[7] ];
+}
+// oriented(display) → cropped-unoriented, for rotation step (inverse of content rotation)
+function rotInvMat(rot){
+    switch(((rot%360)+360)%360){
+        case 0:   return [1,0,0, 0,1,0, 0,0,1];
+        case 90:  return [0,-1,0, 1,0,0, 0,1,1];   // sx=ov, sy=1-ou
+        case 180: return [-1,0,0, 0,-1,0, 1,1,1];
+        case 270: return [0,1,0, -1,0,0, 1,0,1];   // sx=1-ov, sy=ou
+    }
+}
+function flipMat(){ // display-uv flip (its own inverse)
+    const fx = geo.flipH ? -1 : 1, fy = geo.flipV ? -1 : 1;
+    return [fx,0,0, 0,fy,0, geo.flipH?1:0, geo.flipV?1:0, 1];
+}
+function cropMat(){ // cropped[0,1] → source uv
+    const [x,y,w,h] = geo.crop;
+    return [w,0,0, 0,h,0, x,y,1];
+}
+// full output-uv → source-uv :  Csrc · Rinv · F
+function buildXform(){ return mul3(cropMat(), mul3(rotInvMat(geo.rot), flipMat())); }
+
+function orientedDims(){ // dims of cropped+rotated image (pixels), before fit
+    const cw = Math.max(1, Math.round(img.w * geo.crop[2]));
+    const ch = Math.max(1, Math.round(img.h * geo.crop[3]));
+    return (geo.rot===90 || geo.rot===270) ? [ch, cw] : [cw, ch];
+}
+
+// ───────────────────────── render ─────────────────────────
+let dirty = false;
+function requestRender(){ if(!dirty){ dirty = true; requestAnimationFrame(render); } }
+
+function tempTintGain(){
+    const t = P.temp/100, n = P.tint/100;
+    return [ 1 + 0.35*t + 0.10*n, 1 - 0.30*n, 1 - 0.35*t + 0.10*n ];
+}
+
+function render(){
+    dirty = false;
+    if(!img.loaded || !gl) return;
+
+    const [ow, oh] = orientedDims();
+    if(gl_canvas.width !== ow || gl_canvas.height !== oh){ gl_canvas.width = ow; gl_canvas.height = oh; }
+    gl.viewport(0,0,ow,oh);
+
+    gl.useProgram(prog);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, img.tex); gl.uniform1i(U.uTex, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, curveTex); gl.uniform1i(U.uCurve, 1);
+
+    gl.uniformMatrix3fv(U.uXform, false, new Float32Array(buildXform()));
+    gl.uniform2f(U.uTexel, 1/img.w, 1/img.h);
+    gl.uniform3fv(U.uWB, wbGain);
+    gl.uniform3fv(U.uTT, tempTintGain());
+    gl.uniform1f(U.uExp, P.exposure);
+    gl.uniform1f(U.uContrast, P.contrast/100);
+    gl.uniform1f(U.uHi, P.highlights/100);
+    gl.uniform1f(U.uSh, P.shadows/100);
+    gl.uniform1f(U.uSat, P.saturation/100);
+    gl.uniform1f(U.uVib, P.vibrance/100);
+    gl.uniform1f(U.uSharp, P.sharpen/100);
+    gl.uniform1f(U.uInB, P.inBlack/255);
+    gl.uniform1f(U.uInW, P.inWhite/255);
+    gl.uniform1f(U.uGamma, P.gamma);
+    gl.uniform1f(U.uOutB, P.outBlack/255);
+    gl.uniform1f(U.uOutW, P.outWhite/255);
+    gl.uniform1f(U.uUseCurve, curveIsIdentity() ? 0 : 1);
+    gl.uniform1f(U.uHDR, P.hdr/100);
+    gl.uniform1f(U.uHdrSh, P.hdrShadow);
+    gl.uniform1f(U.uHdrHi, P.hdrHighlight);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    syncCropLayer();
+    scheduleHistogram();
+}
+
+// Histogram readback is heavy on large images — run it on a trailing tick so slider
+// dragging stays smooth. preserveDrawingBuffer keeps the last frame readable.
+let histTimer = null;
+function scheduleHistogram(){
+    if(histTimer) return;
+    histTimer = setTimeout(()=>{ histTimer = null; computeHistogram(); }, 90);
+}
+
+// ───────────────────────── histogram ─────────────────────────
+// Read back the rendered canvas (downscaled implicitly via sampling stride) for live histogram.
+let histPixBuf = null;
+const histCanvas = $('histCanvas'), hctx = histCanvas.getContext('2d');
+let histChannel = 'rgb';
+function computeHistogram(){
+    const w = gl_canvas.width, h = gl_canvas.height;
+    if(!w || !h) return;
+    // sample at most ~360px wide for speed
+    const stride = Math.max(1, Math.floor(Math.max(w,h)/360));
+    const rw = Math.ceil(w/stride);
+    const need = w*h*4;
+    if(!histPixBuf || histPixBuf.length < need) histPixBuf = new Uint8Array(need);
+    gl.readPixels(0,0,w,h, gl.RGBA, gl.UNSIGNED_BYTE, histPixBuf);
+    const R=new Float32Array(256),G=new Float32Array(256),B=new Float32Array(256),L=new Float32Array(256);
+    for(let y=0;y<h;y+=stride){
+        let row = y*w*4;
+        for(let x=0;x<w;x+=stride){
+            const i = row + x*4;
+            const r=histPixBuf[i], g=histPixBuf[i+1], b=histPixBuf[i+2];
+            R[r]++; G[g]++; B[b]++;
+            L[(r*0.2126+g*0.7152+b*0.0722)|0]++;
+        }
+    }
+    drawHistogram(R,G,B,L);
+}
+function drawHistogram(R,G,B,L){
+    const W=histCanvas.width, H=histCanvas.height;
+    hctx.clearRect(0,0,W,H);
+    hctx.fillStyle='#0f172a'; hctx.fillRect(0,0,W,H);
+    hctx.strokeStyle='rgba(255,255,255,.06)';
+    for(let i=1;i<4;i++){ const x=W*i/4; hctx.beginPath(); hctx.moveTo(x,0); hctx.lineTo(x,H); hctx.stroke(); }
+    const sets = [];
+    if(histChannel==='rgb'){ sets.push([R,'rgba(239,68,68,.75)'],[G,'rgba(34,197,94,.75)'],[B,'rgba(59,130,246,.75)']); }
+    else if(histChannel==='lum'){ sets.push([L,'rgba(226,232,240,.85)']); }
+    else if(histChannel==='r'){ sets.push([R,'rgba(239,68,68,.85)']); }
+    else if(histChannel==='g'){ sets.push([G,'rgba(34,197,94,.85)']); }
+    else if(histChannel==='b'){ sets.push([B,'rgba(59,130,246,.85)']); }
+    let max=0; for(const [a] of sets) for(let i=0;i<256;i++) if(a[i]>max) max=a[i];
+    if(max<=0) max=1;
+    hctx.globalCompositeOperation = histChannel==='rgb' ? 'lighter' : 'source-over';
+    for(const [a,col] of sets){
+        hctx.fillStyle=col; hctx.beginPath(); hctx.moveTo(0,H);
+        for(let i=0;i<256;i++){
+            const x=i/255*W, y=H - Math.pow(a[i]/max,0.5)*H;
+            hctx.lineTo(x,y);
+        }
+        hctx.lineTo(W,H); hctx.closePath(); hctx.fill();
+    }
+    hctx.globalCompositeOperation='source-over';
+}
+$('histCh').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    histChannel=b.dataset.ch;
+    [...$('histCh').children].forEach(x=>x.classList.toggle('on', x===b));
+    if(img.loaded) requestRender();
+});
+
+// ───────────────────────── curves ─────────────────────────
+const curveCanvas = document.createElement('canvas');
+curveCanvas.id = 'curveCanvas'; curveCanvas.width = 380; curveCanvas.height = 190;
+const cctx = curveCanvas.getContext('2d');
+function curveIsIdentity(){
+    return curvePts.length===2 && curvePts[0].x===0 && curvePts[0].y===0 && curvePts[1].x===1 && curvePts[1].y===1;
+}
+function buildCurveLUT(){
+    const pts = [...curvePts].sort((a,b)=>a.x-b.x);
+    const lut = new Uint8Array(256*4);
+    for(let i=0;i<256;i++){
+        const x=i/255;
+        let y;
+        if(x<=pts[0].x) y=pts[0].y;
+        else if(x>=pts[pts.length-1].x) y=pts[pts.length-1].y;
+        else { for(let k=0;k<pts.length-1;k++){ if(x>=pts[k].x && x<=pts[k+1].x){ const t=(x-pts[k].x)/Math.max(pts[k+1].x-pts[k].x,1e-6); y=pts[k].y+(pts[k+1].y-pts[k].y)*t; break; } } }
+        const v=Math.round(Math.min(1,Math.max(0,y))*255);
+        lut[i*4]=v; lut[i*4+1]=v; lut[i*4+2]=v; lut[i*4+3]=255;
+    }
+    if(gl){
+        gl.bindTexture(gl.TEXTURE_2D, curveTex);
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,256,1,0,gl.RGBA,gl.UNSIGNED_BYTE,lut);
+    }
+}
+function drawCurveEditor(){
+    const W=curveCanvas.width, H=curveCanvas.height;
+    cctx.clearRect(0,0,W,H);
+    cctx.fillStyle='#0f172a'; cctx.fillRect(0,0,W,H);
+    cctx.strokeStyle='rgba(255,255,255,.08)';
+    for(let i=1;i<4;i++){ const g=i/4; cctx.beginPath(); cctx.moveTo(W*g,0); cctx.lineTo(W*g,H); cctx.moveTo(0,H*g); cctx.lineTo(W,H*g); cctx.stroke(); }
+    cctx.strokeStyle='rgba(255,255,255,.18)'; cctx.beginPath(); cctx.moveTo(0,H); cctx.lineTo(W,0); cctx.stroke();
+    // curve
+    const pts=[...curvePts].sort((a,b)=>a.x-b.x);
+    cctx.strokeStyle='#2dd4bf'; cctx.lineWidth=2; cctx.beginPath();
+    for(let i=0;i<=W;i+=2){
+        const x=i/W; let y;
+        if(x<=pts[0].x) y=pts[0].y; else if(x>=pts[pts.length-1].x) y=pts[pts.length-1].y;
+        else { for(let k=0;k<pts.length-1;k++){ if(x>=pts[k].x && x<=pts[k+1].x){ const t=(x-pts[k].x)/Math.max(pts[k+1].x-pts[k].x,1e-6); y=pts[k].y+(pts[k+1].y-pts[k].y)*t; break; } } }
+        const px=i, py=H-y*H;
+        if(i===0) cctx.moveTo(px,py); else cctx.lineTo(px,py);
+    }
+    cctx.stroke();
+    // points
+    for(const p of curvePts){
+        cctx.fillStyle='#fff'; cctx.strokeStyle='#0d9488'; cctx.lineWidth=2;
+        cctx.beginPath(); cctx.arc(p.x*W, H-p.y*H, 5, 0, Math.PI*2); cctx.fill(); cctx.stroke();
+    }
+}
+let dragPt=null;
+function curveEvtPos(e){
+    const r=curveCanvas.getBoundingClientRect();
+    const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
+    return { x: Math.min(1,Math.max(0,(cx-r.left)/r.width)), y: Math.min(1,Math.max(0,1-(cy-r.top)/r.height)) };
+}
+function curveDown(e){
+    e.preventDefault();
+    const p=curveEvtPos(e);
+    let near=null,nd=1;
+    for(const q of curvePts){ const d=Math.hypot(q.x-p.x,q.y-p.y); if(d<nd){nd=d;near=q;} }
+    if(near && nd<0.05){ dragPt=near; }
+    else { dragPt={x:p.x,y:p.y}; curvePts.push(dragPt); }
+    onCurveChange();
+    window.addEventListener('mousemove',curveMove); window.addEventListener('mouseup',curveUp);
+    window.addEventListener('touchmove',curveMove,{passive:false}); window.addEventListener('touchend',curveUp);
+}
+function curveMove(e){
+    if(!dragPt) return; e.preventDefault();
+    const p=curveEvtPos(e);
+    const isEnd = (dragPt===curvePts[0]||dragPt===curvePts[curvePts.length-1]);
+    // endpoints keep their x fixed at 0 / 1
+    const sorted=[...curvePts].sort((a,b)=>a.x-b.x);
+    if(dragPt===sorted[0]) dragPt.x=0; else if(dragPt===sorted[sorted.length-1]) dragPt.x=1; else dragPt.x=p.x;
+    dragPt.y=p.y;
+    onCurveChange();
+}
+function curveUp(){
+    dragPt=null;
+    window.removeEventListener('mousemove',curveMove); window.removeEventListener('mouseup',curveUp);
+    window.removeEventListener('touchmove',curveMove); window.removeEventListener('touchend',curveUp);
+}
+function curveDbl(e){
+    const p=curveEvtPos(e);
+    const sorted=[...curvePts].sort((a,b)=>a.x-b.x);
+    for(const q of curvePts){
+        if(q===sorted[0]||q===sorted[sorted.length-1]) continue;
+        if(Math.hypot(q.x-p.x,q.y-p.y)<0.05){ curvePts.splice(curvePts.indexOf(q),1); onCurveChange(); return; }
+    }
+}
+function onCurveChange(){ buildCurveLUT(); drawCurveEditor(); if(img.loaded) requestRender(); }
+curveCanvas.addEventListener('mousedown',curveDown);
+curveCanvas.addEventListener('touchstart',curveDown,{passive:false});
+curveCanvas.addEventListener('dblclick',curveDbl);
+
+// ───────────────────────── panel UI ─────────────────────────
+const GROUPS = [
+    { title:'白平衡', key:'wb', sliders:[
+        {k:'temp', label:'色溫 (黃 ↔ 藍)', min:-100, max:100, step:1, suffix:''},
+        {k:'tint', label:'色調 (綠 ↔ 洋紅)', min:-100, max:100, step:1, suffix:''},
+    ], buttons:[
+        {id:'pickWB', label:'滴管選白點', cls:'btn-ghost'},
+        {id:'autoWB', label:'自動白平衡', cls:'btn-ghost'},
+        {id:'resetWB', label:'重置', cls:'btn-ghost'},
+    ]},
+    { title:'色階 Levels', key:'levels', sliders:[
+        {k:'inBlack', label:'輸入黑場', min:0, max:254, step:1},
+        {k:'inWhite', label:'輸入白場', min:1, max:255, step:1},
+        {k:'gamma', label:'Gamma (中間調)', min:0.2, max:3, step:0.01, float:true},
+        {k:'outBlack', label:'輸出黑場', min:0, max:254, step:1},
+        {k:'outWhite', label:'輸出白場', min:1, max:255, step:1},
+    ], buttons:[
+        {id:'autoLevels', label:'自動色階', cls:'btn-ghost'},
+        {id:'resetLevels', label:'重置', cls:'btn-ghost'},
+    ]},
+    { title:'光線', key:'light', sliders:[
+        {k:'exposure', label:'曝光 (EV)', min:-2, max:2, step:0.01, float:true},
+        {k:'contrast', label:'對比', min:-100, max:100, step:1},
+        {k:'highlights', label:'高光', min:-100, max:100, step:1},
+        {k:'shadows', label:'陰影', min:-100, max:100, step:1},
+    ]},
+    { title:'HDR 曝光融合', key:'hdr', sliders:[
+        {k:'hdr', label:'強度', min:0, max:100, step:1},
+        {k:'hdrShadow', label:'陰影恢復 (EV)', min:0, max:3, step:0.05, float:true},
+        {k:'hdrHighlight', label:'高光恢復 (EV)', min:0, max:3, step:0.05, float:true},
+    ]},
+    { title:'色彩', key:'color', sliders:[
+        {k:'saturation', label:'飽和度', min:-100, max:100, step:1},
+        {k:'vibrance', label:'自然飽和度', min:-100, max:100, step:1},
+    ]},
+    { title:'細節', key:'detail', sliders:[
+        {k:'sharpen', label:'銳化', min:0, max:200, step:1},
+    ]},
+];
+
+const panelScroll = $('panelScroll');
+function fmtVal(s, v){
+    if(s.float) return (+v).toFixed(2);
+    return String(Math.round(v));
+}
+function buildPanel(){
+    let html = '';
+    for(const g of GROUPS){
+        html += `<div class="group" data-key="${g.key}">
+            <div class="group-head"><h3>${g.title}</h3><span class="chev">▾</span></div>
+            <div class="group-body">`;
+        for(const s of g.sliders){
+            html += `<div class="slider-row">
+                <div class="slider-top">
+                    <label data-reset="${s.k}">${s.label}</label>
+                    <span class="val" id="val_${s.k}">${fmtVal(s,P[s.k])}</span>
+                </div>
+                <input type="range" id="sl_${s.k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${P[s.k]}">
+            </div>`;
+        }
+        if(g.buttons){
+            html += `<div class="btn-row">`;
+            for(const b of g.buttons) html += `<button class="btn ${b.cls}" id="${b.id}">${b.label}</button>`;
+            html += `</div>`;
+        }
+        html += `</div></div>`;
+    }
+    // curves group
+    html += `<div class="group" data-key="curves">
+        <div class="group-head"><h3>曲線 (RGB)</h3><span class="chev">▾</span></div>
+        <div class="group-body">
+            <div id="curveMount"></div>
+            <div class="btn-row"><button class="btn btn-ghost" id="resetCurve">重置曲線</button></div>
+            <p class="hint">點線新增控制點、拖曳調整、雙擊刪除。左下＝暗部、右上＝亮部。</p>
+        </div>
+    </div>`;
+    // geometry group
+    html += `<div class="group" data-key="geo">
+        <div class="group-head"><h3>幾何 (裁切 / 旋轉)</h3><span class="chev">▾</span></div>
+        <div class="group-body">
+            <div class="geo-grid">
+                <button class="btn btn-secondary" id="rotL">⟲ 左轉 90°</button>
+                <button class="btn btn-secondary" id="rotR">⟳ 右轉 90°</button>
+                <button class="btn btn-secondary" id="flipH">↔ 水平翻轉</button>
+                <button class="btn btn-secondary" id="flipV">↕ 垂直翻轉</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-ghost" id="cropToggle">裁切工具</button>
+                <button class="btn btn-ghost" id="cropApply" disabled>套用裁切</button>
+                <button class="btn btn-ghost" id="resetGeo">重置幾何</button>
+            </div>
+            <p class="hint">幾何調整為非破壞性，隨時可「重置幾何」還原。</p>
+        </div>
+    </div>`;
+    panelScroll.innerHTML = html;
+
+    // move the real curve canvas into mount
+    $('curveMount').appendChild(curveCanvas);
+
+    // collapse toggles
+    panelScroll.querySelectorAll('.group-head').forEach(h=>{
+        h.addEventListener('click', ()=> h.parentElement.classList.toggle('collapsed'));
+    });
+    // sliders
+    for(const g of GROUPS) for(const s of g.sliders){
+        const sl=$('sl_'+s.k), val=$('val_'+s.k);
+        sl.addEventListener('input', ()=>{
+            P[s.k]= s.float ? parseFloat(sl.value) : parseInt(sl.value,10);
+            val.textContent = fmtVal(s,P[s.k]);
+            // keep inBlack<inWhite
+            if(s.k==='inBlack' && P.inBlack>=P.inWhite){ P.inBlack=P.inWhite-1; sl.value=P.inBlack; val.textContent=P.inBlack; }
+            if(s.k==='inWhite' && P.inWhite<=P.inBlack){ P.inWhite=P.inBlack+1; sl.value=P.inWhite; val.textContent=P.inWhite; }
+            requestRender();
+        });
+    }
+    // double-click label to reset that slider
+    panelScroll.querySelectorAll('label[data-reset]').forEach(lb=>{
+        lb.addEventListener('dblclick', ()=>{ const k=lb.dataset.reset; setSlider(k, DEFAULTS[k]); requestRender(); });
+    });
+
+    // group buttons
+    $('pickWB').addEventListener('click', togglePick);
+    $('autoWB').addEventListener('click', autoWhiteBalance);
+    $('resetWB').addEventListener('click', ()=>{ wbGain=[1,1,1]; setSlider('temp',0); setSlider('tint',0); requestRender(); toast('白平衡已重置'); });
+    $('autoLevels').addEventListener('click', autoLevels);
+    $('resetLevels').addEventListener('click', ()=>{ ['inBlack','inWhite','gamma','outBlack','outWhite'].forEach(k=>setSlider(k,DEFAULTS[k])); requestRender(); });
+    $('resetCurve').addEventListener('click', ()=>{ curvePts=[{x:0,y:0},{x:1,y:1}]; onCurveChange(); });
+    // geometry
+    $('rotL').addEventListener('click', ()=>{ geo.rot=(geo.rot+270)%360; exitCrop(); requestRender(); });
+    $('rotR').addEventListener('click', ()=>{ geo.rot=(geo.rot+90)%360; exitCrop(); requestRender(); });
+    $('flipH').addEventListener('click', ()=>{ geo.flipH=!geo.flipH; requestRender(); });
+    $('flipV').addEventListener('click', ()=>{ geo.flipV=!geo.flipV; requestRender(); });
+    $('cropToggle').addEventListener('click', toggleCrop);
+    $('cropApply').addEventListener('click', applyCrop);
+    $('resetGeo').addEventListener('click', ()=>{ geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1]; exitCrop(); requestRender(); toast('幾何已重置'); });
+
+    drawCurveEditor();
+}
+function setSlider(k, v){
+    P[k]=v;
+    const sl=$('sl_'+k), val=$('val_'+k);
+    if(sl){ sl.value=v; }
+    // find config for formatting
+    let cfg=null; for(const g of GROUPS) for(const s of g.sliders) if(s.k===k) cfg=s;
+    if(val&&cfg) val.textContent=fmtVal(cfg,v);
+}
+
+// ───────────────────────── white balance / levels analysis ─────────────────────────
+function srcPixel(sx, sy){ // source uv → [r,g,b] 0..1
+    const px=Math.min(img.w-1,Math.max(0,Math.floor(sx*img.w)));
+    const py=Math.min(img.h-1,Math.max(0,Math.floor(sy*img.h)));
+    const i=(py*img.w+px)*4;
+    return [img.data[i]/255, img.data[i+1]/255, img.data[i+2]/255];
+}
+function autoWhiteBalance(){
+    if(!img.loaded) return;
+    let r=0,g=0,b=0,n=0;
+    const step=Math.max(1, Math.floor(Math.max(img.w,img.h)/400));
+    for(let y=0;y<img.h;y+=step) for(let x=0;x<img.w;x+=step){
+        const i=(y*img.w+x)*4; r+=img.data[i]; g+=img.data[i+1]; b+=img.data[i+2]; n++;
+    }
+    r/=n; g/=n; b/=n; const gray=(r+g+b)/3;
+    wbGain=[ gray/Math.max(r,1), gray/Math.max(g,1), gray/Math.max(b,1) ];
+    requestRender(); toast('已套用灰世界自動白平衡');
+}
+function autoLevels(){
+    if(!img.loaded) return;
+    const hist=new Float32Array(256); let total=0;
+    const step=Math.max(1, Math.floor(Math.max(img.w,img.h)/500));
+    for(let y=0;y<img.h;y+=step) for(let x=0;x<img.w;x+=step){
+        const i=(y*img.w+x)*4;
+        const l=(img.data[i]*0.2126+img.data[i+1]*0.7152+img.data[i+2]*0.0722)|0;
+        hist[l]++; total++;
+    }
+    const clip=total*0.0025;
+    let lo=0,hi=255,acc=0;
+    for(let i=0;i<256;i++){ acc+=hist[i]; if(acc>clip){ lo=i; break; } }
+    acc=0; for(let i=255;i>=0;i--){ acc+=hist[i]; if(acc>clip){ hi=i; break; } }
+    if(hi-lo<8){ lo=0; hi=255; }
+    setSlider('inBlack', lo); setSlider('inWhite', hi);
+    setSlider('outBlack',0); setSlider('outWhite',255);
+    requestRender(); toast(`自動色階：黑場 ${lo} · 白場 ${hi}`);
+}
+
+// eyedropper white-point pick
+let picking=false;
+function togglePick(){
+    picking=!picking;
+    $('pickWB').classList.toggle('active', picking);
+    stage.classList.toggle('picking', picking);
+    if(picking) toast('點圖片上「應該是白/中性灰」的地方');
+}
+function canvasUVFromEvent(e){
+    const r=gl_canvas.getBoundingClientRect();
+    let u=(e.clientX-r.left)/r.width, v=(e.clientY-r.top)/r.height;
+    return [Math.min(1,Math.max(0,u)), Math.min(1,Math.max(0,v))];
+}
+gl_canvas.addEventListener('click', e=>{
+    if(!picking || !img.loaded) return;
+    const [u,v]=canvasUVFromEvent(e);
+    const M=buildXform();
+    const [sx,sy]=apply3(M,u,v);
+    const [r,g,b]=srcPixel(sx,sy);
+    const target=(r+g+b)/3;
+    if(target<0.02){ toast('該點太暗，請選亮一點的中性處'); return; }
+    wbGain=[ target/Math.max(r,1e-3), target/Math.max(g,1e-3), target/Math.max(b,1e-3) ];
+    togglePick();
+    requestRender(); toast('白平衡已校正');
+});
+
+// ───────────────────────── crop tool ─────────────────────────
+const cropLayer=$('cropLayer');
+let cropMode=false, cropRectUV=null; // in display output uv [x,y,w,h]
+function imgRectInStage(){ // displayed image rect within stage (CSS px), relative to stage
+    const sr=stage.getBoundingClientRect(), cr=gl_canvas.getBoundingClientRect();
+    return { left:cr.left-sr.left, top:cr.top-sr.top, width:cr.width, height:cr.height };
+}
+function toggleCrop(){
+    if(!img.loaded) return;
+    cropMode=!cropMode;
+    $('cropToggle').classList.toggle('active', cropMode);
+    $('cropApply').disabled=!cropMode;
+    cropLayer.classList.toggle('on', cropMode);
+    if(cropMode){ cropRectUV=[0.1,0.1,0.8,0.8]; renderCropUI(); toast('拖曳調整裁切框，再按「套用裁切」'); }
+    else { cropLayer.innerHTML=''; }
+}
+function exitCrop(){ if(cropMode){ cropMode=false; $('cropToggle').classList.remove('active'); $('cropApply').disabled=true; cropLayer.classList.remove('on'); cropLayer.innerHTML=''; } }
+function renderCropUI(){
+    cropLayer.innerHTML='';
+    const box=document.createElement('div'); box.className='crop-rect';
+    const gv=document.createElement('div'); gv.className='gv'; box.appendChild(gv);
+    cropLayer.appendChild(box);
+    const handles=['nw','n','ne','e','se','s','sw','w'];
+    for(const h of handles){ const el=document.createElement('div'); el.className='crop-h'; el.dataset.h=h; box.appendChild(el); }
+    positionCropUI(box);
+    enableCropDrag(box);
+}
+function positionCropUI(box){
+    const ir=imgRectInStage();
+    const [x,y,w,h]=cropRectUV;
+    const L=ir.left+x*ir.width, T=ir.top+y*ir.height, W=w*ir.width, H=h*ir.height;
+    box.style.left=L+'px'; box.style.top=T+'px'; box.style.width=W+'px'; box.style.height=H+'px';
+    const hs=box.querySelectorAll('.crop-h');
+    const pos={nw:[0,0],n:[.5,0],ne:[1,0],e:[1,.5],se:[1,1],s:[.5,1],sw:[0,1],w:[0,.5]};
+    hs.forEach(el=>{ const [hx,hy]=pos[el.dataset.h]; el.style.left=(hx*100)+'%'; el.style.top=(hy*100)+'%'; });
+}
+function syncCropLayer(){ if(cropMode){ const box=cropLayer.querySelector('.crop-rect'); if(box) positionCropUI(box); } }
+function enableCropDrag(box){
+    let mode=null, start=null, startRect=null;
+    function down(e){
+        const ir=imgRectInStage();
+        const isHandle=e.target.classList.contains('crop-h');
+        mode=isHandle? e.target.dataset.h : 'move';
+        start=[e.clientX, e.clientY]; startRect=[...cropRectUV];
+        e.preventDefault(); e.stopPropagation();
+        window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+    }
+    function move(e){
+        const ir=imgRectInStage();
+        let dx=(e.clientX-start[0])/ir.width, dy=(e.clientY-start[1])/ir.height;
+        let [x,y,w,h]=startRect;
+        const minS=0.05;
+        if(mode==='move'){ x=Math.min(1-w,Math.max(0,x+dx)); y=Math.min(1-h,Math.max(0,y+dy)); }
+        else {
+            if(mode.includes('w')){ const nx=Math.min(x+w-minS,Math.max(0,x+dx)); w=w+(x-nx); x=nx; }
+            if(mode.includes('e')){ w=Math.min(1-x,Math.max(minS,w+dx)); }
+            if(mode.includes('n')){ const ny=Math.min(y+h-minS,Math.max(0,y+dy)); h=h+(y-ny); y=ny; }
+            if(mode.includes('s')){ h=Math.min(1-y,Math.max(minS,h+dy)); }
+        }
+        cropRectUV=[x,y,w,h];
+        positionCropUI(box);
+    }
+    function up(){ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }
+    box.addEventListener('mousedown',down);
+}
+function applyCrop(){
+    if(!cropMode||!cropRectUV) return;
+    const M=buildXform();
+    // map the 4 corners of the selection (display uv) to source uv, take bbox
+    const [x,y,w,h]=cropRectUV;
+    const corners=[[x,y],[x+w,y],[x,y+h],[x+w,y+h]].map(([u,v])=>apply3(M,u,v));
+    let minX=1,minY=1,maxX=0,maxY=0;
+    for(const [sx,sy] of corners){ minX=Math.min(minX,sx); minY=Math.min(minY,sy); maxX=Math.max(maxX,sx); maxY=Math.max(maxY,sy); }
+    minX=Math.max(0,minX); minY=Math.max(0,minY); maxX=Math.min(1,maxX); maxY=Math.min(1,maxY);
+    geo.crop=[minX,minY,maxX-minX,maxY-minY];
+    exitCrop();
+    requestRender(); toast('已裁切');
+}
+window.addEventListener('resize', ()=>{ if(img.loaded) requestRender(); });
+
+// ───────────────────────── load image ─────────────────────────
+function loadImage(src){
+    setStatus('載入中…','busy');
+    const im=new Image();
+    im.onload=()=>{
+        // cap very large images to keep GPU/CPU happy
+        const MAX=4096;
+        let w=im.naturalWidth, h=im.naturalHeight;
+        if(Math.max(w,h)>MAX){ const s=MAX/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        const cx=c.getContext('2d'); cx.drawImage(im,0,0,w,h);
+        img.data=cx.getImageData(0,0,w,h).data; img.w=w; img.h=h;
+        if(img.tex) gl.deleteTexture(img.tex);
+        img.tex=gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, img.tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE, c);
+        img.loaded=true;
+        // reset everything for a fresh image
+        Object.assign(P, JSON.parse(JSON.stringify(DEFAULTS)));
+        for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
+        wbGain=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
+        curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
+        exitCrop();
+        gl_canvas.classList.add('ready'); dropzone.classList.add('hide');
+        ['resetAllBtn','dlPngBtn','dlJpgBtn'].forEach(id=>$(id).disabled=false);
+        requestRender();
+        setStatus(`已載入 ${w}×${h}`,'ok');
+    };
+    im.onerror=()=>setStatus('圖片載入失敗','err');
+    im.src=src;
+}
+function handleFile(file){
+    if(!file || !file.type.startsWith('image/')){ toast('請選擇圖片檔'); return; }
+    const r=new FileReader();
+    r.onload=()=>loadImage(r.result);
+    r.readAsDataURL(file);
+}
+
+$('fileInput').addEventListener('change', e=>{ if(e.target.files[0]) handleFile(e.target.files[0]); });
+$('openBtn').addEventListener('click', ()=>$('fileInput').click());
+$('dzOpenBtn').addEventListener('click', ()=>$('fileInput').click());
+
+// drag & drop
+['dragenter','dragover'].forEach(ev=>stage.addEventListener(ev, e=>{ e.preventDefault(); stage.classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev=>stage.addEventListener(ev, e=>{ e.preventDefault(); if(ev==='drop'||e.target===stage) stage.classList.remove('dragover'); }));
+stage.addEventListener('drop', e=>{ const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+// paste
+window.addEventListener('paste', e=>{
+    const items=e.clipboardData?.items||[];
+    for(const it of items){ if(it.type.startsWith('image/')){ handleFile(it.getAsFile()); break; } }
+});
+
+// ───────────────────────── reset / export ─────────────────────────
+$('resetAllBtn').addEventListener('click', ()=>{
+    Object.assign(P, JSON.parse(JSON.stringify(DEFAULTS)));
+    for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
+    wbGain=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
+    curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
+    exitCrop(); requestRender(); toast('已重置全部調整');
+});
+
+function download(type, quality, ext){
+    if(!img.loaded) return;
+    // ensure a fresh render is present in the (preserved) drawing buffer
+    render();
+    gl_canvas.toBlob(blob=>{
+        if(!blob){ toast('匯出失敗'); return; }
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(blob);
+        a.download=`edited-${gl_canvas.width}x${gl_canvas.height}.${ext}`;
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+        toast(`已下載 ${ext.toUpperCase()}`);
+    }, type, quality);
+}
+$('dlPngBtn').addEventListener('click', ()=>download('image/png', undefined, 'png'));
+$('dlJpgBtn').addEventListener('click', ()=>download('image/jpeg', 0.92, 'jpg'));
+
+// ───────────────────────── boot ─────────────────────────
+buildPanel();
+buildCurveLUT();
+if(gl) setStatus('準備就緒 · 所有處理在本機完成','idle');
+</script>
+</body>
+</html>
