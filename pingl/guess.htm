@@ -64,6 +64,32 @@ body {
   margin: 0 auto;
 }
 
+/* ── Game board responsive layout ─────────────────────── */
+/* The in-game view gets more room than the other screens so the fight stage
+   and the controls can sit side-by-side on desktop. */
+#game-view { max-width: 1100px; margin: 0 auto; }
+.game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+.game-stage { position: sticky; top: 76px; }
+.game-controls { min-width: 0; }
+/* Mobile / narrow: stack — stage on top (shrunk), controls below so the guess
+   input is always visible without scrolling past a huge animation. */
+@media (max-width: 720px) {
+  #game-view { max-width: 760px; }
+  .game-layout { grid-template-columns: 1fr; }
+  .game-stage { position: static; }
+  /* shrink the show so the input below stays in view */
+  .hp-stage { padding: 10px 12px; gap: 8px; }
+  .hp-face { width: 46px; height: 46px; }
+  .hp-name { font-size: 11px; margin-bottom: 3px; }
+  .hp-head { margin-bottom: 4px; }
+  .hp-vs { font-size: 18px; }
+}
+
 .card {
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -431,73 +457,82 @@ body {
     <div class="info-row"><span class="k">對方狀態</span><span class="v" id="setupPeer">設定中…</span></div>
   </section>
 
-  <!-- mode D: game board -->
+  <!-- mode D: game board.
+       Desktop: 2 columns — the fight "stage" on the left, your controls on the
+       right, all visible at a glance. Mobile: stacks — stage on top (shrunk),
+       guessing controls below so the input is always reachable. -->
   <section id="game-view" hidden>
-    <div class="turn-banner" id="turnBanner">準備中…</div>
+    <div class="game-layout">
 
-    <div class="my-secret-bar">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
+      <!-- LEFT / TOP: the show (banner + HP + boxing ring) -->
+      <div class="game-stage">
+        <div class="turn-banner" id="turnBanner">準備中…</div>
 
-    <!-- Street-Fighter-style health bars. Each side's HP = how safe their secret
-         still is; the closer the opponent is to cracking it, the more HP drains.
-         Yellow → orange → red as it gets low; near-death = black bg + red flash. -->
-    <div class="hp-stage" id="hpStage">
-      <div class="hp-side hp-left" id="hpLeftSide">
-        <div class="hp-name">🟦 你</div>
-        <div class="hp-head"><canvas id="faceL" class="hp-face" width="160" height="160"></canvas></div>
-        <div class="hp-bar">
-          <i class="hp-ghost" id="hpGhostL"></i>
-          <i class="hp-fill" id="hpFillL"></i>
+        <!-- Street-Fighter-style health bars. HP = how safe a secret still is. -->
+        <div class="hp-stage" id="hpStage">
+          <div class="hp-side hp-left" id="hpLeftSide">
+            <div class="hp-name">🟦 你</div>
+            <div class="hp-head"><canvas id="faceL" class="hp-face" width="160" height="160"></canvas></div>
+            <div class="hp-bar">
+              <i class="hp-ghost" id="hpGhostL"></i>
+              <i class="hp-fill" id="hpFillL"></i>
+            </div>
+            <div class="hp-pct" id="hpPctL">100%</div>
+          </div>
+          <div class="hp-vs" id="hpVs">VS</div>
+          <div class="hp-side hp-right" id="hpRightSide">
+            <div class="hp-name">對手 🟥</div>
+            <div class="hp-head"><canvas id="faceR" class="hp-face" width="160" height="160"></canvas></div>
+            <div class="hp-bar hp-bar-r">
+              <i class="hp-ghost" id="hpGhostR"></i>
+              <i class="hp-fill" id="hpFillR"></i>
+            </div>
+            <div class="hp-pct" id="hpPctR">100%</div>
+          </div>
         </div>
-        <div class="hp-pct" id="hpPctL">100%</div>
-      </div>
-      <div class="hp-vs" id="hpVs">VS</div>
-      <div class="hp-side hp-right" id="hpRightSide">
-        <div class="hp-name">對手 🟥</div>
-        <div class="hp-head"><canvas id="faceR" class="hp-face" width="160" height="160"></canvas></div>
-        <div class="hp-bar hp-bar-r">
-          <i class="hp-ghost" id="hpGhostR"></i>
-          <i class="hp-fill" id="hpFillR"></i>
-        </div>
-        <div class="hp-pct" id="hpPctR">100%</div>
-      </div>
-    </div>
 
-    <!-- Boxing ring. Each guess = a punch from the guesser at the opponent.
-         Damage scales with the A/B result: 4A = KO, 0A0B = a dodged miss,
-         everything else = a connecting hit (A heavy, B light). -->
-    <div class="ring-wrap" id="ringWrap">
-      <canvas id="ringCanvas" width="700" height="200"></canvas>
-    </div>
-
-    <div class="card">
-      <div class="field-label" id="guessLabel" style="text-align:center;">輪到你猜！輸入 4 位數</div>
-      <div class="guess-input-row" id="guessDigits">
-        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="0">
-        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="1">
-        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="2">
-        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="3">
-      </div>
-      <div class="setup-msg" id="guessMsg"></div>
-      <div class="actions" style="justify-content:center;">
-        <button class="btn btn-primary" id="guessBtn">送出猜測</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="history-grid">
-        <div class="hist-col">
-          <div class="field-label">我猜對方（<span id="myGuessCount">0</span> 次）</div>
-          <div class="hist-list" id="myHistory"><div class="hist-empty">尚未猜測</div></div>
-        </div>
-        <div class="hist-col">
-          <div class="field-label">對方猜我（<span id="theirGuessCount">0</span> 次）</div>
-          <div class="hist-list" id="theirHistory"><div class="hist-empty">尚未猜測</div></div>
+        <!-- Boxing ring: each guess = a punch (4A=KO, 0A0B=miss, else A*25+B*8). -->
+        <div class="ring-wrap" id="ringWrap">
+          <canvas id="ringCanvas" width="700" height="200"></canvas>
         </div>
       </div>
-    </div>
 
-    <div class="actions">
-      <button class="btn btn-danger" id="gameLeaveBtn" style="margin-left:auto;">離開遊戲</button>
+      <!-- RIGHT / BOTTOM: your secret, the guess input, history -->
+      <div class="game-controls">
+        <div class="my-secret-bar">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
+
+        <div class="card">
+          <div class="field-label" id="guessLabel" style="text-align:center;">輪到你猜！輸入 4 位數</div>
+          <div class="guess-input-row" id="guessDigits">
+            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="0">
+            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="1">
+            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="2">
+            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="3">
+          </div>
+          <div class="setup-msg" id="guessMsg"></div>
+          <div class="actions" style="justify-content:center;">
+            <button class="btn btn-primary" id="guessBtn">送出猜測</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="history-grid">
+            <div class="hist-col">
+              <div class="field-label">我猜對方（<span id="myGuessCount">0</span> 次）</div>
+              <div class="hist-list" id="myHistory"><div class="hist-empty">尚未猜測</div></div>
+            </div>
+            <div class="hist-col">
+              <div class="field-label">對方猜我（<span id="theirGuessCount">0</span> 次）</div>
+              <div class="hist-list" id="theirHistory"><div class="hist-empty">尚未猜測</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-danger" id="gameLeaveBtn" style="margin-left:auto;">離開遊戲</button>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -1316,7 +1351,12 @@ const ring = (() => {
     const rect = c.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     c.width = Math.max(320, Math.round(rect.width * dpr));
-    c.height = Math.round(c.width * 230 / 700);
+    // On phones the stage spans the full width, so use a shorter (flatter)
+    // canvas there to keep the whole show compact and leave the guess input
+    // visible below. Wider desktop column → taller ring.
+    const narrow = window.innerWidth <= 720;
+    const ratio = narrow ? 150 / 700 : 230 / 700;
+    c.height = Math.round(c.width * ratio);
     ctx = c.getContext('2d');
   }
 
