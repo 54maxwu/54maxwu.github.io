@@ -76,53 +76,24 @@ body {
 }
 .game-stage { position: sticky; top: 76px; }
 .game-controls { min-width: 0; }
-/* Mobile / narrow: a compact top "arena" (~1/3 of the screen) and the guessing
-   controls below taking the remaining ~2/3 — that's where the player's attention
-   lives. The top is reorganised:
-     row 1 — my secret digits (left)   +   turn status (small, right)
-     row 2 — [my avatar+HP] [ the fighters/ring ] [opponent avatar+HP]
-   The fighters sit in the middle, flanked by both flattened HP bars. */
+/* Mobile / narrow: a slim top "arena" and the guessing controls below.
+   The arena holds ONLY the fighters now — the turn status and the secret
+   digits moved down into the guess card — so the whole game fits one screen:
+     arena  — [my avatar+HP] [ the fighters/ring ] [opponent avatar+HP]
+     card   — ① turn status · inputs · ② secret digits + submit
+     history— two columns side-by-side (all records visible at a glance). */
 @media (max-width: 720px) {
   #game-view { max-width: 760px; }
   .game-layout { grid-template-columns: 1fr; }
   .game-stage { position: static; }
 
-  /* ── row 1: secret digits left, turn status compact on the right ── */
-  .stage-top {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .stage-top .my-secret-bar {
-    order: 0;            /* digits on the LEFT */
-    margin: 0;
-    flex: 0 1 auto;
-    text-align: left;
-    padding: 6px 10px;
-    font-size: 11px;
-    line-height: 1.3;
-  }
-  .stage-top .my-secret-bar span { font-size: 20px; letter-spacing: 3px; margin-left: 2px; }
-  .stage-top .turn-banner {
-    order: 1;            /* status small on the RIGHT */
-    margin: 0;
-    flex: 0 1 auto;
-    max-width: 46%;
-    padding: 6px 10px;
-    font-size: 11px;
-    line-height: 1.25;
-    border-radius: 8px;
-    text-align: right;
-  }
-
-  /* ── row 2: flatten the HP stage and drop the ring into the middle ── */
+  /* ── arena: flatten the HP stage and drop the ring into the middle ── */
   .hp-stage {
     grid-template-columns: auto minmax(0,1fr) auto;
     padding: 8px 10px;
     gap: 8px;
     align-items: center;
+    margin-bottom: 12px;
   }
   .hp-stage .hp-vs { display: none; }   /* the ring takes the middle now */
   /* Pin every cell explicitly so the hidden VS can't shift auto-placement:
@@ -142,13 +113,32 @@ body {
   .hp-head { margin: 0; }
   .hp-face { width: 48px; height: 48px; }
   .hp-bar  { width: 100%; height: 12px; }   /* squashed bars */
+
+  /* ── guess card: ① banner replaces the redundant label ── */
+  .game-controls .card { padding: 14px; }
+  .game-controls .turn-banner {
+    font-size: 14px; padding: 10px; margin-bottom: 10px; border-radius: 10px;
+  }
+  #guessLabel { display: none; }          /* the banner already says it */
+  /* ② secret digits beside the submit button */
+  .guess-actions { flex-wrap: nowrap; }
+  .guess-actions .my-secret-bar {
+    text-align: left; padding: 6px 10px; font-size: 11px; line-height: 1.3; min-width: 0;
+  }
+  .guess-actions .my-secret-bar span { font-size: 18px; letter-spacing: 2px; margin-left: 2px; }
+
+  /* ── history: keep BOTH columns; shrink items so they fit a phone ── */
+  .history-grid { gap: 8px; }
+  .hist-item { padding: 6px 8px; font-size: 12px; }
+  .hist-item .g { letter-spacing: 1.5px; }
+  .hist-list { max-height: none; }        /* no inner scroll — show them all */
 }
 
-/* Very narrow phones: shrink the arena a touch more so the 2/3 controls win. */
+/* Very narrow phones: shrink the arena a touch more so the controls win. */
 @media (max-width: 420px) {
-  .hp-side { width: 54px; }
-  .hp-face { width: 42px; height: 42px; }
-  .stage-top .my-secret-bar span { font-size: 18px; }
+  .hp-side { width: 52px; }
+  .hp-face { width: 40px; height: 40px; }
+  .hist-item { padding: 5px 6px; font-size: 11px; }
 }
 
 .card {
@@ -281,10 +271,18 @@ body {
 .turn-banner.theirs { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
 .turn-banner.over { background: #fffbeb; color: #b45309; border-color: #fde68a; }
 
-/* On desktop the top strip stacks: turn banner first, then the secret bar.
-   On mobile it becomes a compact 2-col header (digits left, status right). */
-.stage-top { display: flex; flex-direction: column; }
-.stage-top .turn-banner { order: -1; }
+/* The turn banner now lives inside the guess card (above the inputs). */
+.game-controls .turn-banner { margin-bottom: 12px; }
+
+/* Action row of the guess card: secret digits on the left, submit on the right,
+   so the row that used to be empty space now carries both pieces of info. */
+.guess-actions {
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.guess-actions .my-secret-bar { flex: 1 1 auto; margin: 0; }
+.guess-actions .btn { flex: 0 0 auto; }
 
 .my-secret-bar {
   text-align: center; font-size: 13px; color: #64748b;
@@ -312,8 +310,9 @@ body {
 .guess-input-row { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 6px 0 4px; }
 .guess-input-row .digit-box { width: 50px; height: 58px; font-size: 26px; }
 
+/* Two columns always — "我猜對方" and "對方猜我" sit side-by-side so the whole
+   history is visible at a glance, even on a phone. */
 .history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 560px) { .history-grid { grid-template-columns: 1fr; } }
 .hist-col .field-label { margin-bottom: 8px; }
 .hist-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
 .hist-item {
@@ -537,15 +536,10 @@ body {
   <section id="game-view" hidden>
     <div class="game-layout">
 
-      <!-- LEFT / TOP: the show (banner + HP + boxing ring) -->
+      <!-- LEFT / TOP: the show (HP + boxing ring only — the turn banner and the
+           secret digits live down in the guess card so the arena stays compact
+           and everything fits one screen on mobile). -->
       <div class="game-stage">
-        <!-- Top strip — on mobile this becomes the compact header:
-             my secret digits at top-left, the turn status small at top-right. -->
-        <div class="stage-top">
-          <div class="my-secret-bar">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
-          <div class="turn-banner" id="turnBanner">準備中…</div>
-        </div>
-
         <!-- Street-Fighter-style health bars. HP = how safe a secret still is.
              On mobile the boxing ring slots into the middle so the two
              avatars+HP bars flank the fighters. -->
@@ -585,6 +579,9 @@ body {
       <!-- RIGHT / BOTTOM: the guess input, history -->
       <div class="game-controls">
         <div class="card">
+          <!-- ① turn status, moved here from the top so the arena can shrink -->
+          <div class="turn-banner" id="turnBanner">準備中…</div>
+          <!-- redundant on mobile (banner says it all); kept for desktop & JS -->
           <div class="field-label" id="guessLabel" style="text-align:center;">輪到你猜！輸入 4 位數</div>
           <div class="guess-input-row" id="guessDigits">
             <input class="digit-box" maxlength="1" inputmode="numeric" data-i="0">
@@ -593,7 +590,9 @@ body {
             <input class="digit-box" maxlength="1" inputmode="numeric" data-i="3">
           </div>
           <div class="setup-msg" id="guessMsg"></div>
-          <div class="actions" style="justify-content:center;">
+          <!-- ② secret digits sit beside the submit button, filling the row -->
+          <div class="actions guess-actions">
+            <div class="my-secret-bar">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
             <button class="btn btn-primary" id="guessBtn">送出猜測</button>
           </div>
         </div>
