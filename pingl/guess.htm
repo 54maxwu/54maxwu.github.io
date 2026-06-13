@@ -70,12 +70,19 @@ body {
 #game-view { max-width: 1100px; margin: 0 auto; }
 .game-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
+/* LEFT column = arena + guess card. RIGHT column = the full history.
+   The history can get tall, so the left column sticks in view while you
+   scroll the records on the right. */
 .game-stage { position: sticky; top: 76px; }
 .game-controls { min-width: 0; }
+/* Desktop has room — let each history list grow much taller before scrolling. */
+@media (min-width: 721px) {
+  .game-controls .hist-list { max-height: 60vh; }
+}
 /* Mobile / narrow: a slim top "arena" and the guessing controls below, packed
    tight so the whole game fits one screen:
      arena  — [my avatar+HP] [fighters/ring] [opponent avatar+HP]
@@ -123,7 +130,7 @@ body {
   .hp-bar  { width: 100%; height: 12px; }   /* squashed bars */
 
   /* ── guess card: ⑤+⑥ status + submit on one row, then inputs ── */
-  .game-controls .card { padding: 12px; }
+  .guess-card, .game-controls .card { padding: 12px; }
   .guess-actions { flex-wrap: nowrap; margin-bottom: 8px; }   /* ② tighter */
   .guess-actions .turn-banner {
     font-size: 13px; padding: 8px 10px; border-radius: 10px; min-width: 0;
@@ -444,6 +451,29 @@ body {
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ── Reconnect grace overlay ───────────────────────────── */
+#reconnectOverlay {
+  position: fixed; inset: 0; z-index: 120;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15,23,42,.55); backdrop-filter: blur(2px);
+  padding: 20px;
+}
+.reconnect-card {
+  background: #fff; border-radius: 16px; padding: 28px 26px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  text-align: center; max-width: 340px; width: 100%;
+}
+.reconnect-spinner {
+  width: 38px; height: 38px; margin: 0 auto 16px;
+  border: 3px solid #e2e8f0; border-top-color: #0d9488; border-radius: 50%;
+  animation: rcSpin .8s linear infinite;
+}
+@keyframes rcSpin { to { transform: rotate(360deg); } }
+.reconnect-title { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
+.reconnect-sub   { font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 12px; }
+.reconnect-count { font-size: 13px; color: #b45309; font-weight: 700; }
+.reconnect-count span { font-size: 20px; font-family: ui-monospace, monospace; }
+
 .config-warn {
   background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
   padding: 14px 16px; border-radius: 10px; font-size: 13px; line-height: 1.55; margin-bottom: 14px;
@@ -587,27 +617,48 @@ body {
                costs no extra vertical space (was a separate row in the card). -->
           <div class="my-secret-bar arena-secret">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
         </div>
-      </div>
 
-      <!-- RIGHT / BOTTOM: the guess input, history -->
-      <div class="game-controls">
-        <div class="card">
+        <!-- Guess card lives under the arena in the LEFT column on desktop, so
+             the right column is free for the full history. On mobile the whole
+             layout collapses to one column and this still sits above history. -->
+        <div class="card guess-card">
           <!-- ⑤+⑥ merged: turn status + submit button share one row -->
           <div class="actions guess-actions">
             <div class="turn-banner" id="turnBanner">準備中…</div>
             <button class="btn btn-primary" id="guessBtn">送出猜測</button>
           </div>
-          <!-- redundant on mobile (banner says it all); kept for desktop & JS -->
-          <div class="field-label" id="guessLabel" style="text-align:center;">輪到你猜！輸入 4 位數</div>
-          <div class="guess-input-row" id="guessDigits">
-            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="0">
-            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="1">
-            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="2">
-            <input class="digit-box" maxlength="1" inputmode="numeric" data-i="3">
+          <!-- guess UI — hidden once the match ends so the in-board result
+               (#boardResult) can take its place without leaving the arena. -->
+          <div id="guessUI">
+            <!-- redundant on mobile (banner says it all); kept for desktop & JS -->
+            <div class="field-label" id="guessLabel" style="text-align:center;">輪到你猜！輸入 4 位數</div>
+            <div class="guess-input-row" id="guessDigits">
+              <input class="digit-box" maxlength="1" inputmode="numeric" data-i="0">
+              <input class="digit-box" maxlength="1" inputmode="numeric" data-i="1">
+              <input class="digit-box" maxlength="1" inputmode="numeric" data-i="2">
+              <input class="digit-box" maxlength="1" inputmode="numeric" data-i="3">
+            </div>
+            <div class="setup-msg" id="guessMsg"></div>
           </div>
-          <div class="setup-msg" id="guessMsg"></div>
-        </div>
 
+          <!-- In-board result — shown right here when the game ends (KO), so the
+               final knockdown stays on screen. "再玩一局" appears in place. -->
+          <div id="boardResult" hidden>
+            <div class="result-big" id="resultBig">—</div>
+            <div class="result-sub" id="resultSub"></div>
+            <div class="info-row"><span class="k">我的數字</span><span class="v reveal" id="revealMine">—</span></div>
+            <div class="info-row"><span class="k">對方數字</span><span class="v reveal" id="revealTheirs">—</span></div>
+            <div class="actions" style="justify-content:center;margin-top:16px;">
+              <button class="btn btn-primary" id="rematchBtn">再玩一局</button>
+              <button class="btn btn-ghost" id="resultLeaveBtn">回首頁</button>
+            </div>
+            <div class="setup-msg" id="rematchMsg" style="margin-top:10px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT / BOTTOM: the full match history -->
+      <div class="game-controls">
         <div class="card">
           <div class="history-grid">
             <div class="hist-col">
@@ -629,18 +680,7 @@ body {
     </div>
   </section>
 
-  <!-- mode E: result -->
-  <section id="result-view" class="card" hidden>
-    <div class="result-big" id="resultBig">—</div>
-    <div class="result-sub" id="resultSub"></div>
-    <div class="info-row"><span class="k">我的數字</span><span class="v reveal" id="revealMine">—</span></div>
-    <div class="info-row"><span class="k">對方數字</span><span class="v reveal" id="revealTheirs">—</span></div>
-    <div class="actions" style="justify-content:center;margin-top:18px;">
-      <button class="btn btn-primary" id="rematchBtn">再玩一局</button>
-      <button class="btn btn-ghost" id="resultLeaveBtn">回首頁</button>
-    </div>
-    <div class="setup-msg" id="rematchMsg" style="margin-top:10px;"></div>
-  </section>
+  <!-- (result is shown in-board inside #boardResult so the KO stays visible) -->
 
   <!-- config warning -->
   <section id="config-warn" class="config-warn" hidden>
@@ -651,6 +691,18 @@ body {
 
 <div id="crackFlash"></div>
 <div id="toast"></div>
+
+<!-- Reconnect grace overlay — shown when the peer (or our own) connection drops
+     mid-match. Gives both sides up to 60s to come back before the match is lost. -->
+<div id="reconnectOverlay" hidden>
+  <div class="reconnect-card">
+    <div class="reconnect-spinner"></div>
+    <div class="reconnect-title" id="reconnectTitle">連線中斷</div>
+    <div class="reconnect-sub" id="reconnectSub">嘗試重新連線，請保持本頁開啟…</div>
+    <div class="reconnect-count"><span id="reconnectCount">60</span> 秒後結束本局</div>
+    <button class="btn btn-ghost" id="reconnectCancel" style="margin-top:14px;">放棄並離開</button>
+  </div>
+</div>
 
 <script>
 // ── 設定 ──────────────────────────────────────────────
@@ -843,11 +895,18 @@ function freshGame(ws, roomId, isHost) {
     iGuessedThisRound: false, iHit: false,
     peerGuessedThisRound: false, peerHit: false,
     rematchMine: false, rematchPeer: false,
+    // ── reconnect bookkeeping ──
+    // phase: 'lobby' until the channel first opens, then 'setup'/'game'.
+    // A drop in 'setup'/'game' (and not over) triggers the 60s grace window.
+    phase: 'lobby',
+    everConnected: false,    // have we ever had an open data channel?
+    leaving: false,          // user pressed leave → don't try to reconnect
+    reconnecting: false, graceTimer: null, graceDeadline: 0, reconnectPoll: null,
   };
 }
 
 // ── View switching ────────────────────────────────────
-const VIEWS = ['picker', 'lobby-view', 'setup-view', 'game-view', 'result-view'];
+const VIEWS = ['picker', 'lobby-view', 'setup-view', 'game-view'];
 function showView(id) {
   VIEWS.forEach(v => { $(v).hidden = (v !== id); });
 }
@@ -892,13 +951,22 @@ function joinRoom(roomId) {
 function startMatch(roomId, isHost) {
   const ws = openSignal(roomId);
   G = freshGame(ws, roomId, isHost);
+  wireSignal(ws);
+}
+
+// Attach the negotiator + WS/DataChannel handlers onto a (possibly brand-new)
+// signaling socket for the CURRENT G. Called on first connect and again on each
+// reconnect attempt — it never wipes game state, so a reopened channel resumes
+// the in-progress match instead of restarting it.
+function wireSignal(ws) {
+  G.ws = ws;
 
   const setupDc = dc => {
-    if (G.dc) return;
+    if (G.dc && G.dc.readyState === 'open') return;
     G.dc = dc;
     dc.binaryType = 'arraybuffer';
     dc.onopen = () => onDataOpen();
-    dc.onclose = () => { if (G && !G.over) onPeerGone('連線已關閉'); };
+    dc.onclose = () => { if (G && !G.over && !G.leaving) handleDrop('連線已關閉'); };
     dc.onmessage = ev => { try { handleGameMsg(JSON.parse(ev.data)); } catch (e) { dbg('msg parse', e); } };
   };
 
@@ -909,7 +977,7 @@ function startMatch(roomId, isHost) {
     pc.onconnectionstatechange = () => {
       const cs = pc.connectionState;
       if (cs === 'connected') setStatus('已連線', 'ok');
-      else if (cs === 'failed') setStatus('連線失敗', 'err');
+      else if ((cs === 'failed' || cs === 'disconnected') && G && !G.over && !G.leaving) handleDrop('連線中斷');
     };
     return pc;
   };
@@ -926,25 +994,60 @@ function startMatch(roomId, isHost) {
     }
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
       if ((msg.peerCount ?? 1) >= 1) {
-        $('lobbyConnState').textContent = '建立連線中…';
+        if (!G.reconnecting) $('lobbyConnState').textContent = '建立連線中…';
         G.neg.start();
       } else {
-        $('lobbyConnState').textContent = '等待對方加入';
+        if (!G.reconnecting) $('lobbyConnState').textContent = '等待對方加入';
       }
     } else if (msg.type === 'peer-left') {
-      onPeerGone('對方已離開');
+      // Peer dropped. If the match is live, hold the door open for 60s.
+      if (G && !G.over && G.everConnected && !G.leaving) handleDrop('對方已離開');
+      else onPeerGone('對方已離開');
     } else {
       await G.neg.onSignal(msg);
     }
   };
-  ws.onerror = () => setStatus('signaling 連線失敗', 'err');
-  ws.onclose = () => { if (G && !G.over && G.neg?.neg.pc?.connectionState !== 'connected') setStatus('signaling 已斷', 'err'); };
+  ws.onerror = () => { if (!G?.reconnecting) setStatus('signaling 連線失敗', 'err'); };
+  ws.onclose = () => {
+    // Our own signaling socket dropped (e.g. phone backgrounded). If a match is
+    // live, try to reconnect within the grace window rather than bailing.
+    if (G && !G.over && G.everConnected && !G.leaving) handleDrop('連線中斷');
+    else if (G && !G.over && G.neg?.neg.pc?.connectionState !== 'connected') setStatus('signaling 已斷', 'err');
+  };
 }
 
-// DataChannel open → both sides exchange a "start token" to pick the first
-// mover deterministically, then move to secret setup.
+// DataChannel open → either a FRESH match (exchange start token + go to setup)
+// or a RECONNECT mid-match (resume the board/setup we were already on).
 function onDataOpen() {
   setStatus('已連線', 'ok');
+
+  // Reconnect: the channel reopened while a match was already underway. Don't
+  // touch game state — just clear the grace window and put the right view back.
+  if (G.everConnected && G.phase !== 'lobby') {
+    clearGrace();
+    toast('已重新連線，繼續對戰');
+    if (G.phase === 'game') {
+      resumeGameBoard();           // restores view WITHOUT resetting the round
+    } else {                       // mid-setup when the drop happened
+      enterSetup();
+      // Re-announce my start token (it may have been lost on the drop) so the
+      // first-mover decision can still complete.
+      if (G.myStartTok != null) send({ type: 'start-token', token: G.myStartTok, host: G.isHost });
+      if (G.mineReady) {           // I'd already locked my secret — keep it locked
+        $('setupMine').textContent = '已送出';
+        $('setupConfirm').disabled = true;
+        digitInputs('setupDigits').forEach(el => el.disabled = true);
+        $('setupMsg').textContent = '已鎖定，等待對方…';
+        send({ type: 'ready' });   // re-announce in case the peer missed it
+      }
+      maybeStartGame();
+    }
+    return;
+  }
+
+  // First connect of this match.
+  G.everConnected = true;
+  G.phase = 'setup';
   toast('已連線，設定你的數字');
   // Pick a start token; higher token's owner moves first. Tie → host first.
   const b = new Uint32Array(2); crypto.getRandomValues(b);
@@ -1037,8 +1140,14 @@ function maybeStartGame() {
 }
 
 function startGameBoard() {
+  G.phase = 'game';
   showView('game-view');
   setStatus('遊戲進行中', 'ok');
+  // Restore the guess controls and hide the in-board result from the last match.
+  const guessUI = $('guessUI'), actions = document.querySelector('.guess-card .guess-actions');
+  if (guessUI) guessUI.hidden = false;
+  if (actions) actions.hidden = false;
+  $('boardResult').hidden = true;
   G.over = false;
   G.iGuessedThisRound = false; G.iHit = false;
   G.peerGuessedThisRound = false; G.peerHit = false;
@@ -1046,6 +1155,23 @@ function startGameBoard() {
   hp.reset();
   hp.start();
   ring.reset();
+  ring.start();
+  renderHistories();
+  updateProbabilities();
+  refreshTurnUi();
+}
+
+// Non-destructive: put the game board back exactly as it was after a reconnect,
+// WITHOUT resetting round progress or HP/ring state (which startGameBoard does).
+function resumeGameBoard() {
+  showView('game-view');
+  setStatus('遊戲進行中', 'ok');
+  const guessUI = $('guessUI'), actions = document.querySelector('.guess-card .guess-actions');
+  if (guessUI) guessUI.hidden = false;
+  if (actions) actions.hidden = false;
+  $('boardResult').hidden = true;
+  $('mySecretShow').textContent = G.mySecret;
+  hp.start();   // start() is a no-op if already running; keeps current bars
   ring.start();
   renderHistories();
   updateProbabilities();
@@ -1874,7 +2000,8 @@ function finish(outcome) {
   G.over = true;
   // Reveal my secret so the peer (incl. a loser who never guessed it) can see it.
   send({ type: 'reveal', secret: G.mySecret });
-  // Let the KO punch + knockdown play out for a beat before the result screen.
+  // Let the KO punch + knockdown play out for a beat before the in-board verdict
+  // appears (we stay on the game board so the knockdown stays visible).
   const koDelay = outcome === 'tie' ? 0 : 950;
   if (koDelay) {
     setStatus('K.O.!', 'busy');
@@ -1885,12 +2012,17 @@ function finish(outcome) {
 }
 
 function showResult(outcome) {
-  hp.stop();
-  ring.stop();
-  // KO flash + win/lose jingle.
+  // KO flash + win/lose jingle. Keep hp/ring RUNNING so the knockdown pose and
+  // bruised faces stay animating — we want the loser to actually see the result.
   if (outcome !== 'tie') hp.crack(outcome === 'lose' ? 'me' : 'them');
   sfx.ding(outcome === 'win');
-  showView('result-view');
+  // Stay on the game board: swap the guess controls for the in-board result so
+  // the final arena (knockdown) remains on screen behind/around the verdict.
+  const guessUI = $('guessUI'), actions = document.querySelector('.guess-card .guess-actions');
+  if (guessUI) guessUI.hidden = true;
+  if (actions) actions.hidden = true;
+  $('boardResult').hidden = false;
+  $('boardResult').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   setStatus('遊戲結束');
   const big = $('resultBig'); big.className = 'result-big';
   if (outcome === 'win')  { big.textContent = '🏆 你贏了！';  big.classList.add('win'); }
@@ -1936,6 +2068,76 @@ function tryRematch() {
   }
 }
 
+// ── Reconnect grace window ────────────────────────────
+const GRACE_MS = 60000;   // how long we hold the match open after a drop
+
+// A connection dropped mid-match. Hold the door open for up to 60s: show the
+// overlay, keep G/state alive, and keep trying to re-establish the link. Both
+// sides do this independently — whoever's back first re-invites the other.
+function handleDrop(reason) {
+  if (!G || G.over || G.leaving) return;
+  if (G.reconnecting) return;           // already in the grace window
+  G.reconnecting = true;
+  G.graceDeadline = Date.now() + GRACE_MS;
+
+  // Tear down only the dead transport, NOT the game state.
+  try { G.neg?.reset(); } catch {}
+  try { G.dc?.close(); } catch {}
+  G.dc = null;
+
+  setStatus('連線中斷，重連中…', 'busy');
+  const ov = $('reconnectOverlay');
+  $('reconnectTitle').textContent = reason || '連線中斷';
+  ov.hidden = false;
+
+  // Countdown tick + give-up at zero.
+  tickGrace();
+  G.graceTimer = setInterval(tickGrace, 250);
+  // Keep poking the connection until it comes back.
+  attemptReconnect();
+  G.reconnectPoll = setInterval(attemptReconnect, 2500);
+}
+
+function tickGrace() {
+  if (!G || !G.reconnecting) return;
+  const left = Math.max(0, Math.ceil((G.graceDeadline - Date.now()) / 1000));
+  $('reconnectCount').textContent = left;
+  if (left <= 0) giveUpReconnect();
+}
+
+// Make sure a signaling socket is open and re-announce ourselves so the peer
+// (also reconnecting) pairs back up and renegotiates a fresh DataChannel.
+function attemptReconnect() {
+  if (!G || !G.reconnecting) return;
+  const ws = G.ws;
+  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+    // Reopen the signaling socket on the same room and rewire handlers.
+    try { wireSignal(openSignal(G.roomId)); } catch (e) { dbg('reopen ws failed', e); }
+    return;
+  }
+  if (ws.readyState === WebSocket.OPEN) {
+    try { G.neg.start(); } catch (e) { dbg('neg.start failed', e); }
+  }
+  // if CONNECTING, just wait for onopen → room-state → neg.start()
+}
+
+// Clear the grace timers/overlay once we're back (called from onDataOpen).
+function clearGrace() {
+  if (!G) return;
+  G.reconnecting = false;
+  clearInterval(G.graceTimer); G.graceTimer = null;
+  clearInterval(G.reconnectPoll); G.reconnectPoll = null;
+  $('reconnectOverlay').hidden = true;
+}
+
+// Grace window expired with no reconnect → the match is lost.
+function giveUpReconnect() {
+  $('reconnectOverlay').hidden = true;
+  toast('對方未能在時間內重連，已結束本局');
+  teardown();
+  showPicker();
+}
+
 // ── Peer gone / leave ─────────────────────────────────
 function onPeerGone(reason) {
   if (!G) return;
@@ -1945,6 +2147,8 @@ function onPeerGone(reason) {
 }
 function teardown() {
   if (!G) return;
+  clearInterval(G.graceTimer); clearInterval(G.reconnectPoll);
+  $('reconnectOverlay').hidden = true;
   try { hp.stop(); } catch {}
   try { ring.stop(); } catch {}
   try { G.neg?.reset(); } catch {}
@@ -1954,6 +2158,7 @@ function teardown() {
   history.replaceState(null, '', location.pathname + location.search);
 }
 function leaveGame() {
+  if (G) G.leaving = true;   // intentional → don't enter the grace window
   teardown();
   showPicker();
 }
@@ -2051,9 +2256,20 @@ $('guessBtn').addEventListener('click', submitGuess);
 $('gameLeaveBtn').addEventListener('click', () => { if (confirm('確定要離開遊戲嗎？')) leaveGame(); });
 $('rematchBtn').addEventListener('click', requestRematch);
 $('resultLeaveBtn').addEventListener('click', leaveGame);
+$('reconnectCancel').addEventListener('click', leaveGame);
 
 wireDigits('setupDigits', confirmSecret);
 wireDigits('guessDigits', submitGuess);
+
+// Coming back to the foreground (e.g. after the phone was backgrounded) — if a
+// match is mid-reconnect, fire an immediate reconnect instead of waiting for the
+// poll. Also re-poke the connection if it quietly died while hidden.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !G || G.over || G.leaving) return;
+  if (G.reconnecting) { attemptReconnect(); return; }
+  // If we were live but the channel silently died while hidden, start grace now.
+  if (G.everConnected && G.dc?.readyState !== 'open') handleDrop('連線中斷');
+});
 
 window.addEventListener('beforeunload', () => { try { teardown(); } catch {} });
 
