@@ -194,6 +194,17 @@ body {
 .turn-banner.theirs { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
 .turn-banner.over { background: #fffbeb; color: #b45309; border-color: #fde68a; }
 
+.my-secret-bar {
+  text-align: center; font-size: 13px; color: #64748b;
+  background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 10px;
+  padding: 8px 12px; margin-bottom: 14px;
+}
+.my-secret-bar span {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 18px; font-weight: 800; letter-spacing: 4px; color: #0d9488;
+  margin-left: 4px;
+}
+
 .prob-row {
   display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
 }
@@ -224,6 +235,97 @@ body {
 .hist-empty { font-size: 12px; color: #94a3b8; padding: 6px 2px; }
 
 .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+/* ── Street-Fighter HP bars ───────────────────────────── */
+.hp-stage {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  background: #0b1020;
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.hp-name { font-size: 12px; font-weight: 800; letter-spacing: .06em; margin-bottom: 6px; color: #cbd5e1; }
+.hp-right .hp-name { text-align: right; }
+.hp-head {
+  display: flex; margin-bottom: 8px;
+}
+.hp-right .hp-head { justify-content: flex-end; }
+.hp-face {
+  width: 72px; height: 72px;
+  border-radius: 12px;
+  background: #111827;
+  border: 2px solid #1e293b;
+}
+@media (max-width: 520px) { .hp-face { width: 54px; height: 54px; } }
+.hp-side.crit .hp-face { border-color: #7f1d1d; animation: hpCrit .5s infinite; }
+
+/* ── Boxing ring ──────────────────────────────────────── */
+.ring-wrap {
+  position: relative;
+  background: #0b1020;
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+#ringCanvas { display: block; width: 100%; height: auto; }
+.hp-bar {
+  position: relative;
+  height: 22px;
+  border-radius: 6px;
+  background: #1e293b;
+  border: 2px solid #0f172a;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+/* the slowly-receding white "ghost" damage trail (SF chip damage look) */
+.hp-bar .hp-ghost {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 100%;
+  background: rgba(255,255,255,.55);
+  transition: width .55s ease-out .12s;
+}
+.hp-bar .hp-fill {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 100%;
+  background: linear-gradient(180deg,#fde047,#eab308);
+  transition: width .25s ease-out, background .25s;
+}
+/* right bar drains from the right edge, mirror everything */
+.hp-bar-r .hp-ghost, .hp-bar-r .hp-fill { left: auto; right: 0; }
+
+/* color tiers by HP — applied to the side wrapper */
+.hp-side.warn  .hp-fill { background: linear-gradient(180deg,#fb923c,#ea580c); }
+.hp-side.low   .hp-fill { background: linear-gradient(180deg,#f87171,#dc2626); }
+.hp-side.crit  .hp-bar  { background: #000; border-color: #7f1d1d; animation: hpCrit .5s infinite; }
+.hp-side.crit  .hp-fill { background: linear-gradient(180deg,#ef4444,#991b1b); }
+@keyframes hpCrit {
+  0%,100% { box-shadow: inset 0 2px 4px rgba(0,0,0,.5), 0 0 0 0 rgba(239,68,68,0); }
+  50%     { box-shadow: inset 0 2px 4px rgba(0,0,0,.5), 0 0 16px 3px rgba(239,68,68,.9); }
+}
+.hp-pct { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: #94a3b8; margin-top: 5px; }
+.hp-right .hp-pct { text-align: right; }
+.hp-side.crit .hp-pct { color: #fca5a5; }
+
+.hp-vs {
+  font-size: 26px; font-weight: 900; font-style: italic;
+  color: #fbbf24; text-shadow: 0 2px 0 #b45309, 0 0 14px rgba(251,191,36,.5);
+  letter-spacing: 1px; padding: 0 4px;
+}
+@media (max-width: 520px) { .hp-vs { font-size: 20px; } .hp-stage { gap: 8px; padding: 12px; } }
+
+/* Whole-screen red pulse when someone gets cracked */
+#crackFlash {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  background: radial-gradient(circle at center, rgba(239,68,68,.45), rgba(239,68,68,0) 70%);
+  opacity: 0;
+}
+#crackFlash.show { animation: crackPulse 0.7s ease-out; }
+@keyframes crackPulse { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
 
 #toast {
   position: fixed; bottom: 24px; left: 50%;
@@ -333,17 +435,38 @@ body {
   <section id="game-view" hidden>
     <div class="turn-banner" id="turnBanner">準備中…</div>
 
-    <div class="prob-row">
-      <div class="prob-card">
-        <div class="ptitle">對方下一次猜中我的機率</div>
-        <div class="pval" id="probTheyHitMe">—</div>
-        <div class="psub" id="probTheyHitMeSub">剩餘候選 —</div>
+    <div class="my-secret-bar">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
+
+    <!-- Street-Fighter-style health bars. Each side's HP = how safe their secret
+         still is; the closer the opponent is to cracking it, the more HP drains.
+         Yellow → orange → red as it gets low; near-death = black bg + red flash. -->
+    <div class="hp-stage" id="hpStage">
+      <div class="hp-side hp-left" id="hpLeftSide">
+        <div class="hp-name">🟦 你</div>
+        <div class="hp-head"><canvas id="faceL" class="hp-face" width="160" height="160"></canvas></div>
+        <div class="hp-bar">
+          <i class="hp-ghost" id="hpGhostL"></i>
+          <i class="hp-fill" id="hpFillL"></i>
+        </div>
+        <div class="hp-pct" id="hpPctL">100%</div>
       </div>
-      <div class="prob-card">
-        <div class="ptitle">我下一次猜中對方的機率</div>
-        <div class="pval" id="probIHitThem">—</div>
-        <div class="psub" id="probIHitThemSub">剩餘候選 —</div>
+      <div class="hp-vs" id="hpVs">VS</div>
+      <div class="hp-side hp-right" id="hpRightSide">
+        <div class="hp-name">對手 🟥</div>
+        <div class="hp-head"><canvas id="faceR" class="hp-face" width="160" height="160"></canvas></div>
+        <div class="hp-bar hp-bar-r">
+          <i class="hp-ghost" id="hpGhostR"></i>
+          <i class="hp-fill" id="hpFillR"></i>
+        </div>
+        <div class="hp-pct" id="hpPctR">100%</div>
       </div>
+    </div>
+
+    <!-- Boxing ring. Each guess = a punch from the guesser at the opponent.
+         Damage scales with the A/B result: 4A = KO, 0A0B = a dodged miss,
+         everything else = a connecting hit (A heavy, B light). -->
+    <div class="ring-wrap" id="ringWrap">
+      <canvas id="ringCanvas" width="700" height="200"></canvas>
     </div>
 
     <div class="card">
@@ -398,6 +521,7 @@ body {
   </section>
 </main>
 
+<div id="crackFlash"></div>
 <div id="toast"></div>
 
 <script>
@@ -578,13 +702,18 @@ function freshGame(ws, roomId, isHost) {
     mySecret: null, peerSecret: null, peerReady: false, mineReady: false,
     // randomness for deciding first mover; both sides exchange and compare
     myStartTok: null, peerStartTok: null,
+    iFirst: false,         // am I the first mover?
     myTurn: false, turnDecided: false,
-    over: false, finalSent: false,
+    over: false,
     myGuesses: [],    // {guess, a, b} — my guesses against peer (peer scores them)
     theirGuesses: [], // {guess, a, b} — peer's guesses against my secret (I score)
-    // "last chance" tracking: when one player hits 4A, the other gets exactly
-    // one more guess to try to tie. We resolve once both have had the chance.
-    pendingWin: null, // 'me' | 'them' | null  — who hit 4A first this round
+    // Round-based resolution. A "round" = both players guess once (first mover,
+    // then second mover). We resolve a round ONLY once BOTH players' guesses for
+    // that round are in — never on message arrival order. iHit/peerHit record
+    // whether each side hit 4A in the current round.
+    round: 0,
+    iGuessedThisRound: false, iHit: false,
+    peerGuessedThisRound: false, peerHit: false,
     rematchMine: false, rematchPeer: false,
   };
 }
@@ -715,7 +844,9 @@ function maybeDecideTurn() {
   let iFirst;
   if (G.myStartTok !== G.peerStartTok) iFirst = G.myStartTok > G.peerStartTok;
   else iFirst = G.isHost; // astronomically unlikely tie
+  G.iFirst = iFirst;
   G.myTurn = iFirst;
+  G.round = 1;
   G.turnDecided = true;
   dbg('turn decided, iFirst=', iFirst);
 }
@@ -780,7 +911,14 @@ function maybeStartGame() {
 function startGameBoard() {
   showView('game-view');
   setStatus('遊戲進行中', 'ok');
-  G.over = false; G.finalSent = false; G.pendingWin = null;
+  G.over = false;
+  G.iGuessedThisRound = false; G.iHit = false;
+  G.peerGuessedThisRound = false; G.peerHit = false;
+  $('mySecretShow').textContent = G.mySecret;
+  hp.reset();
+  hp.start();
+  ring.reset();
+  ring.start();
   renderHistories();
   updateProbabilities();
   refreshTurnUi();
@@ -791,8 +929,11 @@ function refreshTurnUi() {
   const banner = $('turnBanner');
   banner.classList.remove('theirs', 'over');
   if (G.over) return;
+  // If I'm the 2nd mover and the 1st mover already hit this round, my guess is
+  // a last-chance to tie. (peerHit && peer guessed first this round.)
+  const lastChance = !G.iFirst && G.peerGuessedThisRound && G.peerHit;
   if (G.myTurn) {
-    banner.textContent = G.pendingWin === 'them'
+    banner.textContent = lastChance
       ? '⚡ 對方已猜中！這是你的最後扳平機會'
       : '🎯 輪到你猜！';
     $('guessLabel').textContent = '輸入你要猜的 4 位數';
@@ -800,7 +941,7 @@ function refreshTurnUi() {
     focusFirst('guessDigits');
   } else {
     banner.classList.add('theirs');
-    banner.textContent = G.pendingWin === 'me'
+    banner.textContent = (G.iFirst && G.iGuessedThisRound && G.iHit)
       ? '你已猜中，等待對方最後一猜…'
       : '⏳ 等待對方猜測…';
     $('guessLabel').textContent = '等待對方出手…';
@@ -823,6 +964,7 @@ function submitGuess() {
     return;
   }
   msgEl.textContent = '';
+  G.myTurn = false;            // lock my turn until the round progresses
   setGuessEnabled(false);
   // Send to peer; they score against their secret and reply with 'result'.
   send({ type: 'guess', guess: g });
@@ -833,54 +975,741 @@ function onMyGuessResolved(rec) {
   clearDigits('guessDigits');
   renderHistories();
   updateProbabilities();
-  const hit = rec.a === 4;
-  if (hit) {
-    // I hit. If peer already hit this round → tie. Otherwise peer gets one
-    // last guess (unless it's already their pending fail).
-    if (G.pendingWin === 'them') return finish('tie');
-    G.pendingWin = 'me';
-    G.myTurn = false;
-    refreshTurnUi();
-    toast('你猜中了！等待對方最後一猜');
-    return;
-  }
-  // No hit. If peer had hit first and I was the last-chance, peer wins now.
-  if (G.pendingWin === 'them') return finish('lose');
-  // Normal: pass turn to peer.
-  G.myTurn = false;
-  refreshTurnUi();
+  ring.punch(true, rec.a, rec.b);  // I throw the punch at the peer
+  G.iGuessedThisRound = true;
+  G.iHit = rec.a === 4;
+  if (G.iHit) toast('你猜中了！');
+  afterGuessProgress();
 }
 
 // Peer's guess against my secret was just scored & sent.
 function onPeerGuessResolved(a, b) {
   renderHistories();
   updateProbabilities();
-  const hit = a === 4;
-  if (hit) {
-    if (G.pendingWin === 'me') return finish('tie');
-    G.pendingWin = 'them';
-    G.myTurn = true; // my last-chance
+  ring.punch(false, a, b);         // the peer throws the punch at me
+  G.peerGuessedThisRound = true;
+  G.peerHit = a === 4;
+  if (G.peerHit && !G.iFirst) toast('對方猜中了！這是你的最後扳平機會');
+  afterGuessProgress();
+}
+
+// Called after either side's guess for the round resolves. Advances the turn
+// or, once BOTH players have guessed this round, resolves the round. This is
+// order-independent: it only acts on the确定狀態 (both-guessed), never on which
+// message happened to arrive first.
+function afterGuessProgress() {
+  if (G.over) return;
+  const bothGuessed = G.iGuessedThisRound && G.peerGuessedThisRound;
+
+  if (bothGuessed) {
+    // Round complete. If anyone hit, the match ends now (the 2nd mover already
+    // had their last-chance guess this round). Otherwise start a new round.
+    if (G.iHit || G.peerHit) return resolveRound();
+    // Nobody hit → next round; first mover guesses first again.
+    G.round++;
+    G.iGuessedThisRound = false; G.iHit = false;
+    G.peerGuessedThisRound = false; G.peerHit = false;
+    G.myTurn = G.iFirst;
     refreshTurnUi();
-    toast('對方猜中了！這是你的最後扳平機會');
     return;
   }
-  if (G.pendingWin === 'me') return finish('win'); // peer's last chance failed
-  G.myTurn = true;
+
+  // Only one side has guessed so far this round → hand the turn to whoever
+  // hasn't guessed yet. The mover order within a round is fixed (first, second).
+  G.myTurn = !G.iGuessedThisRound;
   refreshTurnUi();
 }
+
+// Decide the winner once both players have guessed in the deciding round.
+function resolveRound() {
+  if (G.over) return;
+  if (G.iHit && G.peerHit) return finish('tie');
+  // Exactly one hit. The first mover hitting wins (second mover's last-chance
+  // also being needed only matters for tie). If only I hit:
+  if (G.iHit && !G.peerHit) return finish('win');
+  if (G.peerHit && !G.iHit) return finish('lose');
+}
+
+// ── Street-Fighter HP bars ────────────────────────────
+// Each side has a health bar. HP = how "safe" that player's secret still is.
+// As the opponent narrows the candidate set, HP drains; a chip-damage white
+// ghost trails behind. Yellow → orange → red → black/red-flash near death.
+// Fed by hp.setHP(myHP, peerHP, flags). myHP is MY bar (drains as the peer
+// closes in on me); peerHP is the opponent's bar (drains as I close in).
+const hp = (() => {
+  let raf = 0, running = false, t = 0, lastBeat = 0;
+  // displayed HP eases toward target; ghost lags further behind for chip look.
+  let myHP = 1, peerHP = 1, myTarget = 1, peerTarget = 1;
+  // recoil counters: > 0 = that face is shaking from a fresh hit (counts down).
+  let myHit = 0, peerHit = 0;
+
+  // Map a candidate count to HP in [0,1]. Full universe (5040) = full HP;
+  // 1 candidate = 0 HP (about to be cracked). Log scale so HP plummets as the
+  // opponent closes in — dramatic endgame, like a real fighting game.
+  function hpOf(cand) {
+    if (cand <= 1) return 0;
+    return Math.max(0, Math.min(1, Math.log(cand) / Math.log(5040)));
+  }
+
+  function setHP(candIHit, candTheyHit, flags) {
+    // candTheyHit = peer's progress cracking ME → drives MY bar down.
+    // candIHit   = my progress cracking the PEER → drives THEIR bar down.
+    const newMy   = flags?.peerSolved ? 0 : hpOf(candTheyHit);
+    const newPeer = flags?.iSolved    ? 0 : hpOf(candIHit);
+    // A meaningful HP drop = a fresh "punch" → make that face recoil.
+    if (newMy   < myTarget   - 0.01) myHit = 6;
+    if (newPeer < peerTarget - 0.01) peerHit = 6;
+    myTarget = newMy; peerTarget = newPeer;
+    applyTier();
+  }
+
+  // Apply color/critical classes to each side based on its HP.
+  function tierClass(side, v) {
+    side.classList.remove('warn', 'low', 'crit');
+    if (v <= 0.15) side.classList.add('crit');
+    else if (v <= 0.33) side.classList.add('low');
+    else if (v <= 0.6) side.classList.add('warn');
+  }
+  function applyTier() {
+    const L = $('hpLeftSide'), R = $('hpRightSide');
+    if (L) tierClass(L, myTarget);
+    if (R) tierClass(R, peerTarget);
+  }
+
+  function render() {
+    myHP   += (myTarget   - myHP)   * 0.18;
+    peerHP += (peerTarget - peerHP) * 0.18;
+    // Keep the boxers' postures in sync with HP (weaker stance when low).
+    ring.setHP(myHP, peerHP);
+    t++;
+    const fl = $('hpFillL'), fr = $('hpFillR'), gl = $('hpGhostL'), gr = $('hpGhostR');
+    const pl = $('hpPctL'), pr = $('hpPctR');
+    const myPct = (myHP * 100).toFixed(1) + '%', peerPct = (peerHP * 100).toFixed(1) + '%';
+    if (fl) fl.style.width = myPct;
+    if (fr) fr.style.width = peerPct;
+    // Ghost trails the fill. The fill snaps (.25s) while the ghost eases slower
+    // (.55s w/ delay, set in CSS), so a white "chip damage" sliver lingers
+    // behind the real bar after each hit, like Street Fighter.
+    if (gl) gl.style.width = myPct;
+    if (gr) gr.style.width = peerPct;
+    if (pl) pl.textContent = Math.round(myHP * 100) + '%';
+    if (pr) pr.textContent = Math.round(peerHP * 100) + '%';
+
+    // Redraw the beaten-up faces — more HP lost = more swollen & bruised.
+    drawFace($('faceL'), myHP, +1, myHit);
+    drawFace($('faceR'), peerHP, -1, peerHit);
+    if (myHit > 0) myHit--;
+    if (peerHit > 0) peerHit--;
+
+    // Heartbeat audio when either bar is critically low.
+    const lowest = Math.min(myTarget, peerTarget);
+    if (lowest <= 0.35) {
+      const intensity = 1 - lowest / 0.35;
+      const interval = Math.round(42 - intensity * 28);
+      if (t - lastBeat >= interval) { lastBeat = t; sfx.heartbeat(0.4 + intensity * 0.6); }
+    }
+    if (running) raf = requestAnimationFrame(render);
+  }
+
+  // Draw a face on a canvas. v = HP 0..1 (0 = knocked out, badly swollen).
+  // facing: +1 looks right, -1 looks left (mirror). hit > 0 = recoil shake.
+  function drawFace(c, v, facing, hit) {
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    const W = c.width, H = c.height, cx = W / 2, cy = H / 2;
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    // Recoil: shove the face away from the punch (away from center) on a hit.
+    if (hit > 0) {
+      const k = hit / 6;
+      ctx.translate(-facing * k * 10, (Math.random() < .5 ? 1 : -1) * k * 4);
+    }
+    ctx.translate(cx, cy);
+    ctx.scale(facing, 1); // mirror so both faces look toward the middle
+
+    const dmg = 1 - v;                       // 0 healthy → 1 wrecked
+    const swell = dmg;                        // cheek puffiness
+    // Skin tone drifts from healthy to blotchy red/purple as damage rises.
+    const skin = lerpColor([245, 211, 168], [206, 140, 150], dmg * 0.8);
+    const rW = 46 + swell * 16;               // face widens as it swells
+    const rH = 50 + swell * 6;
+
+    // Head (swollen blob: wider + lumpy bottom when hurt)
+    ctx.beginPath();
+    ctx.moveTo(0, -rH);
+    ctx.bezierCurveTo(rW, -rH, rW + swell * 10, rH * 0.5, swell * 6, rH);
+    ctx.bezierCurveTo(-rW - swell * 10, rH * 0.5, -rW, -rH, 0, -rH);
+    ctx.fillStyle = skin;
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2;
+    ctx.fill(); ctx.stroke();
+
+    // Bruise patches (greenish-purple) bloom on the cheeks when low.
+    if (dmg > 0.4) {
+      ctx.globalAlpha = (dmg - 0.4) / 0.6 * 0.6;
+      ctx.fillStyle = '#6b21a8';
+      ctx.beginPath(); ctx.ellipse(20, 6, 10 + swell * 6, 7, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3f6212';
+      ctx.beginPath(); ctx.ellipse(-18, 12, 8, 6, 0, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Eyes: open when healthy → swollen-shut slits → X when KO'd.
+    const eyeY = -8;
+    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 3; ctx.fillStyle = '#1f2937';
+    if (v <= 0.12) {
+      // X_X knocked-out eyes
+      [[-16, eyeY], [16, eyeY]].forEach(([ex, ey]) => {
+        ctx.beginPath();
+        ctx.moveTo(ex - 6, ey - 6); ctx.lineTo(ex + 6, ey + 6);
+        ctx.moveTo(ex + 6, ey - 6); ctx.lineTo(ex - 6, ey + 6);
+        ctx.stroke();
+      });
+    } else {
+      const open = Math.max(1.5, 8 * v);      // eyes squeeze shut as HP drops
+      [[-16, eyeY], [16, eyeY]].forEach(([ex, ey]) => {
+        // puffy lid above when swollen
+        ctx.beginPath();
+        ctx.ellipse(ex, ey, 8, open, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#1f2937'; ctx.stroke();
+        // pupil
+        ctx.beginPath();
+        ctx.arc(ex, ey, Math.min(3, open * 0.7), 0, Math.PI * 2);
+        ctx.fillStyle = '#1f2937'; ctx.fill();
+        // swollen lower lid bag
+        if (dmg > 0.5) {
+          ctx.beginPath();
+          ctx.ellipse(ex, ey + open + 2, 9, 3 + swell * 3, 0, 0, Math.PI * 2);
+          ctx.fillStyle = lerpColor([206,140,150],[124,58,90], dmg); ctx.fill();
+        }
+      });
+      // brows angle into a wince/frown as damage rises
+      const browTilt = dmg * 6;
+      ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-24, eyeY - 12 + browTilt); ctx.lineTo(-8, eyeY - 14);
+      ctx.moveTo(24, eyeY - 12 + browTilt); ctx.lineTo(8, eyeY - 14);
+      ctx.stroke();
+    }
+
+    // Mouth: smile → flat → open "ow!" grimace; a tooth-gap when wrecked.
+    ctx.lineWidth = 3; ctx.strokeStyle = '#7f1d1d';
+    const my = 24;
+    ctx.beginPath();
+    if (v > 0.66) {
+      ctx.moveTo(-12, my); ctx.quadraticCurveTo(0, my + 8, 12, my);     // smile
+      ctx.stroke();
+    } else if (v > 0.3) {
+      ctx.moveTo(-12, my + 2); ctx.lineTo(12, my + 2);                  // flat
+      ctx.stroke();
+    } else {
+      // pained open mouth (oval)
+      ctx.fillStyle = '#7f1d1d';
+      ctx.ellipse(0, my + 2, 9, 6 + dmg * 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Stars / dizziness above head when nearly out.
+    if (v <= 0.2) {
+      ctx.fillStyle = '#fbbf24';
+      for (let i = 0; i < 3; i++) {
+        const ang = t * 0.08 + i * (Math.PI * 2 / 3);
+        const sx = Math.cos(ang) * 26, sy = -rH - 12 + Math.sin(ang) * 6;
+        star(ctx, sx, sy, 5, 4, 2);
+      }
+    }
+    ctx.restore();
+  }
+
+  function star(ctx, x, y, points, outer, inner) {
+    ctx.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+      const r = i % 2 ? inner : outer;
+      const a = (Math.PI / points) * i - Math.PI / 2;
+      ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * r, y + Math.sin(a) * r);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+
+  // Blend two [r,g,b] arrays → css rgb string.
+  function lerpColor(a, b, k) {
+    k = Math.max(0, Math.min(1, k));
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`;
+  }
+
+  function start() {
+    if (running) return;
+    running = true; t = 0; lastBeat = 0;
+    raf = requestAnimationFrame(render);
+  }
+  function stop() {
+    running = false; cancelAnimationFrame(raf);
+    ['hpLeftSide','hpRightSide'].forEach(id => { const e = $(id); e && e.classList.remove('warn','low','crit'); });
+  }
+  function reset() {
+    myHP = 1; peerHP = 1; myTarget = 1; peerTarget = 1; myHit = 0; peerHit = 0;
+    ['hpGhostL','hpGhostR','hpFillL','hpFillR'].forEach(id => { const e = $(id); if (e) e.style.width = '100%'; });
+    ['hpPctL','hpPctR'].forEach(id => { const e = $(id); if (e) e.textContent = '100%'; });
+    drawFace($('faceL'), 1, +1, 0);
+    drawFace($('faceR'), 1, -1, 0);
+    applyTier();
+  }
+  // KO flash + thud when a bar empties.
+  function crack(side) {
+    const f = $('crackFlash');
+    if (f) { f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
+    sfx.thud();
+  }
+  // Compatibility alias so existing call sites keep working.
+  function setPressure(candIHit, candTheyHit, flags) { setHP(candIHit, candTheyHit, flags); }
+
+  return { setHP, setPressure, start, stop, reset, crack };
+})();
+
+// ── Boxing ring ───────────────────────────────────────
+// Two fighters trade blows. Each guess fires ring.punch(byMe, a, b): the
+// guesser lunges and throws a punch; the target reacts by the A/B result.
+//   4A      → KO (heavy hit, white flash, "K.O.!", target floored)
+//   0A0B    → MISS (target slips it, "MISS", fist whiffs)
+//   else    → connecting hit, damage = A*25 + B*8 (A heavy, B light)
+const ring = (() => {
+  const cv = () => $('ringCanvas');
+  let ctx = null, raf = 0, running = false, t = 0;
+  // Each fighter: x base position, lunge offset, recoil offset, "down" 0..1.
+  // side L = me (blue, left, faces right), R = peer (red, right, faces left).
+  const F = {
+    L: { hp: 1, lunge: 0, recoil: 0, down: 0, stagger: 0 },
+    R: { hp: 1, lunge: 0, recoil: 0, down: 0, stagger: 0 },
+  };
+  let fx = [];        // transient effects: floating dmg text, stars, "MISS"/"KO!"
+  let shake = 0;      // screen shake amplitude
+  let flash = 0;      // white KO flash 0..1
+  let anim = null;    // active punch animation {by, target, frame, dur, dmg, kind}
+
+  function setHP(myHP, peerHP) { F.L.hp = myHP; F.R.hp = peerHP; }
+
+  // Trigger a punch. byMe = I'm the one guessing (L attacks R); else R attacks L.
+  function punch(byMe, a, b) {
+    const attacker = byMe ? 'L' : 'R';
+    const target   = byMe ? 'R' : 'L';
+    let kind, dmg;
+    if (a === 4)              { kind = 'ko';   dmg = 100; }
+    else if (a === 0 && b === 0) { kind = 'miss'; dmg = 0; }
+    else                      { kind = 'hit';  dmg = a * 25 + b * 8; }
+    anim = { attacker, target, frame: 0, dur: kind === 'ko' ? 46 : 28, kind, dmg, hitAt: 10, applied: false };
+    if (!running) { start(); }  // ensure loop is alive
+  }
+
+  function spawnText(side, text, color, big) {
+    const c = cv(); if (!c) return;
+    const x = side === 'L' ? c.width * 0.34 : c.width * 0.66;
+    fx.push({ kind: 'text', text, color, x, y: 60, life: big ? 50 : 36, big });
+  }
+  function spawnStars(side) {
+    const c = cv(); if (!c) return;
+    const x = side === 'L' ? c.width * 0.3 : c.width * 0.7;
+    for (let i = 0; i < 5; i++) fx.push({ kind: 'star', x, y: 70, life: 40, i });
+  }
+
+  function resize() {
+    const c = cv(); if (!c) return;
+    const rect = c.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    c.width = Math.max(320, Math.round(rect.width * dpr));
+    c.height = Math.round(c.width * 230 / 700);
+    ctx = c.getContext('2d');
+  }
+
+  // Original "homage" fighters — NOT Capcom's Ryu/Ken (copyright/trademark).
+  // A karate-gi street fighter look: white-gi/white-band vs red-gi/red-band.
+  // gi   = dogi (uniform) color, band = headband color, glove = glove color.
+  // Limbs are drawn from a `pose` that the animation picks per frame, so it
+  // reads as stand / punch / hit / KO rather than one static image.
+  const SKIN = '#e7b48a', SKIN_SH = '#c98e63';
+
+  // Compute the current pose (joint angles/extension) for fighter `f`.
+  // reach 0..1 = punch extension; recoil = knocked-back; down = floored.
+  function poseOf(f, reach) {
+    const wob = Math.sin(t * 0.11) * 2;            // idle breathing bob
+    const stagger = f.stagger > 0 ? (Math.random() - .5) * f.stagger * 0.3 : 0;
+    return {
+      reach,
+      bob: wob,
+      recoil: f.recoil,
+      down: f.down,
+      // lead arm angle straightens as it punches
+      leadExt: reach,
+      stagger,
+      weak: 1 - f.hp,                               // slumps as HP drops
+    };
+  }
+
+  // facing +1 looks right, -1 looks left. Draws a muscly gi fighter.
+  function boxer(cx, groundY, scale, gi, band, glove, facing, f, reach) {
+    const p = poseOf(f, reach);
+    const s = scale;
+    ctx.save();
+    ctx.translate(cx + (f.lunge - f.recoil) * facing, p.bob + p.down * s * 30 + p.stagger);
+    ctx.rotate(f.down * facing * 1.15);             // topple onto back when KO'd
+    ctx.rotate(facing * (p.weak * 0.08));           // tired slump
+    ctx.scale(facing, 1);                           // everything below faces right
+
+    const hipY = groundY - 30 * s, shoulderY = groundY - 78 * s;
+    const headCx = 4 * s, headCy = shoulderY - 16 * s, headR = 13 * s;
+
+    // ── back leg (further from viewer) ──
+    limb(0, hipY, -16 * s, groundY - 30 * s, -22 * s, groundY, 13 * s, SKIN_SH, gi, true);
+    // ── back arm (rear guard, stays near chin unless throwing) ──
+    const backHandX = (10 - p.reach * 4) * s, backHandY = shoulderY + (6 + p.reach * 2) * s;
+    limb(2 * s, shoulderY + 4 * s, 8 * s, shoulderY + 10 * s, backHandX, backHandY, 11 * s, SKIN_SH, gi, false);
+    drawGlove(backHandX, backHandY, 8 * s, shade(glove, -20));
+
+    // ── torso (gi top with belt) ──
+    ctx.save();
+    ctx.translate(0, 0);
+    // muscular torso shape
+    ctx.beginPath();
+    ctx.moveTo(-12 * s, hipY);
+    ctx.quadraticCurveTo(-17 * s, (hipY + shoulderY) / 2, -13 * s, shoulderY);
+    ctx.lineTo(15 * s, shoulderY);
+    ctx.quadraticCurveTo(19 * s, (hipY + shoulderY) / 2, 12 * s, hipY);
+    ctx.closePath();
+    const torsoGrad = ctx.createLinearGradient(-15 * s, 0, 18 * s, 0);
+    torsoGrad.addColorStop(0, shade(gi, -22));
+    torsoGrad.addColorStop(.5, gi);
+    torsoGrad.addColorStop(1, shade(gi, -10));
+    ctx.fillStyle = torsoGrad; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1.5 * s; ctx.stroke();
+    // open-gi chest gap showing skin + pecs
+    ctx.beginPath();
+    ctx.moveTo(1 * s, shoulderY + 1 * s);
+    ctx.lineTo(8 * s, hipY - 2 * s);
+    ctx.lineTo(-4 * s, hipY - 2 * s);
+    ctx.closePath();
+    ctx.fillStyle = SKIN; ctx.fill();
+    // pec/ab shading lines
+    ctx.strokeStyle = SKIN_SH; ctx.lineWidth = 1.2 * s;
+    ctx.beginPath(); ctx.moveTo(2 * s, shoulderY + 14 * s); ctx.lineTo(2 * s, hipY - 4 * s); ctx.stroke();
+    // belt
+    ctx.fillStyle = shade(band, -10);
+    ctx.fillRect(-13 * s, hipY - 6 * s, 27 * s, 7 * s);
+    ctx.restore();
+
+    // ── front leg ──
+    limb(2 * s, hipY, 16 * s, groundY - 26 * s, 24 * s, groundY, 14 * s, SKIN, gi, true);
+
+    // ── head: skin + hair + headband with tails ──
+    // neck
+    ctx.strokeStyle = SKIN; ctx.lineWidth = 9 * s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(3 * s, shoulderY); ctx.lineTo(headCx, headCy + headR * .6); ctx.stroke();
+    // face
+    ctx.beginPath(); ctx.arc(headCx, headCy, headR, 0, Math.PI * 2);
+    ctx.fillStyle = SKIN; ctx.fill();
+    ctx.strokeStyle = SKIN_SH; ctx.lineWidth = 1 * s; ctx.stroke();
+    // jaw shadow
+    ctx.beginPath(); ctx.arc(headCx, headCy + 2 * s, headR, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.lineWidth = 2 * s; ctx.stroke();
+    // hair (dark, swept)
+    ctx.fillStyle = '#2b211b';
+    ctx.beginPath();
+    ctx.arc(headCx, headCy - 2 * s, headR, Math.PI * 1.02, Math.PI * 2.05);
+    ctx.lineTo(headCx + headR * .7, headCy - headR * .2);
+    ctx.closePath(); ctx.fill();
+    // eye (looking forward at foe)
+    ctx.fillStyle = '#1f2937';
+    ctx.beginPath(); ctx.arc(headCx + headR * .45, headCy - 1 * s, 1.6 * s, 0, Math.PI * 2); ctx.fill();
+    // brow (determined frown deepens when hurt)
+    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 2 * s;
+    ctx.beginPath();
+    ctx.moveTo(headCx + headR * .15, headCy - 5 * s);
+    ctx.lineTo(headCx + headR * .8, headCy - 3 * s + p.weak * 2 * s);
+    ctx.stroke();
+    // headband across forehead + trailing tails
+    ctx.fillStyle = band;
+    ctx.fillRect(headCx - headR, headCy - 6 * s, headR * 2.1, 5 * s);
+    ctx.strokeStyle = band; ctx.lineWidth = 3 * s; ctx.lineCap = 'round';
+    const tailWave = Math.sin(t * 0.3) * 4 * s;
+    ctx.beginPath();
+    ctx.moveTo(headCx - headR + 1 * s, headCy - 3 * s);
+    ctx.quadraticCurveTo(headCx - headR - 8 * s, headCy - 2 * s, headCx - headR - 14 * s, headCy + 2 * s + tailWave);
+    ctx.moveTo(headCx - headR + 1 * s, headCy - 1 * s);
+    ctx.quadraticCurveTo(headCx - headR - 7 * s, headCy + 4 * s, headCx - headR - 12 * s, headCy + 9 * s - tailWave);
+    ctx.stroke();
+
+    // ── front (punching) arm — drawn last, on top ──
+    const shx = 10 * s, shy = shoulderY + 6 * s;
+    const px = shx + (16 + p.reach * 30) * s, py = shy - p.reach * 4 * s;
+    const elbX = shx + (8 + p.reach * 16) * s, elbY = shy + (8 - p.reach * 6) * s;
+    limb(shx, shy, elbX, elbY, px, py, 12 * s, SKIN, gi, false);
+    drawGlove(px, py, 10 * s, glove);
+
+    ctx.restore();
+    // return punch contact point in canvas space
+    return { px: cx + (f.lunge - f.recoil) * facing + facing * px, py };
+  }
+
+  // A two-segment limb (shoulder→elbow→hand) drawn as tapered skin with a gi
+  // sleeve near the top. (sx,sy)=root, (ex,ey)=mid joint, (hx,hy)=end.
+  function limb(sx, sy, ex, ey, hx, hy, w, skin, gi, isLeg) {
+    ctx.lineCap = 'round';
+    // sleeve / pant (gi) on the upper segment
+    ctx.strokeStyle = shade(gi, isLeg ? -6 : -2); ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+    // bare skin lower segment
+    ctx.strokeStyle = skin; ctx.lineWidth = w * 0.8;
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
+  }
+  function drawGlove(x, y, r, color) {
+    const g = ctx.createRadialGradient(x - r * .3, y - r * .3, r * .2, x, y, r);
+    g.addColorStop(0, shade(color, 35));
+    g.addColorStop(1, shade(color, -15));
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+    // thumb nub
+    ctx.beginPath(); ctx.arc(x + r * .7, y + r * .3, r * .4, 0, Math.PI * 2);
+    ctx.fillStyle = shade(color, 10); ctx.fill();
+  }
+  // Lighten (+) / darken (−) a #rrggbb by amt (0..~60).
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+    const gr = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+    const b = Math.max(0, Math.min(255, (n & 255) + amt));
+    return `rgb(${r},${gr},${b})`;
+  }
+
+  function step() {
+    const c = cv(); if (!c || !ctx) return;
+    t++;
+    const W = c.width, H = c.height, scale = H / 230 * 1.12;
+    const groundY = H * 0.92;
+
+    // advance active punch animation
+    if (anim) {
+      const at = F[anim.attacker], tg = F[anim.target];
+      const p = anim.frame / anim.dur;
+      // lunge: ramp out to hitAt then return
+      const hp = anim.hitAt / anim.dur;
+      at.lunge = (p < hp ? p / hp : Math.max(0, 1 - (p - hp) / (1 - hp))) * (anim.kind === 'ko' ? 42 : 30);
+      // apply impact once at hitAt
+      if (!anim.applied && anim.frame >= anim.hitAt) {
+        anim.applied = true;
+        if (anim.kind === 'miss') {
+          spawnText(anim.target, 'MISS', '#94a3b8', false);
+          sfx.whiff && sfx.whiff();
+        } else if (anim.kind === 'ko') {
+          tg.recoil = 30; tg.down = 0; tg.stagger = 60;
+          shake = 16; flash = 1;
+          spawnText(anim.target, 'K.O.!', '#fca5a5', true);
+          spawnStars(anim.target);
+          sfx.thud();
+        } else {
+          const k = Math.min(1, anim.dmg / 80);
+          tg.recoil = 8 + k * 18; tg.stagger = 20 + k * 20;
+          shake = 4 + k * 9;
+          spawnText(anim.target, '-' + Math.round(anim.dmg), k > 0.6 ? '#fca5a5' : '#fde68a', k > 0.6);
+          if (k > 0.55) spawnStars(anim.target);
+          sfx.punch ? sfx.punch(k) : sfx.thud();
+        }
+      }
+      anim.frame++;
+      if (anim.frame > anim.dur) { at.lunge = 0; anim = null; }
+    }
+
+    // ease recoils / stagger back to rest
+    ['L', 'R'].forEach(k => {
+      F[k].recoil *= 0.82;
+      if (F[k].stagger > 0) F[k].stagger--;
+      // KO'd fighter (hp 0) sinks down
+      const wantDown = F[k].hp <= 0.001 ? 1 : 0;
+      F[k].down += (wantDown - F[k].down) * 0.12;
+    });
+    shake *= 0.85;
+    flash *= 0.8;
+
+    // ── draw ──
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0.4) ctx.translate((Math.random()-.5)*shake, (Math.random()-.5)*shake);
+
+    // floor + ropes backdrop
+    const bg = ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#0b1020'); bg.addColorStop(1,'#11182e');
+    ctx.fillStyle = bg; ctx.fillRect(-20,-20,W+40,H+40);
+    ctx.fillStyle = '#1f2937'; ctx.fillRect(0, groundY, W, H-groundY);
+    ctx.strokeStyle = 'rgba(148,163,184,.25)'; ctx.lineWidth = 2;
+    [0.3,0.55].forEach(fr => { ctx.beginPath(); ctx.moveTo(0,H*fr); ctx.lineTo(W,H*fr); ctx.stroke(); });
+
+    const isAtkL = anim?.attacker === 'L', isAtkR = anim?.attacker === 'R';
+    // reach 0..1 driven by the lunge so the punching arm extends on the hit.
+    const reachL = isAtkL ? Math.min(1, F.L.lunge / 30) : 0;
+    const reachR = isAtkR ? Math.min(1, F.R.lunge / 30) : 0;
+    // You = white gi + red headband + red gloves (Ryu-style homage).
+    // Opponent = red gi + dark-red headband (Ken-style homage).
+    boxer(W*0.30, groundY, scale, '#eef2f7', '#dc2626', '#b91c1c', +1, F.L, reachL);
+    boxer(W*0.70, groundY, scale, '#dc2626', '#7f1d1d', '#7f1d1d', -1, F.R, reachR);
+
+    // effects
+    fx = fx.filter(e => e.life-- > 0);
+    fx.forEach(e => {
+      if (e.kind === 'text') {
+        const a = Math.min(1, e.life / 16);
+        ctx.globalAlpha = a;
+        ctx.font = `900 ${e.big ? 34 : 20}px sans-serif`;
+        ctx.fillStyle = e.color; ctx.textAlign = 'center';
+        ctx.fillText(e.text, e.x, e.y - (e.big ? (50-e.life) : (36-e.life)) * 0.8);
+        ctx.globalAlpha = 1;
+      } else if (e.kind === 'star') {
+        const ang = t*0.15 + e.i * 1.3;
+        ctx.fillStyle = '#fbbf24'; ctx.globalAlpha = Math.min(1, e.life/14);
+        const sx = e.x + Math.cos(ang)*22, sy = e.y - 30 + Math.sin(ang)*8;
+        rstar(sx, sy, 5, 5, 2.2); ctx.globalAlpha = 1;
+      }
+    });
+
+    ctx.restore();
+    if (flash > 0.02) { ctx.fillStyle = `rgba(255,255,255,${flash*0.7})`; ctx.fillRect(0,0,W,H); }
+
+    if (running) raf = requestAnimationFrame(step);
+  }
+  function rstar(x,y,p,o,inr){ ctx.beginPath(); for(let i=0;i<p*2;i++){const r=i%2?inr:o;const a=(Math.PI/p)*i-Math.PI/2;ctx[i?'lineTo':'moveTo'](x+Math.cos(a)*r,y+Math.sin(a)*r);} ctx.closePath(); ctx.fill(); }
+
+  function start() {
+    if (running) return;
+    resize(); running = true;
+    raf = requestAnimationFrame(step);
+    window.addEventListener('resize', resize);
+  }
+  function stop() {
+    running = false; cancelAnimationFrame(raf);
+    window.removeEventListener('resize', resize);
+  }
+  function reset() {
+    F.L = { hp:1, lunge:0, recoil:0, down:0, stagger:0 };
+    F.R = { hp:1, lunge:0, recoil:0, down:0, stagger:0 };
+    fx = []; shake = 0; flash = 0; anim = null;
+  }
+  return { punch, setHP, start, stop, reset };
+})();
+
+// ── Tiny WebAudio SFX (no asset files) ────────────────
+const sfx = (() => {
+  let ac = null;
+  function ctx() {
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch {} }
+    if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
+    return ac;
+  }
+  let lastBeatAt = 0;
+  function heartbeat(intensity) {
+    const a = ctx(); if (!a) return;
+    // throttle (frames already gate it, but guard double-calls)
+    const now = a.currentTime;
+    if (now - lastBeatAt < 0.12) return;
+    lastBeatAt = now;
+    // two quick low thumps "lub-dub", pitch & gain rise with intensity
+    const base = 60 + intensity * 30;
+    [0, 0.13].forEach((off, i) => {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine';
+      o.frequency.value = base * (i ? 0.85 : 1);
+      const v = 0.05 + intensity * 0.25;
+      g.gain.setValueAtTime(0, now + off);
+      g.gain.linearRampToValueAtTime(v, now + off + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, now + off + 0.16);
+      o.connect(g); g.connect(a.destination);
+      o.start(now + off); o.stop(now + off + 0.18);
+    });
+  }
+  function thud() {
+    const a = ctx(); if (!a) return;
+    const now = a.currentTime;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(180, now);
+    o.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+    g.gain.setValueAtTime(0.5, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    o.connect(g); g.connect(a.destination);
+    o.start(now); o.stop(now + 0.36);
+  }
+  function ding(win) {
+    const a = ctx(); if (!a) return;
+    const now = a.currentTime;
+    const notes = win ? [523, 659, 784, 1047] : [392, 311];
+    notes.forEach((f, i) => {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      const ts = now + i * 0.12;
+      g.gain.setValueAtTime(0, ts);
+      g.gain.linearRampToValueAtTime(0.28, ts + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, ts + 0.4);
+      o.connect(g); g.connect(a.destination);
+      o.start(ts); o.stop(ts + 0.42);
+    });
+  }
+  // Connecting punch: a short noise burst + low thump, heavier with k (0..1).
+  function punch(k) {
+    const a = ctx(); if (!a) return;
+    const now = a.currentTime;
+    // noise burst (the "smack")
+    const len = 0.12;
+    const buf = a.createBuffer(1, Math.ceil(a.sampleRate * len), a.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = a.createBufferSource(); src.buffer = buf;
+    const bp = a.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 800 + k * 1200;
+    const g = a.createGain();
+    g.gain.setValueAtTime(0.25 + k * 0.4, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + len);
+    src.connect(bp); bp.connect(g); g.connect(a.destination);
+    src.start(now);
+    // low body thump
+    const o = a.createOscillator(), og = a.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(140 + k * 60, now);
+    o.frequency.exponentialRampToValueAtTime(50, now + 0.18);
+    og.gain.setValueAtTime(0.2 + k * 0.4, now);
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    o.connect(og); og.connect(a.destination);
+    o.start(now); o.stop(now + 0.22);
+  }
+  // Whiff: a quick airy swoosh for a dodged miss.
+  function whiff() {
+    const a = ctx(); if (!a) return;
+    const now = a.currentTime;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(900, now);
+    o.frequency.exponentialRampToValueAtTime(280, now + 0.18);
+    const bp = a.createBiquadFilter(); bp.type = 'highpass'; bp.frequency.value = 500;
+    g.gain.setValueAtTime(0.12, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    o.connect(bp); bp.connect(g); g.connect(a.destination);
+    o.start(now); o.stop(now + 0.22);
+  }
+  return { heartbeat, thud, ding, punch, whiff };
+})();
 
 // ── Probabilities ─────────────────────────────────────
 // "Next guess hits" probability = 1 / (candidates still consistent with all
 // clues), i.e. the chance a rational deducer's next pick is correct.
 function updateProbabilities() {
-  // Chance the PEER hits MY secret next: based on the peer's guesses (theirGuesses).
-  const candTheyHit = countCandidates(G.theirGuesses);
-  $('probTheyHitMe').textContent = probText(candTheyHit);
-  $('probTheyHitMeSub').textContent = '剩餘候選 ' + candTheyHit;
-  // Chance I hit THE PEER's secret next: based on my guesses.
-  const candIHit = countCandidates(G.myGuesses);
-  $('probIHitThem').textContent = probText(candIHit);
-  $('probIHitThemSub').textContent = '剩餘候選 ' + candIHit;
+  // Once a side has already guessed correctly (a 4A in the log), there's no
+  // meaningful "next guess" probability — they've found it. Show 已猜中 instead
+  // of a misleading 100%.
+  const peerSolved = G.theirGuesses.some(r => r.a === 4);
+  const iSolved = G.myGuesses.some(r => r.a === 4);
+  // candTheyHit = how close the PEER is to cracking ME (drains MY HP);
+  // candIHit   = how close I am to cracking the PEER (drains THEIR HP).
+  // Smaller candidate set = closer = lower HP. Solved → 0 HP (1 candidate).
+  const candTheyHit = peerSolved ? 1 : countCandidates(G.theirGuesses);
+  const candIHit    = iSolved    ? 1 : countCandidates(G.myGuesses);
+
+  // Feed the Street-Fighter HP bars.
+  hp.setHP(candIHit, candTheyHit, { iSolved, peerSolved });
 }
 
 // ── History rendering ─────────────────────────────────
@@ -912,6 +1741,22 @@ function finish(outcome) {
   G.over = true;
   // Reveal my secret so the peer (incl. a loser who never guessed it) can see it.
   send({ type: 'reveal', secret: G.mySecret });
+  // Let the KO punch + knockdown play out for a beat before the result screen.
+  const koDelay = outcome === 'tie' ? 0 : 950;
+  if (koDelay) {
+    setStatus('K.O.!', 'busy');
+    setTimeout(() => { if (G && G.over) showResult(outcome); }, koDelay);
+  } else {
+    showResult(outcome);
+  }
+}
+
+function showResult(outcome) {
+  hp.stop();
+  ring.stop();
+  // KO flash + win/lose jingle.
+  if (outcome !== 'tie') hp.crack(outcome === 'lose' ? 'me' : 'them');
+  sfx.ding(outcome === 'win');
   showView('result-view');
   setStatus('遊戲結束');
   const big = $('resultBig'); big.className = 'result-big';
@@ -967,6 +1812,8 @@ function onPeerGone(reason) {
 }
 function teardown() {
   if (!G) return;
+  try { hp.stop(); } catch {}
+  try { ring.stop(); } catch {}
   try { G.neg?.reset(); } catch {}
   try { G.dc?.close(); } catch {}
   try { G.ws.close(); } catch {}
