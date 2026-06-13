@@ -76,18 +76,79 @@ body {
 }
 .game-stage { position: sticky; top: 76px; }
 .game-controls { min-width: 0; }
-/* Mobile / narrow: stack — stage on top (shrunk), controls below so the guess
-   input is always visible without scrolling past a huge animation. */
+/* Mobile / narrow: a compact top "arena" (~1/3 of the screen) and the guessing
+   controls below taking the remaining ~2/3 — that's where the player's attention
+   lives. The top is reorganised:
+     row 1 — my secret digits (left)   +   turn status (small, right)
+     row 2 — [my avatar+HP] [ the fighters/ring ] [opponent avatar+HP]
+   The fighters sit in the middle, flanked by both flattened HP bars. */
 @media (max-width: 720px) {
   #game-view { max-width: 760px; }
   .game-layout { grid-template-columns: 1fr; }
   .game-stage { position: static; }
-  /* shrink the show so the input below stays in view */
-  .hp-stage { padding: 10px 12px; gap: 8px; }
-  .hp-face { width: 46px; height: 46px; }
-  .hp-name { font-size: 11px; margin-bottom: 3px; }
-  .hp-head { margin-bottom: 4px; }
-  .hp-vs { font-size: 18px; }
+
+  /* ── row 1: secret digits left, turn status compact on the right ── */
+  .stage-top {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .stage-top .my-secret-bar {
+    order: 0;            /* digits on the LEFT */
+    margin: 0;
+    flex: 0 1 auto;
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .stage-top .my-secret-bar span { font-size: 20px; letter-spacing: 3px; margin-left: 2px; }
+  .stage-top .turn-banner {
+    order: 1;            /* status small on the RIGHT */
+    margin: 0;
+    flex: 0 1 auto;
+    max-width: 46%;
+    padding: 6px 10px;
+    font-size: 11px;
+    line-height: 1.25;
+    border-radius: 8px;
+    text-align: right;
+  }
+
+  /* ── row 2: flatten the HP stage and drop the ring into the middle ── */
+  .hp-stage {
+    grid-template-columns: auto minmax(0,1fr) auto;
+    padding: 8px 10px;
+    gap: 8px;
+    align-items: center;
+  }
+  .hp-stage .hp-vs { display: none; }   /* the ring takes the middle now */
+  /* Pin every cell explicitly so the hidden VS can't shift auto-placement:
+     my avatar | ring | opponent avatar, all on one row. */
+  .hp-stage .hp-left  { grid-column: 1; grid-row: 1; }
+  .hp-stage .ring-wrap {
+    grid-column: 2; grid-row: 1;         /* middle column, between the avatars */
+    align-self: center;
+    margin: 0;
+  }
+  .hp-stage .hp-right { grid-column: 3; grid-row: 1; }
+
+  /* flattened sides: avatar + a short HP bar, name/percent trimmed away */
+  .hp-side { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; }
+  .hp-name { display: none; }
+  .hp-pct  { display: none; }
+  .hp-head { margin: 0; }
+  .hp-face { width: 48px; height: 48px; }
+  .hp-bar  { width: 100%; height: 12px; }   /* squashed bars */
+}
+
+/* Very narrow phones: shrink the arena a touch more so the 2/3 controls win. */
+@media (max-width: 420px) {
+  .hp-side { width: 54px; }
+  .hp-face { width: 42px; height: 42px; }
+  .stage-top .my-secret-bar span { font-size: 18px; }
 }
 
 .card {
@@ -220,6 +281,11 @@ body {
 .turn-banner.theirs { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
 .turn-banner.over { background: #fffbeb; color: #b45309; border-color: #fde68a; }
 
+/* On desktop the top strip stacks: turn banner first, then the secret bar.
+   On mobile it becomes a compact 2-col header (digits left, status right). */
+.stage-top { display: flex; flex-direction: column; }
+.stage-top .turn-banner { order: -1; }
+
 .my-secret-bar {
   text-align: center; font-size: 13px; color: #64748b;
   background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 10px;
@@ -274,6 +340,13 @@ body {
   padding: 16px 18px;
   margin-bottom: 14px;
 }
+/* The ring is the 4th child of .hp-stage. On desktop it spans the whole grid
+   as a second row, sitting full-width under the HP bars (original look).
+   Scoped to min-width so it doesn't override the mobile arena placement
+   (media queries add no specificity, so plain rules would otherwise win). */
+@media (min-width: 721px) {
+  .hp-stage .ring-wrap { grid-column: 1 / -1; margin-bottom: 0; }
+}
 .hp-name { font-size: 12px; font-weight: 800; letter-spacing: .06em; margin-bottom: 6px; color: #cbd5e1; }
 .hp-right .hp-name { text-align: right; }
 .hp-head {
@@ -286,7 +359,7 @@ body {
   background: #111827;
   border: 2px solid #1e293b;
 }
-@media (max-width: 520px) { .hp-face { width: 54px; height: 54px; } }
+/* (mobile arena sizing for .hp-face is handled in the max-width:720px block) */
 .hp-side.crit .hp-face { border-color: #7f1d1d; animation: hpCrit .5s infinite; }
 
 /* ── Boxing ring ──────────────────────────────────────── */
@@ -342,7 +415,7 @@ body {
   color: #fbbf24; text-shadow: 0 2px 0 #b45309, 0 0 14px rgba(251,191,36,.5);
   letter-spacing: 1px; padding: 0 4px;
 }
-@media (max-width: 520px) { .hp-vs { font-size: 20px; } .hp-stage { gap: 8px; padding: 12px; } }
+/* (hp-vs is hidden + hp-stage padding handled in the max-width:720px arena block) */
 
 /* Whole-screen red pulse when someone gets cracked */
 #crackFlash {
@@ -466,9 +539,16 @@ body {
 
       <!-- LEFT / TOP: the show (banner + HP + boxing ring) -->
       <div class="game-stage">
-        <div class="turn-banner" id="turnBanner">準備中…</div>
+        <!-- Top strip — on mobile this becomes the compact header:
+             my secret digits at top-left, the turn status small at top-right. -->
+        <div class="stage-top">
+          <div class="my-secret-bar">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
+          <div class="turn-banner" id="turnBanner">準備中…</div>
+        </div>
 
-        <!-- Street-Fighter-style health bars. HP = how safe a secret still is. -->
+        <!-- Street-Fighter-style health bars. HP = how safe a secret still is.
+             On mobile the boxing ring slots into the middle so the two
+             avatars+HP bars flank the fighters. -->
         <div class="hp-stage" id="hpStage">
           <div class="hp-side hp-left" id="hpLeftSide">
             <div class="hp-name">🟦 你</div>
@@ -479,7 +559,10 @@ body {
             </div>
             <div class="hp-pct" id="hpPctL">100%</div>
           </div>
+
+          <!-- middle cell: "VS" on desktop -->
           <div class="hp-vs" id="hpVs">VS</div>
+
           <div class="hp-side hp-right" id="hpRightSide">
             <div class="hp-name">對手 🟥</div>
             <div class="hp-head"><canvas id="faceR" class="hp-face" width="160" height="160"></canvas></div>
@@ -489,18 +572,18 @@ body {
             </div>
             <div class="hp-pct" id="hpPctR">100%</div>
           </div>
-        </div>
 
-        <!-- Boxing ring: each guess = a punch (4A=KO, 0A0B=miss, else A*25+B*8). -->
-        <div class="ring-wrap" id="ringWrap">
-          <canvas id="ringCanvas" width="700" height="200"></canvas>
+          <!-- Boxing ring: each guess = a punch (4A=KO, 0A0B=miss, else A*25+B*8).
+               Desktop: spans full width as a 2nd row under the HP bars.
+               Mobile: re-placed into the middle column, flanked by the avatars. -->
+          <div class="ring-wrap" id="ringWrap">
+            <canvas id="ringCanvas" width="700" height="200"></canvas>
+          </div>
         </div>
       </div>
 
-      <!-- RIGHT / BOTTOM: your secret, the guess input, history -->
+      <!-- RIGHT / BOTTOM: the guess input, history -->
       <div class="game-controls">
-        <div class="my-secret-bar">你的祕密數字（對方要猜的）：<span id="mySecretShow">—</span></div>
-
         <div class="card">
           <div class="field-label" id="guessLabel" style="text-align:center;">輪到你猜！輸入 4 位數</div>
           <div class="guess-input-row" id="guessDigits">
