@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>猜數字 1A2B 對戰</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+  background: #f1f5f9;
+  color: #2c3e50;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 14px 24px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.app-header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: .02em;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color .2s, color .2s, border-color .2s;
+}
+.status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+.status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+.status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+.status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+.page {
+  padding: 16px 20px 24px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  margin-bottom: 14px;
+}
+
+.field-label {
+  font-size: .72rem;
+  font-weight: 700;
+  color: #0d9488;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 6px;
+}
+
+/* ── Picker ───────────────────────────────────────────── */
+#picker { text-align: center; padding: 36px 22px; }
+#picker h2 { font-size: 22px; margin-bottom: 8px; color: #1e293b; font-weight: 700; }
+#picker p  { font-size: 13px; color: #64748b; margin-bottom: 24px; line-height: 1.6; }
+
+.pick-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 6px; }
+.pick-btn {
+  flex: 1 1 240px;
+  max-width: 300px;
+  padding: 22px 18px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  color: inherit;
+}
+.pick-btn:hover { border-color: #0d9488; background: #f0fdfa; transform: translateY(-2px); }
+.pick-btn .label { font-size: 15px; font-weight: 700; color: #1e293b; }
+.pick-btn .desc  { font-size: 12px; color: #64748b; }
+.pick-btn .ico { font-size: 30px; }
+
+.join-divider {
+  display: flex; align-items: center;
+  margin: 24px 0 14px;
+  color: #94a3b8; font-size: 12px; gap: 12px;
+}
+.join-divider::before, .join-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+.join-row { display: flex; gap: 8px; max-width: 420px; margin: 0 auto; }
+.join-row input {
+  flex: 1;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 16px; padding: 11px 14px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  background: #f8fafc; color: #1e293b; outline: none;
+  letter-spacing: 2px; text-align: center;
+}
+.join-row input:focus { border-color: #0d9488; background: #fff; }
+.join-hint { font-size: 12px; color: #94a3b8; margin-top: 10px; text-align: center; line-height: 1.6; }
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn {
+  padding: 10px 16px; font-size: 13px; font-weight: 700;
+  border-radius: 8px; border: none; cursor: pointer;
+  letter-spacing: .04em; font-family: inherit;
+  transition: background .15s, color .15s, opacity .15s;
+  white-space: nowrap;
+}
+.btn-primary { background: #0d9488; color: #fff; }
+.btn-primary:hover { background: #0f766e; }
+.btn-ghost { background: transparent; color: #475569; border: 1.5px solid #e2e8f0; }
+.btn-ghost:hover { background: #f1f5f9; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.code-big {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 30px; font-weight: 700; letter-spacing: 6px;
+  color: #0d9488; text-align: center;
+  padding: 14px 8px; background: #f0fdfa;
+  border: 1.5px dashed #99f6e4; border-radius: 10px;
+  margin-bottom: 14px; user-select: all; cursor: text;
+}
+.link-box { display: flex; gap: 8px; align-items: stretch; margin-bottom: 14px; }
+.link-box input {
+  flex: 1; font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 12px; padding: 10px 12px;
+  border: 1.5px solid #e2e8f0; border-radius: 8px;
+  background: #f8fafc; color: #1e293b; outline: none; min-width: 0;
+}
+.link-box input:focus { border-color: #0d9488; }
+
+.info-row {
+  display: flex; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px dashed #e2e8f0; font-size: 13px;
+}
+.info-row:last-child { border-bottom: none; }
+.info-row .k { color: #64748b; }
+.info-row .v { color: #1e293b; font-weight: 600; font-family: ui-monospace, monospace; }
+
+/* ── Secret setup ─────────────────────────────────────── */
+.digit-row { display: flex; gap: 10px; justify-content: center; margin: 14px 0; }
+.digit-box {
+  width: 56px; height: 64px;
+  font-size: 30px; font-weight: 700;
+  text-align: center;
+  border: 1.5px solid #e2e8f0; border-radius: 12px;
+  background: #f8fafc; color: #1e293b; outline: none;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+}
+.digit-box:focus { border-color: #0d9488; background: #fff; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+.digit-box.bad { border-color: #fecaca; background: #fef2f2; }
+.setup-msg { font-size: 12px; color: #94a3b8; text-align: center; min-height: 18px; margin-bottom: 12px; }
+.setup-msg.err { color: #b91c1c; }
+
+/* ── Game board ───────────────────────────────────────── */
+.turn-banner {
+  text-align: center; padding: 14px;
+  border-radius: 12px; font-size: 16px; font-weight: 700;
+  margin-bottom: 14px;
+  background: #f0fdfa; color: #0f766e; border: 1.5px solid #99f6e4;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.turn-banner.theirs { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
+.turn-banner.over { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+
+.prob-row {
+  display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.prob-card {
+  flex: 1 1 200px; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px;
+  text-align: center;
+}
+.prob-card .ptitle { font-size: 11px; color: #64748b; font-weight: 700; letter-spacing: .04em; margin-bottom: 6px; }
+.prob-card .pval { font-size: 24px; font-weight: 800; color: #0d9488; font-family: ui-monospace, monospace; }
+.prob-card .psub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+.guess-input-row { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 6px 0 4px; }
+.guess-input-row .digit-box { width: 50px; height: 58px; font-size: 26px; }
+
+.history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .history-grid { grid-template-columns: 1fr; } }
+.hist-col .field-label { margin-bottom: 8px; }
+.hist-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.hist-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 8px 12px; font-family: ui-monospace, monospace; font-size: 14px;
+}
+.hist-item .g { font-weight: 700; letter-spacing: 3px; color: #1e293b; }
+.hist-item .r { font-weight: 700; color: #0d9488; }
+.hist-item.win .r { color: #15803d; }
+.hist-empty { font-size: 12px; color: #94a3b8; padding: 6px 2px; }
+
+.actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+#toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1e293b; color: #fff;
+  padding: 9px 18px; border-radius: 999px; font-size: 13px;
+  opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none; z-index: 100;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.config-warn {
+  background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+  padding: 14px 16px; border-radius: 10px; font-size: 13px; line-height: 1.55; margin-bottom: 14px;
+}
+.config-warn code { background: #fff; padding: 1px 5px; border-radius: 4px; }
+
+.result-big { text-align: center; font-size: 30px; font-weight: 800; margin-bottom: 6px; }
+.result-big.win  { color: #15803d; }
+.result-big.lose { color: #b91c1c; }
+.result-big.tie  { color: #b45309; }
+.result-sub { text-align: center; font-size: 14px; color: #64748b; margin-bottom: 14px; }
+.reveal { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 3px; color: #1e293b; }
+
+.rules { font-size: 12px; color: #64748b; line-height: 1.7; }
+.rules b { color: #475569; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>🔢 猜數字 1A2B 對戰 <span style="font-weight:400;color:#94a3b8;font-size:12px;margin-left:6px;">WebRTC P2P</span></h1>
+  <div class="status-pill" id="statusPill">
+    <span class="dot"></span><span id="statusText">待機中</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- mode A: picker -->
+  <section id="picker" class="card" hidden>
+    <h2>猜數字 1A2B</h2>
+    <p>兩人各自設定一組 4 位數（數字不重複，0 可放任意位置），<br>輪流猜對方的數字。建一個房間把代碼傳給對方。</p>
+    <div class="pick-row">
+      <button class="pick-btn" id="btnCreate">
+        <span class="ico">🎮</span>
+        <span class="label">建立房間</span>
+        <span class="desc">產生代碼傳給朋友</span>
+      </button>
+    </div>
+    <div class="join-divider"><span>或</span></div>
+    <div class="join-row">
+      <input id="joinInput" type="text" inputmode="numeric" autocomplete="off"
+             placeholder="輸入 6 位數房間代碼" maxlength="32">
+      <button class="btn btn-primary" id="joinBtn">加入</button>
+    </div>
+    <div class="join-hint">也可以直接貼上分享連結。每個房間最多 2 人。</div>
+
+    <div class="card" style="margin-top:26px;text-align:left;background:#f8fafc;">
+      <div class="field-label">遊戲規則</div>
+      <div class="rules">
+        • 兩人各設一組 <b>4 位數</b>，數字 <b>不可重複</b>，<b>0</b> 可以放在任何位置（含第一位）。<br>
+        • 連線後系統<b>隨機決定誰先猜</b>，之後輪流，<b>一人猜一次</b>。<br>
+        • 每次猜測會回報 <b>幾A幾B</b>：A=數字與位置都對，B=數字對但位置錯（標準規則）。<br>
+        • 若先猜的人猜中（4A），<b>後猜的人仍可再猜一次</b>當作扳平機會。<br>
+        &nbsp;&nbsp;– 兩人在同一回合都猜中 → <b>平手</b>；否則先猜中者獲勝。<br>
+        • 每次猜完會顯示「<b>下一次被猜中的機率</b>」＝ 依目前所有線索仍符合的候選數推算（1 / 剩餘候選數）。
+      </div>
+    </div>
+  </section>
+
+  <!-- mode B: lobby (waiting for peer) -->
+  <section id="lobby-view" class="card" hidden>
+    <div class="field-label">房間代碼</div>
+    <div class="code-big" id="lobbyRoomId">—</div>
+    <div class="field-label" style="margin-top:6px;">或分享連結</div>
+    <div class="link-box">
+      <input id="lobbyShareUrl" type="text" readonly>
+      <button class="btn btn-primary" id="lobbyCopyBtn">複製</button>
+    </div>
+    <div class="info-row"><span class="k">連線狀態</span><span class="v" id="lobbyConnState">等待對方加入</span></div>
+    <div class="actions">
+      <button class="btn btn-danger" id="lobbyCancelBtn">取消</button>
+    </div>
+  </section>
+
+  <!-- mode C: secret setup -->
+  <section id="setup-view" class="card" hidden>
+    <div class="field-label">設定你的祕密數字</div>
+    <p class="rules" style="margin:4px 0 6px;">輸入 4 位數，數字不可重複；0 可放任意位置。對方要猜的就是這組。</p>
+    <div class="digit-row" id="setupDigits">
+      <input class="digit-box" maxlength="1" inputmode="numeric" data-i="0">
+      <input class="digit-box" maxlength="1" inputmode="numeric" data-i="1">
+      <input class="digit-box" maxlength="1" inputmode="numeric" data-i="2">
+      <input class="digit-box" maxlength="1" inputmode="numeric" data-i="3">
+    </div>
+    <div class="setup-msg" id="setupMsg"></div>
+    <div class="actions" style="justify-content:center;">
+      <button class="btn btn-ghost" id="setupRandom">隨機產生</button>
+      <button class="btn btn-primary" id="setupConfirm">確認送出</button>
+    </div>
+    <div class="info-row" style="margin-top:14px;"><span class="k">你的狀態</span><span class="v" id="setupMine">設定中…</span></div>
+    <div class="info-row"><span class="k">對方狀態</span><span class="v" id="setupPeer">設定中…</span></div>
+  </section>
+
+  <!-- mode D: game board -->
+  <section id="game-view" hidden>
+    <div class="turn-banner" id="turnBanner">準備中…</div>
+
+    <div class="prob-row">
+      <div class="prob-card">
+        <div class="ptitle">對方下一次猜中我的機率</div>
+        <div class="pval" id="probTheyHitMe">—</div>
+        <div class="psub" id="probTheyHitMeSub">剩餘候選 —</div>
+      </div>
+      <div class="prob-card">
+        <div class="ptitle">我下一次猜中對方的機率</div>
+        <div class="pval" id="probIHitThem">—</div>
+        <div class="psub" id="probIHitThemSub">剩餘候選 —</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field-label" id="guessLabel" style="text-align:center;">輪到你猜！輸入 4 位數</div>
+      <div class="guess-input-row" id="guessDigits">
+        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="0">
+        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="1">
+        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="2">
+        <input class="digit-box" maxlength="1" inputmode="numeric" data-i="3">
+      </div>
+      <div class="setup-msg" id="guessMsg"></div>
+      <div class="actions" style="justify-content:center;">
+        <button class="btn btn-primary" id="guessBtn">送出猜測</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="history-grid">
+        <div class="hist-col">
+          <div class="field-label">我猜對方（<span id="myGuessCount">0</span> 次）</div>
+          <div class="hist-list" id="myHistory"><div class="hist-empty">尚未猜測</div></div>
+        </div>
+        <div class="hist-col">
+          <div class="field-label">對方猜我（<span id="theirGuessCount">0</span> 次）</div>
+          <div class="hist-list" id="theirHistory"><div class="hist-empty">尚未猜測</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-danger" id="gameLeaveBtn" style="margin-left:auto;">離開遊戲</button>
+    </div>
+  </section>
+
+  <!-- mode E: result -->
+  <section id="result-view" class="card" hidden>
+    <div class="result-big" id="resultBig">—</div>
+    <div class="result-sub" id="resultSub"></div>
+    <div class="info-row"><span class="k">我的數字</span><span class="v reveal" id="revealMine">—</span></div>
+    <div class="info-row"><span class="k">對方數字</span><span class="v reveal" id="revealTheirs">—</span></div>
+    <div class="actions" style="justify-content:center;margin-top:18px;">
+      <button class="btn btn-primary" id="rematchBtn">再玩一局</button>
+      <button class="btn btn-ghost" id="resultLeaveBtn">回首頁</button>
+    </div>
+    <div class="setup-msg" id="rematchMsg" style="margin-top:10px;"></div>
+  </section>
+
+  <!-- config warning -->
+  <section id="config-warn" class="config-warn" hidden>
+    <strong>尚未設定 signaling server。</strong><br>
+    請在 <code>pingl/guess.htm</code> 頂端把 <code>WORKER_URL</code> 改成你部署的 Cloudflare Worker URL。
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── 設定 ──────────────────────────────────────────────
+// 與 pingl/index.htm 共用同一個 signaling server。
+const WORKER_URL = 'wss://pingl-signal.54maxwu.workers.dev';
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
+
+const DEBUG = /[#&]debug/.test(location.hash);
+function dbg(...a) { if (DEBUG || window.PINGL_DEBUG) console.log('[guess]', ...a); }
+
+// ── DOM helpers ───────────────────────────────────────
+const $ = id => document.getElementById(id);
+const pill = $('statusPill'), statusText = $('statusText'), toastEl = $('toast');
+
+function setStatus(text, kind) {
+  statusText.textContent = text;
+  pill.classList.remove('busy', 'ok', 'err');
+  if (kind) pill.classList.add(kind);
+}
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+}
+
+function randomId() {
+  const buf = new Uint32Array(1); crypto.getRandomValues(buf);
+  return (100000 + (buf[0] % 900000)).toString();
+}
+function extractCode(input) {
+  if (!input) return '';
+  const m = input.match(/#(?:game|view|file)=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : input.trim();
+}
+function parseHash() {
+  const h = location.hash.replace(/^#/, '');
+  return new URLSearchParams(h).get('game');
+}
+
+// ── 1A2B core logic ───────────────────────────────────
+// A secret is a 4-char string of distinct digits. 0 allowed anywhere.
+function isValidSecret(s) {
+  return /^[0-9]{4}$/.test(s) && new Set(s).size === 4;
+}
+// Score a guess against a secret → {a, b}. Standard rules: a counts
+// same-digit-same-position; b counts digit present elsewhere (no double count).
+function scoreGuess(secret, guess) {
+  let a = 0, b = 0;
+  for (let i = 0; i < 4; i++) {
+    if (guess[i] === secret[i]) a++;
+    else if (secret.includes(guess[i])) b++;
+  }
+  return { a, b };
+}
+
+// Precompute the full universe of valid secrets once (5040 of them).
+const ALL_SECRETS = (() => {
+  const out = [];
+  for (let n = 0; n <= 9999; n++) {
+    const s = String(n).padStart(4, '0');
+    if (new Set(s).size === 4) out.push(s);
+  }
+  return out;
+})();
+
+// Given a list of {guess, a, b} clues, count how many secrets are still
+// consistent with EVERY clue. This is the rational deducer's candidate set:
+// the next purely-logical guess hits with probability 1 / (this count).
+function countCandidates(clues) {
+  if (!clues.length) return ALL_SECRETS.length;
+  let count = 0;
+  for (const s of ALL_SECRETS) {
+    let ok = true;
+    for (const c of clues) {
+      const r = scoreGuess(s, c.guess);
+      if (r.a !== c.a || r.b !== c.b) { ok = false; break; }
+    }
+    if (ok) count++;
+  }
+  return count;
+}
+function probText(candidates) {
+  if (candidates <= 0) return '—';
+  if (candidates === 1) return '100%';
+  const p = 100 / candidates;
+  return (p < 0.1 ? p.toFixed(3) : p.toFixed(1)) + '%';
+}
+
+// ── Signaling + negotiator (same design as pingl/index.htm) ──
+function openSignal(roomId) {
+  const url = WORKER_URL.replace(/^http/, 'ws').replace(/\/$/, '') + '/room/' + roomId;
+  return new WebSocket(url);
+}
+
+// Token tie-break negotiator. The DataChannel is the only media; the higher
+// token offers and creates the channel, the lower answers. Symmetric afterwards.
+function createNegotiator({ ws, mk, onBeforeOffer }) {
+  const neg = { pc: null };
+  const myToken = (() => {
+    const b = new Uint32Array(2); crypto.getRandomValues(b);
+    return b[0] * 4294967296 + b[1];
+  })();
+  let peerToken = null, negotiating = false;
+
+  function ensurePc() {
+    if (neg.pc && !['failed', 'closed'].includes(neg.pc.connectionState)) return neg.pc;
+    try { neg.pc?.close(); } catch {}
+    const pc = mk();
+    neg.pc = pc;
+    pc.onicecandidate = e => {
+      if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+    };
+    return pc;
+  }
+  function amOfferer() { return peerToken != null && myToken > peerToken; }
+
+  async function maybeOffer() {
+    if (!amOfferer() || negotiating) return;
+    const pc = ensurePc();
+    if (pc.signalingState !== 'stable') return;
+    try {
+      negotiating = true;
+      onBeforeOffer && onBeforeOffer(pc);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription }));
+    } catch (e) { dbg('offer error', e); } finally { negotiating = false; }
+  }
+  function start() {
+    if (neg.pc && !['connected', 'connecting'].includes(neg.pc.connectionState)) {
+      try { neg.pc.close(); } catch {}
+      neg.pc = null; peerToken = null;
+    }
+    ws.send(JSON.stringify({ type: 'hello', token: myToken }));
+  }
+  async function onSignal(msg) {
+    if (msg.type === 'hello' || msg.type === 'hello-ack') {
+      peerToken = msg.token;
+      if (msg.type === 'hello') ws.send(JSON.stringify({ type: 'hello-ack', token: myToken }));
+      ensurePc();
+      await maybeOffer();
+    } else if (msg.type === 'offer') {
+      const pc = ensurePc();
+      if (amOfferer()) return;
+      await pc.setRemoteDescription(msg.sdp);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ type: 'answer', sdp: pc.localDescription }));
+    } else if (msg.type === 'answer') {
+      const pc = neg.pc;
+      if (pc && pc.signalingState === 'have-local-offer') await pc.setRemoteDescription(msg.sdp);
+    } else if (msg.type === 'ice') {
+      if (!neg.pc) return;
+      try { await neg.pc.addIceCandidate(msg.candidate); } catch (e) { dbg('ice error', e); }
+    }
+  }
+  function reset() {
+    try { neg.pc?.close(); } catch {}
+    neg.pc = null; peerToken = null; negotiating = false;
+  }
+  return { neg, ensurePc, start, onSignal, reset, maybeOffer };
+}
+
+// ── Game state ────────────────────────────────────────
+// One object holds the whole match. `dc` is the data channel; all game
+// messages (ready/guess/result/rematch) flow over it as JSON.
+let G = null;
+
+function freshGame(ws, roomId, isHost) {
+  return {
+    ws, roomId, isHost, neg: null, dc: null,
+    mySecret: null, peerSecret: null, peerReady: false, mineReady: false,
+    // randomness for deciding first mover; both sides exchange and compare
+    myStartTok: null, peerStartTok: null,
+    myTurn: false, turnDecided: false,
+    over: false, finalSent: false,
+    myGuesses: [],    // {guess, a, b} — my guesses against peer (peer scores them)
+    theirGuesses: [], // {guess, a, b} — peer's guesses against my secret (I score)
+    // "last chance" tracking: when one player hits 4A, the other gets exactly
+    // one more guess to try to tie. We resolve once both have had the chance.
+    pendingWin: null, // 'me' | 'them' | null  — who hit 4A first this round
+    rematchMine: false, rematchPeer: false,
+  };
+}
+
+// ── View switching ────────────────────────────────────
+const VIEWS = ['picker', 'lobby-view', 'setup-view', 'game-view', 'result-view'];
+function showView(id) {
+  VIEWS.forEach(v => { $(v).hidden = (v !== id); });
+}
+
+function showPicker() {
+  showView('picker');
+  setStatus('待機中');
+}
+
+// ── Boot / routing ────────────────────────────────────
+function boot() {
+  if (!WORKER_URL) {
+    $('config-warn').hidden = false;
+    setStatus('未設定 server', 'err');
+    return;
+  }
+  const game = parseHash();
+  if (game) joinRoom(game);
+  else showPicker();
+}
+
+// ── Create / join ─────────────────────────────────────
+function createRoom() {
+  const roomId = randomId();
+  startMatch(roomId, true);
+  showView('lobby-view');
+  $('lobbyRoomId').textContent = roomId;
+  $('lobbyShareUrl').value = `${location.origin}${location.pathname}#game=${roomId}`;
+  $('lobbyConnState').textContent = '等待對方加入';
+  setStatus('等待對方加入', 'busy');
+}
+
+function joinRoom(roomId) {
+  startMatch(roomId, false);
+  showView('lobby-view');
+  $('lobbyRoomId').textContent = roomId;
+  $('lobbyShareUrl').value = `${location.origin}${location.pathname}#game=${roomId}`;
+  $('lobbyConnState').textContent = '連線中…';
+  setStatus('連線中…', 'busy');
+}
+
+function startMatch(roomId, isHost) {
+  const ws = openSignal(roomId);
+  G = freshGame(ws, roomId, isHost);
+
+  const setupDc = dc => {
+    if (G.dc) return;
+    G.dc = dc;
+    dc.binaryType = 'arraybuffer';
+    dc.onopen = () => onDataOpen();
+    dc.onclose = () => { if (G && !G.over) onPeerGone('連線已關閉'); };
+    dc.onmessage = ev => { try { handleGameMsg(JSON.parse(ev.data)); } catch (e) { dbg('msg parse', e); } };
+  };
+
+  const mk = () => {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    G.dc = null;
+    pc.ondatachannel = e => setupDc(e.channel);
+    pc.onconnectionstatechange = () => {
+      const cs = pc.connectionState;
+      if (cs === 'connected') setStatus('已連線', 'ok');
+      else if (cs === 'failed') setStatus('連線失敗', 'err');
+    };
+    return pc;
+  };
+  const onBeforeOffer = pc => { if (!G.dc) setupDc(pc.createDataChannel('guess', { ordered: true })); };
+
+  G.neg = createNegotiator({ ws, mk, onBeforeOffer });
+
+  ws.onmessage = async ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'room-full') {
+      setStatus('房間已滿', 'err');
+      toast('此房號已有 2 人，無法加入');
+      return;
+    }
+    if (msg.type === 'room-state' || msg.type === 'peer-joined') {
+      if ((msg.peerCount ?? 1) >= 1) {
+        $('lobbyConnState').textContent = '建立連線中…';
+        G.neg.start();
+      } else {
+        $('lobbyConnState').textContent = '等待對方加入';
+      }
+    } else if (msg.type === 'peer-left') {
+      onPeerGone('對方已離開');
+    } else {
+      await G.neg.onSignal(msg);
+    }
+  };
+  ws.onerror = () => setStatus('signaling 連線失敗', 'err');
+  ws.onclose = () => { if (G && !G.over && G.neg?.neg.pc?.connectionState !== 'connected') setStatus('signaling 已斷', 'err'); };
+}
+
+// DataChannel open → both sides exchange a "start token" to pick the first
+// mover deterministically, then move to secret setup.
+function onDataOpen() {
+  setStatus('已連線', 'ok');
+  toast('已連線，設定你的數字');
+  // Pick a start token; higher token's owner moves first. Tie → host first.
+  const b = new Uint32Array(2); crypto.getRandomValues(b);
+  G.myStartTok = b[0] * 4294967296 + b[1];
+  send({ type: 'start-token', token: G.myStartTok, host: G.isHost });
+  enterSetup();
+}
+
+function enterSetup() {
+  showView('setup-view');
+  setStatus('設定數字中', 'busy');
+  $('setupMine').textContent = G.mineReady ? '已送出' : '設定中…';
+  $('setupPeer').textContent = G.peerReady ? '已送出' : '設定中…';
+  $('setupMsg').textContent = '';
+  $('setupMsg').classList.remove('err');
+  clearDigits('setupDigits');
+  digitInputs('setupDigits').forEach(el => { el.disabled = false; });
+  $('setupConfirm').disabled = false;
+  focusFirst('setupDigits');
+}
+
+// Decide who goes first once both start tokens are known.
+function maybeDecideTurn() {
+  if (G.turnDecided || G.myStartTok == null || G.peerStartTok == null) return;
+  let iFirst;
+  if (G.myStartTok !== G.peerStartTok) iFirst = G.myStartTok > G.peerStartTok;
+  else iFirst = G.isHost; // astronomically unlikely tie
+  G.myTurn = iFirst;
+  G.turnDecided = true;
+  dbg('turn decided, iFirst=', iFirst);
+}
+
+// ── Send helper ───────────────────────────────────────
+function send(obj) {
+  if (G?.dc?.readyState === 'open') { try { G.dc.send(JSON.stringify(obj)); } catch {} }
+}
+
+// ── Game message handling ─────────────────────────────
+function handleGameMsg(msg) {
+  if (!G) return;
+  switch (msg.type) {
+    case 'start-token':
+      G.peerStartTok = msg.token;
+      maybeDecideTurn();
+      break;
+    case 'ready':
+      G.peerReady = true;
+      $('setupPeer').textContent = '已送出';
+      maybeStartGame();
+      break;
+    case 'guess': {
+      // Peer guessed MY secret → I am the authority; score it and reply.
+      const guess = msg.guess;
+      const { a, b } = scoreGuess(G.mySecret, guess);
+      G.theirGuesses.push({ guess, a, b });
+      send({ type: 'result', guess, a, b });
+      onPeerGuessResolved(a, b);
+      break;
+    }
+    case 'result': {
+      // Peer scored MY guess against THEIR secret.
+      const rec = { guess: msg.guess, a: msg.a, b: msg.b };
+      G.myGuesses.push(rec);
+      onMyGuessResolved(rec);
+      break;
+    }
+    case 'reveal':
+      // Peer reveals its secret on game-over so the loser can see it too.
+      G.peerSecret = msg.secret;
+      if (G.over) $('revealTheirs').textContent = msg.secret;
+      break;
+    case 'rematch':
+      G.rematchPeer = true;
+      tryRematch();
+      break;
+  }
+}
+
+// ── Both ready → start ────────────────────────────────
+function maybeStartGame() {
+  if (!G.mineReady || !G.peerReady) return;
+  maybeDecideTurn();
+  if (!G.turnDecided) { // tokens not both in yet; retry shortly via re-entry
+    setTimeout(maybeStartGame, 60);
+    return;
+  }
+  startGameBoard();
+}
+
+function startGameBoard() {
+  showView('game-view');
+  setStatus('遊戲進行中', 'ok');
+  G.over = false; G.finalSent = false; G.pendingWin = null;
+  renderHistories();
+  updateProbabilities();
+  refreshTurnUi();
+}
+
+// ── Turn / guess flow ─────────────────────────────────
+function refreshTurnUi() {
+  const banner = $('turnBanner');
+  banner.classList.remove('theirs', 'over');
+  if (G.over) return;
+  if (G.myTurn) {
+    banner.textContent = G.pendingWin === 'them'
+      ? '⚡ 對方已猜中！這是你的最後扳平機會'
+      : '🎯 輪到你猜！';
+    $('guessLabel').textContent = '輸入你要猜的 4 位數';
+    setGuessEnabled(true);
+    focusFirst('guessDigits');
+  } else {
+    banner.classList.add('theirs');
+    banner.textContent = G.pendingWin === 'me'
+      ? '你已猜中，等待對方最後一猜…'
+      : '⏳ 等待對方猜測…';
+    $('guessLabel').textContent = '等待對方出手…';
+    setGuessEnabled(false);
+  }
+}
+
+function setGuessEnabled(on) {
+  $('guessBtn').disabled = !on;
+  document.querySelectorAll('#guessDigits .digit-box').forEach(el => { el.disabled = !on; });
+}
+
+function submitGuess() {
+  if (!G || G.over || !G.myTurn) return;
+  const g = readDigits('guessDigits');
+  const msgEl = $('guessMsg'); msgEl.classList.remove('err');
+  if (!isValidSecret(g)) {
+    msgEl.textContent = '請輸入 4 個不重複的數字';
+    msgEl.classList.add('err');
+    return;
+  }
+  msgEl.textContent = '';
+  setGuessEnabled(false);
+  // Send to peer; they score against their secret and reply with 'result'.
+  send({ type: 'guess', guess: g });
+}
+
+// My guess came back scored.
+function onMyGuessResolved(rec) {
+  clearDigits('guessDigits');
+  renderHistories();
+  updateProbabilities();
+  const hit = rec.a === 4;
+  if (hit) {
+    // I hit. If peer already hit this round → tie. Otherwise peer gets one
+    // last guess (unless it's already their pending fail).
+    if (G.pendingWin === 'them') return finish('tie');
+    G.pendingWin = 'me';
+    G.myTurn = false;
+    refreshTurnUi();
+    toast('你猜中了！等待對方最後一猜');
+    return;
+  }
+  // No hit. If peer had hit first and I was the last-chance, peer wins now.
+  if (G.pendingWin === 'them') return finish('lose');
+  // Normal: pass turn to peer.
+  G.myTurn = false;
+  refreshTurnUi();
+}
+
+// Peer's guess against my secret was just scored & sent.
+function onPeerGuessResolved(a, b) {
+  renderHistories();
+  updateProbabilities();
+  const hit = a === 4;
+  if (hit) {
+    if (G.pendingWin === 'me') return finish('tie');
+    G.pendingWin = 'them';
+    G.myTurn = true; // my last-chance
+    refreshTurnUi();
+    toast('對方猜中了！這是你的最後扳平機會');
+    return;
+  }
+  if (G.pendingWin === 'me') return finish('win'); // peer's last chance failed
+  G.myTurn = true;
+  refreshTurnUi();
+}
+
+// ── Probabilities ─────────────────────────────────────
+// "Next guess hits" probability = 1 / (candidates still consistent with all
+// clues), i.e. the chance a rational deducer's next pick is correct.
+function updateProbabilities() {
+  // Chance the PEER hits MY secret next: based on the peer's guesses (theirGuesses).
+  const candTheyHit = countCandidates(G.theirGuesses);
+  $('probTheyHitMe').textContent = probText(candTheyHit);
+  $('probTheyHitMeSub').textContent = '剩餘候選 ' + candTheyHit;
+  // Chance I hit THE PEER's secret next: based on my guesses.
+  const candIHit = countCandidates(G.myGuesses);
+  $('probIHitThem').textContent = probText(candIHit);
+  $('probIHitThemSub').textContent = '剩餘候選 ' + candIHit;
+}
+
+// ── History rendering ─────────────────────────────────
+function renderHistories() {
+  $('myGuessCount').textContent = G.myGuesses.length;
+  $('theirGuessCount').textContent = G.theirGuesses.length;
+  renderHistList('myHistory', G.myGuesses);
+  renderHistList('theirHistory', G.theirGuesses);
+}
+function renderHistList(id, list) {
+  const el = $(id);
+  if (!list.length) { el.innerHTML = '<div class="hist-empty">尚未猜測</div>'; return; }
+  el.innerHTML = '';
+  list.forEach((r, i) => {
+    const item = document.createElement('div');
+    item.className = 'hist-item' + (r.a === 4 ? ' win' : '');
+    const res = r.a === 4 ? '4A 猜中！' : `${r.a}A${r.b}B`;
+    item.innerHTML = `<span class="g"></span><span class="r"></span>`;
+    item.querySelector('.g').textContent = `${i + 1}. ${r.guess}`;
+    item.querySelector('.r').textContent = res;
+    el.appendChild(item);
+  });
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Finish / result ───────────────────────────────────
+function finish(outcome) {
+  if (G.over) return;
+  G.over = true;
+  // Reveal my secret so the peer (incl. a loser who never guessed it) can see it.
+  send({ type: 'reveal', secret: G.mySecret });
+  showView('result-view');
+  setStatus('遊戲結束');
+  const big = $('resultBig'); big.className = 'result-big';
+  if (outcome === 'win')  { big.textContent = '🏆 你贏了！';  big.classList.add('win'); }
+  else if (outcome === 'lose') { big.textContent = '😢 你輸了'; big.classList.add('lose'); }
+  else { big.textContent = '🤝 平手！'; big.classList.add('tie'); }
+  $('resultSub').textContent =
+    outcome === 'win' ? '你比對方更快猜中對方的數字。'
+    : outcome === 'lose' ? '對方先猜中了你的數字。'
+    : '兩人在同一回合都猜中，平分秋色。';
+  $('revealMine').textContent = G.mySecret;
+  // Prefer the peer's explicitly-revealed secret; fall back to my own winning
+  // guess; otherwise wait for the 'reveal' message to fill it in.
+  const myWin = G.myGuesses.find(r => r.a === 4);
+  $('revealTheirs').textContent = G.peerSecret || (myWin ? myWin.guess : '等待對方公開…');
+  G.rematchMine = false; G.rematchPeer = false;
+  $('rematchMsg').textContent = '';
+  $('rematchBtn').disabled = false;
+}
+
+// ── Rematch ───────────────────────────────────────────
+function requestRematch() {
+  if (!G) return;
+  G.rematchMine = true;
+  $('rematchBtn').disabled = true;
+  $('rematchMsg').textContent = G.rematchPeer ? '' : '已送出，等待對方同意…';
+  send({ type: 'rematch' });
+  tryRematch();
+}
+function tryRematch() {
+  if (!G) return;
+  if (G.rematchMine && G.rematchPeer) {
+    // Reset match state but keep the connection + decide a fresh first mover.
+    const ws = G.ws, roomId = G.roomId, isHost = G.isHost, neg = G.neg, dc = G.dc;
+    G = freshGame(ws, roomId, isHost);
+    G.neg = neg; G.dc = dc;
+    const b = new Uint32Array(2); crypto.getRandomValues(b);
+    G.myStartTok = b[0] * 4294967296 + b[1];
+    send({ type: 'start-token', token: G.myStartTok, host: isHost });
+    enterSetup();
+    toast('新的一局，重設你的數字');
+  } else if (G.rematchPeer) {
+    $('rematchMsg').textContent = '對方想再玩一局，按「再玩一局」開始。';
+  }
+}
+
+// ── Peer gone / leave ─────────────────────────────────
+function onPeerGone(reason) {
+  if (!G) return;
+  if (!G.over) { toast(reason || '對方已離開'); }
+  teardown();
+  showPicker();
+}
+function teardown() {
+  if (!G) return;
+  try { G.neg?.reset(); } catch {}
+  try { G.dc?.close(); } catch {}
+  try { G.ws.close(); } catch {}
+  G = null;
+  history.replaceState(null, '', location.pathname + location.search);
+}
+function leaveGame() {
+  teardown();
+  showPicker();
+}
+
+// ── Digit input helpers ───────────────────────────────
+function digitInputs(containerId) {
+  return [...document.querySelectorAll('#' + containerId + ' .digit-box')];
+}
+function readDigits(containerId) {
+  return digitInputs(containerId).map(el => el.value.trim()).join('');
+}
+function clearDigits(containerId) {
+  digitInputs(containerId).forEach(el => { el.value = ''; el.classList.remove('bad'); });
+}
+function focusFirst(containerId) {
+  const els = digitInputs(containerId);
+  if (els[0] && !els[0].disabled) setTimeout(() => els[0].focus(), 30);
+}
+// Wire up auto-advance + validation highlight for a digit row.
+function wireDigits(containerId, onEnter) {
+  const els = digitInputs(containerId);
+  els.forEach((el, i) => {
+    el.addEventListener('input', () => {
+      el.value = el.value.replace(/[^0-9]/g, '').slice(0, 1);
+      // highlight duplicate digits live
+      const all = readDigits(containerId);
+      els.forEach(e => e.classList.remove('bad'));
+      const seen = {};
+      els.forEach((e, j) => {
+        const v = e.value;
+        if (!v) return;
+        if (seen[v] != null) { e.classList.add('bad'); els[seen[v]].classList.add('bad'); }
+        else seen[v] = j;
+      });
+      if (el.value && i < els.length - 1) els[i + 1].focus();
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !el.value && i > 0) els[i - 1].focus();
+      else if (e.key === 'Enter') onEnter && onEnter();
+    });
+  });
+}
+
+// ── Setup confirm ─────────────────────────────────────
+function confirmSecret() {
+  const s = readDigits('setupDigits');
+  const msgEl = $('setupMsg'); msgEl.classList.remove('err');
+  if (!isValidSecret(s)) {
+    msgEl.textContent = '請輸入 4 個不重複的數字（0 可放任意位置）';
+    msgEl.classList.add('err');
+    return;
+  }
+  G.mySecret = s;
+  G.mineReady = true;
+  $('setupMine').textContent = '已送出';
+  $('setupConfirm').disabled = true;
+  digitInputs('setupDigits').forEach(el => el.disabled = true);
+  msgEl.textContent = '已鎖定，等待對方…';
+  send({ type: 'ready' });
+  maybeStartGame();
+}
+function randomSecret() {
+  const digits = [0,1,2,3,4,5,6,7,8,9];
+  for (let i = digits.length - 1; i > 0; i--) {
+    const buf = new Uint32Array(1); crypto.getRandomValues(buf);
+    const j = buf[0] % (i + 1);
+    [digits[i], digits[j]] = [digits[j], digits[i]];
+  }
+  const s = digits.slice(0, 4).join('');
+  const els = digitInputs('setupDigits');
+  els.forEach((el, i) => { el.value = s[i]; el.classList.remove('bad'); });
+}
+
+// ── UI wiring ─────────────────────────────────────────
+$('btnCreate').addEventListener('click', createRoom);
+$('joinBtn').addEventListener('click', () => {
+  const code = extractCode($('joinInput').value);
+  if (!code) { toast('請輸入房間代碼'); return; }
+  if (!/^[a-zA-Z0-9_-]{1,32}$/.test(code)) { toast('代碼格式不正確'); return; }
+  location.hash = 'game=' + code;
+  joinRoom(code);
+});
+$('joinInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); });
+
+$('lobbyCopyBtn').addEventListener('click', async () => {
+  const url = $('lobbyShareUrl').value;
+  try { await navigator.clipboard.writeText(url); toast('已複製連結'); }
+  catch { $('lobbyShareUrl').select(); document.execCommand('copy'); toast('已複製連結'); }
+});
+$('lobbyCancelBtn').addEventListener('click', leaveGame);
+
+$('setupConfirm').addEventListener('click', confirmSecret);
+$('setupRandom').addEventListener('click', randomSecret);
+$('guessBtn').addEventListener('click', submitGuess);
+$('gameLeaveBtn').addEventListener('click', () => { if (confirm('確定要離開遊戲嗎？')) leaveGame(); });
+$('rematchBtn').addEventListener('click', requestRematch);
+$('resultLeaveBtn').addEventListener('click', leaveGame);
+
+wireDigits('setupDigits', confirmSecret);
+wireDigits('guessDigits', submitGuess);
+
+window.addEventListener('beforeunload', () => { try { teardown(); } catch {} });
+
+boot();
+</script>
+</body>
+</html>
