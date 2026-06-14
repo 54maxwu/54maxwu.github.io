@@ -963,9 +963,37 @@ function endGrace() {
     reco.on = false;
     clearInterval(reco.timer); reco.timer = null;
     clearInterval(reco.poll);  reco.poll = null;
+    const st = reco.getState?.();
+    if (st && st._dropCheck) { clearTimeout(st._dropCheck); st._dropCheck = null; }
   }
   activeReco = null;
   $('reconnectOverlay').hidden = true;
+}
+
+// React to a media PeerConnection's connectionState change. `failed` is terminal
+// → start the grace window immediately. `disconnected` is OFTEN transient (a
+// brief ICE blip that self-heals in a second or two), so we wait ~4s and only
+// escalate if it hasn't recovered — this avoids flashing the 60s overlay for a
+// hiccup. Recovery to `connected` cancels the pending check.
+const DISCONNECT_GRACE_MS = 4000;
+function onPcStateChange(state, pc, reason) {
+  if (!state || !state.everConnected || state.leaving) return;
+  const cs = pc.connectionState;
+  if (cs === 'connected') {
+    clearTimeout(state._dropCheck); state._dropCheck = null;
+    return;
+  }
+  if (cs === 'failed') {
+    clearTimeout(state._dropCheck); state._dropCheck = null;
+    beginGrace(state.reco, reason || '連線中斷');
+  } else if (cs === 'disconnected') {
+    if (state._dropCheck) return;          // already waiting it out
+    state._dropCheck = setTimeout(() => {
+      state._dropCheck = null;
+      const now = pc.connectionState;
+      if (now !== 'connected' && !state.leaving) beginGrace(state.reco, reason || '連線中斷');
+    }, DISCONNECT_GRACE_MS);
+  }
 }
 
 // Inspect the selected ICE candidate pair and write a human-readable transport
@@ -1058,7 +1086,7 @@ async function startSender(source) {
   const ws = openSignal(roomId);
   // selfStream = our outgoing media; peerStream = the viewer's returned camera.
   // swapped=false → peer in main, self in PiP (default).
-  senderState = { ws, neg: null, stream, peerStream: null, swapped: false, roomId, reco: null };
+  senderState = { ws, neg: null, stream, peerStream: null, swapped: false, roomId, reco: null, everConnected: false, _dropCheck: null };
 
   // Render self/peer into main vs PiP. Default (swapped=false): peer in main,
   // self in PiP. But until the peer sends video, show OUR OWN stream in main so
@@ -1114,12 +1142,12 @@ function wireSender(ws) {
       const s = pc.connectionState;
       $('connState').textContent = s;
       if (s === 'connected') {
+        senderState.everConnected = true;
         setStatus('已連線', 'ok');
         showTransportType(pc, $('connType'));
         if (senderState?.reco?.on) { endGrace(); toast('已重新連線'); }
-      } else if (s === 'failed' || s === 'disconnected') {
-        if (senderState) beginGrace(senderState.reco, '連線中斷');
       }
+      onPcStateChange(senderState, pc, '連線中斷');
     };
     return pc;
   };
@@ -1135,8 +1163,9 @@ function wireSender(ws) {
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
       if ((msg.peerCount ?? 1) >= 1) st.neg.start(); // a peer is here → handshake
     } else if (msg.type === 'peer-left') {
-      // Peer left → hold the session open for 60s in case they come back.
-      beginGrace(st.reco, '對方已離線');
+      // Connected before → hold open 60s; still waiting → just reset status.
+      if (st.everConnected) beginGrace(st.reco, '對方已離線');
+      else { setStatus('等待對方連入', 'busy'); $('connState').textContent = '等待對方連入'; }
     } else {
       await st.neg.onSignal(msg); // hello / hello-ack / offer / answer / ice / please-offer
     }
@@ -1144,12 +1173,13 @@ function wireSender(ws) {
 
   ws.onerror = () => { if (!senderState?.reco?.on) setStatus('signaling 連線失敗', 'err'); };
   ws.onclose = () => {
-    if (senderState) beginGrace(senderState.reco, '連線中斷');
+    if (senderState && senderState.everConnected) beginGrace(senderState.reco, '連線中斷');
   };
 }
 
 function stopSender(reason) {
   if (!senderState) return;
+  clearTimeout(senderState._dropCheck);
   endGrace();
   const { ws, neg, stream } = senderState;
   try { stream.getTracks().forEach(t => t.stop()); } catch {}
@@ -1199,7 +1229,7 @@ async function startViewer(roomId) {
   const ws = openSignal(roomId);
   // camStream = our own camera (if enabled); peerStream = the sharer's stream.
   // swapped=false → sharer in main, self in PiP corner.
-  viewerState = { ws, neg: null, camStream: null, peerStream: null, swapped: false, roomId, reco: null };
+  viewerState = { ws, neg: null, camStream: null, peerStream: null, swapped: false, roomId, reco: null, everConnected: false, _dropCheck: null };
 
   // Render sharer vs self into the main stage vs the corner PiP. The self-PiP
   // (and swap button) only appear once we have our own camera on.
@@ -1296,11 +1326,11 @@ function wireViewer(ws) {
       const s = pc.connectionState;
       $('viewerConnState').textContent = s;
       if (s === 'connected') {
+        viewerState.everConnected = true;
         setStatus('已連線', 'ok');
         if (viewerState?.reco?.on) { endGrace(); toast('已重新連線'); }
-      } else if (s === 'failed' || s === 'disconnected') {
-        if (viewerState) beginGrace(viewerState.reco, '連線中斷');
       }
+      onPcStateChange(viewerState, pc, '連線中斷');
     };
     return pc;
   };
@@ -1323,8 +1353,9 @@ function wireViewer(ws) {
     } else if (msg.type === 'peer-joined') {
       st.neg.start();
     } else if (msg.type === 'peer-left') {
-      // Sharer left → hold the session open for 60s in case they come back.
-      beginGrace(st.reco, '分享者已離開');
+      // Connected before → hold open 60s; never started → just wait again.
+      if (st.everConnected) beginGrace(st.reco, '分享者已離開');
+      else { $('viewerOverlay').textContent = '等待分享者開始…'; setStatus('等待分享者', 'busy'); }
     } else {
       await st.neg.onSignal(msg);
     }
@@ -1337,7 +1368,7 @@ function wireViewer(ws) {
     }
   };
   ws.onclose = () => {
-    if (viewerState) beginGrace(viewerState.reco, '連線中斷');
+    if (viewerState && viewerState.everConnected) beginGrace(viewerState.reco, '連線中斷');
   };
 }
 
@@ -1392,6 +1423,7 @@ $('fileCopyBtn').addEventListener('click', async () => {
 $('fileRecvBackBtn').addEventListener('click', stopFileReceiver);
 
 function stopViewer() {
+  if (viewerState) clearTimeout(viewerState._dropCheck);
   endGrace();
   if (viewerState) {
     try { viewerState.camStream?.getTracks().forEach(t => t.stop()); } catch {}
@@ -1650,7 +1682,7 @@ function showFileReceiver() {
 async function startFileSender() {
   const roomId = randomId();
   const ws = openSignal(roomId);
-  fileSenderState = { ws, neg: null, dc: null, roomId, sending: false, recv: null, reco: null, _wire: null, leaving: false };
+  fileSenderState = { ws, neg: null, dc: null, roomId, sending: false, recv: null, reco: null, _wire: null, leaving: false, everConnected: false, _dropCheck: null };
   activeFileSession = fileSenderState;
 
   showFileSender();
@@ -1689,13 +1721,17 @@ function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
     s.recv = attachFileReceiver(dc, recvUi);
     dc.onopen = () => {
       $(ui.connState).textContent = '已連線';
-      if (getState()?.reco?.on) { endGrace(); toast('已重新連線，可繼續傳檔'); }
+      const s2 = getState();
+      if (s2) s2.everConnected = true;          // we've now truly paired up
+      if (s2?.reco?.on) { endGrace(); toast('已重新連線，可繼續傳檔'); }
       ui.onOpen && ui.onOpen();
     };
     dc.onclose = () => {
       $(ui.connState).textContent = '連線已關閉';
       const s2 = getState();
-      if (s2 && !s2.leaving) beginGrace(s2.reco, '連線中斷');
+      // Only hold the door open if we'd actually connected before — never during
+      // the initial "waiting for peer" phase.
+      if (s2 && !s2.leaving && s2.everConnected) beginGrace(s2.reco, '連線中斷');
     };
   };
 
@@ -1711,15 +1747,16 @@ function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
       const cs = pc.connectionState;
       $(ui.connState).textContent = cs === 'connected' ? '已連線' : cs;
       if (cs === 'connected') {
+        const s2 = getState();
+        if (s2) s2.everConnected = true;
         $(ui.connType).textContent = '判斷中…';
         showTransportType(pc, $(ui.connType)).then(info => {
           if (info?.kind === 'wan') toast('注意：此連線走外網，非區網直連');
         });
       } else if (cs === 'failed' || cs === 'disconnected') {
-        const s2 = getState();
-        if (s2 && !s2.leaving) beginGrace(s2.reco, '連線中斷');
         $(ui.connType).textContent = '—';
       }
+      onPcStateChange(getState(), pc, '連線中斷');
     };
     return pc;
   };
@@ -1743,8 +1780,10 @@ function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
       if (msg.type === 'room-state' || msg.type === 'peer-joined') {
         if ((msg.peerCount ?? 1) >= 1) st.neg.start();
       } else if (msg.type === 'peer-left') {
-        // Peer left → hold the session open for 60s in case they come back.
-        beginGrace(st.reco, '對方已離線');
+        // Peer left. If we'd connected, hold the door open 60s; if they never
+        // arrived (still waiting), just reset the status — no grace overlay.
+        if (st.everConnected) beginGrace(st.reco, '對方已離線');
+        else { $(ui.connState).textContent = '等待對方連入'; }
       } else {
         await st.neg.onSignal(msg);
       }
@@ -1752,7 +1791,8 @@ function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
     sock.onerror = () => { if (!getState()?.reco?.on) setStatus('signaling 連線失敗', 'err'); };
     sock.onclose = () => {
       const st = getState();
-      if (st && !st.leaving) beginGrace(st.reco, '連線中斷');
+      // Don't pop the reconnect overlay while still waiting for the first peer.
+      if (st && !st.leaving && st.everConnected) beginGrace(st.reco, '連線中斷');
     };
   };
 
@@ -1867,6 +1907,7 @@ function requestSendFile(file, getDc, skipConfirm) {
 function stopFileSender() {
   if (!fileSenderState) return;
   fileSenderState.leaving = true;
+  clearTimeout(fileSenderState._dropCheck);
   endGrace();
   revokeRecvUrls(fileSenderState.recv);
   try { fileSenderState.dc?.close(); } catch {}
@@ -1886,7 +1927,7 @@ async function startFileReceiver(roomId) {
   setStatus('連線中…', 'busy');
 
   const ws = openSignal(roomId);
-  fileReceiverState = { ws, neg: null, dc: null, recv: null, sending: false, roomId, reco: null, _wire: null, leaving: false };
+  fileReceiverState = { ws, neg: null, dc: null, recv: null, sending: false, roomId, reco: null, _wire: null, leaving: false, everConnected: false, _dropCheck: null };
   activeFileSession = fileReceiverState;
 
   startFilePeer({
@@ -1910,6 +1951,7 @@ async function startFileReceiver(roomId) {
 function stopFileReceiver() {
   if (!fileReceiverState) return;
   fileReceiverState.leaving = true;
+  clearTimeout(fileReceiverState._dropCheck);
   endGrace();
   revokeRecvUrls(fileReceiverState.recv);
   try { fileReceiverState.neg?.reset(); } catch {}
@@ -1948,9 +1990,10 @@ $('reconnectCancel')?.addEventListener('click', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (activeReco?.on) { activeReco.reopen(); return; }
-  // Detect a session whose connection quietly died while we were hidden.
+  // Detect a session that HAD connected but quietly died while hidden. Never
+  // trigger grace for a session still waiting for its first peer.
   for (const st of [senderState, viewerState, fileSenderState, fileReceiverState]) {
-    if (!st || st.leaving || !st.reco) continue;
+    if (!st || st.leaving || !st.reco || !st.everConnected) continue;
     const cs = st.neg?.neg.pc?.connectionState;
     const wsDead = !st.ws || st.ws.readyState > 1; // CLOSING/CLOSED
     if (wsDead || cs === 'failed' || cs === 'disconnected') { beginGrace(st.reco, '連線中斷'); break; }
