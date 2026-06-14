@@ -395,6 +395,29 @@ body {
   margin-bottom: 14px;
 }
 .config-warn code { background: #fff; padding: 1px 5px; border-radius: 4px; }
+
+/* ── Reconnect grace overlay ───────────────────────────── */
+#reconnectOverlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15,23,42,.55); backdrop-filter: blur(2px);
+  padding: 20px;
+}
+.reconnect-card {
+  background: #fff; border-radius: 16px; padding: 28px 26px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  text-align: center; max-width: 340px; width: 100%;
+}
+.reconnect-spinner {
+  width: 38px; height: 38px; margin: 0 auto 16px;
+  border: 3px solid #e2e8f0; border-top-color: #0d9488; border-radius: 50%;
+  animation: rcSpin .8s linear infinite;
+}
+@keyframes rcSpin { to { transform: rotate(360deg); } }
+.reconnect-title { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
+.reconnect-sub   { font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 12px; }
+.reconnect-count { font-size: 13px; color: #b45309; font-weight: 700; }
+.reconnect-count span { font-size: 20px; font-family: ui-monospace, monospace; }
 </style>
 </head>
 <body>
@@ -603,6 +626,18 @@ body {
 </main>
 
 <div id="toast"></div>
+
+<!-- Reconnect grace overlay — shown when a live session's connection drops.
+     Gives both sides up to 60s to come back before the session is closed. -->
+<div id="reconnectOverlay" hidden>
+  <div class="reconnect-card">
+    <div class="reconnect-spinner"></div>
+    <div class="reconnect-title" id="reconnectTitle">連線中斷</div>
+    <div class="reconnect-sub" id="reconnectSub">嘗試重新連線，請保持本頁開啟…</div>
+    <div class="reconnect-count"><span id="reconnectCount">60</span> 秒後結束</div>
+    <button class="btn btn-ghost" id="reconnectCancel" style="margin-top:14px;">放棄並離開</button>
+  </div>
+</div>
 
 <div id="fileConfirmModal" class="modal-backdrop" hidden>
   <div class="modal-card">
@@ -851,6 +886,88 @@ function createNegotiator({ ws, mk, onBeforeOffer, preferOfferer }) {
   return { neg, ensurePc, start, onSignal, reset, renegotiate, maybeOffer };
 }
 
+// ── Reconnect grace window (shared by all flows) ──────────────
+// When a LIVE session's transport drops (peer backgrounded, Wi-Fi blip, etc.)
+// we don't kill it instantly. Instead we hold the session open for up to 60s:
+// show the overlay + countdown, keep the media/session state alive, and keep
+// reopening the signaling socket + re-running the handshake until the peer comes
+// back. Each flow registers how to rebuild itself via reco.reopen / reco.giveUp.
+//
+// Only one session is ever active, so a single module-level handle is enough.
+const GRACE_MS = 60000;
+let activeReco = null;   // { state, reopen, giveUp, deadline, timer, poll, on }
+
+// flow calls this once after wiring a session: reco describes how to recover it.
+function makeReco({ getState, reopen, giveUp }) {
+  return { getState, reopen, giveUp, on: false, deadline: 0, timer: null, poll: null };
+}
+
+// A drop happened. `reco` is the session's recovery descriptor. Idempotent while
+// the grace window is open.
+function beginGrace(reco, reason) {
+  if (!reco || !reco.getState()) return;     // session already gone
+  if (reco.on) return;                       // already in grace
+  reco.on = true;
+  activeReco = reco;
+  reco.deadline = Date.now() + GRACE_MS;
+
+  setStatus('連線中斷，重連中…', 'busy');
+  $('reconnectTitle').textContent = reason || '連線中斷';
+  $('reconnectOverlay').hidden = false;
+
+  graceTick();
+  reco.timer = setInterval(graceTick, 250);
+  reco.reopen();                             // first immediate attempt
+  reco.poll = setInterval(() => reco.reopen(), 2500);
+}
+
+function graceTick() {
+  const reco = activeReco;
+  if (!reco || !reco.on) return;
+  const left = Math.max(0, Math.ceil((reco.deadline - Date.now()) / 1000));
+  $('reconnectCount').textContent = left;
+  if (left <= 0) {
+    const g = reco.giveUp;
+    endGrace();                              // clear timers/overlay first
+    toast('未能在時間內重新連線，已結束');
+    g && g();
+  }
+}
+
+// Shared reopen routine used by every flow's reco.reopen. Ensures a signaling
+// socket is open on the same room and re-announces us so the peer (also trying
+// to reconnect) pairs back up and renegotiates. `wireFn(ws)` re-attaches the
+// flow's handlers + negotiator onto the (possibly new) socket without wiping
+// the session's media/state.
+function reopenSession(state, wireFn) {
+  if (!state) return;
+  const ws = state.ws;
+  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+    try {
+      const fresh = openSignal(state.roomId);
+      try { state.neg?.reset(); } catch {}
+      wireFn(fresh);              // rewires onmessage/onclose → state.ws = fresh
+    } catch (e) { dbg('reopen failed', e); }
+    return;
+  }
+  if (ws.readyState === WebSocket.OPEN) {
+    try { state.neg.start(); } catch (e) { dbg('reopen start failed', e); }
+  }
+  // CONNECTING → wait for onopen → room-state → neg.start()
+}
+
+// Called by a flow once its DataChannel/connection is back up.
+function endGrace() {
+  const reco = activeReco;
+  if (reco) {
+    reco.on = false;
+    clearInterval(reco.timer); reco.timer = null;
+    clearInterval(reco.poll);  reco.poll = null;
+  }
+  activeReco = null;
+  $('reconnectOverlay').hidden = true;
+}
+
 // Inspect the selected ICE candidate pair and write a human-readable transport
 // label ("區網直連 (Wi-Fi/LAN)" vs "外網 / STUN 打洞" vs "TURN 中繼") into `el`.
 // host = same LAN (Wi-Fi/有線), srflx/prflx = punched through to public internet,
@@ -941,7 +1058,7 @@ async function startSender(source) {
   const ws = openSignal(roomId);
   // selfStream = our outgoing media; peerStream = the viewer's returned camera.
   // swapped=false → peer in main, self in PiP (default).
-  senderState = { ws, neg: null, stream, peerStream: null, swapped: false };
+  senderState = { ws, neg: null, stream, peerStream: null, swapped: false, roomId, reco: null };
 
   // Render self/peer into main vs PiP. Default (swapped=false): peer in main,
   // self in PiP. But until the peer sends video, show OUR OWN stream in main so
@@ -970,12 +1087,25 @@ async function startSender(source) {
   senderState.renderShareVideos = renderShareVideos;
   renderShareVideos();
 
-  // Build a fresh PeerConnection wired with our outgoing tracks.
+  // Recovery descriptor: how to rebuild this sender session after a drop.
+  senderState.reco = makeReco({
+    getState: () => senderState,
+    reopen: () => reopenSession(senderState, wireSender),
+    giveUp: () => stopSender(),   // graceTick already toasted the reason
+  });
+
+  wireSender(ws);
+}
+
+// (Re)attach the negotiator + WS handlers for the sender onto a (possibly fresh)
+// signaling socket. Reuses senderState.stream so reconnect keeps the same media.
+function wireSender(ws) {
+  senderState.ws = ws;
+  const stream = senderState.stream;
+
   const mk = () => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     stream.getTracks().forEach(t => pc.addTrack(t, stream));
-    // If the viewer turns on their camera, their track arrives here → it becomes
-    // the main stage (default), with our own stream shown in the PiP corner.
     pc.ontrack = e => {
       senderState.peerStream = e.streams[0];
       senderState.renderShareVideos();
@@ -986,9 +1116,9 @@ async function startSender(source) {
       if (s === 'connected') {
         setStatus('已連線', 'ok');
         showTransportType(pc, $('connType'));
+        if (senderState?.reco?.on) { endGrace(); toast('已重新連線'); }
       } else if (s === 'failed' || s === 'disconnected') {
-        setStatus('連線中斷', 'err');
-        $('connType').textContent = '—';
+        if (senderState) beginGrace(senderState.reco, '連線中斷');
       }
     };
     return pc;
@@ -1005,19 +1135,22 @@ async function startSender(source) {
     if (msg.type === 'room-state' || msg.type === 'peer-joined') {
       if ((msg.peerCount ?? 1) >= 1) st.neg.start(); // a peer is here → handshake
     } else if (msg.type === 'peer-left') {
-      // Peer left → close the room and return to the start. Simple and reliable.
-      stopSender('對方已離線，分享結束');
+      // Peer left → hold the session open for 60s in case they come back.
+      beginGrace(st.reco, '對方已離線');
     } else {
       await st.neg.onSignal(msg); // hello / hello-ack / offer / answer / ice / please-offer
     }
   };
 
-  ws.onerror = () => setStatus('signaling 連線失敗', 'err');
-  ws.onclose = () => { if (senderState) setStatus('signaling 已斷', 'err'); };
+  ws.onerror = () => { if (!senderState?.reco?.on) setStatus('signaling 連線失敗', 'err'); };
+  ws.onclose = () => {
+    if (senderState) beginGrace(senderState.reco, '連線中斷');
+  };
 }
 
 function stopSender(reason) {
   if (!senderState) return;
+  endGrace();
   const { ws, neg, stream } = senderState;
   try { stream.getTracks().forEach(t => t.stop()); } catch {}
   try { neg?.reset(); } catch {}
@@ -1066,7 +1199,7 @@ async function startViewer(roomId) {
   const ws = openSignal(roomId);
   // camStream = our own camera (if enabled); peerStream = the sharer's stream.
   // swapped=false → sharer in main, self in PiP corner.
-  viewerState = { ws, neg: null, camStream: null, peerStream: null, swapped: false };
+  viewerState = { ws, neg: null, camStream: null, peerStream: null, swapped: false, roomId, reco: null };
 
   // Render sharer vs self into the main stage vs the corner PiP. The self-PiP
   // (and swap button) only appear once we have our own camera on.
@@ -1092,8 +1225,44 @@ async function startViewer(roomId) {
   };
   viewerState.renderViewerVideos = renderViewerVideos;
 
-  // Build a fresh PeerConnection wired to render the incoming stream and carry
-  // our own camera (if enabled).
+  // Recovery descriptor for the viewer session.
+  viewerState.reco = makeReco({
+    getState: () => viewerState,
+    reopen: () => reopenSession(viewerState, wireViewer),
+    giveUp: () => stopViewer(),
+  });
+
+  wireViewer(ws);
+
+  // Toggle the viewer's own camera. After adding tracks, ask the negotiator to
+  // renegotiate (it re-offers if we're the offerer, else asks the peer to).
+  viewerState.enableCamera = async () => {
+    if (viewerState.camStream) return; // already on
+    let cam;
+    try {
+      cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+    } catch (err) {
+      toast('無法開啟鏡頭：' + (err.message || err));
+      return;
+    }
+    viewerState.camStream = cam;
+    renderViewerVideos();
+    $('viewerCamBtn').textContent = '鏡頭已開啟';
+    $('viewerCamBtn').disabled = true;
+    const pc = viewerState.neg.neg.pc;
+    if (pc) {
+      cam.getTracks().forEach(t => pc.addTrack(t, cam));
+      await viewerState.neg.renegotiate(cam.getTracks().map(t => t.kind));
+    }
+  };
+}
+
+// (Re)attach the negotiator + WS handlers for the viewer onto a (possibly fresh)
+// signaling socket. Reuses viewerState's camera/peer streams across reconnects.
+function wireViewer(ws) {
+  viewerState.ws = ws;
+  const renderViewerVideos = viewerState.renderViewerVideos;
+
   const mk = () => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     if (viewerState.camStream) {
@@ -1126,11 +1295,11 @@ async function startViewer(roomId) {
     pc.onconnectionstatechange = () => {
       const s = pc.connectionState;
       $('viewerConnState').textContent = s;
-      if (s === 'connected') setStatus('已連線', 'ok');
-      else if (s === 'failed' || s === 'disconnected') {
-        setStatus('連線中斷', 'err');
-        $('viewerOverlay').hidden = false;
-        $('viewerOverlay').textContent = '連線中斷';
+      if (s === 'connected') {
+        setStatus('已連線', 'ok');
+        if (viewerState?.reco?.on) { endGrace(); toast('已重新連線'); }
+      } else if (s === 'failed' || s === 'disconnected') {
+        if (viewerState) beginGrace(viewerState.reco, '連線中斷');
       }
     };
     return pc;
@@ -1138,58 +1307,37 @@ async function startViewer(roomId) {
 
   viewerState.neg = createNegotiator({ ws, mk });
 
-  // Toggle the viewer's own camera. After adding tracks, ask the negotiator to
-  // renegotiate (it re-offers if we're the offerer, else asks the peer to).
-  viewerState.enableCamera = async () => {
-    if (viewerState.camStream) return; // already on
-    let cam;
-    try {
-      cam = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
-    } catch (err) {
-      toast('無法開啟鏡頭：' + (err.message || err));
-      return;
-    }
-    viewerState.camStream = cam;
-    renderViewerVideos();
-    $('viewerCamBtn').textContent = '鏡頭已開啟';
-    $('viewerCamBtn').disabled = true;
-    const pc = viewerState.neg.neg.pc;
-    if (pc) {
-      cam.getTracks().forEach(t => pc.addTrack(t, cam));
-      await viewerState.neg.renegotiate(cam.getTracks().map(t => t.kind));
-    }
-  };
-
   ws.onmessage = async ev => {
     const msg = JSON.parse(ev.data);
     if (handleRoomFull(msg)) return;
     const st = viewerState;
     if (msg.type === 'room-state') {
       if (msg.peerCount === 0) {
-        $('viewerOverlay').textContent = '等待分享者開始…';
-        setStatus('等待分享者', 'busy');
+        if (!st.reco?.on) {
+          $('viewerOverlay').textContent = '等待分享者開始…';
+          setStatus('等待分享者', 'busy');
+        }
       } else {
         st.neg.start(); // a sharer is already here → handshake
       }
     } else if (msg.type === 'peer-joined') {
       st.neg.start();
     } else if (msg.type === 'peer-left') {
-      // Sharer left → close and return to the start. Simple and reliable.
-      toast('分享者已離開');
-      stopViewer();
+      // Sharer left → hold the session open for 60s in case they come back.
+      beginGrace(st.reco, '分享者已離開');
     } else {
       await st.neg.onSignal(msg);
     }
   };
 
   ws.onerror = () => {
-    setStatus('signaling 連線失敗', 'err');
-    $('viewerOverlay').textContent = 'signaling 連線失敗';
+    if (!viewerState?.reco?.on) {
+      setStatus('signaling 連線失敗', 'err');
+      $('viewerOverlay').textContent = 'signaling 連線失敗';
+    }
   };
   ws.onclose = () => {
-    if (viewerState && viewerState.neg?.neg.pc?.connectionState !== 'connected') {
-      setStatus('signaling 已斷', 'err');
-    }
+    if (viewerState) beginGrace(viewerState.reco, '連線中斷');
   };
 }
 
@@ -1244,6 +1392,7 @@ $('fileCopyBtn').addEventListener('click', async () => {
 $('fileRecvBackBtn').addEventListener('click', stopFileReceiver);
 
 function stopViewer() {
+  endGrace();
   if (viewerState) {
     try { viewerState.camStream?.getTracks().forEach(t => t.stop()); } catch {}
     try { viewerState.neg?.reset(); } catch {}
@@ -1501,7 +1650,7 @@ function showFileReceiver() {
 async function startFileSender() {
   const roomId = randomId();
   const ws = openSignal(roomId);
-  fileSenderState = { ws, neg: null, dc: null, roomId, sending: false, recv: null };
+  fileSenderState = { ws, neg: null, dc: null, roomId, sending: false, recv: null, reco: null, _wire: null, leaving: false };
   activeFileSession = fileSenderState;
 
   showFileSender();
@@ -1540,9 +1689,14 @@ function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
     s.recv = attachFileReceiver(dc, recvUi);
     dc.onopen = () => {
       $(ui.connState).textContent = '已連線';
+      if (getState()?.reco?.on) { endGrace(); toast('已重新連線，可繼續傳檔'); }
       ui.onOpen && ui.onOpen();
     };
-    dc.onclose = () => { $(ui.connState).textContent = '連線已關閉'; };
+    dc.onclose = () => {
+      $(ui.connState).textContent = '連線已關閉';
+      const s2 = getState();
+      if (s2 && !s2.leaving) beginGrace(s2.reco, '連線中斷');
+    };
   };
 
   const mk = () => {
@@ -1562,7 +1716,8 @@ function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
           if (info?.kind === 'wan') toast('注意：此連線走外網，非區網直連');
         });
       } else if (cs === 'failed' || cs === 'disconnected') {
-        setStatus('傳輸中斷', 'err');
+        const s2 = getState();
+        if (s2 && !s2.leaving) beginGrace(s2.reco, '連線中斷');
         $(ui.connType).textContent = '—';
       }
     };
@@ -1575,24 +1730,42 @@ function startFilePeer({ ws, getState, recvUi, ui, onPeerLeft }) {
     if (!s.dc) setupDc(pc.createDataChannel('pingl-file', { ordered: true }));
   };
 
-  getState().neg = createNegotiator({ ws, mk, onBeforeOffer });
-
-  ws.onmessage = async ev => {
-    const msg = JSON.parse(ev.data);
-    if (handleRoomFull(msg)) return;
+  // Re-runnable wiring: reused on first connect AND on every reconnect attempt.
+  const wire = sock => {
     const s = getState();
-    if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      if ((msg.peerCount ?? 1) >= 1) s.neg.start();
-    } else if (msg.type === 'peer-left') {
-      // Peer left → close the room and return to the start. Simple and reliable.
-      toast('對方已離線');
-      onPeerLeft();
-    } else {
-      await s.neg.onSignal(msg);
-    }
+    if (s) s.ws = sock;
+    s.neg = createNegotiator({ ws: sock, mk, onBeforeOffer });
+
+    sock.onmessage = async ev => {
+      const msg = JSON.parse(ev.data);
+      if (handleRoomFull(msg)) return;
+      const st = getState();
+      if (msg.type === 'room-state' || msg.type === 'peer-joined') {
+        if ((msg.peerCount ?? 1) >= 1) st.neg.start();
+      } else if (msg.type === 'peer-left') {
+        // Peer left → hold the session open for 60s in case they come back.
+        beginGrace(st.reco, '對方已離線');
+      } else {
+        await st.neg.onSignal(msg);
+      }
+    };
+    sock.onerror = () => { if (!getState()?.reco?.on) setStatus('signaling 連線失敗', 'err'); };
+    sock.onclose = () => {
+      const st = getState();
+      if (st && !st.leaving) beginGrace(st.reco, '連線中斷');
+    };
   };
-  ws.onerror = () => setStatus('signaling 連線失敗', 'err');
-  ws.onclose = () => { if (getState()) setStatus('signaling 已斷', 'err'); };
+
+  // Store the wiring + a recovery descriptor on the state so reconnect can rebuild.
+  const st0 = getState();
+  st0._wire = wire;
+  st0.reco = makeReco({
+    getState,
+    reopen: () => reopenSession(getState(), getState()._wire),
+    giveUp: () => onPeerLeft(),
+  });
+
+  wire(ws);
 }
 
 function showFileConfirmModal(show) {
@@ -1693,6 +1866,8 @@ function requestSendFile(file, getDc, skipConfirm) {
 
 function stopFileSender() {
   if (!fileSenderState) return;
+  fileSenderState.leaving = true;
+  endGrace();
   revokeRecvUrls(fileSenderState.recv);
   try { fileSenderState.dc?.close(); } catch {}
   try { fileSenderState.neg?.reset(); } catch {}
@@ -1711,7 +1886,7 @@ async function startFileReceiver(roomId) {
   setStatus('連線中…', 'busy');
 
   const ws = openSignal(roomId);
-  fileReceiverState = { ws, neg: null, dc: null, recv: null, sending: false };
+  fileReceiverState = { ws, neg: null, dc: null, recv: null, sending: false, roomId, reco: null, _wire: null, leaving: false };
   activeFileSession = fileReceiverState;
 
   startFilePeer({
@@ -1734,6 +1909,8 @@ async function startFileReceiver(roomId) {
 
 function stopFileReceiver() {
   if (!fileReceiverState) return;
+  fileReceiverState.leaving = true;
+  endGrace();
   revokeRecvUrls(fileReceiverState.recv);
   try { fileReceiverState.neg?.reset(); } catch {}
   try { fileReceiverState.ws.close(); } catch {}
@@ -1755,6 +1932,29 @@ $('fileConfirmOk')?.addEventListener('click', async () => {
   pendingTransferFile = null;
   if (!pending) return;
   await sendFileNow(pending.file, pending.getDc);
+});
+
+// Reconnect overlay "放棄並離開" → stop whichever session is in grace.
+$('reconnectCancel')?.addEventListener('click', () => {
+  const reco = activeReco;
+  endGrace();
+  if (reco?.giveUp) reco.giveUp();
+  else showPicker();
+});
+
+// Returning to the foreground (e.g. after the phone was backgrounded): if a
+// session is mid-reconnect, fire an immediate attempt; if it silently died while
+// hidden, start the grace window now.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (activeReco?.on) { activeReco.reopen(); return; }
+  // Detect a session whose connection quietly died while we were hidden.
+  for (const st of [senderState, viewerState, fileSenderState, fileReceiverState]) {
+    if (!st || st.leaving || !st.reco) continue;
+    const cs = st.neg?.neg.pc?.connectionState;
+    const wsDead = !st.ws || st.ws.readyState > 1; // CLOSING/CLOSED
+    if (wsDead || cs === 'failed' || cs === 'disconnected') { beginGrace(st.reco, '連線中斷'); break; }
+  }
 });
 
 window.addEventListener('beforeunload', () => {
