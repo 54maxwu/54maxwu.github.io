@@ -179,7 +179,7 @@
         <button class="go" id="joinBtn">加入</button>
       </div>
       <div class="hint">
-        連線使用你自己的 Cloudflare Worker（<code>pingl-signal</code>）做 signaling，影音資料走 P2P，不經伺服器。<br>
+        連線透過你自己的 Cloudflare Worker（<code>pingl-signal</code>）以 WebSocket 中轉，連得到就一定通。<br>
         建立房間者為主機（綠色玩家），跑遊戲模擬；加入者為客機（橘色玩家）。
       </div>
       <div class="hint" id="netDiag" style="margin-top:6px;font-family:monospace;color:#64748b"></div>
@@ -240,21 +240,12 @@
 /* ============================================================
    炸彈人 · 爆爆王
    - 權威模擬跑在 host（單人/本地是本機；線上是建房者）
-   - 線上：DataChannel 傳輸入(client→host) 與狀態快照(host→client)
-   - 連線複用 pingl-signal worker + token tie-break negotiator
+   - 線上：透過 WebSocket（Cloudflare Worker 房間中轉）傳輸入與狀態快照
+   - 不用 WebRTC P2P：連得到 Worker 就一定通，不會 NAT 打洞失敗
    ============================================================ */
 
-// ── Signaling 設定（與 pingl 相同 worker）──────────────
+// ── 連線設定（與 pingl 相同 worker，純 WebSocket 中轉）──────────────
 const WORKER_URL = 'wss://pingl-signal.54maxwu.workers.dev';
-// STUN 用來打洞；TURN 在對稱式 NAT / 手機行動網路（CGNAT）下做中繼，
-// 否則兩台不同裝置常常連不上。以下 TURN 為公開測試用中繼（OpenRelay）。
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun.cloudflare.com:3478' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-];
 const DEBUG = /[#&]debug/.test(location.hash);
 function dbg(...a){ if(DEBUG||window.BOMB_DEBUG) console.log('[bomb]', ...a); }
 // 畫面上的連線診斷（不用開 console 也看得到卡在哪一步）
@@ -949,7 +940,7 @@ function sendStateMaybe(){
   if(netStateCounter>=netStateEvery){ netStateCounter=0; sendState(false); }
 }
 function sendState(force){
-  if(!dc || dc.readyState!=='open') return;
+  if(!ws || ws.readyState!==1) return;
   const snap={
     t:'state',
     grid: world.grid.map(r=>r.join('')).join('|'),
@@ -992,7 +983,6 @@ function applyState(s){
 function onGameOverClient(){ onGameOver(); }
 
 function sendInput(){
-  if(!dc||dc.readyState!=='open')return;
   send({t:'input', i:myInput});
 }
 
@@ -1008,9 +998,11 @@ function startOnlineClientWorld(){
 }
 
 /* ============================================================
-   WebRTC（複用 pingl 模式：worker signaling + token negotiator + DataChannel）
+   連線：WebSocket 全程中轉（透過 Cloudflare Worker 房間）
+   不再用 WebRTC P2P，遊戲訊息直接走 WebSocket，由 Worker 轉給對方。
+   不需 NAT 打洞 / TURN，連得到 Worker 就一定通。
    ============================================================ */
-let ws=null, dc=null, negotiator=null, roomCode=null, netActive=false, connectTimer=null;
+let ws=null, roomCode=null, netActive=false, connectTimer=null, wsReady=false;
 
 function openSignal(roomId){
   const url=WORKER_URL.replace(/^http/,'ws').replace(/\/$/,'')+'/room/'+roomId;
@@ -1018,146 +1010,70 @@ function openSignal(roomId){
 }
 function randomCode(){ const b=new Uint32Array(1); crypto.getRandomValues(b); return (100000+(b[0]%900000)).toString(); }
 
-function send(obj){ try{ dc.send(JSON.stringify(obj)); }catch(e){ dbg('send fail',e); } }
-
-function setupDc(channel){
-  dc=channel;
-  dc.onopen=()=>{
-    diag('資料通道開啟✓'); clearTimeout(connectTimer); setStatus('已連線','ok'); toast('已連線！');
-    if(isHost){ startOnlineWorld(); beginGame(); sendState(true); }
-    else { beginGame(); }
-  };
-  dc.onclose=()=>{ diag('資料通道關閉'); setStatus('連線中斷','err'); };
-  dc.onmessage=ev=>{
-    let m; try{ m=JSON.parse(ev.data); }catch{ return; }
-    if(m.t==='input'){ // host 收 client 輸入
-      if(isHost && world){ const p=world.players[1]; if(p) p.input=Object.assign(p.input,m.i); }
-    } else if(m.t==='state'){ // client 收狀態
-      if(!isHost) applyState(m);
-    } else if(m.t==='req-restart'){
-      if(isHost){ startOnlineWorld(); beginGame(); sendState(true); toast('新一局開始'); }
-    }
-  };
+// 透過 WebSocket 送給對方（Worker 會轉發）
+function send(obj){
+  if(!ws || ws.readyState!==1) return;
+  try{ ws.send(JSON.stringify(obj)); }catch(e){ dbg('send fail',e); }
 }
 
-// token tie-break negotiator（精簡自 pingl）
-function createNegotiator({ws,mk,preferOfferer}){
-  const neg={pc:null};
-  // token 必須落在安全整數範圍內，否則浮點精度丟失會讓雙方比較出相反結果，
-  // 導致雙重 offer / 沒人 offer 而卡死。用 0..1e9 的隨機數，preferOfferer
-  // 一方加上 2e9 偏置（仍遠在安全整數內），確保它穩定當 offerer。
-  const myToken=(()=>{ const b=new Uint32Array(1); crypto.getRandomValues(b); const r=b[0]%1000000000; return preferOfferer? r+2000000000 : r; })();
-  let peerToken=null, negotiating=false;
-  let remoteReady=false;        // 是否已 setRemoteDescription
-  let pendingCands=[];          // 在 remote description 設好前先緩衝對方的 ICE
-  let iceCount=0;
+// 對手就緒：host 開局並送出第一份狀態；client 等 host 的狀態
+function onPeerReady(){
+  if(peerReady) return;
+  peerReady=true;
+  clearTimeout(connectTimer);
+  setStatus('已連線','ok'); toast('已連線！'); diag('已連線✓');
+  if(isHost){ startOnlineWorld(); beginGame(); sendState(true); }
+  else { send({t:'cli-ready'}); beginGame(); }
+}
+let peerReady=false;
 
-  function ensurePc(){
-    if(neg.pc && !['failed','closed'].includes(neg.pc.connectionState)) return neg.pc;
-    try{neg.pc?.close();}catch{}
-    remoteReady=false; pendingCands=[]; iceCount=0;
-    const pc=mk(); neg.pc=pc;
-    pc.onicecandidate=e=>{
-      if(e.candidate){ iceCount++; if(iceCount===1||iceCount%5===0) diag('送ICE×'+iceCount); ws.send(JSON.stringify({type:'ice',candidate:e.candidate})); }
-      else diag('ICE收集完畢×'+iceCount);
-    };
-    pc.onicegatheringstatechange=()=>diag('gather='+pc.iceGatheringState);
-    return pc;
+function handleNetMsg(m){
+  if(m.t==='host-ready'){ // client 收到 host 在場 → 進入連線
+    if(!isHost) onPeerReady();
+  } else if(m.t==='cli-ready'){ // host 收到 client 就緒 → 補送一份完整狀態
+    if(isHost){ onPeerReady(); sendState(true); }
+  } else if(m.t==='input'){ // host 收 client 輸入
+    if(isHost && world){ const p=world.players[1]; if(p) p.input=Object.assign(p.input,m.i); }
+  } else if(m.t==='state'){ // client 收狀態
+    if(!isHost){ if(!peerReady) onPeerReady(); applyState(m); }
+  } else if(m.t==='req-restart'){
+    if(isHost){ startOnlineWorld(); beginGame(); sendState(true); toast('新一局開始'); }
   }
-  // 設完 remote description 後，把先前緩衝的對方候選一次補上
-  async function flushCands(pc){
-    remoteReady=true;
-    const buf=pendingCands; pendingCands=[];
-    for(const c of buf){ try{ await pc.addIceCandidate(c); }catch(e){ dbg('flush ice err',e); } }
-    if(buf.length) diag('補上 '+buf.length+' ICE');
-  }
-  function amOfferer(){ return peerToken!=null && myToken>peerToken; }
-  async function maybeOffer(){
-    if(!amOfferer()||negotiating)return;
-    const pc=ensurePc(); if(pc.signalingState!=='stable')return;
-    try{ negotiating=true; diag('送出 offer');
-      const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
-      ws.send(JSON.stringify({type:'offer',sdp:pc.localDescription}));
-    }catch(e){dbg('offer err',e);}finally{negotiating=false;}
-  }
-  function start(){
-    if(neg.pc && !['connected','connecting'].includes(neg.pc.connectionState)){ try{neg.pc.close();}catch{} neg.pc=null; peerToken=null; }
-    ws.send(JSON.stringify({type:'hello',token:myToken}));
-  }
-  async function onSignal(msg){
-    if(msg.type==='hello'||msg.type==='hello-ack'){
-      peerToken=msg.token; diag('握手 token('+(amOfferer()?'我offer':'我answer')+')');
-      if(msg.type==='hello') ws.send(JSON.stringify({type:'hello-ack',token:myToken}));
-      ensurePc(); await maybeOffer();
-    } else if(msg.type==='offer'){
-      const pc=ensurePc(); if(amOfferer())return;
-      diag('收到 offer'); await pc.setRemoteDescription(msg.sdp);
-      await flushCands(pc);
-      const ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
-      ws.send(JSON.stringify({type:'answer',sdp:pc.localDescription}));
-    } else if(msg.type==='answer'){
-      const pc=neg.pc;
-      if(!pc){ diag('answer但無pc'); return; }
-      if(pc.signalingState!=='have-local-offer'){ diag('answer狀態異常:'+pc.signalingState); return; }
-      try{ diag('收到 answer'); await pc.setRemoteDescription(msg.sdp); await flushCands(pc); diag('answer已套用'); }
-      catch(e){ diag('answer失敗:'+e.name); }
-    } else if(msg.type==='ice'){
-      const pc=neg.pc; if(!pc) return;
-      // remote description 還沒設好就先緩衝，避免 addIceCandidate 失敗被丟棄
-      if(!remoteReady || !pc.remoteDescription){ pendingCands.push(msg.candidate); return; }
-      try{ await pc.addIceCandidate(msg.candidate); }catch(e){ dbg('ice err',e); }
-    }
-  }
-  return { neg, start, onSignal };
 }
 
 function connectRoom(code, host){
   if(!WORKER_URL){ toast('未設定 Worker URL'); return; }
-  isHost=host; myIndex=host?0:1; roomCode=code; netActive=true;
+  isHost=host; myIndex=host?0:1; roomCode=code; netActive=true; peerReady=false; wsReady=false;
   setStatus(host?'等待對手加入…':'連線中…','busy');
   ws=openSignal(code);
-  negotiator=createNegotiator({
-    ws,
-    preferOfferer: host, // host 傾向當 offerer，但 DataChannel 由 host 必定建立（見下）
-    mk(){
-      const pc=new RTCPeerConnection({iceServers:ICE_SERVERS});
-      pc.ondatachannel=ev=>{ dbg('ondatachannel'); setupDc(ev.channel); };
-      // Host 一律在建立 pc 當下就開好 DataChannel，不依賴「誰當 offerer」，
-      // 避免 token tie-break 萬一翻轉導致雙方都沒人建 channel 而卡死。
-      if(host){ try{ setupDc(pc.createDataChannel('bomb',{ordered:true})); }catch(e){ dbg('createDC err',e); } }
-      pc.onconnectionstatechange=()=>{
-        diag('pc='+pc.connectionState);
-        if(pc.connectionState==='connected'){ clearTimeout(connectTimer); setStatus('已連線','ok'); }
-        else if(pc.connectionState==='failed'){ setStatus('連線失敗','err'); toast('P2P 連線失敗，可能是網路限制，請重試或換網路'); }
-      };
-      pc.oniceconnectionstatechange=()=>diag('ice='+pc.iceConnectionState);
-      return pc;
-    },
-  });
-  ws.onopen=()=>diag(host?'房主就緒':'已連 signaling');
+  ws.onopen=()=>{ wsReady=true; diag(host?'房主就緒':'已連線到房間'); };
   ws.onmessage=ev=>{
     let msg; try{ msg=JSON.parse(ev.data); }catch{ return; }
+    // Worker 控制訊息
     if(msg.type==='room-full'){ toast('房間已滿'); setStatus('房間已滿','err'); diag('房間已滿'); return; }
-    if(msg.type==='room-state'){ diag('room peers='+msg.peerCount); if(msg.peerCount>0) negotiator.start(); return; }
-    if(msg.type==='peer-joined'){
-      diag('對手加入'); setStatus('對手已加入，連線中…','busy'); negotiator.start();
-      clearTimeout(connectTimer);
-      connectTimer=setTimeout(()=>{
-        if(!dc||dc.readyState!=='open'){ setStatus('連線逾時','err'); toast('連線逾時，請雙方都按重試或換網路'); }
-      },20000);
+    if(msg.type==='room-state'){
+      diag('room peers='+msg.peerCount);
+      // 房裡已有對方 → 互相宣告就緒
+      if(msg.peerCount>0){ if(isHost) send({t:'host-ready'}); else send({t:'cli-ready'}); }
       return;
     }
-    if(msg.type==='peer-left'){ clearTimeout(connectTimer); setStatus('對手離開','err'); return; }
-    negotiator.onSignal(msg);
+    if(msg.type==='peer-joined'){
+      diag('對手加入');
+      if(isHost){ send({t:'host-ready'}); }
+      clearTimeout(connectTimer);
+      connectTimer=setTimeout(()=>{ if(!peerReady){ setStatus('連線逾時','err'); toast('連線逾時，請雙方重新整理再試'); } },15000);
+      return;
+    }
+    if(msg.type==='peer-left'){ setStatus('對手離開','err'); diag('對手離開'); return; }
+    // 其餘為遊戲訊息
+    handleNetMsg(msg);
   };
-  ws.onerror=()=>setStatus('signaling 錯誤','err');
-  ws.onclose=()=>dbg('ws close');
+  ws.onerror=()=>{ setStatus('連線錯誤','err'); diag('ws error'); };
+  ws.onclose=()=>{ diag('ws close'); if(netActive&&!world?.over) setStatus('連線中斷','err'); };
 }
 function teardownNet(){
-  netActive=false; clearTimeout(connectTimer);
-  try{dc?.close();}catch{} dc=null;
-  try{negotiator?.neg.pc?.close();}catch{}
-  try{ws?.close();}catch{} ws=null; negotiator=null;
+  netActive=false; peerReady=false; clearTimeout(connectTimer);
+  try{ws?.close();}catch{} ws=null;
 }
 
 /* ============================================================
