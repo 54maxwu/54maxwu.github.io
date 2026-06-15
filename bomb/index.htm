@@ -702,14 +702,28 @@ function loop(t){
     stepAccum+=acc;
     while(stepAccum>=STEP){ stepWorld(); stepAccum-=STEP; sendStateMaybe(); }
   } else {
-    // client：不自己跑模擬，所有角色都用「快照緩衝 + 延遲插值」平滑渲染（entity
-    // interpolation）。在兩個收到的快照之間平滑內插，保證不跳格、不橡皮筋。
+    // client：自己的角色純本地預測（按下即動、零延遲，且完全不被 host 位置回拉
+    // → 不會橡皮筋）；對手 / 炸彈 / 爆風 用快照延遲插值平滑呈現。
+    stepAccum+=acc;
+    while(stepAccum>=STEP){ predictSelf(); stepAccum-=STEP; }
     renderInterpolated(t);
   }
   draw();
   updateScores();
 }
 let stepAccum=0;
+
+// client 只模擬「自己」的角色移動，與 host 跑相同決定性邏輯＋相同輸入，
+// 結果本就一致，故無需 host 校正（避免橡皮筋）。炸彈仍交 host 權威。
+function predictSelf(){
+  if(!world||world.over) return;
+  const me=world.players[myIndex];
+  if(!me||!me.alive) return;
+  const wasBomb=me.input.bomb;
+  me.input.bomb=false;          // 放彈不本地預測，交給 host
+  tryMove(me);
+  me.input.bomb=wasBomb;
+}
 
 /* ============================================================
    輸入
@@ -723,7 +737,9 @@ function setLocalInput(playerIdx, action, val){
     const p=world.players[playerIdx];
     if(p) p.input[action]=val;
   } else {
-    // client：不本地模擬，只把輸入送給 host（host 權威），畫面靠插值平滑呈現
+    // client：(1) 本地套用做預測（自己角色按下即動）(2) 送 host 權威處理
+    const me=world.players[myIndex];
+    if(me) me.input[action]=val;
     myInput[action]=val;
     sendInput();
   }
@@ -945,7 +961,10 @@ function applyState(s){
   world.powerups=s.powerups.map(u=>({cx:u[0],cy:u[1],kind:u[2]}));
   // 玩家權威屬性（火力/炸彈數/速度/存活/死亡）採用最新
   world.players.forEach((p,i)=>{ const d=s.players[i]; if(!d)return;
+    const wasAlive=p.alive;
     p.alive=!!d[2]; p.fire=d[3]; p.maxBombs=d[4]; p.dying=d[6]||0; if(d[7])p.speed=d[7];
+    // 自己剛死：定位到權威死亡位置以播動畫（活著時位置由本地預測，不碰）
+    if(i===myIndex && wasAlive && !p.alive){ p.px=d[0]; p.py=d[1]; }
   });
   world.over=!!s.over; world.winner=s.winner;
   if(world.over && !$('overlay').classList.contains('show')) onGameOverClient();
@@ -965,8 +984,9 @@ function renderInterpolated(t){
   const span=(b._rt-a._rt)||1;
   const f=Math.max(0,Math.min(1,(target-a._rt)/span));   // 0..1 插值因子
 
-  // 玩家位置插值
+  // 玩家位置插值（自己的角色跳過：由 predictSelf 本地預測，不插值不回拉）
   world.players.forEach((p,i)=>{
+    if(i===myIndex) return;
     const da=a.players[i], db=b.players[i]; if(!da)return;
     p.px=da[0]+(db[0]-da[0])*f;
     p.py=da[1]+(db[1]-da[1])*f;
