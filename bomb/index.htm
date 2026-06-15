@@ -350,36 +350,33 @@ function startWorld(seed, nPlayers){
 const STEP=1000/60;
 const BOMB_FUSE=120;      // ticks (2s)
 const BLAST_DUR=30;       // ticks (0.5s)
-const SPEED_BASE=1.7;     // px/tick base
-const SPEED_INC=0.45;
+const SPEED_BASE=3.0;     // px/tick base（45px/格 ÷ 3 ≈ 15 tick ≈ 0.25s 過一格，手感俐落）
+const SPEED_INC=0.6;
 
 function tileAt(px,py){ return world.grid[Math.floor(py/TILE)] ? world.grid[Math.floor(py/TILE)][Math.floor(px/TILE)] : T_WALL; }
 function cellOf(p){ return { cx:Math.floor(p.px/TILE), cy:Math.floor(p.py/TILE) }; }
 function bombAtCell(cx,cy){ return world.bombs.find(b=>b.cx===cx&&b.cy===cy); }
 
-// 格對格鎖定移動：玩家永遠對齊在格中心，按方向就朝相鄰格滑過去，
-// 到達中心後才能再轉向。若目標格不可走，就完全不動（不會在格內頂一點點）。
+// 格對格鎖定移動：玩家以「格中心」為節點。正在前往某格時持續滑動直到抵達，
+// 抵達後（或一開始就在格中心）依目前按鍵決定下一格。放開鍵會在抵達當前
+// 目標格中心後停下；目標格是牆/磚則完全不動（不會在格內頂一點點）。
 function tryMove(p){
   if(!p.alive) return;
   const inp=p.input;
   const spd=SPEED_BASE+(p.speed-1)*SPEED_INC;
 
-  // 目前所在格與其中心
-  const cx=Math.round((p.px-TILE/2)/TILE), cy=Math.round((p.py-TILE/2)/TILE);
-  const cxC=cx*TILE+TILE/2, cyC=cy*TILE+TILE/2;
-  const atCenter = Math.abs(p.px-cxC)<=spd && Math.abs(p.py-cyC)<=spd;
-
-  // 正在兩格之間移動 → 繼續滑向鎖定的目標格中心
-  if(!atCenter && p.dest){
+  // 仍在前往鎖定目標格的途中 → 繼續滑，抵達才換決策
+  if(p.dest){
     p.px=approach(p.px,p.dest.x,spd);
     p.py=approach(p.py,p.dest.y,spd);
     p.moving=true;
-    leaveOwnBomb(p);
-    return;
+    if(p.px===p.dest.x && p.py===p.dest.y) p.dest=null; // 抵達，解除鎖定
+    else { leaveOwnBomb(p); return; }
   }
 
-  // 已對齊格中心：吸附到精確中心，然後依輸入決定下一格
-  p.px=cxC; p.py=cyC; p.dest=null;
+  // 此刻一定對齊在某格中心（dest 已清空）。用實際座標反推格號並吸附精確中心。
+  const cx=Math.round((p.px-TILE/2)/TILE), cy=Math.round((p.py-TILE/2)/TILE);
+  p.px=cx*TILE+TILE/2; p.py=cy*TILE+TILE/2;
 
   let dx=0, dy=0;
   if(inp.left) dx-=1; else if(inp.right) dx+=1;
@@ -394,8 +391,9 @@ function tryMove(p){
     p.px=approach(p.px,p.dest.x,spd);
     p.py=approach(p.py,p.dest.y,spd);
     p.moving=true;
+    if(p.px===p.dest.x && p.py===p.dest.y) p.dest=null;
   } else {
-    p.moving=false; // 上面/前方是牆或磚 → 原地不動
+    p.moving=false; // 前方是牆或磚 → 原地不動
   }
   leaveOwnBomb(p);
 }
