@@ -922,7 +922,11 @@ function createNegotiator({ws,mk,preferOfferer}){
     try{neg.pc?.close();}catch{}
     remoteReady=false; pendingCands=[]; iceCount=0;
     const pc=mk(); neg.pc=pc;
-    pc.onicecandidate=e=>{ if(e.candidate){ iceCount++; ws.send(JSON.stringify({type:'ice',candidate:e.candidate})); } };
+    pc.onicecandidate=e=>{
+      if(e.candidate){ iceCount++; if(iceCount===1||iceCount%5===0) diag('送ICE×'+iceCount); ws.send(JSON.stringify({type:'ice',candidate:e.candidate})); }
+      else diag('ICE收集完畢×'+iceCount);
+    };
+    pc.onicegatheringstatechange=()=>diag('gather='+pc.iceGatheringState);
     return pc;
   }
   // 設完 remote description 後，把先前緩衝的對方候選一次補上
@@ -957,7 +961,11 @@ function createNegotiator({ws,mk,preferOfferer}){
       const ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
       ws.send(JSON.stringify({type:'answer',sdp:pc.localDescription}));
     } else if(msg.type==='answer'){
-      const pc=neg.pc; if(pc&&pc.signalingState==='have-local-offer'){ diag('收到 answer'); await pc.setRemoteDescription(msg.sdp); await flushCands(pc); }
+      const pc=neg.pc;
+      if(!pc){ diag('answer但無pc'); return; }
+      if(pc.signalingState!=='have-local-offer'){ diag('answer狀態異常:'+pc.signalingState); return; }
+      try{ diag('收到 answer'); await pc.setRemoteDescription(msg.sdp); await flushCands(pc); diag('answer已套用'); }
+      catch(e){ diag('answer失敗:'+e.name); }
     } else if(msg.type==='ice'){
       const pc=neg.pc; if(!pc) return;
       // remote description 還沒設好就先緩衝，避免 addIceCandidate 失敗被丟棄
