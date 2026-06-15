@@ -357,59 +357,62 @@ function tileAt(px,py){ return world.grid[Math.floor(py/TILE)] ? world.grid[Math
 function cellOf(p){ return { cx:Math.floor(p.px/TILE), cy:Math.floor(p.py/TILE) }; }
 function bombAtCell(cx,cy){ return world.bombs.find(b=>b.cx===cx&&b.cy===cy); }
 
-function canStand(px,py,player){
-  // 牆/磚：把玩家視為略小於格子的方塊，檢查四角是否進入實心格。
-  const r=TILE*0.36;
-  const corners=[[px-r,py-r],[px+r,py-r],[px-r,py+r],[px+r,py+r]];
-  for(const [x,y] of corners){
-    const cx=Math.floor(x/TILE), cy=Math.floor(y/TILE);
-    if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
-    const t=world.grid[cy][cx];
-    if(t===T_WALL||t===T_BRICK) return false;
+// 格對格鎖定移動：玩家永遠對齊在格中心，按方向就朝相鄰格滑過去，
+// 到達中心後才能再轉向。若目標格不可走，就完全不動（不會在格內頂一點點）。
+function tryMove(p){
+  if(!p.alive) return;
+  const inp=p.input;
+  const spd=SPEED_BASE+(p.speed-1)*SPEED_INC;
+
+  // 目前所在格與其中心
+  const cx=Math.round((p.px-TILE/2)/TILE), cy=Math.round((p.py-TILE/2)/TILE);
+  const cxC=cx*TILE+TILE/2, cyC=cy*TILE+TILE/2;
+  const atCenter = Math.abs(p.px-cxC)<=spd && Math.abs(p.py-cyC)<=spd;
+
+  // 正在兩格之間移動 → 繼續滑向鎖定的目標格中心
+  if(!atCenter && p.dest){
+    p.px=approach(p.px,p.dest.x,spd);
+    p.py=approach(p.py,p.dest.y,spd);
+    p.moving=true;
+    leaveOwnBomb(p);
+    return;
   }
-  // 炸彈：用較緊的判定，只有當玩家「中心所在格」是炸彈格時才算撞上，
-  // 避免站在隔壁格時被相鄰炸彈的角落判定卡住而逃不出火線。
-  const ccx=Math.floor(px/TILE), ccy=Math.floor(py/TILE);
-  const b=bombAtCell(ccx,ccy);
+
+  // 已對齊格中心：吸附到精確中心，然後依輸入決定下一格
+  p.px=cxC; p.py=cyC; p.dest=null;
+
+  let dx=0, dy=0;
+  if(inp.left) dx-=1; else if(inp.right) dx+=1;
+  else if(inp.up) dy-=1; else if(inp.down) dy+=1; // 不走斜線：水平優先
+  if(dx===0&&dy===0){ p.moving=false; leaveOwnBomb(p); return; }
+
+  if(dx<0)p.dir='left'; else if(dx>0)p.dir='right'; else if(dy<0)p.dir='up'; else p.dir='down';
+
+  const tx=cx+dx, ty=cy+dy;
+  if(canEnterCell(tx,ty,p)){
+    p.dest={ x:tx*TILE+TILE/2, y:ty*TILE+TILE/2 };
+    p.px=approach(p.px,p.dest.x,spd);
+    p.py=approach(p.py,p.dest.y,spd);
+    p.moving=true;
+  } else {
+    p.moving=false; // 上面/前方是牆或磚 → 原地不動
+  }
+  leaveOwnBomb(p);
+}
+// 該格是否可進入：牆/磚不可；炸彈不可（除非是自己剛放、且還站在上面那顆）
+function canEnterCell(cx,cy,p){
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
+  const t=world.grid[cy][cx];
+  if(t===T_WALL||t===T_BRICK) return false;
+  const b=bombAtCell(cx,cy);
   if(b){
-    const onOwnFresh = b.passFor && b.passFor.has(player.i) &&
-                       b.cx===Math.floor(player.px/TILE) && b.cy===Math.floor(player.py/TILE);
+    const cur=cellOf(p);
+    const onOwnFresh = b.passFor && b.passFor.has(p.i) && b.cx===cur.cx && b.cy===cur.cy;
     if(!onOwnFresh) return false;
   }
   return true;
 }
-
-function tryMove(p){
-  if(!p.alive) return;
-  const inp=p.input;
-  let dx=0, dy=0;
-  if(inp.left) dx-=1; if(inp.right) dx+=1;
-  if(inp.up) dy-=1; if(inp.down) dy+=1;
-  p.moving = (dx!==0||dy!==0);
-  if(dx&&dy){ // 不走斜線，優先剛按的方向；簡化成優先水平
-    dy=0;
-  }
-  if(dx<0)p.dir='left'; else if(dx>0)p.dir='right'; else if(dy<0)p.dir='up'; else if(dy>0)p.dir='down';
-
-  const spd=SPEED_BASE+(p.speed-1)*SPEED_INC;
-  const nx=p.px+dx*spd, ny=p.py+dy*spd;
-
-  // 嘗試移動，並做「導引」讓玩家容易轉彎（對齊格中線）
-  if(dx!==0){
-    if(canStand(nx,p.py,p)) p.px=nx;
-    else { // 嘗試上下對齊滑過拐角
-      const align=alignAxis(p.py);
-      if(align!==null && canStand(nx,align,p)){ p.py=approach(p.py,align,spd); }
-    }
-  }
-  if(dy!==0){
-    if(canStand(p.px,ny,p)) p.py=ny;
-    else {
-      const align=alignAxis(p.px);
-      if(align!==null && canStand(align,ny,p)){ p.px=approach(p.px,align,spd); }
-    }
-  }
-
+function leaveOwnBomb(p){
   // 離開自己炸彈格後，該炸彈對他也變成實心
   for(const b of world.bombs){
     if(b.passFor && b.passFor.has(p.i)){
@@ -418,7 +421,6 @@ function tryMove(p){
     }
   }
 }
-function alignAxis(v){ const c=Math.floor(v/TILE); const center=c*TILE+TILE/2; return Math.abs(v-center)<TILE*0.5?center:null; }
 function approach(v,target,step){ if(Math.abs(v-target)<=step)return target; return v+Math.sign(target-v)*step; }
 
 function placeBomb(p){
