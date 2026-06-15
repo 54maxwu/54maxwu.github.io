@@ -107,14 +107,23 @@
   .overlay .box h3{font-size:18px;margin-bottom:6px}
   .overlay .box p{color:#64748b;font-size:13px;margin-bottom:18px}
 
-  /* touch controls */
-  .touch{display:none;margin-top:14px}
-  .touch.show{display:flex;justify-content:space-between;align-items:flex-end;gap:20px}
-  .dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:6px}
-  .dpad button{border:none;background:#fff;border:1px solid #e2e8f0;border-radius:10px;font-size:22px;color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none}
-  .dpad button:active{background:#dbeafe}
-  .dpad .sp{visibility:hidden}
-  .bombbtn{width:84px;height:84px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:32px;cursor:pointer;box-shadow:0 4px 12px rgba(239,68,68,.4);touch-action:none}
+  /* touch controls：左虛擬搖桿 + 右炸彈鈕 */
+  .touch{display:none;margin-top:16px}
+  .touch.show{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:0 6px}
+  .joy{
+    position:relative;width:140px;height:140px;border-radius:50%;
+    background:#fff;border:1px solid #e2e8f0;box-shadow:inset 0 2px 8px rgba(0,0,0,.06);
+    touch-action:none;flex:0 0 auto;
+  }
+  .joy .ring{position:absolute;inset:14px;border-radius:50%;border:2px dashed #e2e8f0}
+  .joy .knob{
+    position:absolute;width:58px;height:58px;border-radius:50%;
+    left:50%;top:50%;transform:translate(-50%,-50%);
+    background:#3b82f6;box-shadow:0 4px 12px rgba(59,130,246,.4);
+    transition:background .1s;pointer-events:none;
+  }
+  .joy.active .knob{background:#2563eb}
+  .bombbtn{width:96px;height:96px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:36px;cursor:pointer;box-shadow:0 4px 14px rgba(239,68,68,.45);touch-action:none;flex:0 0 auto}
   .bombbtn:active{background:#dc2626;transform:scale(.94)}
 
   .note{margin-top:20px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.7}
@@ -203,10 +212,9 @@
     </div>
 
     <div class="touch" id="touch">
-      <div class="dpad">
-        <button class="sp"></button><button data-dir="up">▲</button><button class="sp"></button>
-        <button data-dir="left">◀</button><button class="sp"></button><button data-dir="right">▶</button>
-        <button class="sp"></button><button data-dir="down">▼</button><button class="sp"></button>
+      <div class="joy" id="joy">
+        <div class="ring"></div>
+        <div class="knob" id="joyKnob"></div>
       </div>
       <button class="bombbtn" id="bombBtn">💣</button>
     </div>
@@ -237,9 +245,14 @@
 
 // ── Signaling 設定（與 pingl 相同 worker）──────────────
 const WORKER_URL = 'wss://pingl-signal.54maxwu.workers.dev';
+// STUN 用來打洞；TURN 在對稱式 NAT / 手機行動網路（CGNAT）下做中繼，
+// 否則兩台不同裝置常常連不上。以下 TURN 為公開測試用中繼（OpenRelay）。
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
 ];
 const DEBUG = /[#&]debug/.test(location.hash);
 function dbg(...a){ if(DEBUG||window.BOMB_DEBUG) console.log('[bomb]', ...a); }
@@ -646,24 +659,69 @@ window.addEventListener('keyup',e=>{
   }
 });
 
-// 觸控
+// 觸控：虛擬搖桿（拖曳分析方向，超過門檻就觸發對應方向）+ 炸彈鈕
 function bindTouch(){
-  const dirBtns=document.querySelectorAll('.dpad button[data-dir]');
   const press=(action,val)=>setLocalInput(myIndex,action,val);
-  dirBtns.forEach(b=>{
-    const dir=b.dataset.dir;
-    const on=e=>{e.preventDefault();press(dir,true);};
-    const off=e=>{e.preventDefault();press(dir,false);};
-    b.addEventListener('touchstart',on,{passive:false});
-    b.addEventListener('touchend',off,{passive:false});
-    b.addEventListener('touchcancel',off,{passive:false});
-    b.addEventListener('mousedown',on); b.addEventListener('mouseup',off); b.addEventListener('mouseleave',off);
-  });
+  const joy=$('joy'), knob=$('joyKnob');
+  let joyId=null;       // 追蹤的 touch identifier（多點觸控時只認搖桿這指）
+  const cur={up:false,down:false,left:false,right:false};
+  const MAXR=42;        // 旋鈕可移動半徑(px)
+  const DEAD=12;        // 死區：小於此距離視為不動
+
+  function setDir(d){
+    for(const k of ['up','down','left','right']){
+      if(cur[k]!==d[k]){ cur[k]=d[k]; press(k,d[k]); }
+    }
+  }
+  function moveKnob(dx,dy){
+    const dist=Math.hypot(dx,dy);
+    if(dist>MAXR){ dx=dx/dist*MAXR; dy=dy/dist*MAXR; }
+    knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    const d={up:false,down:false,left:false,right:false};
+    if(dist>=DEAD){
+      // 八方向 → 取較大的軸為主（允許同時兩軸，遊戲內會處理斜向）
+      if(Math.abs(dx)>DEAD*0.5) d[dx>0?'right':'left']=true;
+      if(Math.abs(dy)>DEAD*0.5) d[dy>0?'down':'up']=true;
+    }
+    setDir(d);
+  }
+  function resetKnob(){
+    knob.style.transform='translate(-50%,-50%)';
+    setDir({up:false,down:false,left:false,right:false});
+    joy.classList.remove('active');
+  }
+  function localXY(t){ const r=joy.getBoundingClientRect(); return {x:t.clientX-(r.left+r.width/2), y:t.clientY-(r.top+r.height/2)}; }
+
+  joy.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(joyId!==null) return;
+    const t=e.changedTouches[0]; joyId=t.identifier;
+    joy.classList.add('active');
+    const p=localXY(t); moveKnob(p.x,p.y);
+  },{passive:false});
+  joy.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){ if(t.identifier===joyId){ const p=localXY(t); moveKnob(p.x,p.y); } }
+  },{passive:false});
+  const endTouch=e=>{
+    for(const t of e.changedTouches){ if(t.identifier===joyId){ joyId=null; resetKnob(); } }
+  };
+  joy.addEventListener('touchend',endTouch,{passive:false});
+  joy.addEventListener('touchcancel',endTouch,{passive:false});
+
+  // 滑鼠拖曳（桌機測試用）
+  let mouseDown=false;
+  joy.addEventListener('mousedown',e=>{ mouseDown=true; joy.classList.add('active'); const r=joy.getBoundingClientRect(); moveKnob(e.clientX-(r.left+r.width/2), e.clientY-(r.top+r.height/2)); });
+  window.addEventListener('mousemove',e=>{ if(!mouseDown)return; const r=joy.getBoundingClientRect(); moveKnob(e.clientX-(r.left+r.width/2), e.clientY-(r.top+r.height/2)); });
+  window.addEventListener('mouseup',()=>{ if(mouseDown){ mouseDown=false; resetKnob(); } });
+
+  // 炸彈鈕
   const bb=$('bombBtn');
   const bon=e=>{e.preventDefault();press('bomb',true);};
   const boff=e=>{e.preventDefault();press('bomb',false);};
   bb.addEventListener('touchstart',bon,{passive:false});
   bb.addEventListener('touchend',boff,{passive:false});
+  bb.addEventListener('touchcancel',boff,{passive:false});
   bb.addEventListener('mousedown',bon); bb.addEventListener('mouseup',boff);
 }
 
@@ -710,9 +768,13 @@ function beginGame(){
   const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
   $('touch').classList.toggle('show', isTouch && mode!=='local');
   // 控制提示
-  $('ctrlHint').innerHTML = mode==='local'
-    ? '玩家1：WASD + 空白鍵　|　玩家2：方向鍵 + Enter'
-    : 'WASD 或 方向鍵移動　·　空白鍵 / Enter 放炸彈';
+  if(mode==='local'){
+    $('ctrlHint').innerHTML='玩家1：WASD + 空白鍵　|　玩家2：方向鍵 + Enter';
+  } else if(isTouch){
+    $('ctrlHint').innerHTML='左側搖桿移動　·　右側 💣 放炸彈';
+  } else {
+    $('ctrlHint').innerHTML='WASD 或 方向鍵移動　·　空白鍵 / Enter 放炸彈';
+  }
   lastTime=0; stepAccum=0;
   if(!rafId) rafId=requestAnimationFrame(loop);
 }
@@ -805,7 +867,7 @@ function startOnlineClientWorld(){
 /* ============================================================
    WebRTC（複用 pingl 模式：worker signaling + token negotiator + DataChannel）
    ============================================================ */
-let ws=null, dc=null, negotiator=null, roomCode=null, netActive=false;
+let ws=null, dc=null, negotiator=null, roomCode=null, netActive=false, connectTimer=null;
 
 function openSignal(roomId){
   const url=WORKER_URL.replace(/^http/,'ws').replace(/\/$/,'')+'/room/'+roomId;
@@ -818,7 +880,7 @@ function send(obj){ try{ dc.send(JSON.stringify(obj)); }catch(e){ dbg('send fail
 function setupDc(channel){
   dc=channel;
   dc.onopen=()=>{
-    dbg('dc open'); setStatus('已連線','ok'); toast('已連線！');
+    dbg('dc open'); clearTimeout(connectTimer); setStatus('已連線','ok'); toast('已連線！');
     if(isHost){ startOnlineWorld(); beginGame(); sendState(true); }
     else { beginGame(); }
   };
@@ -890,7 +952,11 @@ function connectRoom(code, host){
     mk(){
       const pc=new RTCPeerConnection({iceServers:ICE_SERVERS});
       pc.ondatachannel=ev=>setupDc(ev.channel);
-      pc.onconnectionstatechange=()=>{ dbg('pc',pc.connectionState); if(pc.connectionState==='connected')setStatus('已連線','ok'); };
+      pc.onconnectionstatechange=()=>{
+        dbg('pc',pc.connectionState);
+        if(pc.connectionState==='connected'){ clearTimeout(connectTimer); setStatus('已連線','ok'); }
+        else if(pc.connectionState==='failed'){ setStatus('連線失敗','err'); toast('P2P 連線失敗，可能是網路限制，請重試或換網路'); }
+      };
       return pc;
     },
     onBeforeOffer(pc){ if(host && (!dc||dc.readyState==='closed')) setupDc(pc.createDataChannel('bomb',{ordered:true})); },
@@ -900,15 +966,22 @@ function connectRoom(code, host){
     let msg; try{ msg=JSON.parse(ev.data); }catch{ return; }
     if(msg.type==='room-full'){ toast('房間已滿'); setStatus('房間已滿','err'); return; }
     if(msg.type==='room-state'){ if(msg.peerCount>0) negotiator.start(); return; }
-    if(msg.type==='peer-joined'){ setStatus('對手已加入，連線中…','busy'); negotiator.start(); return; }
-    if(msg.type==='peer-left'){ setStatus('對手離開','err'); return; }
+    if(msg.type==='peer-joined'){
+      setStatus('對手已加入，連線中…','busy'); negotiator.start();
+      clearTimeout(connectTimer);
+      connectTimer=setTimeout(()=>{
+        if(!dc||dc.readyState!=='open'){ setStatus('連線逾時','err'); toast('連線逾時，請雙方都按重試或換網路'); }
+      },20000);
+      return;
+    }
+    if(msg.type==='peer-left'){ clearTimeout(connectTimer); setStatus('對手離開','err'); return; }
     negotiator.onSignal(msg);
   };
   ws.onerror=()=>setStatus('signaling 錯誤','err');
   ws.onclose=()=>dbg('ws close');
 }
 function teardownNet(){
-  netActive=false;
+  netActive=false; clearTimeout(connectTimer);
   try{dc?.close();}catch{} dc=null;
   try{negotiator?.neg.pc?.close();}catch{}
   try{ws?.close();}catch{} ws=null; negotiator=null;
