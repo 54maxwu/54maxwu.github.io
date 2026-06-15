@@ -730,10 +730,16 @@ function interpolateRemote(accMs){
   if(!world) return;
   const k=Math.min(1, accMs/60); // 插值速度
   for(const p of world.players){
-    if(p.i===myIndex) continue;
+    if(p.i===myIndex){
+      // 自己：嚴重脫節時才平滑拉近（非瞬移），平時完全信任本地預測
+      if(p._cx!=null){
+        p.px+=(p._cx-p.px)*0.12; p.py+=(p._cy-p.py)*0.12;
+        if(Math.hypot(p._cx-p.px,p._cy-p.py)<1.5){ p._cx=null; p._cy=null; }
+      }
+      continue;
+    }
     if(p._tx!=null){ p.px+=(p._tx-p.px)*Math.min(1,k*2.2); p.py+=(p._ty-p.py)*Math.min(1,k*2.2); }
   }
-  for(const b of world.bombs){ /* 炸彈在格上不需插值 */ }
 }
 
 /* ============================================================
@@ -944,7 +950,7 @@ function sendState(force){
   const snap={
     t:'state',
     grid: world.grid.map(r=>r.join('')).join('|'),
-    players: world.players.map(p=>[Math.round(p.px),Math.round(p.py),p.alive?1:0,p.fire,p.maxBombs,p.dir[0],p.dying]),
+    players: world.players.map(p=>[Math.round(p.px),Math.round(p.py),p.alive?1:0,p.fire,p.maxBombs,p.dir[0],p.dying,p.speed]),
     bombs: world.bombs.map(b=>[b.cx,b.cy,b.fuse]),
     blasts: world.blasts.map(b=>[b.cx,b.cy,b.life]),
     powerups: world.powerups.map(u=>[u.cx,u.cy,u.kind]),
@@ -961,13 +967,17 @@ function applyState(s){
   // players
   world.players.forEach((p,i)=>{
     const d=s.players[i]; if(!d)return;
-    // 權威屬性一律採用 host：存活/火力/炸彈數/死亡動畫
-    p.alive=!!d[2]; p.fire=d[3]; p.maxBombs=d[4]; p.dying=d[6]||0;
+    // 權威屬性一律採用 host：存活/火力/炸彈數/速度/死亡動畫
+    p.alive=!!d[2]; p.fire=d[3]; p.maxBombs=d[4]; p.dying=d[6]||0; if(d[7]) p.speed=d[7];
     if(i===myIndex){
-      // 自己的角色：本地預測為主，只有當 host 位置與預測偏差過大才校正（防穿牆/漂移）
-      const dxp=d[0]-p.px, dyp=d[1]-p.py;
-      if(Math.hypot(dxp,dyp) > TILE*0.9){ p.px=d[0]; p.py=d[1]; }
-      if(!p.alive){ p.px=d[0]; p.py=d[1]; } // 死了就回到權威位置播動畫
+      // 自己的角色：信任本地預測，不用 host 的（過時）位置回拉，避免橡皮筋。
+      // 只有「嚴重不同步」（差距 > 2.5 格，代表真的脫節而非單純延遲）才用平滑
+      // 拉近（非瞬移）慢慢校正；死亡時定位以播動畫。
+      if(!p.alive){ p.px=d[0]; p.py=d[1]; }
+      else {
+        const gap=Math.hypot(d[0]-p.px, d[1]-p.py);
+        if(gap>TILE*2.5){ p._cx=d[0]; p._cy=d[1]; } // 標記需平滑校正
+      }
     } else {
       // 對手：記錄插值目標，由 interpolateRemote 平滑移動
       p._tx=d[0]; p._ty=d[1]; p.dir=DIRCH[d[5]]||'down';
