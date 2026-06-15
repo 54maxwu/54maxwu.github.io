@@ -710,11 +710,40 @@ function loop(t){
   if(isHost){
     stepAccum+=acc;
     while(stepAccum>=STEP){ stepWorld(); stepAccum-=STEP; sendStateMaybe(); }
+  } else {
+    // client：以固定步長在本地預測自己的移動（按下即動，零來回延遲），
+    // 並把「遠端實體」（對手/炸彈/爆風）朝最新快照位置平滑插值。
+    stepAccum+=acc;
+    while(stepAccum>=STEP){ clientPredictStep(); stepAccum-=STEP; }
+    interpolateRemote(acc);
   }
   draw();
   updateScores();
 }
 let stepAccum=0;
+
+// client 本地預測：只模擬自己的角色移動 + 放炸彈節流，不碰對手/炸彈邏輯
+function clientPredictStep(){
+  if(!world||world.over) return;
+  const me=world.players[myIndex];
+  if(!me||!me.alive) return;
+  tryMove(me);
+  if(me.bombCooldown>0) me.bombCooldown--;
+  // 放炸彈仍由 host 權威處理（host 收到 input 後生成炸彈再同步回來），
+  // 這裡只更新朝向/位置預測，避免本地憑空造出對手看不到的炸彈。
+  me.input.bomb=false; // 預測端不自行放彈，交給 host
+}
+
+// 把遠端實體朝快照目標平滑移動；自己的角色不插值（已本地預測）
+function interpolateRemote(accMs){
+  if(!world) return;
+  const k=Math.min(1, accMs/60); // 插值速度
+  for(const p of world.players){
+    if(p.i===myIndex) continue;
+    if(p._tx!=null){ p.px+=(p._tx-p.px)*Math.min(1,k*2.2); p.py+=(p._ty-p.py)*Math.min(1,k*2.2); }
+  }
+  for(const b of world.bombs){ /* 炸彈在格上不需插值 */ }
+}
 
 /* ============================================================
    輸入
@@ -728,7 +757,10 @@ function setLocalInput(playerIdx, action, val){
     const p=world.players[playerIdx];
     if(p) p.input[action]=val;
   } else {
-    // client 把輸入送給 host
+    // client：同時 (1) 本地套用做預測移動，按下立即反應、不等 host
+    //         (2) 送給 host 做權威模擬
+    const me=world.players[myIndex];
+    if(me) me.input[action]=val;
     myInput[action]=val;
     sendInput();
   }
@@ -908,7 +940,7 @@ function quitGame(){
    線上：DataChannel 狀態同步
    host 是模擬權威，定期送 snapshot；client 只送 input、收 snapshot 後渲染
    ============================================================ */
-let netStateEvery=2;   // 每 N tick 送一次狀態（30Hz）
+let netStateEvery=1;   // 每 tick 送一次狀態（60Hz），降低 client 看到的延遲/跳動
 let netStateCounter=0;
 
 function sendStateMaybe(){
@@ -938,7 +970,18 @@ function applyState(s){
   // players
   world.players.forEach((p,i)=>{
     const d=s.players[i]; if(!d)return;
-    p.px=d[0];p.py=d[1];p.alive=!!d[2];p.fire=d[3];p.maxBombs=d[4];p.dir=DIRCH[d[5]]||'down';p.dying=d[6]||0;
+    // 權威屬性一律採用 host：存活/火力/炸彈數/死亡動畫
+    p.alive=!!d[2]; p.fire=d[3]; p.maxBombs=d[4]; p.dying=d[6]||0;
+    if(i===myIndex){
+      // 自己的角色：本地預測為主，只有當 host 位置與預測偏差過大才校正（防穿牆/漂移）
+      const dxp=d[0]-p.px, dyp=d[1]-p.py;
+      if(Math.hypot(dxp,dyp) > TILE*0.9){ p.px=d[0]; p.py=d[1]; }
+      if(!p.alive){ p.px=d[0]; p.py=d[1]; } // 死了就回到權威位置播動畫
+    } else {
+      // 對手：記錄插值目標，由 interpolateRemote 平滑移動
+      p._tx=d[0]; p._ty=d[1]; p.dir=DIRCH[d[5]]||'down';
+      if(p._tx!=null && (p.px===undefined)) { p.px=d[0]; p.py=d[1]; }
+    }
   });
   world.bombs=s.bombs.map(b=>({cx:b[0],cy:b[1],fuse:b[2],fire:1}));
   world.blasts=s.blasts.map(b=>({cx:b[0],cy:b[1],life:b[2]!=null?b[2]:BLAST_DUR}));
