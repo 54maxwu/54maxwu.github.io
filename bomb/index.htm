@@ -911,12 +911,24 @@ function createNegotiator({ws,mk,preferOfferer}){
   const neg={pc:null};
   const myToken=(()=>{ const b=new Uint32Array(2); crypto.getRandomValues(b); const r=b[0]*4294967296+b[1]; return preferOfferer?r+1e16:r; })();
   let peerToken=null, negotiating=false;
+  let remoteReady=false;        // 是否已 setRemoteDescription
+  let pendingCands=[];          // 在 remote description 設好前先緩衝對方的 ICE
+  let iceCount=0;
+
   function ensurePc(){
     if(neg.pc && !['failed','closed'].includes(neg.pc.connectionState)) return neg.pc;
     try{neg.pc?.close();}catch{}
+    remoteReady=false; pendingCands=[]; iceCount=0;
     const pc=mk(); neg.pc=pc;
-    pc.onicecandidate=e=>{ if(e.candidate) ws.send(JSON.stringify({type:'ice',candidate:e.candidate})); };
+    pc.onicecandidate=e=>{ if(e.candidate){ iceCount++; ws.send(JSON.stringify({type:'ice',candidate:e.candidate})); } };
     return pc;
+  }
+  // 設完 remote description 後，把先前緩衝的對方候選一次補上
+  async function flushCands(pc){
+    remoteReady=true;
+    const buf=pendingCands; pendingCands=[];
+    for(const c of buf){ try{ await pc.addIceCandidate(c); }catch(e){ dbg('flush ice err',e); } }
+    if(buf.length) diag('補上 '+buf.length+' ICE');
   }
   function amOfferer(){ return peerToken!=null && myToken>peerToken; }
   async function maybeOffer(){
@@ -939,12 +951,16 @@ function createNegotiator({ws,mk,preferOfferer}){
     } else if(msg.type==='offer'){
       const pc=ensurePc(); if(amOfferer())return;
       diag('收到 offer'); await pc.setRemoteDescription(msg.sdp);
+      await flushCands(pc);
       const ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
       ws.send(JSON.stringify({type:'answer',sdp:pc.localDescription}));
     } else if(msg.type==='answer'){
-      const pc=neg.pc; if(pc&&pc.signalingState==='have-local-offer'){ diag('收到 answer'); await pc.setRemoteDescription(msg.sdp); }
+      const pc=neg.pc; if(pc&&pc.signalingState==='have-local-offer'){ diag('收到 answer'); await pc.setRemoteDescription(msg.sdp); await flushCands(pc); }
     } else if(msg.type==='ice'){
-      if(!neg.pc)return; try{ await neg.pc.addIceCandidate(msg.candidate); }catch(e){dbg('ice err',e);}
+      const pc=neg.pc; if(!pc) return;
+      // remote description 還沒設好就先緩衝，避免 addIceCandidate 失敗被丟棄
+      if(!remoteReady || !pc.remoteDescription){ pendingCands.push(msg.candidate); return; }
+      try{ await pc.addIceCandidate(msg.candidate); }catch(e){ dbg('ice err',e); }
     }
   }
   return { neg, start, onSignal };
