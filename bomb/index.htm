@@ -329,7 +329,7 @@ function makePlayer(i){
     i, alive:true,
     px:sp.x*TILE+TILE/2, py:sp.y*TILE+TILE/2, // 像素中心
     fire:1, maxBombs:1, speed:1, bombsOut:0,
-    dir:'down', moving:false,
+    dir:'down', moving:false, dying:0,
     input:{up:false,down:false,left:false,right:false,bomb:false},
     bombCooldown:0,
   };
@@ -339,7 +339,7 @@ function startWorld(seed, nPlayers){
   world={
     grid:newGrid(seed),
     players:[], bombs:[], blasts:[], powerups:[],
-    seed, tick:0, over:false, winner:-1, nPlayers,
+    seed, tick:0, over:false, winner:-1, nPlayers, gameOverDelay:0,
   };
   for(let i=0;i<nPlayers;i++) world.players.push(makePlayer(i));
 }
@@ -352,6 +352,8 @@ const BOMB_FUSE=120;      // ticks (2s)
 const BLAST_DUR=30;       // ticks (0.5s)
 const SPEED_BASE=3.0;     // px/tick base（45px/格 ÷ 3 ≈ 15 tick ≈ 0.25s 過一格，手感俐落）
 const SPEED_INC=0.6;
+const DEATH_DUR=48;       // 死亡動畫長度 ticks (~0.8s)
+const GAMEOVER_DELAY=42;  // 死亡動畫播完後再停這麼久才跳結算 (~0.7s)
 
 function tileAt(px,py){ return world.grid[Math.floor(py/TILE)] ? world.grid[Math.floor(py/TILE)][Math.floor(px/TILE)] : T_WALL; }
 function cellOf(p){ return { cx:Math.floor(p.px/TILE), cy:Math.floor(p.py/TILE) }; }
@@ -503,26 +505,33 @@ function stepWorld(){
   for(const bl of world.blasts) bl.life--;
   world.blasts=world.blasts.filter(b=>b.life>0);
 
-  // 死亡判定（玩家中心所在格有爆風）
+  // 死亡判定（玩家中心所在格有爆風）→ 進入死亡動畫，不立即結算
   for(const p of world.players){
     if(!p.alive) continue;
     const {cx,cy}=cellOf(p);
-    if(world.blasts.some(b=>b.cx===cx&&b.cy===cy)) p.alive=false;
+    if(world.blasts.some(b=>b.cx===cx&&b.cy===cy)){ p.alive=false; p.dying=DEATH_DUR; }
   }
+  // 死亡動畫倒數
+  for(const p of world.players){ if(p.dying>0) p.dying--; }
 
-  // 勝負
+  // 勝負（含死亡動畫播完的延遲）
   checkWin();
 }
 
 function checkWin(){
+  if(world.over) return;
   const alive=world.players.filter(p=>p.alive);
-  if(world.nPlayers>1 && alive.length<=1){
-    world.over=true;
-    world.winner = alive.length===1 ? alive[0].i : -1;
-    onGameOver();
-  } else if(world.nPlayers===1 && alive.length===0){
-    world.over=true; world.winner=-1; onGameOver();
-  }
+  const decided = (world.nPlayers>1 && alive.length<=1) || (world.nPlayers===1 && alive.length===0);
+  if(!decided){ world.gameOverDelay=0; return; }
+
+  // 已分勝負：等所有死亡動畫播完，再多停一下才跳結算
+  const anyDying=world.players.some(p=>p.dying>0);
+  if(anyDying){ world.gameOverDelay=GAMEOVER_DELAY; return; }
+  if(world.gameOverDelay>0){ world.gameOverDelay--; return; }
+
+  world.over=true;
+  world.winner = alive.length===1 ? alive[0].i : -1;
+  onGameOver();
 }
 
 /* ============================================================
@@ -543,8 +552,11 @@ function draw(){
   for(const b of world.bombs) drawBomb(b);
   // 爆風
   for(const bl of world.blasts) drawBlast(bl);
-  // 玩家
-  for(const p of world.players) if(p.alive) drawPlayer(p);
+  // 玩家（活著的正常畫；剛死的播死亡動畫）
+  for(const p of world.players){
+    if(p.alive) drawPlayer(p);
+    else if(p.dying>0) drawDying(p);
+  }
 }
 function drawFloor(x,y){ ctx.fillStyle=((x+y)&1)?'#1e293b':'#243349'; ctx.fillRect(x*TILE,y*TILE,TILE,TILE); }
 function drawWall(x,y){
@@ -570,22 +582,87 @@ function drawPowerup(u){
 }
 function drawBomb(b){
   const cx=b.cx*TILE+TILE/2, cy=b.cy*TILE+TILE/2;
-  const pulse=1+0.12*Math.sin(b.fuse*0.4);
+  // 快爆時脈動加快、加大
+  const urgency=1-b.fuse/BOMB_FUSE;          // 0→1
+  const beat=Math.sin(b.fuse*(0.25+urgency*0.6));
+  const pulse=1+(0.10+urgency*0.12)*beat;
   const r=TILE*0.32*pulse;
+  // 危險光暈（越接近爆炸越紅越亮）
+  if(urgency>0.55){
+    ctx.fillStyle=`rgba(239,68,68,${(urgency-0.55)*0.5})`;
+    ctx.beginPath(); ctx.arc(cx,cy,r*1.7,0,7); ctx.fill();
+  }
+  // 彈體
   ctx.fillStyle='#0f172a'; ctx.beginPath(); ctx.arc(cx,cy+2,r,0,7); ctx.fill();
   ctx.fillStyle='#1e293b'; ctx.beginPath(); ctx.arc(cx-r*0.3,cy-r*0.3+2,r*0.4,0,7); ctx.fill();
-  // 引線
+  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.35+2,r*0.18,0,7); ctx.fill();
+  // 引線 + 火花
   ctx.strokeStyle='#94a3b8'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx+5,cy-r-7); ctx.stroke();
-  ctx.fillStyle = (b.fuse%20<10)?'#f59e0b':'#ef4444';
-  ctx.beginPath(); ctx.arc(cx+6,cy-r-9,3,0,7); ctx.fill();
+  ctx.fillStyle=(b.fuse%10<5)?'#fbbf24':'#ef4444';
+  ctx.beginPath(); ctx.arc(cx+6,cy-r-9,3.2,0,7); ctx.fill();
+  // 倒數秒數（白字描邊，畫在彈體上）
+  const secs=Math.ceil(b.fuse/60);
+  ctx.font='bold 16px -apple-system,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.6)';
+  ctx.strokeText(secs, cx, cy+3);
+  ctx.fillStyle='#fff'; ctx.fillText(secs, cx, cy+3);
 }
 function drawBlast(bl){
-  const cx=bl.cx*TILE, cy=bl.cy*TILE;
-  const a=Math.min(1,bl.life/BLAST_DUR*1.6);
-  ctx.fillStyle=`rgba(251,146,60,${0.85*a})`; ctx.fillRect(cx+2,cy+2,TILE-4,TILE-4);
-  ctx.fillStyle=`rgba(254,240,138,${0.9*a})`; ctx.fillRect(cx+8,cy+8,TILE-16,TILE-16);
-  ctx.fillStyle=`rgba(255,255,255,${0.7*a})`; ctx.fillRect(cx+TILE/2-5,cy+TILE/2-5,10,10);
+  const cx=bl.cx*TILE+TILE/2, cy=bl.cy*TILE+TILE/2;
+  const life=bl.life/BLAST_DUR;              // 1→0
+  // 開場大、結尾縮小淡出的火球
+  const grow=Math.min(1,(1-life)*4);         // 前 25% 快速展開
+  const scale=(0.55+0.45*grow)*(0.6+0.4*life);
+  const R=TILE*0.5*scale;
+  ctx.save();
+  ctx.translate(cx,cy);
+  // 外層橘紅光暈
+  let g=ctx.createRadialGradient(0,0,R*0.2,0,0,R);
+  g.addColorStop(0,`rgba(254,243,199,${0.95*life+0.05})`);
+  g.addColorStop(0.45,`rgba(251,146,60,${0.85*life})`);
+  g.addColorStop(0.8,`rgba(239,68,68,${0.6*life})`);
+  g.addColorStop(1,'rgba(239,68,68,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,R,0,7); ctx.fill();
+  // 內核白熱
+  ctx.fillStyle=`rgba(255,255,255,${0.85*life})`;
+  ctx.beginPath(); ctx.arc(0,0,R*0.4,0,7); ctx.fill();
+  // 火花碎屑（依格座標決定固定角度，避免每幀亂跳）
+  const seed=(bl.cx*13+bl.cy*7);
+  ctx.fillStyle=`rgba(253,224,71,${0.8*life})`;
+  for(let i=0;i<5;i++){
+    const ang=seed+i*1.3;
+    const d=R*(0.7+0.5*grow);
+    ctx.beginPath(); ctx.arc(Math.cos(ang)*d,Math.sin(ang)*d,2.2*life+0.5,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+// 死亡動畫：角色閃白、縮小旋轉，並噴出爆裂碎片
+function drawDying(p){
+  const t=1-p.dying/DEATH_DUR;               // 0→1
+  const r=TILE*0.34*(1-t*0.85);              // 縮小
+  ctx.save();
+  ctx.translate(p.px,p.py);
+  ctx.rotate(t*6);                            // 旋轉
+  // 閃爍：前半段白紅交替
+  const flash=(p.dying%6<3);
+  ctx.globalAlpha=1-t*0.6;
+  ctx.fillStyle=flash?'#fff':COLORS[p.i];
+  ctx.beginPath(); ctx.arc(0,0,r,0,7); ctx.fill();
+  ctx.restore();
+  // 向外噴的碎片
+  ctx.save(); ctx.translate(p.px,p.py);
+  ctx.globalAlpha=1-t;
+  ctx.fillStyle=COLORS[p.i];
+  for(let i=0;i<8;i++){
+    const ang=i*0.785;
+    const d=t*TILE*0.9;
+    ctx.beginPath(); ctx.arc(Math.cos(ang)*d,Math.sin(ang)*d,3*(1-t)+1,0,7); ctx.fill();
+  }
+  // 中心爆星
+  if(t<0.5){ ctx.globalAlpha=1-t*2; ctx.fillStyle='#fde047';
+    ctx.beginPath(); ctx.arc(0,0,TILE*0.3*(1-t*2),0,7); ctx.fill(); }
+  ctx.restore();
 }
 function drawPlayer(p){
   const c=COLORS[p.i];
@@ -688,9 +765,9 @@ function bindTouch(){
     knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     const d={up:false,down:false,left:false,right:false};
     if(dist>=DEAD){
-      // 八方向 → 取較大的軸為主（允許同時兩軸，遊戲內會處理斜向）
-      if(Math.abs(dx)>DEAD*0.5) d[dx>0?'right':'left']=true;
-      if(Math.abs(dy)>DEAD*0.5) d[dy>0?'down':'up']=true;
+      // 只走 4 方向：取偏移較大的那一軸的單一方向，搖桿好操控、不會斜向抖動
+      if(Math.abs(dx)>=Math.abs(dy)) d[dx>0?'right':'left']=true;
+      else d[dy>0?'down':'up']=true;
     }
     setDir(d);
   }
@@ -830,9 +907,9 @@ function sendState(force){
   const snap={
     t:'state',
     grid: world.grid.map(r=>r.join('')).join('|'),
-    players: world.players.map(p=>[Math.round(p.px),Math.round(p.py),p.alive?1:0,p.fire,p.maxBombs,p.dir[0]]),
+    players: world.players.map(p=>[Math.round(p.px),Math.round(p.py),p.alive?1:0,p.fire,p.maxBombs,p.dir[0],p.dying]),
     bombs: world.bombs.map(b=>[b.cx,b.cy,b.fuse]),
-    blasts: world.blasts.map(b=>[b.cx,b.cy]),
+    blasts: world.blasts.map(b=>[b.cx,b.cy,b.life]),
     powerups: world.powerups.map(u=>[u.cx,u.cy,u.kind]),
     over: world.over?1:0, winner: world.winner,
   };
@@ -847,10 +924,10 @@ function applyState(s){
   // players
   world.players.forEach((p,i)=>{
     const d=s.players[i]; if(!d)return;
-    p.px=d[0];p.py=d[1];p.alive=!!d[2];p.fire=d[3];p.maxBombs=d[4];p.dir=DIRCH[d[5]]||'down';
+    p.px=d[0];p.py=d[1];p.alive=!!d[2];p.fire=d[3];p.maxBombs=d[4];p.dir=DIRCH[d[5]]||'down';p.dying=d[6]||0;
   });
   world.bombs=s.bombs.map(b=>({cx:b[0],cy:b[1],fuse:b[2],fire:1}));
-  world.blasts=s.blasts.map(b=>({cx:b[0],cy:b[1],life:BLAST_DUR}));
+  world.blasts=s.blasts.map(b=>({cx:b[0],cy:b[1],life:b[2]!=null?b[2]:BLAST_DUR}));
   world.powerups=s.powerups.map(u=>({cx:u[0],cy:u[1],kind:u[2]}));
   world.over=!!s.over; world.winner=s.winner;
   if(world.over && !$('overlay').classList.contains('show')) onGameOverClient();
