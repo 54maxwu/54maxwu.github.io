@@ -359,43 +359,57 @@ function tileAt(px,py){ return world.grid[Math.floor(py/TILE)] ? world.grid[Math
 function cellOf(p){ return { cx:Math.floor(p.px/TILE), cy:Math.floor(p.py/TILE) }; }
 function bombAtCell(cx,cy){ return world.bombs.find(b=>b.cx===cx&&b.cy===cy); }
 
-// 格對格鎖定移動：玩家以「格中心」為節點。正在前往某格時持續滑動直到抵達，
-// 抵達後（或一開始就在格中心）依目前按鍵決定下一格。放開鍵會在抵達當前
-// 目標格中心後停下；目標格是牆/磚則完全不動（不會在格內頂一點點）。
+// 連續格移動（含預判 / 反向即時回頭），手感俐落不卡：
+//  • 每 tick 都重讀輸入，不會漏掉移動途中按下的新方向
+//  • 想往反方向 → 立刻回頭，不必走到格中心
+//  • 想轉垂直方向（轉彎）→ 一抵達格中心就接著走，零停頓
+//  • 前方是牆/磚 → 滑到該格中心對齊後停住，不頂進牆裡
 function tryMove(p){
   if(!p.alive) return;
   const inp=p.input;
-  const spd=SPEED_BASE+(p.speed-1)*SPEED_INC;
+  let spd=SPEED_BASE+(p.speed-1)*SPEED_INC;
 
-  // 仍在前往鎖定目標格的途中 → 繼續滑，抵達才換決策
-  if(p.dest){
-    p.px=approach(p.px,p.dest.x,spd);
-    p.py=approach(p.py,p.dest.y,spd);
-    p.moving=true;
-    if(p.px===p.dest.x && p.py===p.dest.y) p.dest=null; // 抵達，解除鎖定
-    else { leaveOwnBomb(p); return; }
+  // 讀取想要的方向（單一方向，水平優先；不走斜線）
+  let wdx=0, wdy=0;
+  if(inp.left) wdx=-1; else if(inp.right) wdx=1;
+  else if(inp.up) wdy=-1; else if(inp.down) wdy=1;
+
+  const cx=Math.floor(p.px/TILE), cy=Math.floor(p.py/TILE);
+  const cxC=cx*TILE+TILE/2, cyC=cy*TILE+TILE/2;
+  // 目前主要行進軸（依當前朝向）
+  const movingH = (p.dir==='left'||p.dir==='right');
+
+  if(wdx===0 && wdy===0){
+    // 沒按鍵：滑到目前格中心對齊後停（避免停在格縫）
+    p.px=approach(p.px,cxC,spd); p.py=approach(p.py,cyC,spd);
+    p.moving=false; leaveOwnBomb(p); return;
   }
 
-  // 此刻一定對齊在某格中心（dest 已清空）。用實際座標反推格號並吸附精確中心。
-  const cx=Math.round((p.px-TILE/2)/TILE), cy=Math.round((p.py-TILE/2)/TILE);
-  p.px=cx*TILE+TILE/2; p.py=cy*TILE+TILE/2;
+  p.moving=true;
+  const wantH = (wdx!==0);
 
-  let dx=0, dy=0;
-  if(inp.left) dx-=1; else if(inp.right) dx+=1;
-  else if(inp.up) dy-=1; else if(inp.down) dy+=1; // 不走斜線：水平優先
-  if(dx===0&&dy===0){ p.moving=false; leaveOwnBomb(p); return; }
-
-  if(dx<0)p.dir='left'; else if(dx>0)p.dir='right'; else if(dy<0)p.dir='up'; else p.dir='down';
-
-  const tx=cx+dx, ty=cy+dy;
-  if(canEnterCell(tx,ty,p)){
-    p.dest={ x:tx*TILE+TILE/2, y:ty*TILE+TILE/2 };
-    p.px=approach(p.px,p.dest.x,spd);
-    p.py=approach(p.py,p.dest.y,spd);
-    p.moving=true;
-    if(p.px===p.dest.x && p.py===p.dest.y) p.dest=null;
+  if(wantH){
+    p.dir = wdx<0?'left':'right';
+    // 先把垂直軸吸回中線（讓轉彎乾淨）
+    if(p.py!==cyC){ p.py=approach(p.py,cyC,spd); }
+    const tx=cx+wdx;
+    if(canEnterCell(tx,cy,p)){
+      p.px+= wdx*spd;
+    } else {
+      // 前方擋住 → 對齊到本格中心停住
+      p.px=approach(p.px,cxC,spd);
+      p.moving = Math.abs(p.px-cxC)>0.01 || p.py!==cyC;
+    }
   } else {
-    p.moving=false; // 前方是牆或磚 → 原地不動
+    p.dir = wdy<0?'up':'down';
+    if(p.px!==cxC){ p.px=approach(p.px,cxC,spd); }
+    const ty=cy+wdy;
+    if(canEnterCell(cx,ty,p)){
+      p.py+= wdy*spd;
+    } else {
+      p.py=approach(p.py,cyC,spd);
+      p.moving = Math.abs(p.py-cyC)>0.01 || p.px!==cxC;
+    }
   }
   leaveOwnBomb(p);
 }
