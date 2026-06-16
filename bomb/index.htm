@@ -556,7 +556,10 @@ function checkWin(){
 /* ============================================================
    渲染
    ============================================================ */
-const ICONS={ [PU_FIRE]:'🔥', [PU_BOMB]:'💣', [PU_SPEED]:'👟' };
+const ICONS={ [PU_FIRE]:'🔥', [PU_BOMB]:'💣', [PU_SPEED]:'🥾' };
+// 道具配色：外框/光暈用飽和色（顏色辨識），內底用淺色（讓圖示明亮看得清）
+const PU_TINT ={ [PU_FIRE]:'#f97316', [PU_BOMB]:'#3b82f6', [PU_SPEED]:'#22c55e' };
+const PU_LIGHT={ [PU_FIRE]:'#ffedd5', [PU_BOMB]:'#dbeafe', [PU_SPEED]:'#dcfce7' };
 function draw(){
   ctx.clearRect(0,0,cv.width,cv.height);
   // 背景地面
@@ -594,10 +597,27 @@ function drawBrick(x,y){
   ctx.stroke();
 }
 function drawPowerup(u){
-  const cx=u.cx*TILE, cy=u.cy*TILE;
-  ctx.fillStyle='rgba(255,255,255,.12)'; roundRect(cx+6,cy+6,TILE-12,TILE-12,8); ctx.fill();
-  ctx.font='22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(ICONS[u.kind], cx+TILE/2, cy+TILE/2+1);
+  const t=u.cx*TILE+TILE/2, m=u.cy*TILE+TILE/2;
+  const tint=PU_TINT[u.kind]||'#94a3b8', light=PU_LIGHT[u.kind]||'#f1f5f9';
+  const beat=0.5+0.5*Math.sin(performance.now()*0.005 + u.cx*1.3 + u.cy*0.7);  // 脈動讓道具醒目
+  ctx.save();
+  // 外圈光暈（脈動）
+  ctx.globalAlpha=0.28+0.30*beat;
+  ctx.fillStyle=tint;
+  ctx.beginPath(); ctx.arc(t,m,TILE*0.44,0,7); ctx.fill();
+  ctx.globalAlpha=1;
+  // 飽和色外框
+  ctx.fillStyle=tint;
+  roundRect(t-TILE*0.35, m-TILE*0.35, TILE*0.70, TILE*0.70, 10); ctx.fill();
+  // 淺色內底（讓圖示明亮清楚）
+  ctx.fillStyle=light;
+  roundRect(t-TILE*0.28, m-TILE*0.28, TILE*0.56, TILE*0.56, 7); ctx.fill();
+  // 圖示：放大、全不透明、指定 emoji 字型，確保清晰明亮
+  ctx.font='26px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#0f172a';
+  ctx.fillText(ICONS[u.kind], t, m+1);
+  ctx.restore();
 }
 function drawBomb(b){
   const cx=b.cx*TILE+TILE/2, cy=b.cy*TILE+TILE/2;
@@ -754,7 +774,10 @@ const keyMapP1={ KeyW:'up',KeyS:'down',KeyA:'left',KeyD:'right',Space:'bomb' };
 const keyMapP2={ ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'bomb' };
 
 function setLocalInput(playerIdx, action, val){
-  if(!world||world.over) return;
+  // 注意：這裡不可因 world.over 就 return，否則「結算後放開方向鍵/搖桿」會被吞掉，
+  // 殘留的方向會卡進 myInput，導致下一局角色自己往該方向走。移動本身已由
+  // tryMove(!alive)/stepWorld(over)/predictStep(over) 擋住，故結算期間記錄輸入是安全的。
+  if(!world) return;
   if(isHost){
     const p=world.players[playerIdx];
     if(p && p.input[action]!==val) p.input[action]=val;   // 狀態沒變就略過
@@ -910,6 +933,8 @@ function onGameOver(){
    ============================================================ */
 function beginGame(){
   matchEndedByLeave=false; $('ovBtn').textContent='再來一場';   // 還原結算按鈕（上一局可能被改成「返回大廳」）
+  for(const a of ['up','down','left','right','bomb']) myInput[a]=false;   // 清掉殘留輸入，避免新局角色自走
+  $('joyKnob') && ($('joyKnob').style.transform='translate(-50%,-50%)');  // 搖桿視覺歸位
   $('lobby').style.display='none';
   $('game-view').classList.add('show');
   $('overlay').classList.remove('show');
