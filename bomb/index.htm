@@ -155,7 +155,7 @@
         <button class="mode on" data-mode="online">
           <div class="ico">🌐</div>
           <div class="t">線上對戰</div>
-          <div class="d">WebRTC 連線真人</div>
+          <div class="d">WebSocket 連線真人</div>
         </button>
         <button class="mode" data-mode="local">
           <div class="ico">👥</div>
@@ -473,6 +473,20 @@ function stepWorld(){
   if(!world||world.over) return;
   world.tick++;
 
+  // 線上 host：每 tick 消化一筆 client 的輸入指令（client 也是每 tick 產一筆，速率天生對齊）。
+  // 用佇列吸收網路抖動；佇列太長就多吃幾筆追上，避免權威模擬越拖越慢。
+  if(mode==='online' && isHost && world.players[1]){
+    let n = clientCmdQueue.length>CMD_BUF_MAX ? 2 : 1;
+    while(n-->0){
+      const cmd=clientCmdQueue.shift();
+      if(!cmd) break;
+      const p=world.players[1], ci=cmd.i||{};
+      p.input.up=!!ci.up; p.input.down=!!ci.down; p.input.left=!!ci.left; p.input.right=!!ci.right; p.input.bomb=!!ci.bomb;
+      clientLastSeq=cmd.seq;
+    }
+    // 佇列空（封包遺失/剛開局）→ 保留上一筆輸入，角色維持原動作，等指令補到
+  }
+
   // 移動
   for(const p of world.players) tryMove(p);
 
@@ -702,10 +716,13 @@ function loop(t){
     stepAccum+=acc;
     while(stepAccum>=STEP){ stepWorld(); stepAccum-=STEP; sendStateMaybe(); }
   } else {
-    // client：自己的角色純本地預測（按下即動、零延遲，且完全不被 host 位置回拉
-    // → 不會橡皮筋）；對手 / 炸彈 / 爆風 用快照延遲插值平滑呈現。
+    // client：自己的角色「預測 + 重播校正」（client-side prediction + server reconciliation）：
+    // 每 tick 給輸入編號、立即本地預測（按下即動、零延遲），並把指令送 host。收到權威快照後
+    // 在 applyState 裡把自己拉回權威位置、重播尚未被確認的輸入 → 修正量極小，既即時又不橡皮筋。
+    // 對手 / 炸彈 / 爆風 用快照延遲插值平滑呈現。
     stepAccum+=acc;
-    while(stepAccum>=STEP){ predictSelf(); stepAccum-=STEP; }
+    while(stepAccum>=STEP){ predictStep(); stepAccum-=STEP; }
+    if(unsent.length){ send({t:'input', gen:myGen, cmds:unsent}); unsent=[]; }
     renderInterpolated(t);
   }
   draw();
@@ -713,16 +730,21 @@ function loop(t){
 }
 let stepAccum=0;
 
-// client 只模擬「自己」的角色移動，與 host 跑相同決定性邏輯＋相同輸入，
-// 結果本就一致，故無需 host 校正（避免橡皮筋）。炸彈仍交 host 權威。
-function predictSelf(){
+// client 自身預測：每 tick 取當前輸入 → 編號存入 pending（待確認）＋ unsent（待送出），
+// 並用相同的決定性 tryMove 推進自己的位置。放彈不本地預測（交 host），但仍送出讓 host 處理。
+let inputSeq=0;      // 自己輸入的遞增序號
+let pending=[];      // 已本地套用、尚未被 host 確認的指令 [{seq,i}]
+let unsent=[];       // 本幀新產生、待批次送出的指令
+function predictStep(){
   if(!world||world.over) return;
   const me=world.players[myIndex];
   if(!me||!me.alive) return;
-  const wasBomb=me.input.bomb;
-  me.input.bomb=false;          // 放彈不本地預測，交給 host
+  const cmd={ seq:++inputSeq, i:{up:myInput.up,down:myInput.down,left:myInput.left,right:myInput.right,bomb:myInput.bomb} };
+  pending.push(cmd); unsent.push(cmd);
+  if(pending.length>240) pending.shift();   // 安全上限（約 4 秒），正常情況遠用不到
+  me.input.up=cmd.i.up; me.input.down=cmd.i.down; me.input.left=cmd.i.left; me.input.right=cmd.i.right;
+  me.input.bomb=false;          // 放彈不本地預測
   tryMove(me);
-  me.input.bomb=wasBomb;
 }
 
 /* ============================================================
@@ -735,13 +757,11 @@ function setLocalInput(playerIdx, action, val){
   if(!world||world.over) return;
   if(isHost){
     const p=world.players[playerIdx];
-    if(p) p.input[action]=val;
+    if(p && p.input[action]!==val) p.input[action]=val;   // 狀態沒變就略過
   } else {
-    // client：(1) 本地套用做預測（自己角色按下即動）(2) 送 host 權威處理
-    const me=world.players[myIndex];
-    if(me) me.input[action]=val;
+    // client：只更新 myInput；predictStep 每 tick 會讀它做預測並編號送出（去重避免鍵盤連發）
+    if(myInput[action]===val) return;
     myInput[action]=val;
-    sendInput();
   }
 }
 const myInput={up:false,down:false,left:false,right:false,bomb:false};
@@ -769,6 +789,23 @@ window.addEventListener('keyup',e=>{
     if(a) setLocalInput(myIndex,a,false);
   }
 });
+
+// 視窗失焦 / 切到別的分頁時，keyup 不會觸發 → 角色會卡住一直走（線上還會狂送輸入）。
+// 這裡把目前控制的玩家輸入全部歸零，避免「放開鍵卻還在動」。
+function clearHeldInputs(){
+  if(!world) return;
+  const actions=['up','down','left','right','bomb'];
+  if(mode==='local'){
+    for(const idx of [0,1]){ const p=world.players[idx]; if(p) for(const a of actions) p.input[a]=false; }
+  } else if(isHost){
+    const me=world.players[myIndex]; if(me) for(const a of actions) me.input[a]=false;
+  } else {
+    // client：清掉按鍵狀態即可，predictStep 下個 tick 會把「放開」當成新指令送出去
+    for(const a of actions) myInput[a]=false;
+  }
+}
+window.addEventListener('blur', clearHeldInputs);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) clearHeldInputs(); });
 
 // 觸控：虛擬搖桿（拖曳分析方向，超過門檻就觸發對應方向）+ 炸彈鈕
 function bindTouch(){
@@ -872,6 +909,7 @@ function onGameOver(){
    遊戲開始 / 結束
    ============================================================ */
 function beginGame(){
+  matchEndedByLeave=false; $('ovBtn').textContent='再來一場';   // 還原結算按鈕（上一局可能被改成「返回大廳」）
   $('lobby').style.display='none';
   $('game-view').classList.add('show');
   $('overlay').classList.remove('show');
@@ -891,6 +929,7 @@ function beginGame(){
 }
 
 function startLocalGame(){
+  teardownNet();   // 從線上切到本地時，斷掉舊房間，避免對手加入時把本地局重置掉
   $('overlay').classList.remove('show');
   isHost=true; myIndex=0;
   const seed=(Date.now()&0x7fffffff);
@@ -899,6 +938,7 @@ function startLocalGame(){
 }
 
 function restart(){
+  if(matchEndedByLeave){ quitGame(); return; }   // 對手已離開、連線斷了 → 回大廳，而非卡在等待
   if(mode==='online'){
     if(isHost){ startOnlineWorld(); beginGame(); sendState(true); toast('新一局開始'); }
     else {
@@ -944,6 +984,7 @@ function sendState(force){
     powerups: world.powerups.map(u=>[u.cx,u.cy,u.kind]),
     over: world.over?1:0, winner: world.winner,
     gen: world.gen||0,
+    ack: clientLastSeq,        // 已處理到 client 的第幾號輸入（給對方做 reconciliation）
   };
   send(snap);
 }
@@ -977,11 +1018,32 @@ function applyState(s){
   world.players.forEach((p,i)=>{ const d=s.players[i]; if(!d)return;
     const wasAlive=p.alive;
     p.alive=!!d[2]; p.fire=d[3]; p.maxBombs=d[4]; p.dying=d[6]||0; if(d[7])p.speed=d[7];
-    // 自己剛死：定位到權威死亡位置以播動畫（活著時位置由本地預測，不碰）
-    if(i===myIndex && wasAlive && !p.alive){ p.px=d[0]; p.py=d[1]; }
+    if(i===myIndex){
+      if(!p.alive){ if(wasAlive){ p.px=d[0]; p.py=d[1]; } }   // 剛死：定位到權威死亡點播動畫
+      else reconcileSelf(p, d, s.ack||0);                      // 活著：拉回權威 + 重播未確認輸入
+    }
   });
   world.over=!!s.over; world.winner=s.winner;
   if(world.over && !$('overlay').classList.contains('show')) onGameOverClient();
+}
+
+// 伺服器校正：把自己拉回 host 權威位置，再重播「序號 > ack（host 已處理到的）」的未確認輸入。
+// 因為重播過同一串輸入，結果≈本地預測 → 修正量極小；只有真的分歧（撞炸彈/掉包）才需要平滑。
+function reconcileSelf(me, d, ack){
+  pending = pending.filter(c=>c.seq>ack);
+  const beforeX=me.px, beforeY=me.py, savedInput=me.input;
+  me.input={up:false,down:false,left:false,right:false,bomb:false};
+  me.px=d[0]; me.py=d[1];
+  if(d[5]) me.dir=DIRCH[d[5]]||me.dir;
+  for(const c of pending){
+    me.input.up=!!c.i.up; me.input.down=!!c.i.down; me.input.left=!!c.i.left; me.input.right=!!c.i.right;
+    tryMove(me);
+  }
+  me.input=savedInput;
+  // 校正平滑：誤差很小→直接採用（看不出來）；很大→直接拉正；中等→走一半，分幾幀化解，不會抽動
+  const tx=me.px, ty=me.py, dx=tx-beforeX, dy=ty-beforeY, err=Math.hypot(dx,dy);
+  if(err<1.5 || err>TILE*1.5){ me.px=tx; me.py=ty; }
+  else { me.px=beforeX+dx*0.5; me.py=beforeY+dy*0.5; }
 }
 
 // 每幀呼叫：依「現在 - INTERP_DELAY」在快照緩衝裡插值出所有實體位置
@@ -998,7 +1060,7 @@ function renderInterpolated(t){
   const span=(b._rt-a._rt)||1;
   const f=Math.max(0,Math.min(1,(target-a._rt)/span));   // 0..1 插值因子
 
-  // 玩家位置插值（自己的角色跳過：由 predictSelf 本地預測，不插值不回拉）
+  // 玩家位置插值（自己的角色跳過：由 predictStep 本地預測 + reconcileSelf 校正，不插值不回拉）
   world.players.forEach((p,i)=>{
     if(i===myIndex) return;
     const da=a.players[i], db=b.players[i]; if(!da)return;
@@ -1016,9 +1078,10 @@ function renderInterpolated(t){
 }
 function onGameOverClient(){ onGameOver(); }
 
-function sendInput(){
-  send({t:'input', i:myInput});
-}
+// ── 預測校正用的狀態（host 端佇列 / 序號）──────────────────────────
+let clientCmdQueue=[];  // host：尚未消化的 client 輸入指令
+let clientLastSeq=0;    // host：已消化到 client 的第幾號輸入（寫進快照 ack）
+const CMD_BUF_MAX=6;    // 佇列超過這個長度就一次多吃幾筆追上，避免權威模擬落後
 
 let hostGen=0;          // host：每開一局 +1，寫進快照讓 client 辨識「新的一局」
 function startOnlineWorld(){
@@ -1026,12 +1089,14 @@ function startOnlineWorld(){
   const seed=(Date.now()&0x7fffffff);
   startWorld(seed,2);
   world.gen=++hostGen;
+  clientCmdQueue=[]; clientLastSeq=0;   // 新一局：清掉上一局殘留的輸入指令與 ack
 }
 function startOnlineClientWorld(){
   // client 端建立空殼，狀態由 host 快照插值覆寫
   startWorld(0,2);
   world.over=false;
   snapBuf=[];
+  inputSeq=0; pending=[]; unsent=[];    // 新一局：重置自己輸入序號與待確認/待送佇列
 }
 
 /* ============================================================
@@ -1065,12 +1130,16 @@ function onPeerReady(){
 let peerReady=false;
 
 function handleNetMsg(m){
+  if(mode!=='online' || !netActive) return;   // 已離開線上模式就忽略殘留訊息，避免污染本地局
   if(m.t==='host-ready'){ // client 收到 host 在場 → 進入連線
     if(!isHost) onPeerReady();
   } else if(m.t==='cli-ready'){ // host 收到 client 就緒 → 補送一份完整狀態
     if(isHost){ onPeerReady(); sendState(true); }
-  } else if(m.t==='input'){ // host 收 client 輸入
-    if(isHost && world){ const p=world.players[1]; if(p) p.input=Object.assign(p.input,m.i); }
+  } else if(m.t==='input'){ // host 收 client 的逐 tick 輸入指令 → 入佇列（stepWorld 逐筆消化）
+    if(isHost && world && Array.isArray(m.cmds) && m.gen===hostGen){
+      for(const c of m.cmds) clientCmdQueue.push(c);
+      if(clientCmdQueue.length>180) clientCmdQueue.splice(0, clientCmdQueue.length-180); // 安全上限
+    }
   } else if(m.t==='state'){ // client 收狀態
     if(!isHost){ if(!peerReady) onPeerReady(); applyState(m); }
   } else if(m.t==='req-restart'){
@@ -1080,6 +1149,7 @@ function handleNetMsg(m){
 
 function connectRoom(code, host){
   if(!WORKER_URL){ toast('未設定 Worker URL'); return; }
+  teardownNet();   // 關掉任何舊連線，避免殭屍 WebSocket 仍在處理訊息
   isHost=host; myIndex=host?0:1; roomCode=code; netActive=true; peerReady=false; wsReady=false; myGen=-1;
   setStatus(host?'等待對手加入…':'連線中…','busy');
   ws=openSignal(code);
@@ -1101,16 +1171,38 @@ function connectRoom(code, host){
       connectTimer=setTimeout(()=>{ if(!peerReady){ setStatus('連線逾時','err'); toast('連線逾時，請雙方重新整理再試'); } },15000);
       return;
     }
-    if(msg.type==='peer-left'){ setStatus('對手離開','err'); diag('對手離開'); return; }
+    if(msg.type==='peer-left'){
+      setStatus('對手離開','err'); diag('對手離開');
+      onPeerLeft();
+      return;
+    }
     // 其餘為遊戲訊息
     handleNetMsg(msg);
   };
   ws.onerror=()=>{ setStatus('連線錯誤','err'); diag('ws error'); };
   ws.onclose=()=>{ diag('ws close'); if(netActive&&!world?.over) setStatus('連線中斷','err'); };
 }
+// 對手離開房間：若正在對戰中且尚未分勝負 → 直接判留下來的人（自己）獲勝
+let matchEndedByLeave=false;
+function onPeerLeft(){
+  if(mode==='online' && world && !world.over && $('game-view').classList.contains('show')){
+    world.over=true; world.winner=myIndex;
+    matchEndedByLeave=true;
+    $('ovTitle').textContent='勝利！';
+    $('ovBig').textContent='🏆';
+    $('ovText').textContent='對手已離開，你獲勝';
+    $('ovBtn').textContent='返回大廳';   // 連線已斷，再來一場無意義 → 改成回大廳
+    $('overlay').classList.add('show');
+  } else {
+    toast('對手已離開房間');
+  }
+}
 function teardownNet(){
   netActive=false; peerReady=false; clearTimeout(connectTimer);
-  try{ws?.close();}catch{} ws=null;
+  // 先卸掉舊 socket 的 handler，否則它的 onclose/onmessage 會在新連線建立後才非同步觸發，
+  // 把新連線的狀態蓋掉、或處理到過時訊息。
+  if(ws){ try{ ws.onopen=ws.onmessage=ws.onerror=ws.onclose=null; ws.close(); }catch{} }
+  ws=null;
 }
 
 /* ============================================================
