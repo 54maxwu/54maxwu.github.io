@@ -310,6 +310,9 @@ let img = { w:0, h:0, data:null, tex:null, loaded:false };
 // curves: master RGB, piecewise-linear LUT
 let curvePts = [{x:0,y:0},{x:1,y:1}];
 
+// AI 去背遮罩狀態（maskTex 於 WebGL 區塊建立）
+let maskTex = null, hasMask = false, useMask = false, maskFeather = 0, maskShift = 0;
+
 // ───────────────────────── WebGL ─────────────────────────
 const gl = gl_canvas.getContext('webgl', { preserveDrawingBuffer:true, premultipliedAlpha:false });
 if(!gl){ setStatus('此瀏覽器不支援 WebGL','err'); }
@@ -339,6 +342,10 @@ uniform float uHdrSh;      // EV used for the brightened (shadow-recovery) virtu
 uniform float uHdrHi;      // EV used for the darkened (highlight-recovery) virtual exposure
 uniform vec3 uAutoBlk;     // per-channel black point (smart-auto), default 0
 uniform vec3 uAutoWht;     // per-channel white point (smart-auto), default 1
+uniform sampler2D uMask;   // AI 去背遮罩（來源解析度，r 通道＝前景 alpha）
+uniform float uUseMask;    // 0/1 是否套用遮罩
+uniform float uMaskFeather;// 邊緣羽化（texel 半徑）
+uniform float uMaskShift;  // 邊緣收縮(-)/擴張(+)，-0.5..0.5
 
 const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
 
@@ -424,7 +431,25 @@ void main(){
         c.b = texture2D(uCurve, vec2(c.b, 0.5)).r;
     }
 
-    gl_FragColor = vec4(c, 1.0);
+    // AI 去背：用來源 uv 取遮罩當 alpha（裁切/旋轉/翻轉會自動跟著走，因 uv 已是來源座標）
+    float alpha = 1.0;
+    if(uUseMask > 0.5){
+        float m;
+        if(uMaskFeather > 0.5){
+            vec2 tt = uTexel * uMaskFeather;
+            m  = texture2D(uMask, uv).r * 0.4;
+            m += texture2D(uMask, uv + vec2(tt.x,0.0)).r * 0.15;
+            m += texture2D(uMask, uv - vec2(tt.x,0.0)).r * 0.15;
+            m += texture2D(uMask, uv + vec2(0.0,tt.y)).r * 0.15;
+            m += texture2D(uMask, uv - vec2(0.0,tt.y)).r * 0.15;
+        } else {
+            m = texture2D(uMask, uv).r;
+        }
+        m = clamp(m + uMaskShift, 0.0, 1.0);          // 收縮 / 擴張
+        m = clamp((m - 0.5) * 1.25 + 0.5, 0.0, 1.0);  // 稍微提升對比，邊緣更乾淨
+        alpha = m;
+    }
+    gl_FragColor = vec4(c, alpha);
 }`;
 
 function compile(type, src){
@@ -456,7 +481,7 @@ if(gl){
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
 
-    for(const n of ['uTex','uCurve','uXform','uTexel','uWB','uTT','uExp','uContrast','uHi','uSh','uSat','uVib','uSharp','uInB','uInW','uGamma','uOutB','uOutW','uUseCurve','uHDR','uHdrSh','uHdrHi','uAutoBlk','uAutoWht'])
+    for(const n of ['uTex','uCurve','uXform','uTexel','uWB','uTT','uExp','uContrast','uHi','uSh','uSat','uVib','uSharp','uInB','uInW','uGamma','uOutB','uOutW','uUseCurve','uHDR','uHdrSh','uHdrHi','uAutoBlk','uAutoWht','uMask','uUseMask','uMaskFeather','uMaskShift'])
         U[n] = gl.getUniformLocation(prog, n);
 
     curveTex = gl.createTexture();
@@ -465,6 +490,15 @@ if(gl){
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // AI 去背遮罩貼圖（預設 1×1 全白＝無遮罩）
+    maskTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,255,255,255]));
 }
 
 // ───────────────────────── mat3 (column-major for GL) ─────────────────────────
@@ -547,6 +581,10 @@ function render(){
     gl.uniform1f(U.uHdrHi, P.hdrHighlight);
     gl.uniform3fv(U.uAutoBlk, autoBlk);
     gl.uniform3fv(U.uAutoWht, autoWht);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, maskTex); gl.uniform1i(U.uMask, 2);
+    gl.uniform1f(U.uUseMask, (hasMask && useMask) ? 1 : 0);
+    gl.uniform1f(U.uMaskFeather, maskFeather);
+    gl.uniform1f(U.uMaskShift, maskShift/200);   // 滑桿 -100..100 → -0.5..0.5
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -770,6 +808,28 @@ function buildPanel(){
             <div class="auto-readout" id="autoReadout">讀取整張圖的 R/G/B 直方圖，自動推算黑白點、色偏、曝光與飽和度。</div>
         </div>
     </div>`;
+    // AI 去背群組（緊接智慧自動）
+    html += `<div class="group" data-key="bg">
+        <div class="group-head"><h3>AI 去背</h3><span class="chev">▾</span></div>
+        <div class="group-body">
+            <div class="btn-row">
+                <button class="btn btn-primary" id="bgRun" style="flex:2 1 100%">AI 一鍵去背</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-ghost" id="bgToggle" disabled>顯示去背</button>
+                <button class="btn btn-ghost" id="bgClear" disabled>清除去背</button>
+            </div>
+            <div class="slider-row">
+                <div class="slider-top"><label>邊緣羽化</label><span class="val" id="val_bgFeather">0</span></div>
+                <input type="range" id="sl_bgFeather" min="0" max="4" step="1" value="0">
+            </div>
+            <div class="slider-row">
+                <div class="slider-top"><label>邊緣 收縮 ↔ 擴張</label><span class="val" id="val_bgShift">0</span></div>
+                <input type="range" id="sl_bgShift" min="-100" max="100" step="1" value="0">
+            </div>
+            <div class="auto-readout" id="bgReadout">在本機用 AI 模型自動去背，<b>圖片不會上傳</b>。首次需下載模型（首次後會快取）。完成後調色與曲線仍作用在前景，下載 PNG 會保留透明背景。</div>
+        </div>
+    </div>`;
     for(const g of GROUPS){
         html += `<div class="group" data-key="${g.key}">
             <div class="group-head"><h3>${g.title}</h3><span class="chev">▾</span></div>
@@ -867,7 +927,28 @@ function buildPanel(){
     $('cropApply').addEventListener('click', applyCrop);
     $('resetGeo').addEventListener('click', ()=>{ geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1]; exitCrop(); requestRender(); toast('幾何已重置'); });
 
+    // AI 去背
+    $('bgRun').addEventListener('click', runBgRemoval);
+    $('bgToggle').addEventListener('click', ()=>{
+        if(!hasMask) return;
+        useMask=!useMask;
+        $('bgToggle').classList.toggle('active', useMask);
+        requestRender();
+    });
+    $('bgClear').addEventListener('click', ()=>{ resetBgState(); requestRender(); toast('已清除去背'); });
+    $('sl_bgFeather').addEventListener('input', e=>{ maskFeather=parseFloat(e.target.value); $('val_bgFeather').textContent=String(maskFeather); requestRender(); });
+    $('sl_bgShift').addEventListener('input', e=>{ maskShift=parseFloat(e.target.value); $('val_bgShift').textContent=String(maskShift); requestRender(); });
+
     drawCurveEditor();
+}
+// 清掉去背狀態（換圖 / 重置 / 清除）：保留已載入的模型快取
+function resetBgState(){
+    hasMask=false; useMask=false; maskFeather=0; maskShift=0;
+    const t=$('bgToggle'), c=$('bgClear'), f=$('sl_bgFeather'), s=$('sl_bgShift');
+    if(t){ t.classList.remove('active'); t.disabled=true; }
+    if(c) c.disabled=true;
+    if(f) f.value=0; if(s) s.value=0;
+    const fv=$('val_bgFeather'), sv=$('val_bgShift'); if(fv) fv.textContent='0'; if(sv) sv.textContent='0';
 }
 function setSlider(k, v){
     P[k]=v;
@@ -1124,6 +1205,78 @@ function applyCrop(){
 }
 window.addEventListener('resize', ()=>{ if(img.loaded) requestRender(); });
 
+// ───────────────────────── AI 去背（瀏覽器內推論，圖片不上傳）─────────────────────────
+// 用 transformers.js 跑 RMBG-1.4 分割模型，算出前景遮罩。模型自 CDN/HF 下載並快取，
+// 但「圖片本身」全程留在瀏覽器記憶體，不會送到任何伺服器。
+const TF_URL   = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+const BG_MODEL = 'briaai/RMBG-1.4';
+let TF=null, bgModel=null, bgProcessor=null, bgBusy=false;
+
+async function ensureBgModel(onProg){
+    if(bgModel) return;
+    if(!TF){ TF = await import(TF_URL); TF.env.allowLocalModels=false; }
+    // RMBG-1.4 倉庫缺前處理設定，明確指定（與官方範例一致）
+    bgProcessor = await TF.AutoProcessor.from_pretrained(BG_MODEL, { config:{
+        do_normalize:true, do_pad:false, do_rescale:true, do_resize:true,
+        feature_extractor_type:'ImageFeatureExtractor',
+        image_mean:[0.5,0.5,0.5], image_std:[1,1,1],
+        resample:2, rescale_factor:1/255, size:{ width:1024, height:1024 },
+    }});
+    try{ // 先試量化版（小、快），失敗再退回預設權重
+        bgModel = await TF.AutoModel.from_pretrained(BG_MODEL, { config:{model_type:'custom'}, dtype:'q8', progress_callback:onProg });
+    }catch(_){
+        bgModel = await TF.AutoModel.from_pretrained(BG_MODEL, { config:{model_type:'custom'}, progress_callback:onProg });
+    }
+}
+
+async function runBgRemoval(){
+    if(!img.loaded || bgBusy || !gl) return;
+    bgBusy=true; $('bgRun').disabled=true;
+    try{
+        const onProg = p=>{
+            if(p && p.status==='progress' && typeof p.progress==='number'){
+                const pct=Math.round(p.progress);
+                setStatus(`下載去背模型 ${pct}%`,'busy');
+                $('bgReadout').textContent=`下載模型中… ${pct}%（只有第一次需要，之後會快取）`;
+            }
+        };
+        setStatus('AI 去背：準備模型…','busy');
+        $('bgReadout').textContent='準備模型中…';
+        await ensureBgModel(onProg);
+
+        setStatus('AI 去背：運算中…','busy');
+        $('bgReadout').textContent='模型運算中…';
+        // 用原始來源像素（未套用調色）分割，結果較準
+        let src = new TF.RawImage(new Uint8ClampedArray(img.data), img.w, img.h, 4).rgb();
+        const { pixel_values } = await bgProcessor(src);
+        const out = await bgModel({ input: pixel_values });
+        const tensor = out.output ?? Object.values(out)[0];
+        const maskImg = await TF.RawImage.fromTensor(tensor[0].mul(255).to('uint8')).resize(img.w, img.h);
+
+        uploadMask(maskImg.data, img.w, img.h);
+        hasMask=true; useMask=true;
+        $('bgToggle').disabled=false; $('bgToggle').classList.add('active'); $('bgClear').disabled=false;
+        requestRender();
+        setStatus('AI 去背完成','ok'); toast('去背完成');
+        $('bgReadout').innerHTML='<b>去背完成。</b>調色／曲線仍作用在前景；可用「邊緣羽化／收縮↔擴張」微調。下載 <b>PNG</b> 保留透明背景（JPG 不支援透明，會以白底輸出）。';
+    }catch(err){
+        console.error(err);
+        setStatus('去背失敗','err'); toast('去背失敗：'+(err && err.message || err));
+        $('bgReadout').textContent='去背失敗：'+(err && err.message || err)+'（請確認網路可連到模型 CDN）';
+    }finally{
+        bgBusy=false; $('bgRun').disabled=false;
+    }
+}
+
+// 單通道遮罩 → 展成 RGBA 上傳（WebGL1 相容），對齊來源解析度
+function uploadMask(maskData, w, h){
+    const rgba = new Uint8Array(w*h*4);
+    for(let i=0;i<w*h;i++){ const v=maskData[i]; rgba[i*4]=v; rgba[i*4+1]=v; rgba[i*4+2]=v; rgba[i*4+3]=255; }
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+}
+
 // ───────────────────────── load image ─────────────────────────
 function loadImage(src){
     setStatus('載入中…','busy');
@@ -1150,7 +1303,7 @@ function loadImage(src){
         for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
         wbGain=[1,1,1]; autoBlk=[0,0,0]; autoWht=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
         curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
-        exitCrop();
+        exitCrop(); resetBgState();
         gl_canvas.classList.add('ready'); dropzone.classList.add('hide');
         ['resetAllBtn','dlPngBtn','dlJpgBtn'].forEach(id=>$(id).disabled=false);
         requestRender();
@@ -1186,14 +1339,21 @@ $('resetAllBtn').addEventListener('click', ()=>{
     for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
     wbGain=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
     curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
-    exitCrop(); requestRender(); toast('已重置全部調整');
+    exitCrop(); resetBgState(); requestRender(); toast('已重置全部調整');
 });
 
 function download(type, quality, ext){
     if(!img.loaded) return;
     // ensure a fresh render is present in the (preserved) drawing buffer
     render();
-    gl_canvas.toBlob(blob=>{
+    // 來源畫布；若是 JPG 且正在去背（有透明）→ 先合成到白底，否則透明區會變黑
+    let srcCanvas = gl_canvas;
+    if(type==='image/jpeg' && hasMask && useMask){
+        const tmp=document.createElement('canvas'); tmp.width=gl_canvas.width; tmp.height=gl_canvas.height;
+        const tx=tmp.getContext('2d'); tx.fillStyle='#fff'; tx.fillRect(0,0,tmp.width,tmp.height); tx.drawImage(gl_canvas,0,0);
+        srcCanvas=tmp;
+    }
+    srcCanvas.toBlob(blob=>{
         if(!blob){ toast('匯出失敗'); return; }
         const a=document.createElement('a');
         a.href=URL.createObjectURL(blob);
