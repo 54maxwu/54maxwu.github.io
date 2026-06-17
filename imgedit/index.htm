@@ -1425,10 +1425,82 @@ async function ensureSrModel(key, onProg){
     srPipeKey = key;
 }
 
-// 把來源像素的一塊區域升解析度，回傳 RawImage（尺寸 = 區塊 × scale）
+// 把來源像素的一塊區域升解析度（主執行緒備援用），回傳 RawImage（尺寸 = 區塊 × scale）
 async function srUpscaleTile(rgba, w, h){
     const src = new TF.RawImage(rgba, w, h, 4).rgb();
     return await srPipe(src);
+}
+
+// ── Web Worker（背景執行緒）：推論在這裡跑，主畫面完全不卡 ──
+// 用 Blob 動態建立 module worker，裡面 import transformers.js。若環境不支援（極舊瀏覽器、
+// 某些 file:// 情境），會在使用時丟錯，runSuperRes 會自動退回主執行緒。
+let srWorker=null, srWorkerBroken=false, srReqId=0, srOnProgress=null;
+const srPending=new Map();
+
+function srWorkerSource(){
+    const MODELS = JSON.stringify({ x2:SR_MODELS.x2.id, x4:SR_MODELS.x4.id });
+    return `
+        const TF_URL = ${JSON.stringify(TF_URL)};
+        const MODELS = ${MODELS};
+        let TF=null, pipe=null, pipeKey=null;
+        async function ensure(key){
+            if(!TF){ TF = await import(TF_URL); TF.env.allowLocalModels=false; }
+            if(pipe && pipeKey===key) return;
+            pipe = await TF.pipeline('image-to-image', MODELS[key], { progress_callback: p=>self.postMessage({type:'progress', p}) });
+            pipeKey=key;
+        }
+        self.onmessage = async (e)=>{
+            const msg=e.data;
+            try{
+                if(msg.type==='init'){
+                    await ensure(msg.key);
+                    self.postMessage({type:'ready', id:msg.id});
+                } else if(msg.type==='tile'){
+                    await ensure(msg.key);
+                    const src = new TF.RawImage(msg.rgba, msg.w, msg.h, 4).rgb();
+                    const o = await pipe(src);
+                    const out = new Uint8Array(o.data);   // 複製出純 ArrayBuffer 再轉移（勿轉移 wasm 記憶體）
+                    self.postMessage({type:'tileResult', id:msg.id, data:out, w:o.width, h:o.height, channels:o.channels}, [out.buffer]);
+                }
+            }catch(err){
+                self.postMessage({type:'error', id:msg.id, message:(err && err.message) || String(err)});
+            }
+        };
+    `;
+}
+
+function ensureSrWorker(){
+    if(srWorker) return srWorker;
+    const blob=new Blob([srWorkerSource()], {type:'text/javascript'});
+    const url=URL.createObjectURL(blob);
+    const w=new Worker(url, {type:'module'});
+    URL.revokeObjectURL(url);
+    w.onmessage=(e)=>{
+        const m=e.data;
+        if(m.type==='progress'){ if(srOnProgress) srOnProgress(m.p); return; }
+        const entry=srPending.get(m.id); if(!entry) return;
+        srPending.delete(m.id);
+        if(m.type==='error') entry.reject(new Error(m.message));
+        else entry.resolve(m);
+    };
+    w.onerror=(ev)=>{
+        srWorkerBroken=true;
+        const err=new Error('worker error: '+((ev && ev.message) || ''));
+        for(const [,en] of srPending) en.reject(err);
+        srPending.clear();
+    };
+    w.onmessageerror=()=>{ srWorkerBroken=true; };
+    srWorker=w;
+    return w;
+}
+
+function srCall(msg, transfer){
+    return new Promise((resolve,reject)=>{
+        if(!srWorker || srWorkerBroken){ reject(new Error('worker 不可用')); return; }
+        const id=++srReqId; srPending.set(id,{resolve,reject});
+        try{ srWorker.postMessage({...msg, id}, transfer||[]); }
+        catch(err){ srPending.delete(id); reject(err); }
+    });
 }
 
 function srSetBusy(b){
@@ -1459,7 +1531,19 @@ async function runSuperRes(key){
         setStatus('AI 放大：準備模型…','busy');
         srSetProgress(0, true);
         $('srReadout').textContent='準備模型中…';
-        await ensureSrModel(key, onProg);
+
+        // 優先用 Web Worker（背景執行緒，主畫面不卡）；不可用時退回主執行緒
+        let useWorker=false;
+        try{
+            ensureSrWorker();
+            srOnProgress=onProg;
+            await srCall({type:'init', key});
+            useWorker=true;
+        }catch(err){
+            console.warn('SR Worker 不可用，改用主執行緒：', err);
+            srWorkerBroken=true;
+            await ensureSrModel(key, onProg);
+        }
 
         // 規劃分塊位置（涵蓋整張圖；最後一塊對齊邊界）
         const step=SR_TILE-SR_OVERLAP;
@@ -1475,8 +1559,10 @@ async function runSuperRes(key){
         for(const y0 of ys) for(const x0 of xs){
             setStatus(`AI 放大：運算中 ${done+1}/${total}`,'busy');
             srSetProgress(done/total, false);
-            $('srReadout').textContent=`模型運算中… 區塊 ${done+1}/${total}（運算時畫面可能短暫停頓，屬正常，請稍候）`;
-            await nextPaint();   // 先讓瀏覽器把進度條畫出來，再開始這塊的運算
+            $('srReadout').textContent = useWorker
+                ? `背景運算中… 區塊 ${done+1}/${total}（此時畫面可正常操作）`
+                : `模型運算中… 區塊 ${done+1}/${total}（運算時畫面可能短暫停頓，屬正常，請稍候）`;
+            await nextPaint();   // 讓瀏覽器把進度條畫出來
 
             const tw=Math.min(SR_TILE, img.w-x0), th=Math.min(SR_TILE, img.h-y0);
             // 從來源像素擷取這一塊（逐列複製）
@@ -1485,8 +1571,26 @@ async function runSuperRes(key){
                 const s=((y0+j)*img.w + x0)*4;
                 tile.set(img.data.subarray(s, s+tw*4), j*tw*4);
             }
-            const o=await srUpscaleTile(tile, tw, th);   // RawImage（已放大）
-            const ow=o.width, oh=o.height, ch=o.channels;
+
+            // 放大這一塊：worker 優先；若 worker 中途失效則就地退回主執行緒
+            // up = { data, w, h, channels }
+            let up;
+            if(useWorker && !srWorkerBroken){
+                try{
+                    const o=await srCall({type:'tile', key, rgba:tile, w:tw, h:th});
+                    up={ data:o.data, w:o.w, h:o.h, channels:o.channels };
+                }catch(e){
+                    console.warn('Worker 區塊失敗，改用主執行緒：', e);
+                    srWorkerBroken=true; useWorker=false;
+                    await ensureSrModel(key, onProg);
+                    const o=await srUpscaleTile(tile, tw, th);
+                    up={ data:o.data, w:o.width, h:o.height, channels:o.channels };
+                }
+            } else {
+                const o=await srUpscaleTile(tile, tw, th);
+                up={ data:o.data, w:o.width, h:o.height, channels:o.channels };
+            }
+            const ow=up.w, oh=up.h, ch=up.channels;
 
             // 把放大塊轉成 RGBA，並對「會疊到已畫區域」的左/上重疊邊做羽化（alpha 漸層）
             const lf = x0>0 ? SR_OVERLAP*scale : 0;   // 左側羽化寬（輸出像素）
@@ -1497,9 +1601,9 @@ async function runSuperRes(key){
                 for(let i=0;i<ow;i++){
                     const ax = lf>0 ? Math.min(1, i/lf) : 1;
                     const si=(j*ow+i)*ch, di=(j*ow+i)*4;
-                    id.data[di]   = o.data[si];
-                    id.data[di+1] = o.data[si + (ch>1?1:0)];
-                    id.data[di+2] = o.data[si + (ch>2?2:0)];
+                    id.data[di]   = up.data[si];
+                    id.data[di+1] = up.data[si + (ch>1?1:0)];
+                    id.data[di+2] = up.data[si + (ch>2?2:0)];
                     id.data[di+3] = Math.round(ax*ay*255);
                 }
             }
@@ -1532,6 +1636,7 @@ async function runSuperRes(key){
     }finally{
         srSetBusy(false);
         srHideProgress();
+        srOnProgress=null;
     }
 }
 
