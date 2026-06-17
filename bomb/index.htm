@@ -175,6 +175,33 @@
   .gitem span{font-size:12px;color:#64748b}
   .ptag img.pu{width:16px;height:16px;vertical-align:-3px;margin-left:2px}
   .sub img.pu{width:17px;height:17px;vertical-align:-4px}
+
+  /* ── 手機版：整個遊戲塞進一個畫面、不出現垂直捲軸，搖桿固定在最下方 ── */
+  @media (max-width:760px){
+    .app-header{padding:8px 12px;min-height:46px;gap:8px}
+    .app-header h1{font-size:15px;white-space:nowrap}
+    #gameBtns{gap:6px}
+    #gameBtns button{padding:7px 9px;font-size:12px;min-width:0 !important}
+    /* 遊戲進行中：隱藏狀態膠囊、標題縮短，省出 header 寬度 */
+    body:has(#game-view.show) .app-header .pill{display:none}
+    body:has(#game-view.show) .app-header h1{font-size:0}            /* 只留 💣 圖示 */
+    body:has(#game-view.show) .app-header h1::first-letter{font-size:20px}
+    body:has(#game-view.show){overflow:hidden}                       /* 對戰時不捲動 */
+
+    .page-content{padding:6px 6px 4px}
+    #game-view.show{display:flex;flex-direction:column;height:calc(100dvh - 64px);gap:5px}
+    #game-view .stage{flex:1 1 0;min-height:0;padding:5px;margin:0}
+    #game-view .stage canvas{width:auto;height:auto;max-width:100%;max-height:100%}
+    #game-view .gamebar{flex:0 0 auto;margin:0}
+    #game-view .scores{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;gap:6px;-webkit-overflow-scrolling:touch}
+    #game-view .ptag{font-size:11px;padding:3px 7px;white-space:nowrap;flex:0 0 auto}
+    #game-view .touch{flex:0 0 auto;margin:0}
+    #game-view .touch.show{margin:0;padding:0 4px}
+    .joy{width:116px;height:116px}
+    .joy .knob{width:50px;height:50px}
+    .bombbtn{width:84px;height:84px;font-size:32px}
+    #ctrlHint{display:none}
+  }
 </style>
 </head>
 <body>
