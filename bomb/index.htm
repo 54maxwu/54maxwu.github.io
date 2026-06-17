@@ -244,7 +244,7 @@
         <button class="go" id="joinBtn">加入</button>
       </div>
       <div class="hint">
-        連線透過你自己的 Cloudflare Worker（<code>pingl-signal</code>）以 WebSocket 中轉。<br>
+        連線透過你自己的 Cloudflare Worker（<code>bomb-signal</code>，最多 4 人/房）以 WebSocket 中轉。<br>
         建立房間者為主機（綠色，玩家1），跑遊戲模擬；加入者依序為玩家 2/3/4。
       </div>
       <div class="hint" id="netDiag" style="margin-top:6px;font-family:monospace;color:#64748b"></div>
@@ -277,7 +277,7 @@
       <button class="go" id="startLocal" style="width:100%;margin-top:14px">開始遊戲</button>
     </div>
 
-    <p class="note">純前端 · Three.js WebGL 3D 渲染 · 連線複用 pingl-signal worker</p>
+    <p class="note">純前端 · Three.js WebGL 3D 渲染 · 連線走 bomb-signal worker（最多 4 人/房）</p>
   </div>
 
   <!-- ───── Game ───── -->
@@ -343,7 +343,7 @@
    ============================================================ */
 
 // ── 連線設定（與 pingl 相同 worker，純 WebSocket 中轉）──────────────
-const WORKER_URL = 'wss://pingl-signal.54maxwu.workers.dev';
+const WORKER_URL = 'wss://bomb-signal.54maxwu.workers.dev';   // 炸彈人專用房間中轉（最多4人/房，獨立於 pingl-signal）
 const DEBUG = /[#&]debug/.test(location.hash);
 function dbg(...a){ if(DEBUG||window.BOMB_DEBUG) console.log('[bomb]', ...a); }
 // 畫面上的連線診斷（不用開 console 也看得到卡在哪一步）
