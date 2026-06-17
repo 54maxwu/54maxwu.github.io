@@ -3,7 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-<title>炸彈人 · 爆爆王</title>
+<title>炸彈人 · 爆爆王 3D</title>
+
+<!-- Three.js（3D 渲染）：用 importmap + 動態 import，載入失敗可被捕捉、不會整支腳本掛掉 -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+} }
+</script>
+<script type="module">
+  import('three')
+    .then(THREE=>{ window.THREE=THREE; window.dispatchEvent(new Event('three-ready')); })
+    .catch(e=>{ window.THREE_FAILED=e; console.error('three load failed', e);
+      // 備援 CDN
+      import('https://unpkg.com/three@0.160.0/build/three.module.js')
+        .then(THREE=>{ window.THREE_FAILED=null; window.THREE=THREE; window.dispatchEvent(new Event('three-ready')); })
+        .catch(err=>{ window.THREE_FAILED=err; }); });
+</script>
+
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -91,11 +108,22 @@
   .gamebar .right{margin-left:auto;display:flex;gap:8px}
 
   .stage{
-    background:#0f172a;border-radius:10px;padding:10px;
+    background:radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0b1020 70%);
+    border-radius:12px;padding:10px;position:relative;
     display:flex;justify-content:center;align-items:center;
-    box-shadow:0 4px 16px rgba(0,0,0,.12);
+    box-shadow:0 8px 30px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.04);
   }
-  canvas{display:block;width:100%;height:auto;image-rendering:pixelated;border-radius:4px;max-width:100%}
+  canvas{display:block;width:100%;height:auto;border-radius:6px;max-width:100%}
+  .stage .loading3d{
+    position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;
+    align-items:center;justify-content:center;color:#cbd5e1;font-size:13px;text-align:center;
+    pointer-events:none;
+  }
+  .stage .loading3d .spin{
+    width:30px;height:30px;border-radius:50%;border:3px solid rgba(148,163,184,.25);
+    border-top-color:#60a5fa;animation:spin3d 0.8s linear infinite;
+  }
+  @keyframes spin3d{to{transform:rotate(360deg)}}
 
   .overlay{
     position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(2px);
@@ -123,8 +151,11 @@
     transition:background .1s;pointer-events:none;
   }
   .joy.active .knob{background:#2563eb}
+  .btncol{display:flex;flex-direction:column;align-items:center;gap:12px;flex:0 0 auto}
   .bombbtn{width:96px;height:96px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:36px;cursor:pointer;box-shadow:0 4px 14px rgba(239,68,68,.45);touch-action:none;flex:0 0 auto}
   .bombbtn:active{background:#dc2626;transform:scale(.94)}
+  .detbtn{width:64px;height:64px;border-radius:50%;border:none;background:#06b6d4;color:#fff;font-size:26px;cursor:pointer;box-shadow:0 4px 12px rgba(6,182,212,.45);touch-action:none}
+  .detbtn:active{background:#0891b2;transform:scale(.92)}
 
   .note{margin-top:20px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.7}
   .toast{
@@ -133,6 +164,11 @@
     opacity:0;transition:.2s;pointer-events:none;z-index:60;max-width:90vw;
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* 道具小圖（大廳說明 / 計分板用，取代 emoji） */
+  img.pu{width:18px;height:18px;vertical-align:-4px;object-fit:contain;image-rendering:auto}
+  .ptag img.pu{width:16px;height:16px;vertical-align:-3px;margin-left:2px}
+  .sub img.pu{width:17px;height:17px;vertical-align:-4px}
 </style>
 </head>
 <body>
@@ -146,16 +182,21 @@
 
   <!-- ───── Lobby ───── -->
   <div id="lobby">
-    <p class="sub">經典炸彈人玩法 · 放炸彈炸開磚塊與對手 · 撿道具強化火力</p>
+    <p class="sub">全 3D 炸彈人 · 放炸彈炸開磚塊與對手 · 撿道具：<img class="pu" src="img/items/fire.png">火力 <img class="pu" src="img/items/bomb.png">彈數 <img class="pu" src="img/items/speed.png">加速 <img class="pu" src="img/items/kick.png">踢彈 <img class="pu" src="img/items/pierce.png">穿透 <img class="pu" src="img/items/remote.png">遙控 <img class="pu" src="img/items/shield.png">護盾</p>
 
     <div class="card">
       <h2>選擇模式</h2>
       <div class="desc">先選玩法，再開始遊戲</div>
-      <div class="modes" id="modes" style="grid-template-columns:1fr 1fr">
+      <div class="modes" id="modes" style="grid-template-columns:repeat(3,1fr)">
         <button class="mode on" data-mode="online">
           <div class="ico">🌐</div>
           <div class="t">線上對戰</div>
           <div class="d">WebSocket 連線真人</div>
+        </button>
+        <button class="mode" data-mode="cpu">
+          <div class="ico">🤖</div>
+          <div class="t">單人闖關</div>
+          <div class="d">挑戰 1-3 個電腦</div>
         </button>
         <button class="mode" data-mode="local">
           <div class="ico">👥</div>
@@ -185,18 +226,35 @@
       <div class="hint" id="netDiag" style="margin-top:6px;font-family:monospace;color:#64748b"></div>
     </div>
 
+    <!-- CPU options -->
+    <div class="card" id="opt-cpu" style="display:none">
+      <h2>單人闖關 · 對戰電腦</h2>
+      <div class="desc">選擇電腦對手數量，AI 會放炸彈、撿道具、躲爆風</div>
+      <label class="lbl">電腦對手數量</label>
+      <div class="seg" id="cpuCount" style="grid-template-columns:repeat(3,1fr)">
+        <button data-n="1" class="on">1 個</button>
+        <button data-n="2">2 個</button>
+        <button data-n="3">3 個</button>
+      </div>
+      <div class="hint" style="margin-top:12px">
+        移動：<code>WASD</code> 或 <code>方向鍵</code>　·　放炸彈：<code>空白鍵</code> / <code>Enter</code><br>
+        撿到 🎮 遙控後：<code>Q</code> 引爆（或畫面右下 🎮 鈕）
+      </div>
+      <button class="go" id="startCpu" style="width:100%;margin-top:14px">開始遊戲</button>
+    </div>
+
     <!-- Local options -->
     <div class="card" id="opt-local" style="display:none">
       <h2>本地雙人</h2>
       <div class="desc">兩人共用鍵盤</div>
       <div class="hint" style="margin-top:0">
-        玩家 1（綠）：<code>W A S D</code> 移動、<code>空白鍵</code> 放炸彈<br>
-        玩家 2（橘）：<code>方向鍵</code> 移動、<code>Enter</code> 放炸彈
+        玩家 1（綠）：<code>W A S D</code> 移動、<code>空白鍵</code> 放炸彈、<code>Q</code> 遙控引爆<br>
+        玩家 2（橘）：<code>方向鍵</code> 移動、<code>Enter</code> 放炸彈、<code>右Shift</code> 遙控引爆
       </div>
       <button class="go" id="startLocal" style="width:100%;margin-top:14px">開始遊戲</button>
     </div>
 
-    <p class="note">純前端 · Canvas 渲染 · 連線複用 pingl-signal worker</p>
+    <p class="note">純前端 · Three.js WebGL 3D 渲染 · 連線複用 pingl-signal worker</p>
   </div>
 
   <!-- ───── Game ───── -->
@@ -204,12 +262,14 @@
     <div class="gamebar">
       <div class="scores" id="scores"></div>
       <div class="right">
+        <button class="go ghost" id="soundBtn" title="音效" style="min-width:44px">🔊</button>
         <button class="go ghost" id="restartBtn">重新開始</button>
         <button class="go ghost" id="quitBtn">離開</button>
       </div>
     </div>
     <div class="stage">
       <canvas id="cv" width="585" height="495"></canvas>
+      <div class="loading3d" id="loading3d"><div class="spin"></div><div>載入 3D 場景…</div></div>
     </div>
 
     <div class="touch" id="touch">
@@ -217,7 +277,10 @@
         <div class="ring"></div>
         <div class="knob" id="joyKnob"></div>
       </div>
-      <button class="bombbtn" id="bombBtn">💣</button>
+      <div class="btncol">
+        <button class="detbtn" id="detBtn" style="display:none">🎮</button>
+        <button class="bombbtn" id="bombBtn">💣</button>
+      </div>
     </div>
 
     <p class="note" id="ctrlHint"></p>
@@ -267,7 +330,8 @@ function toast(m){ toastEl.textContent=m; toastEl.classList.add('show'); clearTi
 // ── 遊戲常數 ──────────────────────────────────────────
 const COLS=13, ROWS=11, TILE=45;          // 13*45=585, 11*45=495
 const T_EMPTY=0, T_WALL=1, T_BRICK=2;     // 地圖磚種
-const PU_FIRE=1, PU_BOMB=2, PU_SPEED=3;   // 道具
+// 道具：前 3 種為原版；後 4 種為新增進階能力
+const PU_FIRE=1, PU_BOMB=2, PU_SPEED=3, PU_KICK=4, PU_PIERCE=5, PU_REMOTE=6, PU_SHIELD=7;
 const COLORS=['#22c55e','#f97316','#3b82f6','#a855f7']; // P1綠 P2橘 P3藍 P4紫
 const NAMES=['玩家1','玩家2','玩家3','玩家4'];
 
@@ -276,7 +340,7 @@ const SPAWNS=[ {x:1,y:1}, {x:COLS-2,y:ROWS-2}, {x:COLS-2,y:1}, {x:1,y:ROWS-2} ];
 
 let mode='online';    // online | local
 
-const cv=$('cv'), ctx=cv.getContext('2d');
+const cv=$('cv');   // WebGL canvas（3D 渲染用，不再取 2d context）
 
 /* ============================================================
    世界狀態（host 權威）
@@ -317,20 +381,24 @@ function mulberry32(a){ return function(){ a|=0;a=a+0x6D2B79F5|0; let t=Math.imu
 function makePlayer(i){
   const sp=SPAWNS[i];
   return {
-    i, alive:true,
+    i, alive:true, cpu:false, ai:null,
     px:sp.x*TILE+TILE/2, py:sp.y*TILE+TILE/2, // 像素中心
     fire:1, maxBombs:1, speed:1, bombsOut:0,
+    // 進階能力
+    kick:false, pierce:false, remote:false, shield:0, invuln:0,
     dir:'down', moving:false, dying:0,
-    input:{up:false,down:false,left:false,right:false,bomb:false},
-    bombCooldown:0,
+    input:{up:false,down:false,left:false,right:false,bomb:false,det:false},
+    bombCooldown:0, detCooldown:0,
   };
 }
 
+let boardSeq=0;   // 每建立一個新世界就 +1，給 3D 渲染判斷是否要重建棋盤
 function startWorld(seed, nPlayers){
   world={
     grid:newGrid(seed),
     players:[], bombs:[], blasts:[], powerups:[],
     seed, tick:0, over:false, winner:-1, nPlayers, gameOverDelay:0,
+    boardId:++boardSeq,
   };
   for(let i=0;i<nPlayers;i++) world.players.push(makePlayer(i));
 }
@@ -345,6 +413,9 @@ const SPEED_BASE=3.0;     // px/tick base（45px/格 ÷ 3 ≈ 15 tick ≈ 0.25s 
 const SPEED_INC=0.6;
 const DEATH_DUR=48;       // 死亡動畫長度 ticks (~0.8s)
 const GAMEOVER_DELAY=42;  // 死亡動畫播完後再停這麼久才跳結算 (~0.7s)
+const REMOTE_FUSE=100000; // 遙控炸彈：幾乎不自爆，等玩家手動引爆
+const INVULN_DUR=60;      // 護盾擋下後的無敵 ticks (~1s)，避免站在火裡連續被扣
+const BOMB_SLIDE=5.0;     // 被踢的炸彈滑行速度 px/tick
 
 function tileAt(px,py){ return world.grid[Math.floor(py/TILE)] ? world.grid[Math.floor(py/TILE)][Math.floor(px/TILE)] : T_WALL; }
 function cellOf(p){ return { cx:Math.floor(p.px/TILE), cy:Math.floor(p.py/TILE) }; }
@@ -387,6 +458,7 @@ function tryMove(p){
     if(canEnterCell(tx,cy,p)){
       p.px+= wdx*spd;
     } else {
+      tryKick(p,wdx,0,tx,cy);          // 撞到炸彈且有踢彈能力 → 把它踢開
       // 前方擋住 → 對齊到本格中心停住
       p.px=approach(p.px,cxC,spd);
       p.moving = Math.abs(p.px-cxC)>0.01 || p.py!==cyC;
@@ -398,6 +470,7 @@ function tryMove(p){
     if(canEnterCell(cx,ty,p)){
       p.py+= wdy*spd;
     } else {
+      tryKick(p,0,wdy,cx,ty);
       p.py=approach(p.py,cyC,spd);
       p.moving = Math.abs(p.py-cyC)>0.01 || p.px!==cxC;
     }
@@ -428,14 +501,59 @@ function leaveOwnBomb(p){
 }
 function approach(v,target,step){ if(Math.abs(v-target)<=step)return target; return v+Math.sign(target-v)*step; }
 
+// 權威模擬旗標：踢炸彈這類「會改動其他實體」的副作用只在權威模擬（host/本地）發生，
+// client 的本地預測/重播不可動到炸彈，否則會跟快照打架。
+let simAuth=false;
+
+// 踢炸彈：玩家朝 (dx,dy) 走但被 (bx,by) 的炸彈擋住時，若有踢彈能力且炸彈後方一格是空的 → 讓它滑走
+function tryKick(p,dx,dy,bx,by){
+  if(!simAuth || !p.kick) return;
+  const b=bombAtCell(bx,by);
+  if(!b || b.moving) return;
+  if(!cellFreeForBomb(bx+dx, by+dy)) return;   // 後方被牆/磚/彈/人擋住，踢不動
+  b.moving=true; b.vx=dx; b.vy=dy;
+  b.passFor && b.passFor.clear();              // 一旦被踢走，對任何人都變實心
+  sfx('kick');
+}
+// 該格是否可讓炸彈停留/通過（空地、無炸彈、無人、在場內）
+function cellFreeForBomb(cx,cy){
+  if(cx<=0||cy<=0||cx>=COLS-1||cy>=ROWS-1) return false;
+  if(world.grid[cy][cx]!==T_EMPTY) return false;
+  if(bombAtCell(cx,cy)) return false;
+  for(const p of world.players){ if(p.alive){ const c=cellOf(p); if(c.cx===cx&&c.cy===cy) return false; } }
+  return true;
+}
+// 推進所有滑行中的炸彈：逐格滑動，撞到障礙就在當前格對齊停住
+function moveBombs(){
+  for(const b of world.bombs){
+    if(!b.moving) continue;
+    const tx=(b.cx+Math.sign(b.vx))*TILE+TILE/2;
+    const ty=(b.cy+Math.sign(b.vy))*TILE+TILE/2;
+    b.px=approach(b.px, b.vx?tx:b.px, BOMB_SLIDE);
+    b.py=approach(b.py, b.vy?ty:b.py, BOMB_SLIDE);
+    const arrived=(!b.vx||b.px===tx)&&(!b.vy||b.py===ty);
+    if(arrived){
+      b.cx=Math.round((b.px-TILE/2)/TILE);
+      b.cy=Math.round((b.py-TILE/2)/TILE);
+      const nx=b.cx+Math.sign(b.vx), ny=b.cy+Math.sign(b.vy);
+      if(!cellFreeForBomb(nx,ny)){ b.moving=false; b.vx=0; b.vy=0; }
+    }
+  }
+}
+
 function placeBomb(p){
   if(!p.alive) return;
   if(p.bombsOut>=p.maxBombs) return;
   const {cx,cy}=cellOf(p);
   if(bombAtCell(cx,cy)) return;
   const passFor=new Set([p.i]);
-  world.bombs.push({ cx,cy, owner:p.i, fuse:BOMB_FUSE, fire:p.fire, passFor });
+  world.bombs.push({
+    cx,cy, px:cx*TILE+TILE/2, py:cy*TILE+TILE/2, vx:0, vy:0, moving:false,
+    owner:p.i, fuse:p.remote?REMOTE_FUSE:BOMB_FUSE, fire:p.fire,
+    pierce:!!p.pierce, remote:!!p.remote, passFor,
+  });
   p.bombsOut++;
+  sfx('place');
 }
 
 function explode(b){
@@ -452,7 +570,8 @@ function explode(b){
       if(t===T_BRICK){
         world.grid[cy][cx]=T_EMPTY;
         maybeDropPowerup(cx,cy);
-        break; // 磚塊擋住延伸
+        if(!b.pierce) break;   // 一般炸彈被磚塊擋住；穿透炸彈繼續延伸
+        else continue;
       }
       // 連鎖引爆別的炸彈
       const ob=bombAtCell(cx,cy);
@@ -460,12 +579,17 @@ function explode(b){
     }
   }
   for(const c of cells) world.blasts.push({ cx:c.cx, cy:c.cy, life:BLAST_DUR });
+  sfx('boom');
 }
 
+// 道具掉落（加權）：基礎三項較常見，進階能力較稀有，總掉落率約 53%
+const DROP_TABLE=[
+  [PU_FIRE,0.15],[PU_BOMB,0.13],[PU_SPEED,0.09],
+  [PU_KICK,0.05],[PU_PIERCE,0.04],[PU_REMOTE,0.03],[PU_SHIELD,0.04],
+];
 function maybeDropPowerup(cx,cy){
-  const r=Math.random();
-  let kind=0;
-  if(r<0.16)kind=PU_FIRE; else if(r<0.30)kind=PU_BOMB; else if(r<0.40)kind=PU_SPEED;
+  const r=Math.random(); let acc=0, kind=0;
+  for(const [k,w] of DROP_TABLE){ acc+=w; if(r<acc){ kind=k; break; } }
   if(kind) world.powerups.push({cx,cy,kind});
 }
 
@@ -481,14 +605,20 @@ function stepWorld(){
       const cmd=clientCmdQueue.shift();
       if(!cmd) break;
       const p=world.players[1], ci=cmd.i||{};
-      p.input.up=!!ci.up; p.input.down=!!ci.down; p.input.left=!!ci.left; p.input.right=!!ci.right; p.input.bomb=!!ci.bomb;
+      p.input.up=!!ci.up; p.input.down=!!ci.down; p.input.left=!!ci.left; p.input.right=!!ci.right; p.input.bomb=!!ci.bomb; p.input.det=!!ci.det;
       clientLastSeq=cmd.seq;
     }
     // 佇列空（封包遺失/剛開局）→ 保留上一筆輸入，角色維持原動作，等指令補到
   }
 
-  // 移動
+  simAuth=true;   // 進入權威模擬：踢炸彈等副作用此時才允許發生
+
+  // 電腦對手（CPU）思考 → 寫入各自的 input
+  for(const p of world.players){ if(p.cpu && p.alive) aiThink(p); }
+
+  // 移動（玩家 + 被踢的炸彈）
   for(const p of world.players) tryMove(p);
+  moveBombs();
 
   // 撿道具
   for(const p of world.players){
@@ -500,7 +630,12 @@ function stepWorld(){
       if(u.kind===PU_FIRE) p.fire=Math.min(8,p.fire+1);
       else if(u.kind===PU_BOMB) p.maxBombs=Math.min(8,p.maxBombs+1);
       else if(u.kind===PU_SPEED) p.speed=Math.min(5,p.speed+1);
+      else if(u.kind===PU_KICK) p.kick=true;
+      else if(u.kind===PU_PIERCE) p.pierce=true;
+      else if(u.kind===PU_REMOTE) p.remote=true;
+      else if(u.kind===PU_SHIELD) p.shield=Math.min(3,p.shield+1);
       world.powerups.splice(idx,1);
+      sfx('pick');
     }
   }
 
@@ -508,6 +643,16 @@ function stepWorld(){
   for(const p of world.players){
     if(p.bombCooldown>0)p.bombCooldown--;
     if(p.input.bomb && p.bombCooldown===0){ placeBomb(p); p.bombCooldown=10; }
+  }
+
+  // 遙控引爆：按下引爆鍵 → 把自己所有遙控炸彈的引線設成 1（下一 tick 爆）
+  for(const p of world.players){
+    if(p.detCooldown>0)p.detCooldown--;
+    if(p.input.det && p.remote && p.detCooldown===0){
+      let any=false;
+      for(const b of world.bombs){ if(b.remote && b.owner===p.i && b.fuse>1){ b.fuse=1; any=true; } }
+      if(any) p.detCooldown=8;
+    }
   }
 
   // 炸彈倒數
@@ -524,14 +669,23 @@ function stepWorld(){
   for(const bl of world.blasts) bl.life--;
   world.blasts=world.blasts.filter(b=>b.life>0);
 
-  // 死亡判定（玩家中心所在格有爆風）→ 進入死亡動畫，不立即結算
+  // 死亡判定（玩家中心所在格有爆風）→ 護盾可擋一次並給短暫無敵；否則進入死亡動畫
   for(const p of world.players){
-    if(!p.alive) continue;
+    if(!p.alive || p.invuln>0) continue;
     const {cx,cy}=cellOf(p);
-    if(world.blasts.some(b=>b.cx===cx&&b.cy===cy)){ p.alive=false; p.dying=DEATH_DUR; }
+    if(world.blasts.some(b=>b.cx===cx&&b.cy===cy)){
+      if(p.shield>0){ p.shield--; p.invuln=INVULN_DUR; sfx('shield'); }
+      else {
+        p.alive=false; p.dying=DEATH_DUR; sfx('die');
+        // 持遙控者死亡 → 引爆其所有遙控炸彈，避免棋盤殘留不會爆的炸彈
+        if(p.remote){ for(const b of world.bombs){ if(b.remote && b.owner===p.i && b.fuse>1) b.fuse=1; } }
+      }
+    }
   }
-  // 死亡動畫倒數
-  for(const p of world.players){ if(p.dying>0) p.dying--; }
+  // 無敵 / 死亡動畫倒數
+  for(const p of world.players){ if(p.invuln>0) p.invuln--; if(p.dying>0) p.dying--; }
+
+  simAuth=false;
 
   // 勝負（含死亡動畫播完的延遲）
   checkWin();
@@ -554,174 +708,438 @@ function checkWin(){
 }
 
 /* ============================================================
-   渲染
+   電腦對手 AI（只在權威模擬端執行：本地 / cpu 模式的 host）
+   行為：① 身陷危險 → 逃到最近安全格　② 在格中心時評估是否放彈
+   （相鄰有磚 or 敵人在直線火力內，且放完逃得掉）③ 否則往最近可炸目標移動
    ============================================================ */
-const ICONS={ [PU_FIRE]:'🔥', [PU_BOMB]:'💣', [PU_SPEED]:'🥾' };
-// 道具配色：外框/光暈用飽和色（顏色辨識），內底用淺色（讓圖示明亮看得清）
-const PU_TINT ={ [PU_FIRE]:'#f97316', [PU_BOMB]:'#3b82f6', [PU_SPEED]:'#22c55e' };
-const PU_LIGHT={ [PU_FIRE]:'#ffedd5', [PU_BOMB]:'#dbeafe', [PU_SPEED]:'#dcfce7' };
-function draw(){
-  ctx.clearRect(0,0,cv.width,cv.height);
-  // 背景地面
+function initAI(p){ p.cpu=true; p.ai={dir:[0,0], think:0, jitter:(p.i*3)%4}; }
+
+function aiNeighbors(cx,cy){ return [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]; }
+function aiWalk(cx,cy){
+  if(cx<=0||cy<=0||cx>=COLS-1||cy>=ROWS-1) return false;
+  if(world.grid[cy][cx]!==T_EMPTY) return false;
+  if(bombAtCell(cx,cy)) return false;
+  return true;
+}
+function aiDanger(extra){
+  const d=new Set();
+  const line=(b)=>{ d.add(b.cy*COLS+b.cx);
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      for(let r=1;r<=b.fire;r++){ const x=b.cx+dx*r,y=b.cy+dy*r;
+        if(x<=0||y<=0||x>=COLS-1||y>=ROWS-1)break;
+        const t=world.grid[y][x]; if(t===T_WALL)break;
+        d.add(y*COLS+x); if(t===T_BRICK && !b.pierce)break; }
+    } };
+  for(const b of world.bombs) line(b);
+  for(const bl of world.blasts) d.add(bl.cy*COLS+bl.cx);
+  if(extra) line(extra);
+  return d;
+}
+function aiBFS(sx,sy,isGoal,avoid){
+  const seen=new Set([sy*COLS+sx]); let q=[[sx,sy,null]], head=0;
+  while(head<q.length){
+    const [cx,cy,first]=q[head++];
+    if((cx!==sx||cy!==sy) && isGoal(cx,cy)) return first||[0,0];
+    for(const [nx,ny] of aiNeighbors(cx,cy)){
+      const k=ny*COLS+nx; if(seen.has(k))continue;
+      if(!aiWalk(nx,ny))continue;
+      if(avoid && avoid.has(k))continue;
+      seen.add(k); q.push([nx,ny, first||[nx-sx,ny-sy]]);
+    }
+  }
+  return null;
+}
+function aiSetDir(p,step){
+  const inp=p.input; inp.up=inp.down=inp.left=inp.right=false;
+  if(!step||(step[0]===0&&step[1]===0)) return;
+  if(step[0]<0)inp.left=true; else if(step[0]>0)inp.right=true;
+  else if(step[1]<0)inp.up=true; else if(step[1]>0)inp.down=true;
+}
+function aiClearLine(cx,cy,dx,dy,dist){
+  for(let r=1;r<dist;r++){ const t=world.grid[cy+dy*r][cx+dx*r]; if(t===T_WALL||t===T_BRICK) return false; }
+  return true;
+}
+function aiHasBrickNeighbor(cx,cy){
+  for(const [x,y] of aiNeighbors(cx,cy)){ if(world.grid[y]&&world.grid[y][x]===T_BRICK) return true; }
+  return false;
+}
+function aiEnemyAt(p,cx,cy){
+  for(const q of world.players){ if(q.alive&&q!==p){ const c=cellOf(q); if(c.cx===cx&&c.cy===cy) return true; } }
+  return false;
+}
+function aiShouldBomb(p,cx,cy){
+  if(aiHasBrickNeighbor(cx,cy)) return true;
+  for(const q of world.players){
+    if(!q.alive||q===p) continue;
+    const c=cellOf(q);
+    if(c.cx===cx){ const dy=Math.sign(c.cy-cy), dist=Math.abs(c.cy-cy); if(dist>=1&&dist<=p.fire&&aiClearLine(cx,cy,0,dy,dist)) return true; }
+    if(c.cy===cy){ const dx=Math.sign(c.cx-cx), dist=Math.abs(c.cx-cx); if(dist>=1&&dist<=p.fire&&aiClearLine(cx,cy,dx,0,dist)) return true; }
+  }
+  return false;
+}
+function aiRandomStep(cx,cy){
+  const opts=aiNeighbors(cx,cy).filter(([x,y])=>aiWalk(x,y));
+  if(!opts.length) return [0,0];
+  const [x,y]=opts[(world.tick+cx*3+cy)%opts.length];
+  return [x-cx,y-cy];
+}
+function aiThink(p){
+  const inp=p.input; inp.bomb=false; inp.det=false;
+  if(!p.ai) initAI(p);
+  const {cx,cy}=cellOf(p);
+  const onCenter = Math.abs(p.px-(cx*TILE+TILE/2))<3 && Math.abs(p.py-(cy*TILE+TILE/2))<3;
+  const danger=aiDanger();
+
+  // ① 身處危險 → 立刻逃命（每 tick 反應）
+  if(danger.has(cy*COLS+cx)){
+    const step=aiBFS(cx,cy,(x,y)=>!danger.has(y*COLS+x),null);
+    aiSetDir(p, step || aiRandomStep(cx,cy));
+    p.ai.think=0; return;
+  }
+
+  // ② 在格中心時評估攻防
+  if(onCenter && p.ai.think<=0){
+    p.ai.think = 4 + p.ai.jitter;
+    if(aiShouldBomb(p,cx,cy) && p.bombsOut<p.maxBombs && !bombAtCell(cx,cy)){
+      const d2=aiDanger({cx,cy,fire:p.fire,pierce:p.pierce});
+      const escape=aiBFS(cx,cy,(x,y)=>!d2.has(y*COLS+x),null);
+      if(escape){ inp.bomb=true; p.ai.dir=escape; aiSetDir(p,escape); return; }
+    }
+    // ③ 往最近可炸目標移動（優先避開危險路徑）
+    p.ai.dir = aiBFS(cx,cy,(x,y)=>aiHasBrickNeighbor(x,y)||aiEnemyAt(p,x,y), danger)
+            || aiBFS(cx,cy,(x,y)=>aiHasBrickNeighbor(x,y), null)
+            || aiRandomStep(cx,cy);
+  }
+  if(p.ai.think>0) p.ai.think--;
+  // 撿到遙控就偶爾手動引爆
+  if(p.remote && world.bombs.some(b=>b.remote&&b.owner===p.i) && (world.tick%30===0)) inp.det=true;
+  aiSetDir(p, p.ai.dir);
+}
+
+/* ============================================================
+   音效（WebAudio 即時合成，零素材）
+   ============================================================ */
+let actx=null, soundOn=true;
+function ac(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return actx; }
+function unlockAudio(){ const c=ac(); if(c&&c.state==='suspended') c.resume(); }
+function sfx(type){
+  if(!soundOn) return; const c=ac(); if(!c) return;
+  if(c.state==='suspended') c.resume();
+  const t=c.currentTime;
+  const env=(node,gain,dur,delay)=>{ const g=c.createGain(); g.gain.setValueAtTime(0,t+delay); g.gain.linearRampToValueAtTime(gain,t+delay+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+delay+dur); node.connect(g); g.connect(c.destination); };
+  const tone=(freq,dur,wave,gain,delay,slideTo)=>{ const o=c.createOscillator(); o.type=wave; o.frequency.setValueAtTime(freq,t+delay); if(slideTo)o.frequency.exponentialRampToValueAtTime(slideTo,t+delay+dur); env(o,gain,dur,delay); o.start(t+delay); o.stop(t+delay+dur+0.02); };
+  const noise=(dur,gain,lpf,delay)=>{ const n=Math.max(1,Math.floor(c.sampleRate*dur)); const buf=c.createBuffer(1,n,c.sampleRate); const ch=buf.getChannelData(0); for(let i=0;i<n;i++) ch[i]=(Math.random()*2-1)*(1-i/n); const s=c.createBufferSource(); s.buffer=buf; const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=lpf; const g=c.createGain(); g.gain.setValueAtTime(gain,t+delay); g.gain.exponentialRampToValueAtTime(0.0001,t+delay+dur); s.connect(f); f.connect(g); g.connect(c.destination); s.start(t+delay); };
+  switch(type){
+    case 'place':  tone(190,0.10,'square',0.09,0,120); break;
+    case 'pick':   tone(660,0.08,'triangle',0.13,0,0); tone(990,0.10,'triangle',0.10,0.07,0); break;
+    case 'boom':   noise(0.40,0.55,900,0); tone(90,0.30,'sine',0.28,0,40); break;
+    case 'die':    tone(440,0.45,'sawtooth',0.16,0,70); break;
+    case 'kick':   tone(320,0.07,'square',0.08,0,160); break;
+    case 'shield': tone(880,0.12,'sine',0.14,0,0); tone(1320,0.14,'sine',0.10,0.06,0); break;
+  }
+}
+
+/* ============================================================
+   3D 渲染（Three.js）
+   ============================================================ */
+// 道具圖片：從爆爆王(BNB)實際遊戲擷取的道具圖（存於 img/items/），取代內建 emoji
+const PU_FILE ={ [PU_FIRE]:'fire',[PU_BOMB]:'bomb',[PU_SPEED]:'speed',[PU_KICK]:'kick',[PU_PIERCE]:'pierce',[PU_REMOTE]:'remote',[PU_SHIELD]:'shield' };
+const PU_COLOR={ [PU_FIRE]:'#f97316',[PU_BOMB]:'#3b82f6',[PU_SPEED]:'#22c55e',[PU_KICK]:'#eab308',[PU_PIERCE]:'#a855f7',[PU_REMOTE]:'#ef4444',[PU_SHIELD]:'#38bdf8' };
+const ITEM_IMG=k=>'img/items/'+PU_FILE[k]+'.png';
+let THREE=null;   // window.THREE，init3D 時指派
+let G3=null;      // 3D 場景容器（renderer/scene/camera/pools…）
+
+// 座標轉換：模擬用像素(px,py)，3D 用世界單位(1 tile = 1 unit)，棋盤置中於原點
+function worldX(px){ return px/TILE - COLS/2; }
+function worldZ(py){ return py/TILE - ROWS/2; }
+function cellWX(gx){ return gx + 0.5 - COLS/2; }
+function cellWZ(gy){ return gy + 0.5 - ROWS/2; }
+function dirYaw(d){ return d==='down'?0 : d==='up'?Math.PI : d==='right'?Math.PI/2 : -Math.PI/2; }
+
+// ── 物件池（每幀重用 mesh，避免分配抖動）─────────────────
+function poolAcquire(key, factory){
+  const T=G3; let pl=T.pools[key]||(T.pools[key]={items:[],n:0});
+  let o; if(pl.n<pl.items.length){ o=pl.items[pl.n]; } else { o=factory(); T.scene.add(o); pl.items.push(o); }
+  pl.n++; o.visible=true; return o;
+}
+function poolReset(key){ const pl=G3.pools[key]; if(pl)pl.n=0; }
+function poolHideRest(key){ const pl=G3.pools[key]; if(!pl)return; for(let i=pl.n;i<pl.items.length;i++) pl.items[i].visible=false; }
+
+function init3D(){
+  if(G3) return true;
+  if(window.THREE_FAILED){ show3dError(); return false; }
+  if(!window.THREE) return false;                 // 尚未載入完，下一幀再試
+  THREE=window.THREE;
+  let renderer;
+  try{
+    renderer=new THREE.WebGLRenderer({canvas:cv, antialias:true});
+  }catch(e){ console.error('WebGL init failed',e); show3dError(); window.THREE_FAILED=e; return false; }
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.setSize(cv.width,cv.height,false);
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  if('outputColorSpace' in renderer) renderer.outputColorSpace=THREE.SRGBColorSpace;
+
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color('#0b1020');
+  scene.fog=new THREE.Fog('#0b1020',17,36);
+  const camera=new THREE.PerspectiveCamera(50, cv.width/cv.height, 0.1, 100);
+  camera.position.set(0,15,10); camera.lookAt(0,0,0);
+
+  scene.add(new THREE.HemisphereLight('#cfe0ff','#202838',0.85));
+  scene.add(new THREE.AmbientLight('#3a4660',0.35));
+  const dir=new THREE.DirectionalLight('#fff4e0',1.05);
+  dir.position.set(7,15,6); dir.castShadow=true; dir.shadow.mapSize.set(1024,1024);
+  const sc=dir.shadow.camera; sc.left=-9; sc.right=9; sc.top=8; sc.bottom=-8; sc.near=1; sc.far=46;
+  scene.add(dir);
+
+  const geo={
+    wall:new THREE.BoxGeometry(0.96,0.9,0.96),
+    brick:new THREE.BoxGeometry(0.9,0.82,0.9),
+    blast:new THREE.SphereGeometry(0.5,16,12),
+  };
+  const mat={
+    wall:new THREE.MeshStandardMaterial({color:'#5b6b82',roughness:0.55,metalness:0.3}),
+    brick:new THREE.MeshStandardMaterial({color:'#b45309',roughness:0.85,metalness:0.05}),
+    brickCap:new THREE.MeshStandardMaterial({color:'#d97706',roughness:0.7}),
+  };
+  const shared=new Set([geo.wall,geo.brick,geo.blast,mat.wall,mat.brick,mat.brickCap]);
+
+  G3={ renderer,scene,camera,dir, geo,mat,shared, pools:{}, rigs:[], wasAlive:[],
+       parts:[], partPool:[], puTex:{}, t:0, boardId:-1, bricks:new Map(), boardGroup:null };
+  const ld=$('loading3d'); if(ld) ld.style.display='none';
+  return true;
+}
+function show3dError(){ const el=$('loading3d'); if(el){ el.style.display='flex'; el.innerHTML='<div style="font-size:30px">⚠️</div><div>3D 引擎載入失敗<br>請檢查網路後重新整理頁面</div>'; } }
+
+// ── 紋理 ─────────────────────────────────────────────
+function makeFloorTex(){
+  const cell=24, c=document.createElement('canvas'); c.width=COLS*cell; c.height=ROWS*cell;
+  const g=c.getContext('2d');
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){ g.fillStyle=((x+y)&1)?'#24334a':'#1b2740'; g.fillRect(x*cell,y*cell,cell,cell); }
+  g.strokeStyle='rgba(255,255,255,0.045)'; g.lineWidth=1;
+  for(let x=0;x<=COLS;x++){ g.beginPath(); g.moveTo(x*cell,0); g.lineTo(x*cell,ROWS*cell); g.stroke(); }
+  for(let y=0;y<=ROWS;y++){ g.beginPath(); g.moveTo(0,y*cell); g.lineTo(COLS*cell,y*cell); g.stroke(); }
+  const tex=new THREE.CanvasTexture(c); if('colorSpace' in tex) tex.colorSpace=THREE.SRGBColorSpace; tex.magFilter=THREE.NearestFilter;
+  return tex;
+}
+function puTex(kind){
+  if(G3.puTex[kind]) return G3.puTex[kind];
+  const tex=new THREE.TextureLoader().load(ITEM_IMG(kind));
+  if('colorSpace' in tex) tex.colorSpace=THREE.SRGBColorSpace;
+  tex.anisotropy=4;
+  return (G3.puTex[kind]=tex);
+}
+function haloTex(){
+  if(G3._halo) return G3._halo;
+  const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,4,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,0.95)'); gr.addColorStop(0.4,'rgba(255,255,255,0.45)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,128,128);
+  return (G3._halo=new THREE.CanvasTexture(c));
+}
+
+// ── 靜態棋盤（每局重建一次；局內磚塊被炸掉用 syncBricks 移除）──
+function buildBoard(){
+  const T=G3;
+  if(T.boardGroup){ disposeObj(T.boardGroup); T.scene.remove(T.boardGroup); }
+  const grp=new THREE.Group(); T.boardGroup=grp; T.scene.add(grp); T.bricks=new Map();
+  // 地板（棋盤格紋理）+ 底座
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS), new THREE.MeshStandardMaterial({map:makeFloorTex(),roughness:0.95,metalness:0}));
+  floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; grp.add(floor);
+  const slab=new THREE.Mesh(new THREE.BoxGeometry(COLS+0.6,0.5,ROWS+0.6), new THREE.MeshStandardMaterial({color:'#0a1020',roughness:1}));
+  slab.position.y=-0.26; slab.receiveShadow=true; grp.add(slab);
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
     const t=world.grid[y][x];
-    if(t===T_WALL){ drawWall(x,y); }
-    else { drawFloor(x,y); if(t===T_BRICK) drawBrick(x,y); }
-  }
-  // 道具
-  for(const u of world.powerups) drawPowerup(u);
-  // 炸彈
-  for(const b of world.bombs) drawBomb(b);
-  // 爆風
-  for(const bl of world.blasts) drawBlast(bl);
-  // 玩家（活著的正常畫；剛死的播死亡動畫）
-  for(const p of world.players){
-    if(p.alive) drawPlayer(p);
-    else if(p.dying>0) drawDying(p);
+    if(t===T_WALL){ const m=new THREE.Mesh(T.geo.wall,T.mat.wall); m.position.set(cellWX(x),0.45,cellWZ(y)); m.castShadow=true; m.receiveShadow=true; grp.add(m); }
+    else if(t===T_BRICK){ const m=makeBrick(x,y); grp.add(m); T.bricks.set(y*COLS+x,m); }
   }
 }
-function drawFloor(x,y){ ctx.fillStyle=((x+y)&1)?'#1e293b':'#243349'; ctx.fillRect(x*TILE,y*TILE,TILE,TILE); }
-function drawWall(x,y){
-  ctx.fillStyle='#475569'; ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-  ctx.fillStyle='#64748b'; ctx.fillRect(x*TILE+3,y*TILE+3,TILE-6,TILE-9);
-  ctx.fillStyle='#334155'; ctx.fillRect(x*TILE+3,y*TILE+TILE-6,TILE-6,3);
+function makeBrick(x,y){
+  const g=new THREE.Group();
+  const m=new THREE.Mesh(G3.geo.brick,G3.mat.brick); m.position.y=0.41; m.castShadow=true; m.receiveShadow=true; g.add(m);
+  const cap=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.06,0.9),G3.mat.brickCap); cap.position.y=0.83; g.add(cap);
+  g.position.set(cellWX(x),0,cellWZ(y));
+  return g;
 }
-function drawBrick(x,y){
-  ctx.fillStyle='#b45309'; ctx.fillRect(x*TILE+3,y*TILE+3,TILE-6,TILE-6);
-  ctx.fillStyle='#d97706'; ctx.fillRect(x*TILE+3,y*TILE+3,TILE-6,4);
-  ctx.strokeStyle='#92400e'; ctx.lineWidth=2;
-  ctx.strokeRect(x*TILE+3,y*TILE+3,TILE-6,TILE-6);
-  ctx.beginPath();
-  ctx.moveTo(x*TILE+TILE/2,y*TILE+3); ctx.lineTo(x*TILE+TILE/2,y*TILE+TILE-3);
-  ctx.moveTo(x*TILE+3,y*TILE+TILE/2); ctx.lineTo(x*TILE+TILE-3,y*TILE+TILE/2);
-  ctx.stroke();
+function disposeObj(obj){
+  obj.traverse(o=>{ if(!o.isMesh)return;
+    if(o.geometry && !G3.shared.has(o.geometry)) o.geometry.dispose();
+    const mats=Array.isArray(o.material)?o.material:[o.material];
+    for(const mm of mats){ if(mm && !G3.shared.has(mm)){ if(mm.map) mm.map.dispose(); mm.dispose(); } }
+  });
 }
-function drawPowerup(u){
-  const t=u.cx*TILE+TILE/2, m=u.cy*TILE+TILE/2;
-  const tint=PU_TINT[u.kind]||'#94a3b8', light=PU_LIGHT[u.kind]||'#f1f5f9';
-  const beat=0.5+0.5*Math.sin(performance.now()*0.005 + u.cx*1.3 + u.cy*0.7);  // 脈動讓道具醒目
-  ctx.save();
-  // 外圈光暈（脈動）
-  ctx.globalAlpha=0.28+0.30*beat;
-  ctx.fillStyle=tint;
-  ctx.beginPath(); ctx.arc(t,m,TILE*0.44,0,7); ctx.fill();
-  ctx.globalAlpha=1;
-  // 飽和色外框
-  ctx.fillStyle=tint;
-  roundRect(t-TILE*0.35, m-TILE*0.35, TILE*0.70, TILE*0.70, 10); ctx.fill();
-  // 淺色內底（讓圖示明亮清楚）
-  ctx.fillStyle=light;
-  roundRect(t-TILE*0.28, m-TILE*0.28, TILE*0.56, TILE*0.56, 7); ctx.fill();
-  // 圖示：放大、全不透明、指定 emoji 字型，確保清晰明亮
-  ctx.font='26px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillStyle='#0f172a';
-  ctx.fillText(ICONS[u.kind], t, m+1);
-  ctx.restore();
-}
-function drawBomb(b){
-  const cx=b.cx*TILE+TILE/2, cy=b.cy*TILE+TILE/2;
-  // 快爆時脈動加快、加大
-  const urgency=1-b.fuse/BOMB_FUSE;          // 0→1
-  const beat=Math.sin(b.fuse*(0.25+urgency*0.6));
-  const pulse=1+(0.10+urgency*0.12)*beat;
-  const r=TILE*0.32*pulse;
-  // 危險光暈（越接近爆炸越紅越亮）
-  if(urgency>0.55){
-    ctx.fillStyle=`rgba(239,68,68,${(urgency-0.55)*0.5})`;
-    ctx.beginPath(); ctx.arc(cx,cy,r*1.7,0,7); ctx.fill();
+function ensureBoard(){ if(G3.boardId!==world.boardId){ buildBoard(); G3.boardId=world.boardId; } }
+function syncBricks(){
+  const T=G3;
+  for(const [key,m] of T.bricks){
+    const x=key%COLS, y=(key-x)/COLS;
+    if(world.grid[y][x]!==T_BRICK){
+      T.boardGroup.remove(m); T.bricks.delete(key);
+      spawnBurst(cellWX(x),0.5,cellWZ(y),'#c2772a',9);   // 磚塊碎屑
+    }
   }
-  // 彈體
-  ctx.fillStyle='#0f172a'; ctx.beginPath(); ctx.arc(cx,cy+2,r,0,7); ctx.fill();
-  ctx.fillStyle='#1e293b'; ctx.beginPath(); ctx.arc(cx-r*0.3,cy-r*0.3+2,r*0.4,0,7); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(cx-r*0.35,cy-r*0.35+2,r*0.18,0,7); ctx.fill();
-  // 引線 + 火花
-  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx+5,cy-r-7); ctx.stroke();
-  ctx.fillStyle=(b.fuse%10<5)?'#fbbf24':'#ef4444';
-  ctx.beginPath(); ctx.arc(cx+6,cy-r-9,3.2,0,7); ctx.fill();
-  // 倒數秒數（白字描邊，畫在彈體上）
-  const secs=Math.ceil(b.fuse/60);
-  ctx.font='bold 16px -apple-system,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.6)';
-  ctx.strokeText(secs, cx, cy+3);
-  ctx.fillStyle='#fff'; ctx.fillText(secs, cx, cy+3);
 }
-function drawBlast(bl){
-  const cx=bl.cx*TILE+TILE/2, cy=bl.cy*TILE+TILE/2;
-  const life=bl.life/BLAST_DUR;              // 1→0
-  // 開場大、結尾縮小淡出的火球
-  const grow=Math.min(1,(1-life)*4);         // 前 25% 快速展開
-  const scale=(0.55+0.45*grow)*(0.6+0.4*life);
-  const R=TILE*0.5*scale;
-  ctx.save();
-  ctx.translate(cx,cy);
-  // 外層橘紅光暈
-  let g=ctx.createRadialGradient(0,0,R*0.2,0,0,R);
-  g.addColorStop(0,`rgba(254,243,199,${0.95*life+0.05})`);
-  g.addColorStop(0.45,`rgba(251,146,60,${0.85*life})`);
-  g.addColorStop(0.8,`rgba(239,68,68,${0.6*life})`);
-  g.addColorStop(1,'rgba(239,68,68,0)');
-  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,R,0,7); ctx.fill();
-  // 內核白熱
-  ctx.fillStyle=`rgba(255,255,255,${0.85*life})`;
-  ctx.beginPath(); ctx.arc(0,0,R*0.4,0,7); ctx.fill();
-  // 火花碎屑（依格座標決定固定角度，避免每幀亂跳）
-  const seed=(bl.cx*13+bl.cy*7);
-  ctx.fillStyle=`rgba(253,224,71,${0.8*life})`;
-  for(let i=0;i<5;i++){
-    const ang=seed+i*1.3;
-    const d=R*(0.7+0.5*grow);
-    ctx.beginPath(); ctx.arc(Math.cos(ang)*d,Math.sin(ang)*d,2.2*life+0.5,0,7); ctx.fill();
+
+// ── 角色 ─────────────────────────────────────────────
+function makePlayerRig(i){
+  const col=new THREE.Color(COLORS[i]);
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.32,24,18), new THREE.MeshStandardMaterial({color:col,roughness:0.45,metalness:0.1}));
+  body.position.y=0.34; body.scale.y=1.06; body.castShadow=true; g.add(body);
+  const belly=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,12), new THREE.MeshStandardMaterial({color:'#f8fafc',roughness:0.7}));
+  belly.position.set(0,0.3,0.17); belly.scale.set(1,1.1,0.55); g.add(belly);
+  const we=new THREE.MeshStandardMaterial({color:'#fff',roughness:0.3});
+  const pe=new THREE.MeshStandardMaterial({color:'#0f172a'});
+  for(const sx of [-1,1]){
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.1,12,10),we); eye.position.set(sx*0.12,0.5,0.25); g.add(eye);
+    const pup=new THREE.Mesh(new THREE.SphereGeometry(0.045,8,8),pe); pup.position.set(sx*0.12,0.5,0.33); g.add(pup);
   }
-  ctx.restore();
+  const shield=new THREE.Mesh(new THREE.TorusGeometry(0.43,0.05,8,24), new THREE.MeshBasicMaterial({color:'#38bdf8',transparent:true,opacity:0.75}));
+  shield.rotation.x=Math.PI/2; shield.position.y=0.36; shield.visible=false; g.add(shield);
+  g.userData={body,shield};
+  return g;
 }
-// 死亡動畫：角色閃白、縮小旋轉，並噴出爆裂碎片
-function drawDying(p){
-  const t=1-p.dying/DEATH_DUR;               // 0→1
-  const r=TILE*0.34*(1-t*0.85);              // 縮小
-  ctx.save();
-  ctx.translate(p.px,p.py);
-  ctx.rotate(t*6);                            // 旋轉
-  // 閃爍：前半段白紅交替
-  const flash=(p.dying%6<3);
-  ctx.globalAlpha=1-t*0.6;
-  ctx.fillStyle=flash?'#fff':COLORS[p.i];
-  ctx.beginPath(); ctx.arc(0,0,r,0,7); ctx.fill();
-  ctx.restore();
-  // 向外噴的碎片
-  ctx.save(); ctx.translate(p.px,p.py);
-  ctx.globalAlpha=1-t;
-  ctx.fillStyle=COLORS[p.i];
-  for(let i=0;i<8;i++){
-    const ang=i*0.785;
-    const d=t*TILE*0.9;
-    ctx.beginPath(); ctx.arc(Math.cos(ang)*d,Math.sin(ang)*d,3*(1-t)+1,0,7); ctx.fill();
+function syncPlayers(){
+  const T=G3;
+  world.players.forEach((p,i)=>{
+    let rig=T.rigs[i]; if(!rig){ rig=makePlayerRig(i); T.scene.add(rig); T.rigs[i]=rig; }
+    if(T.wasAlive[i] && !p.alive) spawnBurst(worldX(p.px),0.4,worldZ(p.py),COLORS[i],18);
+    T.wasAlive[i]=p.alive;
+    if(p.alive){
+      rig.visible = !(p.invuln>0 && (T.t%10<5));
+      rig.scale.setScalar(1);
+      rig.position.set(worldX(p.px),0,worldZ(p.py));
+      rig.rotation.y=dirYaw(p.dir);
+      rig.userData.body.position.y = 0.34 + (p.moving? Math.abs(Math.sin(T.t*0.35))*0.08 : 0);
+      rig.userData.shield.visible = p.shield>0;
+      if(p.shield>0) rig.userData.shield.scale.setScalar(1+0.06*Math.sin(T.t*0.2));
+    } else if(p.dying>0){
+      const tt=1-p.dying/DEATH_DUR;
+      rig.visible=true; rig.scale.setScalar(Math.max(0.02,1-tt));
+      rig.rotation.y+=0.5; rig.position.y=tt*0.6;
+      rig.userData.shield.visible=false;
+    } else { rig.visible=false; }
+  });
+}
+
+// ── 炸彈 ─────────────────────────────────────────────
+function makeBombRig(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.3,20,16), new THREE.MeshStandardMaterial({color:'#0f172a',roughness:0.3,metalness:0.55,emissive:'#000000',emissiveIntensity:0}));
+  body.position.y=0.3; body.castShadow=true; g.add(body);
+  const hi=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8), new THREE.MeshBasicMaterial({color:'#475569'})); hi.position.set(-0.1,0.42,0.1); g.add(hi);
+  const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.18,6), new THREE.MeshStandardMaterial({color:'#94a3b8'})); fuse.position.set(0.07,0.62,0); fuse.rotation.z=-0.5; g.add(fuse);
+  const spark=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:'#fbbf24'})); spark.position.set(0.13,0.72,0); g.add(spark);
+  g.userData={body,spark};
+  return g;
+}
+function syncBombs(){
+  const T=G3; poolReset('bomb');
+  for(const b of world.bombs){
+    const rig=poolAcquire('bomb', makeBombRig);
+    const px=b.px!=null?b.px:b.cx*TILE+TILE/2, py=b.py!=null?b.py:b.cy*TILE+TILE/2;
+    rig.position.set(worldX(px),0,worldZ(py));
+    const urgency = b.remote?0.25:Math.max(0,Math.min(1,1-b.fuse/BOMB_FUSE));
+    rig.scale.setScalar(1+(0.06+urgency*0.18)*Math.sin(T.t*(0.3+urgency*0.8)));
+    rig.userData.spark.visible = (T.t%8<4);
+    const bm=rig.userData.body.material;
+    if(b.pierce){ bm.emissive.set('#7c3aed'); bm.emissiveIntensity=0.6; }
+    else if(b.remote){ bm.emissive.set('#0891b2'); bm.emissiveIntensity=0.55; }
+    else { bm.emissive.set('#ef4444'); bm.emissiveIntensity=urgency*0.75; }
   }
-  // 中心爆星
-  if(t<0.5){ ctx.globalAlpha=1-t*2; ctx.fillStyle='#fde047';
-    ctx.beginPath(); ctx.arc(0,0,TILE*0.3*(1-t*2),0,7); ctx.fill(); }
-  ctx.restore();
+  poolHideRest('bomb');
 }
-function drawPlayer(p){
-  const c=COLORS[p.i];
-  const r=TILE*0.34;
-  // 影子
-  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(p.px,p.py+r*0.8,r*0.9,r*0.4,0,0,7); ctx.fill();
-  // 身體
-  ctx.fillStyle=c; ctx.beginPath(); ctx.arc(p.px,p.py,r,0,7); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(p.px-r*0.3,p.py-r*0.35,r*0.45,0,7); ctx.fill();
-  // 眼睛（朝向）
-  let ex=0,ey=0;
-  if(p.dir==='left')ex=-1; else if(p.dir==='right')ex=1; else if(p.dir==='up')ey=-1; else ey=1;
-  ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.arc(p.px-r*0.3+ex*r*0.25,p.py-r*0.1+ey*r*0.25,r*0.22,0,7); ctx.fill();
-  ctx.beginPath(); ctx.arc(p.px+r*0.3+ex*r*0.25,p.py-r*0.1+ey*r*0.25,r*0.22,0,7); ctx.fill();
-  ctx.fillStyle='#0f172a';
-  ctx.beginPath(); ctx.arc(p.px-r*0.3+ex*r*0.4,p.py-r*0.1+ey*r*0.4,r*0.1,0,7); ctx.fill();
-  ctx.beginPath(); ctx.arc(p.px+r*0.3+ex*r*0.4,p.py-r*0.1+ey*r*0.4,r*0.1,0,7); ctx.fill();
+
+// ── 爆風 ─────────────────────────────────────────────
+function makeBlastMesh(){ return new THREE.Mesh(G3.geo.blast, new THREE.MeshBasicMaterial({color:'#fb923c',transparent:true,opacity:0.8,blending:THREE.AdditiveBlending,depthWrite:false})); }
+function syncBlasts(){
+  poolReset('blast');
+  for(const bl of world.blasts){
+    const life=Math.max(0,Math.min(1,(bl.life!=null?bl.life:BLAST_DUR)/BLAST_DUR));
+    const grow=Math.min(1,(1-life)*4);
+    const s=(0.6+0.5*grow)*(0.55+0.45*life);
+    const m=poolAcquire('blast', makeBlastMesh);
+    m.position.set(cellWX(bl.cx),0.45,cellWZ(bl.cy));
+    m.scale.setScalar(Math.max(0.05,s));
+    m.material.opacity=0.82*life+0.1;
+    m.material.color.setRGB(1, 0.55+0.3*life, 0.18*life);
+  }
+  poolHideRest('blast');
 }
-function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// ── 道具 ─────────────────────────────────────────────
+function makePuRig(){
+  const g=new THREE.Group();
+  // 地面光圈（顏色辨識）
+  const ring=new THREE.Mesh(new THREE.RingGeometry(0.26,0.42,28), new THREE.MeshBasicMaterial({color:'#fff',transparent:true,opacity:0.5,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=0.03; g.add(ring);
+  // 背光暈
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:haloTex(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0.6}));
+  halo.scale.set(1.15,1.15,1.15); halo.position.y=0.5; g.add(halo);
+  // 道具圖（始終面向鏡頭的看板）
+  const icon=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthWrite:false}));
+  icon.scale.set(0.82,0.82,0.82); icon.position.y=0.5; g.add(icon);
+  g.userData={ring,halo,icon};
+  return g;
+}
+function syncPowerups(){
+  const T=G3; poolReset('pu');
+  for(const u of world.powerups){
+    const rig=poolAcquire('pu', makePuRig);
+    const bobY=0.5+0.09*Math.sin(T.t*0.08+u.cx+u.cy);
+    rig.position.set(cellWX(u.cx), 0, cellWZ(u.cy));
+    rig.userData.icon.position.y=bobY;
+    rig.userData.halo.position.y=bobY;
+    const col=PU_COLOR[u.kind]||'#94a3b8';
+    rig.userData.ring.material.color.set(col);
+    rig.userData.halo.material.color.set(col);
+    rig.userData.halo.material.opacity=0.4+0.2*Math.sin(T.t*0.12+u.cx);
+    const im=rig.userData.icon.material; const tx=puTex(u.kind); if(im.map!==tx){ im.map=tx; im.needsUpdate=true; }
+  }
+  poolHideRest('pu');
+}
+
+// ── 粒子（死亡 / 磚塊碎屑）──────────────────────────────
+function getPart(){
+  for(const m of G3.partPool){ if(!m.userData.inUse){ m.userData.inUse=true; m.visible=true; return m; } }
+  const m=new THREE.Mesh(new THREE.SphereGeometry(1,6,6), new THREE.MeshBasicMaterial({color:'#fff',transparent:true}));
+  m.userData={inUse:true}; G3.partPool.push(m); G3.scene.add(m); return m;
+}
+function spawnBurst(x,y,z,color,count){
+  if(!G3) return;
+  for(let i=0;i<count;i++){
+    const m=getPart(); m.material.color.set(color);
+    const a=Math.random()*Math.PI*2, sp=0.05+Math.random()*0.12;
+    G3.parts.push({mesh:m, x,y,z, vx:Math.cos(a)*sp, vy:0.11+Math.random()*0.1, vz:Math.sin(a)*sp, life:1});
+  }
+}
+function updateParticles(){
+  const parts=G3.parts;
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    p.life-=0.03; p.vy-=0.012; p.x+=p.vx; p.y+=p.vy; p.z+=p.vz;
+    if(p.y<0.06){ p.y=0.06; p.vy*=-0.4; }
+    if(p.life<=0){ p.mesh.visible=false; p.mesh.userData.inUse=false; parts.splice(i,1); continue; }
+    p.mesh.position.set(p.x,p.y,p.z);
+    p.mesh.scale.setScalar(0.12*p.life+0.03);
+    p.mesh.material.opacity=Math.min(1,p.life*1.6);
+  }
+}
+
+// ── 每幀渲染入口（主迴圈呼叫）──────────────────────────
+function draw(){
+  if(!world) return;
+  if(!G3){ if(!init3D()) return; }
+  G3.t++;
+  ensureBoard();
+  syncBricks();
+  syncPlayers();
+  syncBombs();
+  syncBlasts();
+  syncPowerups();
+  updateParticles();
+  G3.renderer.render(G3.scene,G3.camera);
+}
 
 /* ============================================================
    主迴圈
@@ -759,19 +1177,19 @@ function predictStep(){
   if(!world||world.over) return;
   const me=world.players[myIndex];
   if(!me||!me.alive) return;
-  const cmd={ seq:++inputSeq, i:{up:myInput.up,down:myInput.down,left:myInput.left,right:myInput.right,bomb:myInput.bomb} };
+  const cmd={ seq:++inputSeq, i:{up:myInput.up,down:myInput.down,left:myInput.left,right:myInput.right,bomb:myInput.bomb,det:myInput.det} };
   pending.push(cmd); unsent.push(cmd);
   if(pending.length>240) pending.shift();   // 安全上限（約 4 秒），正常情況遠用不到
   me.input.up=cmd.i.up; me.input.down=cmd.i.down; me.input.left=cmd.i.left; me.input.right=cmd.i.right;
-  me.input.bomb=false;          // 放彈不本地預測
+  me.input.bomb=false; me.input.det=false;  // 放彈/引爆不本地預測（交 host），但仍送出讓 host 處理
   tryMove(me);
 }
 
 /* ============================================================
    輸入
    ============================================================ */
-const keyMapP1={ KeyW:'up',KeyS:'down',KeyA:'left',KeyD:'right',Space:'bomb' };
-const keyMapP2={ ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'bomb' };
+const keyMapP1={ KeyW:'up',KeyS:'down',KeyA:'left',KeyD:'right',Space:'bomb',KeyQ:'det' };
+const keyMapP2={ ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'bomb',ShiftRight:'det' };
 
 function setLocalInput(playerIdx, action, val){
   // 注意：這裡不可因 world.over 就 return，否則「結算後放開方向鍵/搖桿」會被吞掉，
@@ -787,7 +1205,7 @@ function setLocalInput(playerIdx, action, val){
     myInput[action]=val;
   }
 }
-const myInput={up:false,down:false,left:false,right:false,bomb:false};
+const myInput={up:false,down:false,left:false,right:false,bomb:false,det:false};
 
 window.addEventListener('keydown',e=>{
   if($('game-view').classList.contains('show')===false) return;
@@ -817,7 +1235,7 @@ window.addEventListener('keyup',e=>{
 // 這裡把目前控制的玩家輸入全部歸零，避免「放開鍵卻還在動」。
 function clearHeldInputs(){
   if(!world) return;
-  const actions=['up','down','left','right','bomb'];
+  const actions=['up','down','left','right','bomb','det'];
   if(mode==='local'){
     for(const idx of [0,1]){ const p=world.players[idx]; if(p) for(const a of actions) p.input[a]=false; }
   } else if(isHost){
@@ -894,6 +1312,15 @@ function bindTouch(){
   bb.addEventListener('touchend',boff,{passive:false});
   bb.addEventListener('touchcancel',boff,{passive:false});
   bb.addEventListener('mousedown',bon); bb.addEventListener('mouseup',boff);
+
+  // 遙控引爆鈕（撿到 🎮 才顯示）
+  const db=$('detBtn');
+  const don=e=>{e.preventDefault();press('det',true);};
+  const doff=e=>{e.preventDefault();press('det',false);};
+  db.addEventListener('touchstart',don,{passive:false});
+  db.addEventListener('touchend',doff,{passive:false});
+  db.addEventListener('touchcancel',doff,{passive:false});
+  db.addEventListener('mousedown',don); db.addEventListener('mouseup',doff);
 }
 
 /* ============================================================
@@ -902,13 +1329,21 @@ function bindTouch(){
 function updateScores(){
   const el=$('scores');
   let html='';
+  const ic=n=>`<img class="pu" src="img/items/${n}.png">`;
   for(const p of world.players){
-    html+=`<div class="ptag${p.alive?'':' dead'}"><span class="dot" style="background:${COLORS[p.i]}"></span>${labelFor(p)} 🔥${p.fire} 💣${p.maxBombs}</div>`;
+    let extra='';
+    if(p.kick)extra+=ic('kick'); if(p.pierce)extra+=ic('pierce'); if(p.remote)extra+=ic('remote'); if(p.shield>0)extra+=ic('shield')+p.shield;
+    html+=`<div class="ptag${p.alive?'':' dead'}"><span class="dot" style="background:${COLORS[p.i]}"></span>${labelFor(p)} ${ic('fire')}${p.fire} ${ic('bomb')}${p.maxBombs} ${ic('speed')}${p.speed}${extra}</div>`;
   }
   el.innerHTML=html;
+  // 遙控引爆鈕：本機控制的玩家有遙控能力且觸控介面開著時才顯示
+  const me=world.players[myIndex];
+  const showDet = mode!=='local' && me && me.remote && $('touch').classList.contains('show');
+  const db=$('detBtn'); if(db) db.style.display = showDet?'flex':'none';
 }
 function labelFor(p){
   if(mode==='online') return p.i===myIndex?'你':'對手';
+  if(mode==='cpu') return p.i===myIndex?'你':'電腦'+p.i;
   return NAMES[p.i];
 }
 
@@ -919,6 +1354,10 @@ function onGameOver(){
     if(w===myIndex){ title='勝利！';big='🏆';text='你贏了這場對戰'; }
     else if(w<0){ title='平手';big='🤝';text='同歸於盡'; }
     else { title='落敗';big='💥';text='對手獲勝'; }
+  } else if(mode==='cpu'){
+    if(w===myIndex){ title='勝利！';big='🏆';text='你擊敗了所有電腦對手'; }
+    else if(w<0){ title='平手';big='🤝';text='同歸於盡'; }
+    else { title='落敗';big='💥';text='被電腦擊敗了，再挑戰一次！'; }
   } else {
     if(w<0){ title='平手';big='🤝';text='兩位玩家同歸於盡'; }
     else { title=NAMES[w]+' 勝利！';big='🏆';text=`${NAMES[w]}（${w===0?'綠':'橘'}）獲勝`; }
@@ -932,22 +1371,24 @@ function onGameOver(){
    遊戲開始 / 結束
    ============================================================ */
 function beginGame(){
+  unlockAudio();
+  $('loading3d') && !G3 && ($('loading3d').style.display='flex');   // 3D 還沒就緒時顯示載入動畫
   matchEndedByLeave=false; $('ovBtn').textContent='再來一場';   // 還原結算按鈕（上一局可能被改成「返回大廳」）
-  for(const a of ['up','down','left','right','bomb']) myInput[a]=false;   // 清掉殘留輸入，避免新局角色自走
+  for(const a of ['up','down','left','right','bomb','det']) myInput[a]=false;   // 清掉殘留輸入，避免新局角色自走
   $('joyKnob') && ($('joyKnob').style.transform='translate(-50%,-50%)');  // 搖桿視覺歸位
   $('lobby').style.display='none';
   $('game-view').classList.add('show');
   $('overlay').classList.remove('show');
-  // 觸控顯示
+  // 觸控顯示（雙人本地共用鍵盤，不需觸控）
   const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
   $('touch').classList.toggle('show', isTouch && mode!=='local');
   // 控制提示
   if(mode==='local'){
-    $('ctrlHint').innerHTML='玩家1：WASD + 空白鍵　|　玩家2：方向鍵 + Enter';
+    $('ctrlHint').innerHTML='玩家1：WASD + 空白鍵（Q 引爆）　|　玩家2：方向鍵 + Enter（右Shift 引爆）';
   } else if(isTouch){
-    $('ctrlHint').innerHTML='左側搖桿移動　·　右側 💣 放炸彈';
+    $('ctrlHint').innerHTML='左側搖桿移動　·　右側 💣 放炸彈　·　🎮 遙控引爆';
   } else {
-    $('ctrlHint').innerHTML='WASD 或 方向鍵移動　·　空白鍵 / Enter 放炸彈';
+    $('ctrlHint').innerHTML='WASD / 方向鍵移動　·　空白鍵 / Enter 放炸彈　·　Q 遙控引爆';
   }
   lastTime=0; stepAccum=0;
   if(!rafId) rafId=requestAnimationFrame(loop);
@@ -956,9 +1397,21 @@ function beginGame(){
 function startLocalGame(){
   teardownNet();   // 從線上切到本地時，斷掉舊房間，避免對手加入時把本地局重置掉
   $('overlay').classList.remove('show');
-  isHost=true; myIndex=0;
+  isHost=true; myIndex=0; mode='local';
   const seed=(Date.now()&0x7fffffff);
   startWorld(seed, 2);
+  beginGame();
+}
+
+// 單人闖關：本機為權威，玩家 0 是人類，其餘為 CPU
+let cpuN=1;
+function startCpuGame(){
+  teardownNet();
+  $('overlay').classList.remove('show');
+  isHost=true; myIndex=0; mode='cpu';
+  const seed=(Date.now()&0x7fffffff);
+  startWorld(seed, cpuN+1);
+  for(let i=1;i<world.players.length;i++) initAI(world.players[i]);
   beginGame();
 }
 
@@ -973,6 +1426,8 @@ function restart(){
       $('overlay').classList.add('show');
       send({t:'req-restart'});
     }
+  } else if(mode==='cpu'){
+    startCpuGame();
   } else {
     startLocalGame();
   }
@@ -1003,8 +1458,8 @@ function sendState(force){
   const snap={
     t:'state',
     grid: world.grid.map(r=>r.join('')).join('|'),
-    players: world.players.map(p=>[Math.round(p.px),Math.round(p.py),p.alive?1:0,p.fire,p.maxBombs,p.dir[0],p.dying,p.speed]),
-    bombs: world.bombs.map(b=>[b.cx,b.cy,b.fuse]),
+    players: world.players.map(p=>[Math.round(p.px),Math.round(p.py),p.alive?1:0,p.fire,p.maxBombs,p.dir[0],p.dying,p.speed, p.kick?1:0,p.pierce?1:0,p.remote?1:0,p.shield||0,p.invuln||0]),
+    bombs: world.bombs.map(b=>[b.cx,b.cy,b.fuse,Math.round(b.px),Math.round(b.py),(b.pierce?1:0)|(b.remote?2:0)]),
     blasts: world.blasts.map(b=>[b.cx,b.cy,b.life]),
     powerups: world.powerups.map(u=>[u.cx,u.cy,u.kind]),
     over: world.over?1:0, winner: world.winner,
@@ -1021,6 +1476,7 @@ const DIRCH={u:'up',d:'down',l:'left',r:'right'};
 const INTERP_DELAY=110;        // 渲染延後 110ms（吸收抖動，越大越穩越延遲）
 let snapBuf=[];                // [{rt, s}]，rt=接收時間(ms)
 let renderClock=0;            // 由 rAF 的時間戳推進
+let clientPrevBombN=0;        // client：上一份快照的炸彈數（用來判斷爆炸放音效）
 
 let myGen=-1;           // client：目前正在玩的那一局代號
 function applyState(s){
@@ -1043,11 +1499,15 @@ function applyState(s){
   world.players.forEach((p,i)=>{ const d=s.players[i]; if(!d)return;
     const wasAlive=p.alive;
     p.alive=!!d[2]; p.fire=d[3]; p.maxBombs=d[4]; p.dying=d[6]||0; if(d[7])p.speed=d[7];
+    p.kick=!!d[8]; p.pierce=!!d[9]; p.remote=!!d[10]; p.shield=d[11]||0; p.invuln=d[12]||0;
     if(i===myIndex){
-      if(!p.alive){ if(wasAlive){ p.px=d[0]; p.py=d[1]; } }   // 剛死：定位到權威死亡點播動畫
+      if(!p.alive){ if(wasAlive){ p.px=d[0]; p.py=d[1]; sfx('die'); } }   // 剛死：定位到權威死亡點播動畫
       else reconcileSelf(p, d, s.ack||0);                      // 活著：拉回權威 + 重播未確認輸入
     }
   });
+  // client 端音效：靠「炸彈數變少」判斷有爆炸（host 才跑模擬，client 只能從快照推斷）
+  if(s.bombs && clientPrevBombN>s.bombs.length) sfx('boom');
+  clientPrevBombN = s.bombs?s.bombs.length:0;
   world.over=!!s.over; world.winner=s.winner;
   if(world.over && !$('overlay').classList.contains('show')) onGameOverClient();
 }
@@ -1096,7 +1556,11 @@ function renderInterpolated(t){
   });
   // 炸彈/爆風用最新快照（格座標，不需插值；fuse/life 直接取新的好讓倒數動畫順）
   const latest=snapBuf[snapBuf.length-1];
-  world.bombs=latest.bombs.map(bb=>({cx:bb[0],cy:bb[1],fuse:bb[2],fire:1}));
+  world.bombs=latest.bombs.map(bb=>({
+    cx:bb[0],cy:bb[1],fuse:bb[2],
+    px:bb[3]!=null?bb[3]:bb[0]*TILE+TILE/2, py:bb[4]!=null?bb[4]:bb[1]*TILE+TILE/2,
+    fire:1, pierce:!!((bb[5]||0)&1), remote:!!((bb[5]||0)&2),
+  }));
   world.blasts=latest.blasts.map(bl=>({cx:bl[0],cy:bl[1],life:bl[2]!=null?bl[2]:BLAST_DUR}));
   // 清掉太舊的快照（保留 target 之前最近一份即可）
   while(snapBuf.length>2 && snapBuf[1]._rt<=target) snapBuf.shift();
@@ -1121,6 +1585,7 @@ function startOnlineClientWorld(){
   startWorld(0,2);
   world.over=false;
   snapBuf=[];
+  clientPrevBombN=0;
   inputSeq=0; pending=[]; unsent=[];    // 新一局：重置自己輸入序號與待確認/待送佇列
 }
 
@@ -1238,9 +1703,18 @@ $('modes').addEventListener('click',e=>{
   document.querySelectorAll('.mode').forEach(m=>m.classList.remove('on'));
   b.classList.add('on'); mode=b.dataset.mode;
   $('opt-online').style.display = mode==='online'?'block':'none';
+  $('opt-cpu').style.display = mode==='cpu'?'block':'none';
   $('opt-local').style.display = mode==='local'?'block':'none';
 });
-$('startLocal').addEventListener('click',()=>{ mode='local'; startLocalGame(); });
+$('startLocal').addEventListener('click',()=>{ startLocalGame(); });
+
+// CPU 數量選擇
+$('cpuCount').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  $('cpuCount').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); cpuN=+b.dataset.n;
+});
+$('startCpu').addEventListener('click',()=>{ startCpuGame(); });
 
 $('hostBtn').addEventListener('click',()=>{
   const code=randomCode();
@@ -1264,6 +1738,15 @@ $('joinBtn').addEventListener('click',()=>{
 $('restartBtn').addEventListener('click',restart);
 $('quitBtn').addEventListener('click',quitGame);
 $('ovBtn').addEventListener('click',restart);  // 重開由 restart 處理（host 立即開局；client 顯示等待）
+
+// 音效開關
+$('soundBtn').addEventListener('click',()=>{
+  soundOn=!soundOn; $('soundBtn').textContent=soundOn?'🔊':'🔇';
+  if(soundOn){ unlockAudio(); }
+});
+
+// 首次互動時解鎖 WebAudio（瀏覽器自動播放限制）
+['pointerdown','keydown','touchstart'].forEach(ev=>window.addEventListener(ev,unlockAudio,{once:false,passive:true}));
 
 bindTouch();
 setStatus('待機中');
