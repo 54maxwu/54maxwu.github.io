@@ -871,6 +871,17 @@ function buildPanel(){
             <div class="auto-readout" id="bgReadout">在本機用 AI 模型自動去背，<b>圖片不會上傳</b>。首次需下載模型（首次後會快取）。完成後調色與曲線仍作用在前景，下載 PNG 會保留透明背景。</div>
         </div>
     </div>`;
+    // AI 超解析放大群組（接在 AI 去背後）
+    html += `<div class="group" data-key="sr">
+        <div class="group-head"><h3>AI 超解析放大</h3><span class="chev">▾</span></div>
+        <div class="group-body">
+            <div class="btn-row">
+                <button class="btn btn-primary" id="srRun2" style="flex:1 1 45%">2× 清晰放大</button>
+                <button class="btn btn-primary" id="srRun4" style="flex:1 1 45%">4× 強力放大</button>
+            </div>
+            <div class="auto-readout" id="srReadout">用 AI 模型「補出」高頻細節來放大，邊緣與文字比一般縮放更銳利、不糊。<b>圖片不會上傳</b>，全程在本機運算；首次需下載模型（之後快取）。放大會直接套用到目前圖片，後續調色／裁切／下載仍可正常使用。<br>大圖會自動分塊處理（較慢）；4× 較吃資源，建議先用在較小的圖。</div>
+        </div>
+    </div>`;
     for(const g of GROUPS){
         html += `<div class="group" data-key="${g.key}">
             <div class="group-head"><h3>${g.title}</h3><span class="chev">▾</span></div>
@@ -1021,6 +1032,10 @@ function buildPanel(){
     $('bgClear').addEventListener('click', ()=>{ resetBgState(); requestRender(); toast('已清除去背'); });
     $('sl_bgFeather').addEventListener('input', e=>{ maskFeather=parseFloat(e.target.value); $('val_bgFeather').textContent=String(maskFeather); requestRender(); });
     $('sl_bgShift').addEventListener('input', e=>{ maskShift=parseFloat(e.target.value); $('val_bgShift').textContent=String(maskShift); requestRender(); });
+
+    // AI 超解析放大
+    $('srRun2').addEventListener('click', ()=>runSuperRes('x2'));
+    $('srRun4').addEventListener('click', ()=>runSuperRes('x4'));
 
     drawCurveEditor();
 }
@@ -1314,8 +1329,9 @@ async function ensureBgModel(onProg){
 }
 
 async function runBgRemoval(){
-    if(!img.loaded || bgBusy || !gl) return;
+    if(!img.loaded || bgBusy || srBusy || !gl) return;
     bgBusy=true; $('bgRun').disabled=true;
+    if($('srRun2')) $('srRun2').disabled=true; if($('srRun4')) $('srRun4').disabled=true;
     try{
         const onProg = p=>{
             if(p && p.status==='progress' && typeof p.progress==='number'){
@@ -1349,6 +1365,7 @@ async function runBgRemoval(){
         $('bgReadout').textContent='去背失敗：'+(err && err.message || err)+'（請確認網路可連到模型 CDN）';
     }finally{
         bgBusy=false; $('bgRun').disabled=false;
+        if($('srRun2')) $('srRun2').disabled=false; if($('srRun4')) $('srRun4').disabled=false;
     }
 }
 
@@ -1359,6 +1376,127 @@ function uploadMask(maskData, w, h){
     gl.bindTexture(gl.TEXTURE_2D, maskTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+}
+
+// ───────────────────────── AI 超解析放大（Super-Resolution，本機推論）─────────────────────────
+// 用 transformers.js 的 image-to-image pipeline 跑 Swin2SR，靠神經網路「補出」高頻細節，
+// 比雙線性／雙三次插值更銳利。大圖分塊（tiling）處理：每塊重疊一段、邊緣羽化後拼接，避免接縫。
+const SR_MODELS = {
+    x2: { id:'Xenova/swin2SR-classical-sr-x2-64',  scale:2 },  // 一般放大，品質最佳
+    x4: { id:'Xenova/swin2SR-compressed-sr-x4-48', scale:4 },  // 4×，對壓縮/JPEG 痕跡友善
+};
+const SR_TILE = 384, SR_OVERLAP = 48;   // 來源像素：分塊大小與重疊寬度
+let srPipe=null, srPipeKey=null, srBusy=false;
+
+async function ensureSrModel(key, onProg){
+    if(!TF){ TF = await import(TF_URL); TF.env.allowLocalModels=false; }
+    if(srPipe && srPipeKey===key) return;
+    srPipe = await TF.pipeline('image-to-image', SR_MODELS[key].id, { progress_callback:onProg });
+    srPipeKey = key;
+}
+
+// 把來源像素的一塊區域升解析度，回傳 RawImage（尺寸 = 區塊 × scale）
+async function srUpscaleTile(rgba, w, h){
+    const src = new TF.RawImage(rgba, w, h, 4).rgb();
+    return await srPipe(src);
+}
+
+function srSetBusy(b){
+    srBusy=b;
+    const r2=$('srRun2'), r4=$('srRun4'), bg=$('bgRun');
+    if(r2) r2.disabled=b; if(r4) r4.disabled=b; if(bg) bg.disabled=b;
+}
+
+async function runSuperRes(key){
+    if(srBusy) return;
+    if(!img.loaded){ toast('請先開啟圖片'); return; }
+    const cfg=SR_MODELS[key], scale=cfg.scale;
+    const outW=img.w*scale, outH=img.h*scale;
+    if(Math.max(outW,outH) > MAX_OUT){
+        toast(`放大後 ${outW}×${outH} 會超過 ${MAX_OUT}px 上限，請先縮小或改用較低倍率`);
+        return;
+    }
+    srSetBusy(true);
+    try{
+        const onProg = p=>{
+            if(p && p.status==='progress' && typeof p.progress==='number'){
+                const pct=Math.round(p.progress);
+                setStatus(`下載放大模型 ${pct}%`,'busy');
+                $('srReadout').textContent=`下載模型中… ${pct}%（只有第一次需要，之後會快取）`;
+            }
+        };
+        setStatus('AI 放大：準備模型…','busy');
+        $('srReadout').textContent='準備模型中…';
+        await ensureSrModel(key, onProg);
+
+        // 規劃分塊位置（涵蓋整張圖；最後一塊對齊邊界）
+        const step=SR_TILE-SR_OVERLAP;
+        const axis=len=>{ const a=[]; for(let p=0;p<len;p+=step){ a.push(p); if(p+SR_TILE>=len) break; } return a; };
+        const xs=axis(img.w), ys=axis(img.h);
+        const total=xs.length*ys.length;
+
+        const outCanvas=document.createElement('canvas'); outCanvas.width=outW; outCanvas.height=outH;
+        const octx=outCanvas.getContext('2d');
+
+        let done=0;
+        for(const y0 of ys) for(const x0 of xs){
+            setStatus(`AI 放大：運算中 ${done+1}/${total}`,'busy');
+            $('srReadout').textContent=`模型運算中… 區塊 ${done+1}/${total}`;
+            await new Promise(r=>setTimeout(r));   // 讓 UI 先更新
+
+            const tw=Math.min(SR_TILE, img.w-x0), th=Math.min(SR_TILE, img.h-y0);
+            // 從來源像素擷取這一塊（逐列複製）
+            const tile=new Uint8ClampedArray(tw*th*4);
+            for(let j=0;j<th;j++){
+                const s=((y0+j)*img.w + x0)*4;
+                tile.set(img.data.subarray(s, s+tw*4), j*tw*4);
+            }
+            const o=await srUpscaleTile(tile, tw, th);   // RawImage（已放大）
+            const ow=o.width, oh=o.height, ch=o.channels;
+
+            // 把放大塊轉成 RGBA，並對「會疊到已畫區域」的左/上重疊邊做羽化（alpha 漸層）
+            const lf = x0>0 ? SR_OVERLAP*scale : 0;   // 左側羽化寬（輸出像素）
+            const tf = y0>0 ? SR_OVERLAP*scale : 0;   // 上側羽化寬
+            const id=octx.createImageData(ow,oh);
+            for(let j=0;j<oh;j++){
+                const ay = tf>0 ? Math.min(1, j/tf) : 1;
+                for(let i=0;i<ow;i++){
+                    const ax = lf>0 ? Math.min(1, i/lf) : 1;
+                    const si=(j*ow+i)*ch, di=(j*ow+i)*4;
+                    id.data[di]   = o.data[si];
+                    id.data[di+1] = o.data[si + (ch>1?1:0)];
+                    id.data[di+2] = o.data[si + (ch>2?2:0)];
+                    id.data[di+3] = Math.round(ax*ay*255);
+                }
+            }
+            // 透過暫存畫布 + drawImage 做 source-over 混合（putImageData 不會混色）
+            const tmp=document.createElement('canvas'); tmp.width=ow; tmp.height=oh;
+            tmp.getContext('2d').putImageData(id,0,0);
+            octx.drawImage(tmp, x0*scale, y0*scale);
+            done++;
+        }
+
+        // 用放大後的結果取代來源圖：調色／曲線／裁切皆為非破壞性，會自動重新套用
+        img.data = octx.getImageData(0,0,outW,outH).data;
+        img.w=outW; img.h=outH;
+        gl.bindTexture(gl.TEXTURE_2D, img.tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE, outCanvas);
+
+        resetBgState();                       // 解析度已變，舊去背遮罩失效
+        resize.custom=false; resize.lock=true; if($('resizeLock')) $('resizeLock').checked=true;
+        syncResizeFromNatural();
+        requestRender();
+
+        setStatus(`AI 放大完成 ${outW}×${outH}`,'ok'); toast(`已放大為 ${outW}×${outH}`);
+        $('srReadout').innerHTML=`<b>放大完成：${outW}×${outH}（${scale}×）。</b>已成為新的來源圖，可繼續調色／裁切，或再放大一次（不超過 ${MAX_OUT}px）。下載即為高解析度結果。`;
+    }catch(err){
+        console.error(err);
+        setStatus('放大失敗','err'); toast('放大失敗：'+(err && err.message || err));
+        $('srReadout').textContent='放大失敗：'+(err && err.message || err)+'（請確認網路可連到模型 CDN，或改用較低倍率／較小的圖）';
+    }finally{
+        srSetBusy(false);
+    }
 }
 
 // ───────────────────────── load image ─────────────────────────
