@@ -316,7 +316,7 @@
       <div class="gitem"><img src="img/items/speed.png"><div><b>加速</b><span>移動速度 +1</span></div></div>
       <div class="gitem"><img src="img/items/kick.png"><div><b>踢彈</b><span>走向炸彈可把它踢飛出去</span></div></div>
       <div class="gitem"><img src="img/items/pierce.png"><div><b>穿透</b><span>爆風能貫穿磚塊繼續延伸</span></div></div>
-      <div class="gitem"><img src="img/items/remote.png"><div><b>遙控</b><span>炸彈不自爆，按 Q／🎮 鈕手動引爆</span></div></div>
+      <div class="gitem"><img src="img/items/remote.png"><div><b>遙控</b><span>放的炸彈呈青色，按 Q／右Shift／🎮 可隨時提前引爆（10 秒後也會自爆）</span></div></div>
       <div class="gitem"><img src="img/items/shield.png"><div><b>護盾</b><span>擋下一次爆炸，並短暫無敵</span></div></div>
     </div>
     <button class="go" id="guideClose" style="width:100%">知道了</button>
@@ -440,7 +440,7 @@ const SPEED_BASE=3.0;     // px/tick base（45px/格 ÷ 3 ≈ 15 tick ≈ 0.25s 
 const SPEED_INC=0.6;
 const DEATH_DUR=48;       // 死亡動畫長度 ticks (~0.8s)
 const GAMEOVER_DELAY=42;  // 死亡動畫播完後再停這麼久才跳結算 (~0.7s)
-const REMOTE_FUSE=100000; // 遙控炸彈：幾乎不自爆，等玩家手動引爆
+const REMOTE_FUSE=600;    // 遙控炸彈：10 秒保底自爆（避免忘記引爆卡住棋盤），但可按引爆鍵提前炸
 const INVULN_DUR=60;      // 護盾擋下後的無敵 ticks (~1s)，避免站在火裡連續被扣
 const BOMB_SLIDE=5.0;     // 被踢的炸彈滑行速度 px/tick
 
@@ -555,7 +555,13 @@ function placeBomb(p){
   });
   p.bombsOut++;
   sfx('place');
+  // 第一次放遙控炸彈時提示玩家怎麼引爆（只對本機操控的人類提示一次）
+  if(p.remote && !remoteHintShown && !p.cpu && (mode==='local' || p.i===myIndex)){
+    remoteHintShown=true;
+    toast('青色＝遙控炸彈，不會馬上爆！按 Q／右Shift 或 🎮 鈕引爆（10 秒後也會自爆）');
+  }
 }
+let remoteHintShown=false;
 
 function explode(b){
   // 中心 + 四方向延伸
@@ -1030,7 +1036,7 @@ function syncBombs(){
     const rig=poolAcquire('bomb', makeBombRig);
     const px=b.px!=null?b.px:b.cx*TILE+TILE/2, py=b.py!=null?b.py:b.cy*TILE+TILE/2;
     rig.position.set(worldX(px),0,worldZ(py));
-    const urgency = b.remote?0.25:Math.max(0,Math.min(1,1-b.fuse/BOMB_FUSE));
+    const urgency = Math.max(0,Math.min(1,1-b.fuse/BOMB_FUSE));   // 接近爆炸才急促脈動（遙控彈在最後 2 秒也會閃）
     rig.scale.setScalar(1+(0.06+urgency*0.18)*Math.sin(T.t*(0.3+urgency*0.8)));
     rig.userData.spark.visible = (T.t%8<4);
     const bm=rig.userData.body.material;
@@ -1364,7 +1370,7 @@ function onGameOver(){
 function beginGame(){
   unlockAudio();
   $('loading3d') && !G3 && ($('loading3d').style.display='flex');   // 3D 還沒就緒時顯示載入動畫
-  matchEndedByLeave=false; $('ovBtn').textContent='再來一場';   // 還原結算按鈕（上一局可能被改成「返回大廳」）
+  matchEndedByLeave=false; remoteHintShown=false; $('ovBtn').textContent='再來一場';   // 還原結算按鈕（上一局可能被改成「返回大廳」）
   for(const a of ['up','down','left','right','bomb','det']) myInput[a]=false;   // 清掉殘留輸入，避免新局角色自走
   $('joyKnob') && ($('joyKnob').style.transform='translate(-50%,-50%)');  // 搖桿視覺歸位
   $('lobby').style.display='none';
