@@ -201,6 +201,22 @@
 
     .geo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
+    /* resize */
+    .size-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .size-cell { display: flex; flex-direction: column; gap: 4px; }
+    .size-cell label { font-size: 11px; font-weight: 600; color: #475569; }
+    .size-cell input {
+        width: 100%; padding: 7px 9px; font-size: 12px;
+        font-family: ui-monospace, Consolas, monospace; color: #0f172a;
+        background: #fff; border: 1px solid #cbd5e1; border-radius: 7px; outline: none;
+    }
+    .size-cell input:focus { border-color: #0d9488; box-shadow: 0 0 0 2px rgba(13,148,136,.15); }
+    .size-lock {
+        display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
+        color: #475569; cursor: pointer; user-select: none; margin: 2px 0 4px;
+    }
+    .size-lock input { width: 15px; height: 15px; accent-color: #0d9488; cursor: pointer; }
+
     /* toast */
     .toast {
         position: fixed; bottom: 24px; left: 50%;
@@ -303,6 +319,9 @@ let autoWht = [1,1,1];              // per-channel white point from smart-auto
 
 // geometry (non-destructive)
 const geo = { rot:0, flipH:false, flipV:false, crop:[0,0,1,1] }; // crop = [sx0,sy0,sw,sh] in source uv
+
+// 調整大小（輸出尺寸；非破壞性 — 只改輸出畫布解析度，圖會縮放/拉伸去填滿）
+const resize = { w:0, h:0, lock:true, custom:false };
 
 // source image
 let img = { w:0, h:0, data:null, tex:null, loaded:false };
@@ -538,6 +557,28 @@ function orientedDims(){ // dims of cropped+rotated image (pixels), before fit
     return (geo.rot===90 || geo.rot===270) ? [ch, cw] : [cw, ch];
 }
 
+// ───────────────────────── resize (output size) ─────────────────────────
+const MAX_OUT = 8192;
+function naturalAspect(){ const [w,h]=orientedDims(); return h>0 ? w/h : 1; }
+// 實際輸出尺寸：有自訂就用自訂，否則用幾何後的原始尺寸
+function outputDims(){
+    if(resize.custom && resize.w>=1 && resize.h>=1) return [resize.w, resize.h];
+    return orientedDims();
+}
+function updateResizeInputs(){
+    const w=$('resizeW'), h=$('resizeH');
+    if(w) w.value = resize.w||''; if(h) h.value = resize.h||'';
+}
+// 把輸入框同步成幾何後的原始尺寸（未自訂時）
+function syncResizeFromNatural(){
+    const [w,h]=orientedDims(); resize.w=w; resize.h=h; updateResizeInputs();
+}
+// 幾何（裁切/旋轉/翻轉）變動後，重新對齊尺寸欄位
+function geoChanged(){
+    if(!resize.custom){ syncResizeFromNatural(); }
+    else if(resize.lock){ resize.h=Math.max(1, Math.round(resize.w/Math.max(naturalAspect(),1e-6))); updateResizeInputs(); }
+}
+
 // ───────────────────────── render ─────────────────────────
 let dirty = false;
 function requestRender(){ if(!dirty){ dirty = true; requestAnimationFrame(render); } }
@@ -551,7 +592,7 @@ function render(){
     dirty = false;
     if(!img.loaded || !gl) return;
 
-    const [ow, oh] = orientedDims();
+    const [ow, oh] = outputDims();
     if(gl_canvas.width !== ow || gl_canvas.height !== oh){ gl_canvas.width = ow; gl_canvas.height = oh; }
     gl.viewport(0,0,ow,oh);
 
@@ -877,6 +918,19 @@ function buildPanel(){
             <p class="hint">幾何調整為非破壞性，隨時可「重置幾何」還原。</p>
         </div>
     </div>`;
+    // resize group
+    html += `<div class="group" data-key="resize">
+        <div class="group-head"><h3>調整大小</h3><span class="chev">▾</span></div>
+        <div class="group-body">
+            <div class="size-row">
+                <div class="size-cell"><label>寬度 (px)</label><input type="number" id="resizeW" min="1" max="${MAX_OUT}" step="1"></div>
+                <div class="size-cell"><label>高度 (px)</label><input type="number" id="resizeH" min="1" max="${MAX_OUT}" step="1"></div>
+            </div>
+            <label class="size-lock"><input type="checkbox" id="resizeLock" checked> 等比例縮放（鎖定長寬比）</label>
+            <div class="btn-row"><button class="btn btn-ghost" id="resizeReset">還原原始尺寸</button></div>
+            <p class="hint">設定輸出圖片的像素尺寸。勾選等比例縮放時，改寬或高會自動換算另一邊；取消勾選可分別設定寬高（圖片會被拉伸）。</p>
+        </div>
+    </div>`;
     panelScroll.innerHTML = html;
 
     // move the real curve canvas into mount
@@ -919,13 +973,42 @@ function buildPanel(){
     $('resetLevels').addEventListener('click', ()=>{ ['inBlack','inWhite','gamma','outBlack','outWhite'].forEach(k=>setSlider(k,DEFAULTS[k])); requestRender(); });
     $('resetCurve').addEventListener('click', ()=>{ curvePts=[{x:0,y:0},{x:1,y:1}]; onCurveChange(); });
     // geometry
-    $('rotL').addEventListener('click', ()=>{ geo.rot=(geo.rot+270)%360; exitCrop(); requestRender(); });
-    $('rotR').addEventListener('click', ()=>{ geo.rot=(geo.rot+90)%360; exitCrop(); requestRender(); });
-    $('flipH').addEventListener('click', ()=>{ geo.flipH=!geo.flipH; requestRender(); });
-    $('flipV').addEventListener('click', ()=>{ geo.flipV=!geo.flipV; requestRender(); });
+    $('rotL').addEventListener('click', ()=>{ geo.rot=(geo.rot+270)%360; exitCrop(); geoChanged(); requestRender(); });
+    $('rotR').addEventListener('click', ()=>{ geo.rot=(geo.rot+90)%360; exitCrop(); geoChanged(); requestRender(); });
+    $('flipH').addEventListener('click', ()=>{ geo.flipH=!geo.flipH; geoChanged(); requestRender(); });
+    $('flipV').addEventListener('click', ()=>{ geo.flipV=!geo.flipV; geoChanged(); requestRender(); });
     $('cropToggle').addEventListener('click', toggleCrop);
     $('cropApply').addEventListener('click', applyCrop);
-    $('resetGeo').addEventListener('click', ()=>{ geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1]; exitCrop(); requestRender(); toast('幾何已重置'); });
+    $('resetGeo').addEventListener('click', ()=>{ geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1]; exitCrop(); geoChanged(); requestRender(); toast('幾何已重置'); });
+
+    // 調整大小
+    const onResizeW = ()=>{
+        let w=parseInt($('resizeW').value,10);
+        if(!Number.isFinite(w)||w<1) return;
+        resize.custom=true; resize.w=Math.min(MAX_OUT,w);
+        if(resize.lock){ resize.h=Math.max(1, Math.round(resize.w/Math.max(naturalAspect(),1e-6))); $('resizeH').value=resize.h; }
+        requestRender();
+    };
+    const onResizeH = ()=>{
+        let h=parseInt($('resizeH').value,10);
+        if(!Number.isFinite(h)||h<1) return;
+        resize.custom=true; resize.h=Math.min(MAX_OUT,h);
+        if(resize.lock){ resize.w=Math.max(1, Math.round(resize.h*Math.max(naturalAspect(),1e-6))); $('resizeW').value=resize.w; }
+        requestRender();
+    };
+    $('resizeW').addEventListener('input', onResizeW);
+    $('resizeH').addEventListener('input', onResizeH);
+    // 失焦時把欄位正規化成實際採用的數值（夾在 1..MAX_OUT）
+    $('resizeW').addEventListener('change', ()=>{ if(resize.custom) updateResizeInputs(); else syncResizeFromNatural(); });
+    $('resizeH').addEventListener('change', ()=>{ if(resize.custom) updateResizeInputs(); else syncResizeFromNatural(); });
+    $('resizeLock').addEventListener('change', e=>{
+        resize.lock=e.target.checked;
+        if(resize.lock && resize.custom){
+            resize.h=Math.max(1, Math.round(resize.w/Math.max(naturalAspect(),1e-6)));
+            updateResizeInputs(); requestRender();
+        }
+    });
+    $('resizeReset').addEventListener('click', ()=>{ resize.custom=false; resize.lock=true; $('resizeLock').checked=true; syncResizeFromNatural(); requestRender(); toast('已還原原始尺寸'); });
 
     // AI 去背
     $('bgRun').addEventListener('click', runBgRemoval);
@@ -1201,6 +1284,7 @@ function applyCrop(){
     minX=Math.max(0,minX); minY=Math.max(0,minY); maxX=Math.min(1,maxX); maxY=Math.min(1,maxY);
     geo.crop=[minX,minY,maxX-minX,maxY-minY];
     exitCrop();
+    geoChanged();
     requestRender(); toast('已裁切');
 }
 window.addEventListener('resize', ()=>{ if(img.loaded) requestRender(); });
@@ -1304,6 +1388,7 @@ function loadImage(src){
         wbGain=[1,1,1]; autoBlk=[0,0,0]; autoWht=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
         curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
         exitCrop(); resetBgState();
+        resize.custom=false; resize.lock=true; if($('resizeLock')) $('resizeLock').checked=true; syncResizeFromNatural();
         gl_canvas.classList.add('ready'); dropzone.classList.add('hide');
         ['resetAllBtn','dlPngBtn','dlJpgBtn'].forEach(id=>$(id).disabled=false);
         requestRender();
@@ -1339,7 +1424,9 @@ $('resetAllBtn').addEventListener('click', ()=>{
     for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
     wbGain=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
     curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
-    exitCrop(); resetBgState(); requestRender(); toast('已重置全部調整');
+    exitCrop(); resetBgState();
+    resize.custom=false; resize.lock=true; if($('resizeLock')) $('resizeLock').checked=true; syncResizeFromNatural();
+    requestRender(); toast('已重置全部調整');
 });
 
 function download(type, quality, ext){
