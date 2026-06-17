@@ -199,6 +199,19 @@
     }
     .auto-readout b { color: #0f766e; }
 
+    /* progress bar (AI 放大 / 長時間運算) */
+    .progress { height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-top: 10px; }
+    .progress-bar {
+        height: 100%; width: 0%;
+        background: linear-gradient(90deg, #14b8a6, #0d9488);
+        border-radius: 999px; transition: width .25s ease;
+    }
+    .progress-bar.indeterminate {
+        width: 35% !important; border-radius: 999px;
+        animation: indet 1.1s infinite ease-in-out;
+    }
+    @keyframes indet { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+
     .geo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
     /* resize */
@@ -879,6 +892,7 @@ function buildPanel(){
                 <button class="btn btn-primary" id="srRun2" style="flex:1 1 45%">2× 清晰放大</button>
                 <button class="btn btn-primary" id="srRun4" style="flex:1 1 45%">4× 強力放大</button>
             </div>
+            <div class="progress" id="srProgress" hidden><div class="progress-bar" id="srProgressBar"></div></div>
             <div class="auto-readout" id="srReadout">用 AI 模型「補出」高頻細節來放大，邊緣與文字比一般縮放更銳利、不糊。<b>圖片不會上傳</b>，全程在本機運算；首次需下載模型（之後快取）。放大會直接套用到目前圖片，後續調色／裁切／下載仍可正常使用。<br>大圖會自動分塊處理（較慢）；4× 較吃資源，建議先用在較小的圖。</div>
         </div>
     </div>`;
@@ -1385,8 +1399,24 @@ const SR_MODELS = {
     x2: { id:'Xenova/swin2SR-classical-sr-x2-64',  scale:2 },  // 一般放大，品質最佳
     x4: { id:'Xenova/swin2SR-compressed-sr-x4-48', scale:4 },  // 4×，對壓縮/JPEG 痕跡友善
 };
-const SR_TILE = 384, SR_OVERLAP = 48;   // 來源像素：分塊大小與重疊寬度
+const SR_TILE = 256, SR_OVERLAP = 32;   // 來源像素：分塊大小與重疊寬度（塊較小 → 每次卡住時間較短）
 let srPipe=null, srPipeKey=null, srBusy=false;
+
+// 等瀏覽器真的重繪一次再繼續（兩個 rAF + 0ms）：推論會長時間占住主執行緒，
+// 在每塊運算前先讓出，進度條才會更新、也不會被誤判「網頁無回應」。
+const nextPaint = ()=> new Promise(r=> requestAnimationFrame(()=> requestAnimationFrame(()=> setTimeout(r,0))));
+function srSetProgress(frac, indeterminate){
+    const wrap=$('srProgress'), bar=$('srProgressBar');
+    if(!wrap || !bar) return;
+    wrap.hidden=false;
+    if(indeterminate){ bar.classList.add('indeterminate'); }
+    else { bar.classList.remove('indeterminate'); bar.style.width=Math.max(0,Math.min(100,frac*100)).toFixed(1)+'%'; }
+}
+function srHideProgress(){
+    const wrap=$('srProgress'), bar=$('srProgressBar');
+    if(bar){ bar.classList.remove('indeterminate'); bar.style.width='0%'; }
+    if(wrap) wrap.hidden=true;
+}
 
 async function ensureSrModel(key, onProg){
     if(!TF){ TF = await import(TF_URL); TF.env.allowLocalModels=false; }
@@ -1422,10 +1452,12 @@ async function runSuperRes(key){
             if(p && p.status==='progress' && typeof p.progress==='number'){
                 const pct=Math.round(p.progress);
                 setStatus(`下載放大模型 ${pct}%`,'busy');
+                srSetProgress(pct/100, false);
                 $('srReadout').textContent=`下載模型中… ${pct}%（只有第一次需要，之後會快取）`;
             }
         };
         setStatus('AI 放大：準備模型…','busy');
+        srSetProgress(0, true);
         $('srReadout').textContent='準備模型中…';
         await ensureSrModel(key, onProg);
 
@@ -1439,10 +1471,12 @@ async function runSuperRes(key){
         const octx=outCanvas.getContext('2d');
 
         let done=0;
+        srSetProgress(0, false);
         for(const y0 of ys) for(const x0 of xs){
             setStatus(`AI 放大：運算中 ${done+1}/${total}`,'busy');
-            $('srReadout').textContent=`模型運算中… 區塊 ${done+1}/${total}`;
-            await new Promise(r=>setTimeout(r));   // 讓 UI 先更新
+            srSetProgress(done/total, false);
+            $('srReadout').textContent=`模型運算中… 區塊 ${done+1}/${total}（運算時畫面可能短暫停頓，屬正常，請稍候）`;
+            await nextPaint();   // 先讓瀏覽器把進度條畫出來，再開始這塊的運算
 
             const tw=Math.min(SR_TILE, img.w-x0), th=Math.min(SR_TILE, img.h-y0);
             // 從來源像素擷取這一塊（逐列複製）
@@ -1474,6 +1508,7 @@ async function runSuperRes(key){
             tmp.getContext('2d').putImageData(id,0,0);
             octx.drawImage(tmp, x0*scale, y0*scale);
             done++;
+            srSetProgress(done/total, false);
         }
 
         // 用放大後的結果取代來源圖：調色／曲線／裁切皆為非破壞性，會自動重新套用
@@ -1496,6 +1531,7 @@ async function runSuperRes(key){
         $('srReadout').textContent='放大失敗：'+(err && err.message || err)+'（請確認網路可連到模型 CDN，或改用較低倍率／較小的圖）';
     }finally{
         srSetBusy(false);
+        srHideProgress();
     }
 }
 
