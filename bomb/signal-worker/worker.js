@@ -12,7 +12,7 @@ export class Room {
     if (request.headers.get('Upgrade') !== 'websocket')
       return new Response('expected websocket', { status: 426 });
 
-    const MAX = 4;                         // 每房上限人數
+    const MAX = 8;                         // 每房上限連線數（派對大螢幕：主機+最多4支手機=5，留餘裕）
     const pair = new WebSocketPair();
     const client = pair[0], server = pair[1];
     server.accept();
