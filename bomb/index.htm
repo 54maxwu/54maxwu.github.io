@@ -562,7 +562,17 @@ function tryMove(p){
   if(Math.abs(p.px-tX)<0.001 && Math.abs(p.py-tY)<0.001){
     p.px=tX; p.py=tY;
     let wdx=0,wdy=0;
-    if(inp.left)wdx=-1; else if(inp.right)wdx=1; else if(inp.up)wdy=-1; else if(inp.down)wdy=1;
+    if(inp.left)wdx=-1; else if(inp.right)wdx=1;
+    if(inp.up)wdy=-1; else if(inp.down)wdy=1;
+    if(wdx&&wdy){
+      // 斜推（搖桿同時給兩個方向）：挑走得通的那一軸做「轉角輔助」；
+      // 兩軸都通時沿用目前行進軸（慣性），避免在路口左右橫跳。
+      const hOK=canEnterCell(p.tcx+wdx,p.tcy,p), vOK=canEnterCell(p.tcx,p.tcy+wdy,p);
+      if(hOK&&vOK){ if(p.dir==='up'||p.dir==='down') wdx=0; else wdy=0; }
+      else if(hOK) wdy=0;
+      else if(vOK) wdx=0;
+      else wdy=0;
+    }
     if(wdx||wdy){
       p.dir = wdx<0?'left':wdx>0?'right':wdy<0?'up':'down';
       const nx=p.tcx+wdx, ny=p.tcy+wdy;
@@ -1359,6 +1369,18 @@ function clearHeldInputs(){
 window.addEventListener('blur', clearHeldInputs);
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden) clearHeldInputs(); });
 
+// 搖桿向量 →（最多兩個）方向鍵：把 360° 切成 8 等分，斜推同時觸發相鄰兩向，
+// host 端再做轉角輔助。分區邊界穩定（不像「比大小」會在 45° 附近抖動）。
+function dirFromVec(dx,dy,dead){
+  const d={up:false,down:false,left:false,right:false};
+  if(Math.hypot(dx,dy)<dead) return d;
+  const s=Math.round(Math.atan2(dy,dx)/(Math.PI/4));   // dx右+ dy下+：0右 ±2上下 ±4左 …
+  const MAP={'0':['right'],'1':['right','down'],'2':['down'],'3':['down','left'],
+             '4':['left'],'-4':['left'],'-3':['up','left'],'-2':['up'],'-1':['up','right']};
+  for(const k of (MAP[String(s)]||[])) d[k]=true;
+  return d;
+}
+
 // 觸控：虛擬搖桿（拖曳分析方向，超過門檻就觸發對應方向）+ 炸彈鈕
 function bindTouch(){
   const press=(action,val)=>setLocalInput(myIndex,action,val);
@@ -1377,13 +1399,8 @@ function bindTouch(){
     const dist=Math.hypot(dx,dy);
     if(dist>MAXR){ dx=dx/dist*MAXR; dy=dy/dist*MAXR; }
     knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    const d={up:false,down:false,left:false,right:false};
-    if(dist>=DEAD){
-      // 只走 4 方向：取偏移較大的那一軸的單一方向，搖桿好操控、不會斜向抖動
-      if(Math.abs(dx)>=Math.abs(dy)) d[dx>0?'right':'left']=true;
-      else d[dy>0?'down':'up']=true;
-    }
-    setDir(d);
+    // 8 向：斜推同時給相鄰兩向，host 端做轉角輔助 → 過彎順、不在 45° 抖
+    setDir(dirFromVec(dx,dy,DEAD));
   }
   function resetKnob(){
     knob.style.transform='translate(-50%,-50%)';
@@ -2003,9 +2020,7 @@ function bindPad(){
     const dist=Math.hypot(dx,dy); let kx=dx,ky=dy;
     if(dist>R){ kx=dx/dist*R; ky=dy/dist*R; }
     knob.style.transform=`translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
-    const d={up:false,down:false,left:false,right:false}, DEAD=R*0.3;
-    if(dist>=DEAD){ if(Math.abs(dx)>=Math.abs(dy)) d[dx>0?'right':'left']=true; else d[dy>0?'down':'up']=true; }
-    setDir(d);
+    setDir(dirFromVec(dx,dy,R*0.3));   // 8 向：斜推給相鄰兩向，host 端轉角輔助
   }
   function reset(){ knob.style.transform='translate(-50%,-50%)'; setDir({up:false,down:false,left:false,right:false}); joy.classList.remove('active'); }
   joy.addEventListener('touchstart',e=>{ e.preventDefault(); if(id!==null)return; const t=e.changedTouches[0]; id=t.identifier; joy.classList.add('active'); const p=xy(t); move(p.x,p.y,p.R); },{passive:false});
