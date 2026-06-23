@@ -8,7 +8,6 @@ import { disruptWatermark, PRESETS } from './watermark.js';
 import { analyzeFrequency } from './frequency/index.js';
 import { renderFrequencyPanel } from './frequency/panel.js';
 import { runForensics, renderForensicsPanel } from './forensics.js';
-import { classifyImage, modelSupported } from './aimodel.js';
 import { computeFusion, renderFusionSummary } from './fusion.js';
 import { parseMetadata, sniffJumbf, getGenerationHints } from './metadata.js';
 import { renderMetadataPanel } from './panel-metadata.js';
@@ -31,17 +30,16 @@ let currentBytes = null;
 let currentMeta = null, currentJumbf = null;
 let lastFreqBytes = null, lastFreqResult = null;
 let currentDetections = null;
-let lastForensicsResult = null, lastModelResult = null;
+let lastForensicsResult = null;
 
 // Recompute the combined verdict from whatever evidence has accumulated so far
-// (detections always; frequency/forensics/model fill in as they finish).
+// (detections always; frequency/forensics fill in as they finish).
 function refreshFusion() {
     if (!currentDetections) return;
     const fusion = computeFusion({
         detections: currentDetections,
         freq: lastFreqResult,
         forensics: lastForensicsResult,
-        model: lastModelResult,
     });
     renderFusionSummary(document.getElementById('fusionSummary'), fusion);
     // Mirror the headline verdict into the result header badge/title.
@@ -310,7 +308,7 @@ function resetSubPanel(panelId, btnId, prefix) {
 async function handleFile(file) {
     currentFile = file;
     lastFreqBytes = null; lastFreqResult = null;
-    currentDetections = null; lastForensicsResult = null; lastModelResult = null;
+    currentDetections = null; lastForensicsResult = null;
 
     // Reset UI to reveal result view
     emptyState.classList.add('hidden');
@@ -337,7 +335,6 @@ async function handleFile(file) {
     document.getElementById('detectionItems').innerHTML = '';
     document.getElementById('fusionSummary').innerHTML = '';
     resetSubPanel('forensicsPanel', 'btnRunForensics', 'forensics');
-    resetSubPanel('modelPanel', 'btnRunModel', 'model');
     document.getElementById('convertResult').style.display = 'none';
     document.getElementById('btnConvert').disabled = false;
 
@@ -522,9 +519,12 @@ document.addEventListener('click', async (ev) => {
     const panel = document.getElementById('forensicsPanel');
     if (lastForensicsResult) { renderForensicsPanel(panel, lastForensicsResult); return; }
     btn.disabled = true;
-    panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span>${escHtml(t('forensics.running'))}</span></div>`;
+    panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span id="forensicStage">${escHtml(t('forensics.running'))}</span></div>`;
     try {
-        const result = await runForensics(currentFile);
+        const result = await runForensics(currentFile, {}, (pct) => {
+            const el = document.getElementById('forensicStage');
+            if (el) el.textContent = `${t('forensics.running')} ${Math.round(pct*100)}%`;
+        });
         lastForensicsResult = result;
         renderForensicsPanel(panel, result);
         refreshFusion();
@@ -532,77 +532,6 @@ document.addEventListener('click', async (ev) => {
         panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px">${escHtml(t('forensics.err', { msg: err.message }))}</div>`;
     }
 });
-
-// ================= AI model trigger =================
-document.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest && ev.target.closest('#btnRunModel');
-    if (!btn) return;
-    if (!currentFile) return;
-    const panel = document.getElementById('modelPanel');
-    if (lastModelResult) { renderModelPanel(panel, lastModelResult); return; }
-    if (!modelSupported()) {
-        panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px">${escHtml(t('model.err.unsupported'))}</div>`;
-        return;
-    }
-    btn.disabled = true;
-    const setStage = (msg) => {
-        panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span id="modelStage">${escHtml(msg)}</span></div>`;
-    };
-    setStage(t('model.stage.init'));
-    try {
-        const result = await classifyImage(currentFile, (p) => {
-            const el = document.getElementById('modelStage');
-            let msg;
-            if (p.status === 'download') msg = t('model.stage.download', { pct: p.pct, file: p.file || '' });
-            else if (p.status === 'fallback') msg = t('model.stage.fallback');
-            else if (p.status === 'infer') msg = t('model.stage.infer');
-            else msg = t('model.stage.load');
-            if (el) el.textContent = msg; else setStage(msg);
-        });
-        lastModelResult = result;
-        renderModelPanel(panel, result);
-        refreshFusion();
-    } catch (err) {
-        panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px;line-height:1.7">${escHtml(t('model.err.run', { msg: err.message }))}</div>
-            <button class="btn-secondary" id="btnRunModel" style="margin-top:12px">${escHtml(t('model.retry'))}</button>`;
-    }
-});
-
-function renderModelPanel(panel, result) {
-    const pct = Number.isFinite(result.aiProb) ? Math.round(result.aiProb * 100) : null;
-    // Only the confident extremes get a verdict; the noisy middle is "uncertain".
-    const conf = pct == null ? null : pct >= 80 ? 'medium' : pct > 30 ? 'weak' : 'info';
-    const verdict = pct == null ? t('model.verdict.unknown')
-        : pct >= 80 ? t('model.verdict.ai')
-        : pct > 30 ? t('model.verdict.uncertain')
-        : t('model.verdict.real');
-    const barOf = (l) => `
-            <div class="fusion-src">
-                <div class="fusion-src-top">
-                    <span class="fusion-src-name">${escHtml(l.label)}</span>
-                    <span class="fusion-src-detail">${(l.score * 100).toFixed(1)}%</span>
-                </div>
-                <div class="fusion-bar"><span class="fusion-bar-fill ${l.ai === false ? 'fusion-neg' : 'fusion-pos'}" style="width:${(l.score * 100).toFixed(0)}%"></span></div>
-            </div>`;
-    const bars = result.labels.slice().sort((a, b) => b.score - a.score).map(barOf).join('');
-    const detailBlock = result.detail && result.detail.length
-        ? `<div class="freq-votes" style="margin-top:14px"><div class="freq-subtitle">${escHtml(t('model.clip.prompts'))}</div>${result.detail.map(barOf).join('')}</div>`
-        : '';
-    panel.innerHTML = `
-        <div class="freq-disclaimer">
-            <span class="freq-disclaimer-tag">${escHtml(t('model.tag'))}</span>
-            <span>${escHtml(t('model.resultDisclaimer', { id: result.modelId, dev: result.device || '—' }))}</span>
-        </div>
-        <div class="freq-head">
-            <div class="freq-verdict ${conf ? 'conf-' + conf : ''}">
-                <span class="freq-verdict-label">${escHtml(t('model.probLabel'))}</span>
-                <span class="freq-verdict-value">${pct == null ? '—' : pct + '%'} · ${escHtml(verdict)}</span>
-                <span class="freq-score">${escHtml(t('model.device', { dev: result.device || '—' }))}</span>
-            </div>
-        </div>
-        <div class="freq-votes"><div class="freq-subtitle">${escHtml(t('model.classes'))}</div>${bars}</div>
-        ${detailBlock}`;
-}
 
 // ================= Convert =================
 document.getElementById('btnConvert').addEventListener('click', async () => {
@@ -694,8 +623,6 @@ document.addEventListener('langchange', () => {
     if (currentDetections) refreshFusion();
     if (lastForensicsResult) renderForensicsPanel(document.getElementById('forensicsPanel'), lastForensicsResult);
     else if (currentFile) resetSubPanel('forensicsPanel', 'btnRunForensics', 'forensics');
-    if (lastModelResult) renderModelPanel(document.getElementById('modelPanel'), lastModelResult);
-    else if (currentFile) resetSubPanel('modelPanel', 'btnRunModel', 'model');
     // Re-render metadata panel if it was rendered
     const mp = document.getElementById('metadataPanel');
     if (mp && mp.innerHTML && currentMeta) {

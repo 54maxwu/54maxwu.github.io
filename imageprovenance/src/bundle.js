@@ -5967,28 +5967,48 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         "model.err.load": { zh: "\u6A21\u578B\u8F09\u5165\u5931\u6557:${msg}", en: "Model failed to load: ${msg}" },
         "model.err.run": { zh: "\u6A21\u578B\u57F7\u884C\u5931\u6557(\u9996\u6B21\u9700\u8981\u7DB2\u8DEF\u4E0B\u8F09\u6B0A\u91CD):${msg}", en: "Model run failed (first run needs network to download weights): ${msg}" },
         // ===== Forensics tab (ELA + noise) =====
-        "forensics.tag": { zh: "\u5340\u57DF\u9451\u8B58", en: "Local forensics" },
-        "forensics.disclaimer": { zh: "ELA + \u566A\u8072\u6B98\u5DEE,\u6A19\u51FA\u53EF\u80FD\u88AB\u5C40\u90E8\u4FEE\u6539/\u91CD\u7E6A\u7684\u5340\u57DF\u3002\u5C0D JPEG \u6700\u6709\u6548;PNG/\u622A\u5716\u7D50\u679C\u50C5\u4F9B\u53C3\u8003\u3002", en: "ELA + noise residual to localize possibly edited/inpainted regions. Most effective on JPEG; PNG/screenshots are indicative only." },
-        "forensics.runBtn": { zh: "\u57F7\u884C\u5340\u57DF\u9451\u8B58", en: "Run local forensics" },
-        "forensics.panelHint": { zh: "\u8AA4\u5DEE\u5C64\u7D1A\u5206\u6790 (ELA) \u8207\u566A\u8072\u4E00\u81F4\u6027\u6AA2\u67E5,\u5B9A\u4F4D\u7AC4\u6539\u75D5\u8DE1\u3002", en: "Error Level Analysis (ELA) and noise-consistency check to locate tampering." },
-        "forensics.running": { zh: "\u6B63\u5728\u505A ELA \u91CD\u58D3\u7E2E\u8207\u566A\u8072\u5206\u6790\u2026", en: "Running ELA recompression and noise analysis\u2026" },
+        "forensics.tag": { zh: "\u591A\u65B9\u6CD5\u9451\u8B58", en: "Forensic suite" },
+        "forensics.disclaimer": { zh: "\u56DB\u7A2E\u53E4\u5178\u9451\u8B58\u4EA4\u53C9\u9A57\u8B49,\u5B9A\u4F4D\u88AB\u4FEE\u6539/\u91CD\u7E6A/\u8907\u88FD\u7684\u5340\u57DF\u3002\u7D14\u672C\u5730\u3001\u4E0D\u4E0A\u50B3\u3002\u5B78\u7FD2\u5F0F SOTA(TruFor \u7B49)\u66F4\u5F37\u4F46\u9700\u4F3A\u670D\u5668\u3002", en: "Four classical methods cross-checked to localize edited/inpainted/cloned regions. Fully local, no upload. Learned SOTA (e.g. TruFor) is stronger but needs a server." },
+        "forensics.runBtn": { zh: "\u57F7\u884C\u591A\u65B9\u6CD5\u9451\u8B58", en: "Run forensic suite" },
+        "forensics.panelHint": { zh: "ELA + \u566A\u8072\u4E00\u81F4\u6027 + JPEG ghost + \u8907\u88FD-\u8CBC\u4E0A\u5075\u6E2C,\u4EA4\u53C9\u5B9A\u4F4D\u7AC4\u6539\u75D5\u8DE1\u3002", en: "ELA + noise consistency + JPEG ghost + copy-move detection, cross-localizing tampering." },
+        "forensics.running": { zh: "\u9451\u8B58\u5206\u6790\u4E2D\u2026", en: "Running forensic analysis\u2026" },
         "forensics.err": { zh: "\u9451\u8B58\u5931\u6557:${msg}", en: "Forensics failed: ${msg}" },
-        "forensics.scoreLabel": { zh: "\u5C40\u90E8\u7AC4\u6539\u53EF\u7591\u5EA6", en: "Local tampering suspicion" },
-        "forensics.scoreDetail": { zh: "\u53EF\u7591\u5EA6 ${score} \xB7 ELA \u71B1\u9EDE\u6BD4 ${ratio} \xB7 \u566A\u8072\u4E0D\u5747 ${cov}", en: "suspicion ${score} \xB7 ELA hotspot ratio ${ratio} \xB7 noise CoV ${cov}" },
+        "forensics.scoreLabel": { zh: "\u7D9C\u5408\u7AC4\u6539\u53EF\u7591\u5EA6", en: "Overall tampering suspicion" },
         "forensics.res": { zh: "\u5206\u6790\u5206\u8FA8\u7387 ${w}\xD7${h} \xB7 ELA \u54C1\u8CEA ${q}%", en: "Analysis resolution ${w}\xD7${h} \xB7 ELA quality ${q}%" },
+        "forensics.lossless": { zh: "\u7121\u640D(\u7121 JPEG \u6B77\u53F2)", en: "lossless (no JPEG history)" },
+        "forensics.na": { zh: "\u4E0D\u9069\u7528", en: "N/A" },
+        "forensics.naMsg": { zh: "\u6B64\u65B9\u6CD5\u9700\u8981 JPEG \u58D3\u7E2E\u6B77\u53F2;\u76EE\u524D\u6A94\u6848\u70BA\u7121\u640D\u683C\u5F0F(PNG),\u7121\u6CD5\u5957\u7528\u3002", en: "This method needs JPEG compression history; the current file is lossless (PNG), so it cannot apply." },
+        "forensics.lowConf": { zh: "\u4F4E\u4FE1\u5FC3", en: "low conf." },
         "forensics.verdict.high": { zh: "\u5B58\u5728\u660E\u986F\u5C40\u90E8\u7570\u5E38", en: "Clear localized anomaly" },
         "forensics.verdict.some": { zh: "\u6709\u8F15\u5FAE\u5C40\u90E8\u7570\u5E38", en: "Minor localized anomaly" },
         "forensics.verdict.low": { zh: "\u672A\u898B\u660E\u986F\u7AC4\u6539\u75D5\u8DE1", en: "No clear tampering trace" },
-        "forensics.ela.title": { zh: "\u8AA4\u5DEE\u5C64\u7D1A\u5206\u6790 (ELA)", en: "Error Level Analysis (ELA)" },
-        "forensics.ela.hint": { zh: "\u91CD\u65B0\u58D3\u7E2E\u5F8C\u7684\u5DEE\u7570 \xB7 \u8D8A\u4EAE\u4EE3\u8868\u8A72\u5340\u8AA4\u5DEE\u8D8A\u5927;\u4E00\u584A\u5340\u57DF\u660E\u986F\u6BD4\u5468\u570D\u4EAE = \u53EF\u80FD\u88AB\u8CBC\u4E0A/\u91CD\u7E6A\u3002", en: "Difference after recompression \xB7 brighter = larger error; a patch much brighter than its surroundings may be pasted/inpainted." },
-        "forensics.noise.title": { zh: "\u566A\u8072\u6B98\u5DEE\u5716", en: "Noise residual" },
-        "forensics.noise.hint": { zh: "\u9AD8\u901A\u6FFE\u6CE2\u5F8C\u7684\u566A\u8072 \xB7 \u771F\u5BE6\u7167\u7247\u566A\u8072\u5747\u52FB;\u82E5\u67D0\u5340\u7570\u5E38\u5E73\u6ED1(\u7121\u9846\u7C92)= \u53EF\u80FD AI \u91CD\u7E6A\u3002", en: "High-pass noise \xB7 a real photo has even grain; a region that is abnormally smooth may be AI-inpainted." }
+        "forensics.ela.title": { zh: "\u2460 \u8AA4\u5DEE\u5C64\u7D1A\u5206\u6790 (ELA)", en: "\u2460 Error Level Analysis (ELA)" },
+        "forensics.ela.hint": { zh: "\u91CD\u58D3\u7E2E\u5F8C\u7684\u5DEE\u7570 \xB7 \u4E00\u584A\u5340\u57DF\u660E\u986F\u6BD4\u5468\u570D\u4EAE = \u53EF\u80FD\u88AB\u8CBC\u4E0A/\u91CD\u7E6A\u3002\u908A\u7DE3\u672C\u4F86\u5C31\u6703\u4EAE,\u770B\u7684\u662F\u300C\u5340\u584A\u300D\u800C\u975E\u7DDA\u689D\u3002", en: "Recompression difference \xB7 a patch much brighter than its surroundings may be pasted/inpainted. Edges always glow \u2014 look for blobs, not lines." },
+        "forensics.ela.stat": { zh: "\u71B1\u9EDE\u6BD4 ${ratio}(>3 \u8F03\u53EF\u7591)", en: "hotspot ratio ${ratio} (>3 is suspicious)" },
+        "forensics.noise.title": { zh: "\u2461 \u566A\u8072\u4E00\u81F4\u6027", en: "\u2461 Noise consistency" },
+        "forensics.noise.hint": { zh: "\u9010\u5340\u584A\u7684\u566A\u8072\u5730\u677F \xB7 \u7DA0=\u5747\u52FB(\u6B63\u5E38),\u7D05=\u7570\u5E38\u3002\u771F\u5BE6\u7167\u7247\u566A\u8072\u5747\u52FB;\u67D0\u5340\u7570\u5E38\u5E73\u6ED1/\u7C97\u7CD9 = \u53EF\u80FD\u62FC\u63A5\u6216\u91CD\u7E6A\u3002", en: "Per-block noise floor \xB7 green = uniform (normal), red = anomalous. A genuine photo has even noise; an abnormally smooth/rough region may be spliced or inpainted." },
+        "forensics.noise.stat": { zh: "\u4E0D\u5747\u4FC2\u6578 ${cov} \xB7 \u9023\u7247\u7570\u5E38 ${contig} \u584A", en: "CoV ${cov} \xB7 ${contig} contiguous anomalous blocks" },
+        "forensics.ghost.title": { zh: "\u2462 JPEG Ghost", en: "\u2462 JPEG Ghost" },
+        "forensics.ghost.hint": { zh: "\u6383\u63CF\u591A\u500B\u58D3\u7E2E\u54C1\u8CEA \xB7 \u7D05\u8272\u5340\u584A\u7684\u58D3\u7E2E\u6B77\u53F2\u8207\u5168\u5716\u4E0D\u540C = \u53EF\u80FD\u4F86\u81EA\u53E6\u4E00\u5F35\u5716\u8CBC\u4E0A\u3002", en: "Sweeps many compression qualities \xB7 red blocks have a different compression history from the rest = possibly pasted from another image." },
+        "forensics.ghost.stat": { zh: "\u4E3B\u58D3\u7E2E\u54C1\u8CEA q\u2248${q} \xB7 \u7570\u5E38\u9023\u7247 ${dev} \u584A", en: "dominant quality q\u2248${q} \xB7 ${dev} contiguous deviating blocks" },
+        "forensics.clone.title": { zh: "\u2463 \u8907\u88FD-\u8CBC\u4E0A\u5075\u6E2C", en: "\u2463 Copy-move detection" },
+        "forensics.clone.hint": { zh: "\u627E\u51FA\u540C\u5716\u5167\u88AB\u8907\u88FD\u7684\u5340\u584A(\u7528\u4F86\u906E\u84CB\u6216\u91CD\u8907\u5167\u5BB9)\xB7 \u9752\u8272\u9023\u7DDA\u6A19\u51FA\u5171\u4EAB\u540C\u4E00\u4F4D\u79FB\u7684\u514B\u9686\u5C0D\u3002", en: "Finds blocks duplicated within the image (used to cover or repeat content) \xB7 cyan lines mark clone pairs sharing one translation." },
+        "forensics.clone.stat": { zh: "\u514B\u9686\u914D\u5C0D ${pairs} \u7D44", en: "${pairs} clone-pair matches" }
       };
       _lang = null;
     }
   });
 
   // src/forensics.js
+  function scratchCtx(w2, h2) {
+    if (!_scratch) _scratch = document.createElement("canvas");
+    _scratch.width = w2;
+    _scratch.height = h2;
+    return _scratch.getContext("2d", { willReadFrequently: true });
+  }
+  function makeImageData(w2, h2) {
+    return scratchCtx(w2, h2).createImageData(w2, h2);
+  }
   async function bitmapFromFile(file) {
     const blob = file instanceof Blob ? file : new Blob([file]);
     return await createImageBitmap(blob);
@@ -6006,182 +6026,351 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
   }
   function canvasToJpegBitmap(canvas, quality) {
     return new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("toBlob failed"));
-            return;
-          }
-          createImageBitmap(blob).then(resolve, reject);
-        },
-        "image/jpeg",
-        quality
-      );
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("toBlob failed"));
+          return;
+        }
+        createImageBitmap(blob).then(resolve, reject);
+      }, "image/jpeg", quality);
     });
   }
-  async function computeELA(srcCanvas, srcCtx, w2, h2, quality, amplify) {
-    const recompressed = await canvasToJpegBitmap(srcCanvas, quality);
-    const tmp = document.createElement("canvas");
-    tmp.width = w2;
-    tmp.height = h2;
-    const tctx = tmp.getContext("2d", { willReadFrequently: true });
-    tctx.drawImage(recompressed, 0, 0, w2, h2);
-    recompressed.close?.();
-    const a2 = srcCtx.getImageData(0, 0, w2, h2).data;
-    const b2 = tctx.getImageData(0, 0, w2, h2).data;
-    const out = tctx.createImageData(w2, h2);
-    const od = out.data;
-    const errMap = new Float32Array(w2 * h2);
-    let sum = 0, max = 0;
-    for (let i2 = 0, p2 = 0; i2 < a2.length; i2 += 4, p2++) {
-      const dr = Math.abs(a2[i2] - b2[i2]);
-      const dg = Math.abs(a2[i2 + 1] - b2[i2 + 1]);
-      const db = Math.abs(a2[i2 + 2] - b2[i2 + 2]);
-      const e2 = Math.max(dr, dg, db);
-      errMap[p2] = e2;
-      sum += e2;
-      if (e2 > max) max = e2;
-    }
-    const mean = sum / (w2 * h2);
-    const block = 24;
-    const bx = Math.ceil(w2 / block), by = Math.ceil(h2 / block);
-    const blockMeans = new Float32Array(bx * by);
-    for (let yb = 0; yb < by; yb++) {
-      for (let xb = 0; xb < bx; xb++) {
-        let bs = 0, bn = 0;
-        const x0 = xb * block, y0 = yb * block;
-        for (let y2 = y0; y2 < Math.min(y0 + block, h2); y2++) {
-          for (let x2 = x0; x2 < Math.min(x0 + block, w2); x2++) {
-            bs += errMap[y2 * w2 + x2];
-            bn++;
-          }
-        }
-        blockMeans[yb * bx + xb] = bn ? bs / bn : 0;
-      }
-    }
-    const sorted = Array.from(blockMeans).sort((p2, q2) => p2 - q2);
-    const median = sorted[Math.floor(sorted.length / 2)] || 0;
-    const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
-    const hotspotRatio = median > 0.5 ? p95 / median : p95 > 4 ? 4 : 1;
-    const gain = amplify / Math.max(mean, 1);
-    for (let p2 = 0; p2 < errMap.length; p2++) {
-      const v2 = Math.min(1, errMap[p2] * gain / 255 * 8);
-      const [r2, g2, bb] = hot(v2);
-      const i2 = p2 * 4;
-      od[i2] = r2;
-      od[i2 + 1] = g2;
-      od[i2 + 2] = bb;
-      od[i2 + 3] = 255;
-    }
-    return { imageData: out, mean, max, hotspotRatio, quality };
+  function hot(t3) {
+    t3 = clamp2(t3, 0, 1);
+    const s2 = [[0, 0, 0], [120, 0, 0], [230, 60, 0], [255, 180, 0], [255, 255, 210]];
+    const f2 = t3 * (s2.length - 1), i2 = Math.floor(f2), k2 = f2 - i2;
+    if (i2 >= s2.length - 1) return s2[s2.length - 1];
+    return [s2[i2][0] + (s2[i2 + 1][0] - s2[i2][0]) * k2, s2[i2][1] + (s2[i2 + 1][1] - s2[i2][1]) * k2, s2[i2][2] + (s2[i2 + 1][2] - s2[i2][2]) * k2];
   }
-  function computeNoise(srcCtx, w2, h2) {
-    const d2 = srcCtx.getImageData(0, 0, w2, h2).data;
-    const gray = new Float32Array(w2 * h2);
-    for (let i2 = 0, p2 = 0; i2 < d2.length; i2 += 4, p2++) {
-      gray[p2] = 0.299 * d2[i2] + 0.587 * d2[i2 + 1] + 0.114 * d2[i2 + 2];
-    }
-    const blur = boxBlur(gray, w2, h2, 2);
-    const res = new Float32Array(w2 * h2);
-    let sumAbs = 0;
-    for (let p2 = 0; p2 < res.length; p2++) {
-      res[p2] = gray[p2] - blur[p2];
-      sumAbs += Math.abs(res[p2]);
-    }
-    const meanAbs = sumAbs / res.length || 1;
-    const block = 32;
-    const bx = Math.ceil(w2 / block), by = Math.ceil(h2 / block);
-    const energies = [];
-    for (let yb = 0; yb < by; yb++) {
-      for (let xb = 0; xb < bx; xb++) {
-        let s2 = 0, n2 = 0;
-        const x0 = xb * block, y0 = yb * block;
-        for (let y2 = y0; y2 < Math.min(y0 + block, h2); y2++) {
-          for (let x2 = x0; x2 < Math.min(x0 + block, w2); x2++) {
-            const v2 = res[y2 * w2 + x2];
-            s2 += v2 * v2;
-            n2++;
-          }
-        }
-        if (n2) energies.push(Math.sqrt(s2 / n2));
-      }
-    }
-    const eMean = energies.reduce((s2, v2) => s2 + v2, 0) / (energies.length || 1);
-    const eVar = energies.reduce((s2, v2) => s2 + (v2 - eMean) ** 2, 0) / (energies.length || 1);
-    const cov = eMean > 0.01 ? Math.sqrt(eVar) / eMean : 0;
-    const out = srcCtx.createImageData(w2, h2);
-    const od = out.data;
-    const gain = 6;
-    for (let p2 = 0; p2 < res.length; p2++) {
-      const v2 = Math.max(0, Math.min(255, 128 + res[p2] * gain));
-      const i2 = p2 * 4;
-      od[i2] = od[i2 + 1] = od[i2 + 2] = v2;
-      od[i2 + 3] = 255;
-    }
-    return { imageData: out, meanAbs, cov };
+  function turbo(t3) {
+    t3 = clamp2(t3, 0, 1);
+    const s2 = [[16, 120, 60], [120, 180, 40], [235, 210, 40], [235, 120, 30], [200, 30, 30]];
+    const f2 = t3 * (s2.length - 1), i2 = Math.floor(f2), k2 = f2 - i2;
+    if (i2 >= s2.length - 1) return s2[s2.length - 1];
+    return [s2[i2][0] + (s2[i2 + 1][0] - s2[i2][0]) * k2, s2[i2][1] + (s2[i2 + 1][1] - s2[i2][1]) * k2, s2[i2][2] + (s2[i2 + 1][2] - s2[i2][2]) * k2];
+  }
+  function toGray(rgba, w2, h2) {
+    const g2 = new Float32Array(w2 * h2);
+    for (let i2 = 0, p2 = 0; i2 < rgba.length; i2 += 4, p2++)
+      g2[p2] = 0.299 * rgba[i2] + 0.587 * rgba[i2 + 1] + 0.114 * rgba[i2 + 2];
+    return g2;
   }
   function boxBlur(src, w2, h2, r2) {
-    const tmp = new Float32Array(w2 * h2);
-    const out = new Float32Array(w2 * h2);
-    const win = 2 * r2 + 1;
+    const tmp = new Float32Array(w2 * h2), out = new Float32Array(w2 * h2), win = 2 * r2 + 1;
+    const cl = (v2, hi) => v2 < 0 ? 0 : v2 > hi ? hi : v2;
     for (let y2 = 0; y2 < h2; y2++) {
       let acc = 0;
-      for (let x2 = -r2; x2 <= r2; x2++) acc += src[y2 * w2 + clamp2(x2, 0, w2 - 1)];
+      for (let x2 = -r2; x2 <= r2; x2++) acc += src[y2 * w2 + cl(x2, w2 - 1)];
       for (let x2 = 0; x2 < w2; x2++) {
         tmp[y2 * w2 + x2] = acc / win;
-        const add = src[y2 * w2 + clamp2(x2 + r2 + 1, 0, w2 - 1)];
-        const sub = src[y2 * w2 + clamp2(x2 - r2, 0, w2 - 1)];
-        acc += add - sub;
+        acc += src[y2 * w2 + cl(x2 + r2 + 1, w2 - 1)] - src[y2 * w2 + cl(x2 - r2, w2 - 1)];
       }
     }
     for (let x2 = 0; x2 < w2; x2++) {
       let acc = 0;
-      for (let y2 = -r2; y2 <= r2; y2++) acc += tmp[clamp2(y2, 0, h2 - 1) * w2 + x2];
+      for (let y2 = -r2; y2 <= r2; y2++) acc += tmp[cl(y2, h2 - 1) * w2 + x2];
       for (let y2 = 0; y2 < h2; y2++) {
         out[y2 * w2 + x2] = acc / win;
-        const add = tmp[clamp2(y2 + r2 + 1, 0, h2 - 1) * w2 + x2];
-        const sub = tmp[clamp2(y2 - r2, 0, h2 - 1) * w2 + x2];
-        acc += add - sub;
+        acc += tmp[cl(y2 + r2 + 1, h2 - 1) * w2 + x2] - tmp[cl(y2 - r2, h2 - 1) * w2 + x2];
       }
     }
     return out;
   }
-  function hot(t3) {
-    t3 = clamp2(t3, 0, 1);
-    const stops = [
-      [0, 0, 0],
-      [120, 0, 0],
-      [230, 60, 0],
-      [255, 180, 0],
-      [255, 255, 200]
-    ];
-    const s2 = t3 * (stops.length - 1);
-    const i2 = Math.floor(s2), f2 = s2 - i2;
-    if (i2 >= stops.length - 1) return stops[stops.length - 1];
-    const [r0, g0, b0] = stops[i2], [r1, g1, b1] = stops[i2 + 1];
-    return [r0 + (r1 - r0) * f2, g0 + (g1 - g0) * f2, b0 + (b1 - b0) * f2];
+  async function methodELA(canvas, ctx, w2, h2, quality) {
+    const recomp = await canvasToJpegBitmap(canvas, quality);
+    const tctx = scratchCtx(w2, h2);
+    tctx.drawImage(recomp, 0, 0, w2, h2);
+    recomp.close?.();
+    const a2 = ctx.getImageData(0, 0, w2, h2).data;
+    const b2 = tctx.getImageData(0, 0, w2, h2).data;
+    const err = new Float32Array(w2 * h2);
+    for (let i2 = 0, p2 = 0; i2 < a2.length; i2 += 4, p2++)
+      err[p2] = Math.max(Math.abs(a2[i2] - b2[i2]), Math.abs(a2[i2 + 1] - b2[i2 + 1]), Math.abs(a2[i2 + 2] - b2[i2 + 2]));
+    const blk = 16, bx = Math.ceil(w2 / blk), by = Math.ceil(h2 / blk);
+    const bmean = blockReduce(err, w2, h2, blk, (s2, n2) => s2 / n2);
+    const med = percentile(bmean, 0.5), p95 = percentile(bmean, 0.95);
+    const hotspotRatio = med > 0.5 ? p95 / med : p95 > 4 ? 4 : 1;
+    const norm = Math.max(percentile(err, 0.99), 6);
+    const img = makeImageData(w2, h2), d2 = img.data;
+    for (let p2 = 0; p2 < err.length; p2++) {
+      const v2 = Math.pow(clamp2(err[p2] / norm, 0, 1), 0.7);
+      const [r2, g2, bb] = hot(v2);
+      const i2 = p2 * 4;
+      d2[i2] = r2;
+      d2[i2 + 1] = g2;
+      d2[i2 + 2] = bb;
+      d2[i2 + 3] = 255;
+    }
+    const sig = clamp2((hotspotRatio - 2) / 4, 0, 1);
+    return {
+      id: "ela",
+      imageData: img,
+      score: Math.round(sig * 100),
+      sig,
+      stats: { hotspotRatio, quality },
+      bx,
+      by
+    };
   }
-  async function runForensics(file, opts = {}) {
+  function methodNoise(ctx, w2, h2) {
+    const rgba = ctx.getImageData(0, 0, w2, h2).data;
+    const gray = toGray(rgba, w2, h2);
+    const res = new Float32Array(w2 * h2);
+    const lp = boxBlur(gray, w2, h2, 2);
+    for (let p2 = 0; p2 < res.length; p2++) res[p2] = gray[p2] - lp[p2];
+    const blk = 16, bx = Math.ceil(w2 / blk), by = Math.ceil(h2 / blk);
+    const energy = new Float32Array(bx * by);
+    for (let yb = 0; yb < by; yb++) for (let xb = 0; xb < bx; xb++) {
+      let s2 = 0, n2 = 0;
+      for (let y2 = yb * blk; y2 < Math.min(yb * blk + blk, h2); y2++)
+        for (let x2 = xb * blk; x2 < Math.min(xb * blk + blk, w2); x2++) {
+          const v2 = res[y2 * w2 + x2];
+          s2 += v2 * v2;
+          n2++;
+        }
+      energy[yb * bx + xb] = n2 ? Math.sqrt(s2 / n2) : 0;
+    }
+    const med = percentile(energy, 0.5) || 1;
+    const anom = new Float32Array(bx * by);
+    let anomCount = 0;
+    for (let i2 = 0; i2 < energy.length; i2++) {
+      anom[i2] = Math.abs(energy[i2] - med) / med;
+      if (anom[i2] > 0.6) anomCount++;
+    }
+    let contig = 0;
+    for (let yb = 0; yb < by; yb++) for (let xb = 0; xb < bx; xb++) {
+      if (anom[yb * bx + xb] <= 0.6) continue;
+      const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+        const nx = xb + dx, ny = yb + dy;
+        return nx >= 0 && nx < bx && ny >= 0 && ny < by && anom[ny * bx + nx] > 0.6;
+      });
+      if (nb) contig++;
+    }
+    const cov = stdOf(energy) / med;
+    const sig = clamp2(0.5 * clamp2((cov - 0.35) / 0.6, 0, 1) + 0.5 * clamp2(contig / (bx * by * 0.06), 0, 1), 0, 1);
+    const img = makeImageData(w2, h2), d2 = img.data;
+    for (let y2 = 0; y2 < h2; y2++) for (let x2 = 0; x2 < w2; x2++) {
+      const bi = Math.floor(y2 / blk) * bx + Math.floor(x2 / blk);
+      const [r2, g2, bb] = turbo(clamp2(anom[bi] / 1.4, 0, 1));
+      const i2 = (y2 * w2 + x2) * 4;
+      d2[i2] = r2;
+      d2[i2 + 1] = g2;
+      d2[i2 + 2] = bb;
+      d2[i2 + 3] = 255;
+    }
+    return {
+      id: "noise",
+      imageData: img,
+      score: Math.round(sig * 100),
+      sig,
+      stats: { cov, contig, anomCount }
+    };
+  }
+  async function methodGhost(canvas, w2, h2, onProgress) {
+    const qualities = [55, 62, 70, 76, 82, 88, 94];
+    const blk = 8, bx = Math.ceil(w2 / blk), by = Math.ceil(h2 / blk);
+    const orig = canvas.getContext("2d").getImageData(0, 0, w2, h2).data;
+    const perQ = [];
+    for (let qi = 0; qi < qualities.length; qi++) {
+      const bmp = await canvasToJpegBitmap(canvas, qualities[qi] / 100);
+      const tctx = scratchCtx(w2, h2);
+      tctx.drawImage(bmp, 0, 0, w2, h2);
+      bmp.close?.();
+      const rc = tctx.getImageData(0, 0, w2, h2).data;
+      const diff = new Float32Array(w2 * h2);
+      for (let i2 = 0, p2 = 0; i2 < orig.length; i2 += 4, p2++)
+        diff[p2] = Math.abs(orig[i2] - rc[i2]) + Math.abs(orig[i2 + 1] - rc[i2 + 1]) + Math.abs(orig[i2 + 2] - rc[i2 + 2]);
+      perQ.push(blockReduce(diff, w2, h2, blk, (s2, n2) => s2 / n2));
+      onProgress?.(0.3 + 0.5 * (qi + 1) / qualities.length);
+    }
+    const argmin = new Int8Array(bx * by);
+    for (let i2 = 0; i2 < bx * by; i2++) {
+      let best = Infinity, bq = 0;
+      for (let qi = 0; qi < qualities.length; qi++) if (perQ[qi][i2] < best) {
+        best = perQ[qi][i2];
+        bq = qi;
+      }
+      argmin[i2] = bq;
+    }
+    const hist = new Array(qualities.length).fill(0);
+    for (const v2 of argmin) hist[v2]++;
+    const mode = hist.indexOf(Math.max(...hist));
+    let devContig = 0, devCount = 0;
+    for (let yb = 0; yb < by; yb++) for (let xb = 0; xb < bx; xb++) {
+      const i2 = yb * bx + xb;
+      if (Math.abs(argmin[i2] - mode) < 2) continue;
+      devCount++;
+      const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+        const nx = xb + dx, ny = yb + dy;
+        return nx >= 0 && nx < bx && ny >= 0 && ny < by && Math.abs(argmin[ny * bx + nx] - mode) >= 2;
+      });
+      if (nb) devContig++;
+    }
+    const sig = clamp2(devContig / (bx * by * 0.04), 0, 1);
+    const img = makeImageData(w2, h2), d2 = img.data;
+    const range = qualities.length - 1 || 1;
+    for (let y2 = 0; y2 < h2; y2++) for (let x2 = 0; x2 < w2; x2++) {
+      const bi = Math.floor(y2 / blk) * bx + Math.floor(x2 / blk);
+      const dev = Math.abs(argmin[bi] - mode) >= 2;
+      const [r2, g2, bb] = dev ? [220, 40, 40] : grayRamp(argmin[bi] / range);
+      const i2 = (y2 * w2 + x2) * 4;
+      d2[i2] = r2;
+      d2[i2 + 1] = g2;
+      d2[i2 + 2] = bb;
+      d2[i2 + 3] = 255;
+    }
+    return {
+      id: "ghost",
+      imageData: img,
+      score: Math.round(sig * 100),
+      sig,
+      stats: { modeQuality: qualities[mode], devCount, devContig }
+    };
+  }
+  function grayRamp(t3) {
+    const v2 = Math.round(40 + 180 * clamp2(t3, 0, 1));
+    return [v2, v2, v2];
+  }
+  function methodClone(ctx, w2, h2) {
+    const rgba = ctx.getImageData(0, 0, w2, h2).data;
+    const gray = toGray(rgba, w2, h2);
+    const B2 = 16, stride = 8;
+    const feats = [];
+    for (let y2 = 0; y2 + B2 <= h2; y2 += stride) {
+      for (let x2 = 0; x2 + B2 <= w2; x2 += stride) {
+        const f2 = new Float32Array(16);
+        let mean = 0, m2 = 0, cnt = 0;
+        for (let cy = 0; cy < 4; cy++) for (let cx = 0; cx < 4; cx++) {
+          let s2 = 0;
+          for (let yy = 0; yy < 4; yy++) for (let xx = 0; xx < 4; xx++) {
+            const v2 = gray[(y2 + cy * 4 + yy) * w2 + (x2 + cx * 4 + xx)];
+            s2 += v2;
+          }
+          const avg = s2 / 16;
+          f2[cy * 4 + cx] = avg;
+          cnt++;
+          const delta = avg - mean;
+          mean += delta / cnt;
+          m2 += delta * (avg - mean);
+        }
+        const variance = m2 / cnt;
+        if (variance < 12) continue;
+        feats.push({ f: f2, x: x2, y: y2 });
+      }
+    }
+    const Q2 = 4;
+    feats.forEach((b2) => {
+      b2.key = Array.from(b2.f, (v2) => Math.round(v2 / Q2));
+    });
+    feats.sort((a2, b2) => {
+      for (let i2 = 0; i2 < 16; i2++) if (a2.key[i2] !== b2.key[i2]) return a2.key[i2] - b2.key[i2];
+      return 0;
+    });
+    const minDist = 24, eps2 = 18 * 18, WIN = 6;
+    const shiftMap = /* @__PURE__ */ new Map();
+    for (let i2 = 0; i2 < feats.length; i2++) {
+      for (let j2 = i2 + 1; j2 <= Math.min(i2 + WIN, feats.length - 1); j2++) {
+        const A2 = feats[i2], C2 = feats[j2];
+        const dx = C2.x - A2.x, dy = C2.y - A2.y;
+        if (dx * dx + dy * dy < minDist * minDist) continue;
+        let dist2 = 0;
+        for (let k2 = 0; k2 < 16; k2++) {
+          const dd = A2.f[k2] - C2.f[k2];
+          dist2 += dd * dd;
+          if (dist2 > eps2) break;
+        }
+        if (dist2 > eps2) continue;
+        const key = `${dx},${dy}`;
+        (shiftMap.get(key) || shiftMap.set(key, []).get(key)).push([A2.x, A2.y, C2.x, C2.y]);
+      }
+    }
+    const MIN_SUPPORT = 12;
+    let matches = [];
+    for (const [, pairs] of shiftMap) if (pairs.length >= MIN_SUPPORT) matches = matches.concat(pairs);
+    const sig = clamp2(matches.length / 40, 0, 1);
+    const img = makeImageData(w2, h2), d2 = img.data;
+    for (let i2 = 0; i2 < rgba.length; i2 += 4) {
+      const g2 = (rgba[i2] * 0.299 + rgba[i2 + 1] * 0.587 + rgba[i2 + 2] * 0.114) * 0.55 + 30;
+      d2[i2] = d2[i2 + 1] = d2[i2 + 2] = g2;
+      d2[i2 + 3] = 255;
+    }
+    return {
+      id: "clone",
+      imageData: img,
+      score: Math.round(sig * 100),
+      sig,
+      stats: { matchPairs: matches.length, blocks: feats.length },
+      overlay: matches.slice(0, 500),
+      blockSize: B2
+    };
+  }
+  function blockReduce(map, w2, h2, blk, fn) {
+    const bx = Math.ceil(w2 / blk), by = Math.ceil(h2 / blk), out = new Float32Array(bx * by);
+    for (let yb = 0; yb < by; yb++) for (let xb = 0; xb < bx; xb++) {
+      let s2 = 0, n2 = 0;
+      for (let y2 = yb * blk; y2 < Math.min(yb * blk + blk, h2); y2++)
+        for (let x2 = xb * blk; x2 < Math.min(xb * blk + blk, w2); x2++) {
+          s2 += map[y2 * w2 + x2];
+          n2++;
+        }
+      out[yb * bx + xb] = fn(s2, n2);
+    }
+    return out;
+  }
+  function stdOf(arr) {
+    let m2 = 0;
+    for (const v2 of arr) m2 += v2;
+    m2 /= arr.length;
+    let s2 = 0;
+    for (const v2 of arr) s2 += (v2 - m2) * (v2 - m2);
+    return Math.sqrt(s2 / arr.length);
+  }
+  async function runForensics(file, opts = {}, onProgress = () => {
+  }) {
     const quality = opts.quality ?? 0.9;
-    const amplify = opts.amplify ?? 20;
+    const isJpeg = /jpe?g/i.test(file.type || "") || /jpe?g/i.test(file.name || "");
     const bitmap = await bitmapFromFile(file);
     try {
       const { canvas, ctx, w: w2, h: h2 } = fitCanvas(bitmap);
-      const ela = await computeELA(canvas, ctx, w2, h2, quality, amplify);
-      const noise2 = computeNoise(ctx, w2, h2);
-      const elaSig = clamp2((ela.hotspotRatio - 2) / 4, 0, 1);
-      const noiseSig = clamp2((noise2.cov - 0.45) / 0.7, 0, 1);
-      const score = Math.round((elaSig * 0.6 + noiseSig * 0.4) * 100);
-      return {
-        w: w2,
-        h: h2,
-        quality,
-        ela: { imageData: ela.imageData, mean: ela.mean, max: ela.max, hotspotRatio: ela.hotspotRatio },
-        noise: { imageData: noise2.imageData, meanAbs: noise2.meanAbs, cov: noise2.cov },
-        score,
-        elaSig,
-        noiseSig
-      };
+      onProgress(0.05);
+      const methods = [];
+      const ela = await methodELA(canvas, ctx, w2, h2, quality);
+      ela.applicable = true;
+      ela.confidence = isJpeg ? "normal" : "low";
+      methods.push(ela);
+      onProgress(0.25);
+      const noise2 = methodNoise(ctx, w2, h2);
+      noise2.applicable = true;
+      noise2.confidence = "normal";
+      methods.push(noise2);
+      onProgress(0.3);
+      if (isJpeg) {
+        const ghost = await methodGhost(canvas, w2, h2, onProgress);
+        ghost.applicable = true;
+        ghost.confidence = "normal";
+        methods.push(ghost);
+      } else {
+        methods.push({ id: "ghost", applicable: false, score: 0, sig: 0, stats: {} });
+      }
+      onProgress(0.85);
+      const clone = methodClone(ctx, w2, h2);
+      clone.applicable = true;
+      clone.confidence = "normal";
+      methods.push(clone);
+      onProgress(0.97);
+      const weights = isJpeg ? { ela: 0.2, noise: 0.28, ghost: 0.3, clone: 0.22 } : { ela: 0.1, noise: 0.55, ghost: 0, clone: 0.35 };
+      let wsum = 0, acc = 0;
+      for (const m2 of methods) {
+        if (!m2.applicable) continue;
+        const wt = weights[m2.id] || 0;
+        wsum += wt;
+        acc += wt * (m2.sig || 0);
+      }
+      let score = Math.round((wsum ? acc / wsum : 0) * 100);
+      if (clone.sig > 0.25) score = Math.max(score, 55 + Math.round(clone.sig * 35));
+      score = clamp2(score, 0, 100);
+      onProgress(1);
+      return { w: w2, h: h2, isJpeg, quality, methods, score };
     } finally {
       bitmap.close?.();
     }
@@ -6193,6 +6382,24 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
   }
   function renderForensicsPanel(container, result) {
     const v2 = verdictOf(result.score);
+    const cards = result.methods.map((m2) => {
+      const meta = METHOD_META[m2.id];
+      if (!m2.applicable) {
+        return `<div class="freq-viz-box forensic-card forensic-na">
+                <div class="freq-viz-title">${esc(t2(meta.title))} <span class="forensic-badge na">${esc(t2("forensics.na"))}</span></div>
+                <div class="forensic-na-msg">${esc(t2("forensics.naMsg"))}</div>
+            </div>`;
+      }
+      const sc = m2.score;
+      const cls = sc >= 60 ? "hi" : sc >= 35 ? "mid" : "lo";
+      const confBadge = m2.confidence === "low" ? `<span class="forensic-badge low">${esc(t2("forensics.lowConf"))}</span>` : "";
+      return `<div class="freq-viz-box forensic-card">
+            <div class="freq-viz-title">${esc(t2(meta.title))} ${confBadge}<span class="forensic-score forensic-${cls}">${sc}</span></div>
+            <canvas data-method="${m2.id}"></canvas>
+            <div class="forensic-stats">${esc(statLine(m2))}</div>
+            <div class="freq-viz-hint">${esc(t2(meta.hint))}</div>
+        </div>`;
+    }).join("");
     container.innerHTML = `
         <div class="freq-disclaimer">
             <span class="freq-disclaimer-tag">${esc(t2("forensics.tag"))}</span>
@@ -6201,155 +6408,71 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         <div class="freq-head">
             <div class="freq-verdict conf-${v2.conf}">
                 <span class="freq-verdict-label">${esc(t2("forensics.scoreLabel"))}</span>
-                <span class="freq-verdict-value">${esc(t2(v2.key))}</span>
-                <span class="freq-score">${esc(t2("forensics.scoreDetail", {
-      score: result.score,
-      ratio: result.ela.hotspotRatio.toFixed(2),
-      cov: result.noise.cov.toFixed(2)
-    }))}</span>
-            </div>
-            <div class="freq-timing">${esc(t2("forensics.res", { w: result.w, h: result.h, q: Math.round(result.quality * 100) }))}</div>
-        </div>
-        <div class="freq-viz forensics-viz">
-            <div class="freq-viz-box">
-                <div class="freq-viz-title">${esc(t2("forensics.ela.title"))}</div>
-                <canvas id="elaCanvas"></canvas>
-                <div class="freq-viz-hint">${esc(t2("forensics.ela.hint"))}</div>
-            </div>
-            <div class="freq-viz-box">
-                <div class="freq-viz-title">${esc(t2("forensics.noise.title"))}</div>
-                <canvas id="noiseCanvas"></canvas>
-                <div class="freq-viz-hint">${esc(t2("forensics.noise.hint"))}</div>
+                <span class="freq-verdict-value">${result.score} \xB7 ${esc(t2(v2.key))}</span>
+                <span class="freq-score">${esc(t2("forensics.res", { w: result.w, h: result.h, q: Math.round(result.quality * 100) }))} \xB7 ${result.isJpeg ? "JPEG" : "PNG/" + esc(t2("forensics.lossless"))}</span>
             </div>
         </div>
-    `;
-    paint(container.querySelector("#elaCanvas"), result.ela.imageData);
-    paint(container.querySelector("#noiseCanvas"), result.noise.imageData);
+        <div class="freq-viz forensic-grid">${cards}</div>`;
+    for (const m2 of result.methods) {
+      if (!m2.applicable || !m2.imageData) continue;
+      const canvas = container.querySelector(`canvas[data-method="${m2.id}"]`);
+      if (!canvas) continue;
+      canvas.width = m2.imageData.width;
+      canvas.height = m2.imageData.height;
+      const cx = canvas.getContext("2d");
+      cx.putImageData(m2.imageData, 0, 0);
+      if (m2.id === "clone" && m2.overlay) drawCloneOverlay(cx, m2.overlay, m2.blockSize);
+    }
   }
-  function paint(canvas, imageData) {
-    if (!canvas) return;
-    canvas.width = imageData.width;
-    canvas.height = imageData.height;
-    canvas.getContext("2d").putImageData(imageData, 0, 0);
+  function drawCloneOverlay(cx, pairs, B2) {
+    cx.lineWidth = 1.2;
+    cx.strokeStyle = "rgba(0,229,255,0.9)";
+    cx.fillStyle = "rgba(0,229,255,0.18)";
+    for (const [x1, y1, x2, y2] of pairs) {
+      cx.fillRect(x1, y1, B2, B2);
+      cx.fillRect(x2, y2, B2, B2);
+      cx.beginPath();
+      cx.moveTo(x1 + B2 / 2, y1 + B2 / 2);
+      cx.lineTo(x2 + B2 / 2, y2 + B2 / 2);
+      cx.stroke();
+    }
+  }
+  function statLine(m2) {
+    const s2 = m2.stats || {};
+    if (m2.id === "ela") return t2("forensics.ela.stat", { ratio: (s2.hotspotRatio || 0).toFixed(2) });
+    if (m2.id === "noise") return t2("forensics.noise.stat", { cov: (s2.cov || 0).toFixed(2), contig: s2.contig || 0 });
+    if (m2.id === "ghost") return t2("forensics.ghost.stat", { q: s2.modeQuality || "\u2014", dev: s2.devContig || 0 });
+    if (m2.id === "clone") return t2("forensics.clone.stat", { pairs: s2.matchPairs || 0 });
+    return "";
   }
   function esc(s2) {
     const d2 = document.createElement("div");
     d2.textContent = s2 == null ? "" : String(s2);
     return d2.innerHTML;
   }
-  var MAX_SIDE, clamp2;
+  var MAX_SIDE, clamp2, _scratch, percentile, METHOD_META;
   var init_forensics = __esm({
     "src/forensics.js"() {
       init_i18n();
-      MAX_SIDE = 1024;
+      MAX_SIDE = 768;
       clamp2 = (v2, lo, hi) => v2 < lo ? lo : v2 > hi ? hi : v2;
-    }
-  });
-
-  // src/aimodel.js
-  async function loadLib() {
-    if (_libPromise) return _libPromise;
-    const url = TRANSFORMERS_CDN;
-    _libPromise = import(
-      /* @vite-ignore */
-      url
-    ).then((mod) => {
-      if (mod.env) mod.env.allowLocalModels = false;
-      return mod;
-    }).catch((err) => {
-      _libPromise = null;
-      throw new Error(t2("model.err.lib", { msg: err.message || err }));
-    });
-    return _libPromise;
-  }
-  function modelSupported() {
-    return typeof Worker !== "undefined" && typeof WebAssembly !== "undefined";
-  }
-  async function getPipeline(onProgress = () => {
-  }) {
-    if (_pipePromise) return _pipePromise;
-    _pipePromise = (async () => {
-      const lib = await loadLib();
-      const wantGpu = !!navigator.gpu;
-      _device = wantGpu ? "webgpu" : "wasm";
-      const opts = {
-        device: _device,
-        dtype: dtypeFor(_device),
-        progress_callback: (p2) => {
-          if (!p2) return;
-          if (p2.status === "progress" && p2.total) {
-            onProgress({ status: "download", file: p2.file, pct: Math.round(p2.loaded / p2.total * 100) });
-          } else {
-            onProgress({ status: "loading", file: p2.file });
-          }
-        }
+      _scratch = null;
+      percentile = (arr, p2) => {
+        const s2 = Float32Array.from(arr).sort();
+        return s2[clamp2(Math.floor(s2.length * p2), 0, s2.length - 1)] || 0;
       };
-      try {
-        return await lib.pipeline("zero-shot-image-classification", MODEL_ID, opts);
-      } catch (err) {
-        if (_device === "webgpu") {
-          _device = "wasm";
-          onProgress({ status: "fallback" });
-          return await lib.pipeline("zero-shot-image-classification", MODEL_ID, { ...opts, device: "wasm", dtype: dtypeFor("wasm") });
-        }
-        throw err;
-      }
-    })().catch((err) => {
-      _pipePromise = null;
-      throw new Error(t2("model.err.load", { msg: err.message || err }));
-    });
-    return _pipePromise;
-  }
-  async function classifyImage(file, onProgress = () => {
-  }) {
-    const pipe = await getPipeline(onProgress);
-    onProgress({ status: "infer" });
-    const url = URL.createObjectURL(file);
-    try {
-      const pairScores = [];
-      for (const pair of PROMPT_PAIRS) {
-        const res = await pipe(url, [pair.ai, pair.real]);
-        const arr = Array.isArray(res) ? res : [res];
-        const aiEntry = arr.find((r2) => r2.label === pair.ai);
-        if (aiEntry) pairScores.push(Number(aiEntry.score));
-      }
-      const aiProb = pairScores.length ? pairScores.reduce((s2, v2) => s2 + v2, 0) / pairScores.length : null;
-      const labels = [
-        { label: t2("model.clip.aiClass"), score: aiProb ?? 0, ai: true },
-        { label: t2("model.clip.realClass"), score: aiProb == null ? 0 : 1 - aiProb, ai: false }
-      ];
-      const detail = pairScores.map((s2, i2) => ({
-        label: `${t2("model.clip.prompt")} #${i2 + 1}`,
-        score: s2,
-        ai: true
-      }));
-      return { aiProb, labels, detail, device: _device, modelId: MODEL_ID, kind: "clip" };
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }
-  var TRANSFORMERS_CDN, MODEL_ID, PROMPT_PAIRS, _libPromise, _pipePromise, _device, dtypeFor;
-  var init_aimodel = __esm({
-    "src/aimodel.js"() {
-      init_i18n();
-      TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2";
-      MODEL_ID = "Xenova/clip-vit-base-patch16";
-      PROMPT_PAIRS = [
-        { ai: "an AI-generated image", real: "a real photograph" },
-        { ai: "a synthetic image created by AI", real: "a natural photo taken with a camera" },
-        { ai: "a computer-generated picture", real: "an authentic real-world photograph" },
-        { ai: "an image made by a diffusion model", real: "a genuine photo of a real scene" }
-      ];
-      _libPromise = null;
-      _pipePromise = null;
-      _device = null;
-      dtypeFor = (dev) => dev === "webgpu" ? "fp16" : "q8";
+      METHOD_META = {
+        ela: { title: "forensics.ela.title", hint: "forensics.ela.hint" },
+        noise: { title: "forensics.noise.title", hint: "forensics.noise.hint" },
+        ghost: { title: "forensics.ghost.title", hint: "forensics.ghost.hint" },
+        clone: { title: "forensics.clone.title", hint: "forensics.clone.hint" }
+      };
     }
   });
 
   // src/fusion.js
   function computeFusion(inputs) {
-    const { detections = [], freq = null, forensics = null, model = null } = inputs || {};
+    const { detections = [], freq = null, forensics = null } = inputs || {};
     const sources = [];
     const strong = detections.filter((d2) => d2.hit && d2.category !== "edit" && d2.confidence === "strong");
     const medium = detections.filter((d2) => d2.hit && d2.category !== "edit" && d2.confidence === "medium");
@@ -6363,19 +6486,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       evidence += Math.abs(delta);
       sources.push({ key: srcKey, kind, delta, detail });
     };
-    if (model && Number.isFinite(model.aiProb)) {
-      const p2 = model.aiProb;
-      let delta = 0;
-      if (p2 >= 0.78) delta = clamp3((p2 - 0.78) / 0.22 * 1.5, 0, 1.5);
-      else if (p2 <= 0.3) delta = clamp3((p2 - 0.3) / 0.3 * 1.5, -1.5, 0);
-      const neutral = Math.abs(delta) < 0.02;
-      add(
-        delta,
-        "fusion.src.model",
-        "model",
-        neutral ? t2("fusion.detail.modelNeutral", { pct: Math.round(p2 * 100) }) : t2("fusion.detail.model", { pct: Math.round(p2 * 100), dev: model.device || "\u2014" })
-      );
-    }
     if (freq && freq.score) {
       const tot = clamp3(freq.score.total, -4, 9);
       add(
@@ -6420,7 +6530,7 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         conf = "info";
       }
     }
-    return { prob, label, conf, decisive, evidence, sources, hasModel: !!model, hasForensics: !!forensics };
+    return { prob, label, conf, decisive, evidence, sources, hasForensics: !!forensics };
   }
   function renderFusionSummary(container, fusion) {
     if (!container) return;
@@ -6439,7 +6549,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
                 </div>`;
     }).join("") : `<div class="freq-empty">${esc2(t2("fusion.noEvidence"))}</div>`;
     const pending = [];
-    if (!fusion.hasModel) pending.push(t2("fusion.pending.model"));
     if (!fusion.hasForensics) pending.push(t2("fusion.pending.forensics"));
     const pendingHtml = pending.length ? `<div class="fusion-pending">${esc2(t2("fusion.pending.prefix"))} ${pending.map(esc2).join(" \xB7 ")}</div>` : "";
     container.innerHTML = `
@@ -6764,7 +6873,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       init_frequency();
       init_panel();
       init_forensics();
-      init_aimodel();
       init_fusion();
       init_metadata();
       init_panel_metadata();
@@ -6782,14 +6890,12 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       var lastFreqResult = null;
       var currentDetections = null;
       var lastForensicsResult = null;
-      var lastModelResult = null;
       function refreshFusion() {
         if (!currentDetections) return;
         const fusion = computeFusion({
           detections: currentDetections,
           freq: lastFreqResult,
-          forensics: lastForensicsResult,
-          model: lastModelResult
+          forensics: lastForensicsResult
         });
         renderFusionSummary(document.getElementById("fusionSummary"), fusion);
         const hb = document.getElementById("headerBadge");
@@ -7027,7 +7133,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         lastFreqResult = null;
         currentDetections = null;
         lastForensicsResult = null;
-        lastModelResult = null;
         emptyState.classList.add("hidden");
         resultView.classList.remove("hidden");
         previewBlock.classList.remove("hidden");
@@ -7050,7 +7155,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         document.getElementById("detectionItems").innerHTML = "";
         document.getElementById("fusionSummary").innerHTML = "";
         resetSubPanel("forensicsPanel", "btnRunForensics", "forensics");
-        resetSubPanel("modelPanel", "btnRunModel", "model");
         document.getElementById("convertResult").style.display = "none";
         document.getElementById("btnConvert").disabled = false;
         document.getElementById("previewImg").src = URL.createObjectURL(file);
@@ -7196,9 +7300,12 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
           return;
         }
         btn.disabled = true;
-        panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span>${escHtml(t2("forensics.running"))}</span></div>`;
+        panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span id="forensicStage">${escHtml(t2("forensics.running"))}</span></div>`;
         try {
-          const result = await runForensics(currentFile);
+          const result = await runForensics(currentFile, {}, (pct) => {
+            const el = document.getElementById("forensicStage");
+            if (el) el.textContent = `${t2("forensics.running")} ${Math.round(pct * 100)}%`;
+          });
           lastForensicsResult = result;
           renderForensicsPanel(panel, result);
           refreshFusion();
@@ -7206,72 +7313,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
           panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px">${escHtml(t2("forensics.err", { msg: err.message }))}</div>`;
         }
       });
-      document.addEventListener("click", async (ev) => {
-        const btn = ev.target.closest && ev.target.closest("#btnRunModel");
-        if (!btn) return;
-        if (!currentFile) return;
-        const panel = document.getElementById("modelPanel");
-        if (lastModelResult) {
-          renderModelPanel(panel, lastModelResult);
-          return;
-        }
-        if (!modelSupported()) {
-          panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px">${escHtml(t2("model.err.unsupported"))}</div>`;
-          return;
-        }
-        btn.disabled = true;
-        const setStage = (msg) => {
-          panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span id="modelStage">${escHtml(msg)}</span></div>`;
-        };
-        setStage(t2("model.stage.init"));
-        try {
-          const result = await classifyImage(currentFile, (p2) => {
-            const el = document.getElementById("modelStage");
-            let msg;
-            if (p2.status === "download") msg = t2("model.stage.download", { pct: p2.pct, file: p2.file || "" });
-            else if (p2.status === "fallback") msg = t2("model.stage.fallback");
-            else if (p2.status === "infer") msg = t2("model.stage.infer");
-            else msg = t2("model.stage.load");
-            if (el) el.textContent = msg;
-            else setStage(msg);
-          });
-          lastModelResult = result;
-          renderModelPanel(panel, result);
-          refreshFusion();
-        } catch (err) {
-          panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px;line-height:1.7">${escHtml(t2("model.err.run", { msg: err.message }))}</div>
-            <button class="btn-secondary" id="btnRunModel" style="margin-top:12px">${escHtml(t2("model.retry"))}</button>`;
-        }
-      });
-      function renderModelPanel(panel, result) {
-        const pct = Number.isFinite(result.aiProb) ? Math.round(result.aiProb * 100) : null;
-        const conf = pct == null ? null : pct >= 80 ? "medium" : pct > 30 ? "weak" : "info";
-        const verdict = pct == null ? t2("model.verdict.unknown") : pct >= 80 ? t2("model.verdict.ai") : pct > 30 ? t2("model.verdict.uncertain") : t2("model.verdict.real");
-        const barOf = (l2) => `
-            <div class="fusion-src">
-                <div class="fusion-src-top">
-                    <span class="fusion-src-name">${escHtml(l2.label)}</span>
-                    <span class="fusion-src-detail">${(l2.score * 100).toFixed(1)}%</span>
-                </div>
-                <div class="fusion-bar"><span class="fusion-bar-fill ${l2.ai === false ? "fusion-neg" : "fusion-pos"}" style="width:${(l2.score * 100).toFixed(0)}%"></span></div>
-            </div>`;
-        const bars = result.labels.slice().sort((a2, b2) => b2.score - a2.score).map(barOf).join("");
-        const detailBlock = result.detail && result.detail.length ? `<div class="freq-votes" style="margin-top:14px"><div class="freq-subtitle">${escHtml(t2("model.clip.prompts"))}</div>${result.detail.map(barOf).join("")}</div>` : "";
-        panel.innerHTML = `
-        <div class="freq-disclaimer">
-            <span class="freq-disclaimer-tag">${escHtml(t2("model.tag"))}</span>
-            <span>${escHtml(t2("model.resultDisclaimer", { id: result.modelId, dev: result.device || "\u2014" }))}</span>
-        </div>
-        <div class="freq-head">
-            <div class="freq-verdict ${conf ? "conf-" + conf : ""}">
-                <span class="freq-verdict-label">${escHtml(t2("model.probLabel"))}</span>
-                <span class="freq-verdict-value">${pct == null ? "\u2014" : pct + "%"} \xB7 ${escHtml(verdict)}</span>
-                <span class="freq-score">${escHtml(t2("model.device", { dev: result.device || "\u2014" }))}</span>
-            </div>
-        </div>
-        <div class="freq-votes"><div class="freq-subtitle">${escHtml(t2("model.classes"))}</div>${bars}</div>
-        ${detailBlock}`;
-      }
       document.getElementById("btnConvert").addEventListener("click", async () => {
         if (!currentFile || !currentBytes) return;
         const btn = document.getElementById("btnConvert");
@@ -7354,8 +7395,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         if (currentDetections) refreshFusion();
         if (lastForensicsResult) renderForensicsPanel(document.getElementById("forensicsPanel"), lastForensicsResult);
         else if (currentFile) resetSubPanel("forensicsPanel", "btnRunForensics", "forensics");
-        if (lastModelResult) renderModelPanel(document.getElementById("modelPanel"), lastModelResult);
-        else if (currentFile) resetSubPanel("modelPanel", "btnRunModel", "model");
         const mp = document.getElementById("metadataPanel");
         if (mp && mp.innerHTML && currentMeta) {
           renderMetadataPanel(mp, {

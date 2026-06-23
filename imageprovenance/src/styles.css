@@ -443,6 +443,32 @@ a:hover { color: var(--text-muted); }
 .fusion-bar-fill.fusion-pos { background: var(--danger); }
 .fusion-bar-fill.fusion-neg { background: var(--success); }
 .fusion-pending { font-size: 11px; color: var(--text-subtle); margin-top: 12px; }
+
+/* ===== Forensic suite ===== */
+.forensic-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+.forensic-card { gap: 7px; }
+.forensic-card .freq-viz-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.forensic-score {
+    margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 700;
+    font-size: 12px; padding: 1px 8px; border-radius: 999px;
+}
+.forensic-score.forensic-hi  { background: var(--danger-bg);  color: var(--danger); }
+.forensic-score.forensic-mid { background: var(--warn-bg);    color: var(--warn); }
+.forensic-score.forensic-lo  { background: var(--success-bg); color: var(--success); }
+.forensic-badge {
+    font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 1px 6px; border-radius: 4px;
+}
+.forensic-badge.na  { background: var(--surface-hover); color: var(--text-subtle); }
+.forensic-badge.low { background: var(--warn-bg); color: var(--warn); }
+.forensic-stats { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.forensic-na { opacity: 0.7; }
+.forensic-na-msg {
+    font-size: 12px; color: var(--text-subtle); line-height: 1.55;
+    padding: 20px 12px; text-align: center; background: var(--surface-alt);
+    border: 1px dashed var(--border); border-radius: var(--radius-sm);
+}
+@media (max-width: 640px) { .forensic-grid { grid-template-columns: 1fr; } }
 @media (max-width: 560px) {
     .fusion-card { flex-direction: column; align-items: stretch; gap: 14px; }
     .fusion-gauge { align-self: center; }

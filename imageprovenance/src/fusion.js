@@ -16,9 +16,9 @@ import { t } from './i18n.js';
 const sigmoid = (x) => 1 / (1 + Math.exp(-x));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 
-// inputs: { detections, freq, forensics, model }  (any may be null/absent)
+// inputs: { detections, freq, forensics }  (any may be null/absent)
 export function computeFusion(inputs) {
-    const { detections = [], freq = null, forensics = null, model = null } = inputs || {};
+    const { detections = [], freq = null, forensics = null } = inputs || {};
     const sources = [];
 
     // --- Decisive provenance signals (short-circuit) ---
@@ -38,23 +38,6 @@ export function computeFusion(inputs) {
         sources.push({ key: srcKey, kind, delta, detail });
     };
 
-    if (model && Number.isFinite(model.aiProb)) {
-        // Small detectors are noisy in the middle of their range and notoriously
-        // over-flag photos of documents/ID cards/screens (lamination glare, moiré
-        // and recompression mimic "AI" texture stats). So the model only VOTES
-        // when it is confidently one-sided — a dead-band: aiProb in [0.30, 0.78]
-        // contributes nothing; outside it ramps to a capped ±1.5 log-odds push.
-        // One model still can't reach "certain" alone — a second signal must agree.
-        const p = model.aiProb;
-        let delta = 0;
-        if (p >= 0.78) delta = clamp((p - 0.78) / 0.22 * 1.5, 0, 1.5);
-        else if (p <= 0.30) delta = clamp((p - 0.30) / 0.30 * 1.5, -1.5, 0);
-        const neutral = Math.abs(delta) < 0.02;
-        add(delta, 'fusion.src.model', 'model',
-            neutral
-                ? t('fusion.detail.modelNeutral', { pct: Math.round(p * 100) })
-                : t('fusion.detail.model', { pct: Math.round(p * 100), dev: model.device || '—' }));
-    }
     if (freq && freq.score) {
         const tot = clamp(freq.score.total, -4, 9);
         add(tot * 0.18, 'fusion.src.freq', 'freq',
@@ -88,7 +71,7 @@ export function computeFusion(inputs) {
         else { label = t('fusion.label.likelyReal'); conf = 'info'; }
     }
 
-    return { prob, label, conf, decisive, evidence, sources, hasModel: !!model, hasForensics: !!forensics };
+    return { prob, label, conf, decisive, evidence, sources, hasForensics: !!forensics };
 }
 
 export function renderFusionSummary(container, fusion) {
@@ -114,7 +97,6 @@ export function renderFusionSummary(container, fusion) {
         : `<div class="freq-empty">${esc(t('fusion.noEvidence'))}</div>`;
 
     const pending = [];
-    if (!fusion.hasModel) pending.push(t('fusion.pending.model'));
     if (!fusion.hasForensics) pending.push(t('fusion.pending.forensics'));
     const pendingHtml = pending.length
         ? `<div class="fusion-pending">${esc(t('fusion.pending.prefix'))} ${pending.map(esc).join(' · ')}</div>`
