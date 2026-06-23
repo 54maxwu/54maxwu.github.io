@@ -6278,14 +6278,15 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         device: _device,
         dtype: dtypeFor(_device),
         progress_callback: (p2) => {
-          if (p2 && p2.status === "progress" && p2.total) {
+          if (!p2) return;
+          if (p2.status === "progress" && p2.total) {
             onProgress({
               status: "download",
               file: p2.file,
               pct: Math.round(p2.loaded / p2.total * 100)
             });
-          } else if (p2 && p2.status) {
-            onProgress({ status: p2.status, file: p2.file });
+          } else {
+            onProgress({ status: "loading", file: p2.file });
           }
         }
       };
@@ -6316,12 +6317,18 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         label: String(r2.label),
         score: Number(r2.score)
       }));
-      let aiProb = null;
       const real = labels.find((l2) => realLabel(l2.label));
-      const ai = labels.find((l2) => aiLabel(l2.label));
-      if (real) aiProb = 1 - real.score;
-      else if (ai) aiProb = ai.score;
-      else {
+      const aiClasses = labels.filter((l2) => aiLabel(l2.label) && !realLabel(l2.label));
+      let aiProb = null;
+      if (real && aiClasses.length) {
+        const maxAi = Math.max(...aiClasses.map((l2) => l2.score));
+        const denom = maxAi + real.score;
+        aiProb = denom > 0 ? maxAi / denom : null;
+      } else if (aiClasses.length) {
+        aiProb = Math.max(...aiClasses.map((l2) => l2.score));
+      } else if (real) {
+        aiProb = 1 - real.score;
+      } else {
         const top = labels.slice().sort((a2, b2) => b2.score - a2.score)[0];
         aiProb = top && aiLabel(top.label) ? top.score : top ? 1 - top.score : null;
       }

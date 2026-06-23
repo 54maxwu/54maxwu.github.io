@@ -62,14 +62,18 @@ export async function getPipeline(onProgress = () => {}) {
             device: _device,
             dtype: dtypeFor(_device),
             progress_callback: (p) => {
-                if (p && p.status === 'progress' && p.total) {
+                if (!p) return;
+                // 'progress' events carry loaded/total → real percentage. Other
+                // events ('initiate'/'download'/'done') have no total, so map them
+                // to a generic "loading" message instead of a bogus undefined%.
+                if (p.status === 'progress' && p.total) {
                     onProgress({
                         status: 'download',
                         file: p.file,
                         pct: Math.round((p.loaded / p.total) * 100),
                     });
-                } else if (p && p.status) {
-                    onProgress({ status: p.status, file: p.file });
+                } else {
+                    onProgress({ status: 'loading', file: p.file });
                 }
             },
         };
@@ -103,15 +107,26 @@ export async function classifyImage(file, onProgress = () => {}) {
         const labels = (Array.isArray(raw) ? raw : [raw]).map(r => ({
             label: String(r.label), score: Number(r.score),
         }));
-        // Derive a single AI probability. With a multi-class model the robust
-        // estimate is 1 − P(real): summing several AI classes against one real
-        // class. Fall back to a single AI class, then to top-label polarity.
-        let aiProb = null;
+        // Derive a single AI probability. This model has FOUR AI classes vs ONE
+        // "real" class, so probability mass naturally splits across the AI
+        // buckets — using 1 − P(real) would systematically over-flag real photos
+        // (it did: a photo whose top-1 class was "real" still scored 71% AI).
+        // Instead pit the strongest single AI class head-to-head against "real":
+        //   aiProb = maxAI / (maxAI + real)
+        // For a binary artificial/human model the two scores sum to 1, so this
+        // reduces to P(artificial) — fully backward-compatible.
         const real = labels.find(l => realLabel(l.label));
-        const ai = labels.find(l => aiLabel(l.label));
-        if (real) aiProb = 1 - real.score;
-        else if (ai) aiProb = ai.score;
-        else {
+        const aiClasses = labels.filter(l => aiLabel(l.label) && !realLabel(l.label));
+        let aiProb = null;
+        if (real && aiClasses.length) {
+            const maxAi = Math.max(...aiClasses.map(l => l.score));
+            const denom = maxAi + real.score;
+            aiProb = denom > 0 ? maxAi / denom : null;
+        } else if (aiClasses.length) {
+            aiProb = Math.max(...aiClasses.map(l => l.score));
+        } else if (real) {
+            aiProb = 1 - real.score;
+        } else {
             const top = labels.slice().sort((a, b) => b.score - a.score)[0];
             aiProb = top && aiLabel(top.label) ? top.score : (top ? 1 - top.score : null);
         }
