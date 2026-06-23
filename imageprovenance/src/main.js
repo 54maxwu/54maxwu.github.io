@@ -570,21 +570,24 @@ document.addEventListener('click', async (ev) => {
 
 function renderModelPanel(panel, result) {
     const pct = Number.isFinite(result.aiProb) ? Math.round(result.aiProb * 100) : null;
-    const conf = pct == null ? null : pct >= 65 ? 'medium' : pct >= 40 ? 'weak' : 'info';
+    // Only the confident extremes get a verdict; the noisy middle is "uncertain".
+    const conf = pct == null ? null : pct >= 80 ? 'medium' : pct > 30 ? 'weak' : 'info';
     const verdict = pct == null ? t('model.verdict.unknown')
-        : pct >= 65 ? t('model.verdict.ai')
-        : pct >= 40 ? t('model.verdict.uncertain')
+        : pct >= 80 ? t('model.verdict.ai')
+        : pct > 30 ? t('model.verdict.uncertain')
         : t('model.verdict.real');
-    const bars = result.labels
-        .slice().sort((a, b) => b.score - a.score)
-        .map(l => `
+    const barOf = (l) => `
             <div class="fusion-src">
                 <div class="fusion-src-top">
                     <span class="fusion-src-name">${escHtml(l.label)}</span>
                     <span class="fusion-src-detail">${(l.score * 100).toFixed(1)}%</span>
                 </div>
-                <div class="fusion-bar"><span class="fusion-bar-fill fusion-pos" style="width:${(l.score * 100).toFixed(0)}%"></span></div>
-            </div>`).join('');
+                <div class="fusion-bar"><span class="fusion-bar-fill ${l.ai === false ? 'fusion-neg' : 'fusion-pos'}" style="width:${(l.score * 100).toFixed(0)}%"></span></div>
+            </div>`;
+    const bars = result.labels.slice().sort((a, b) => b.score - a.score).map(barOf).join('');
+    const detailBlock = result.detail && result.detail.length
+        ? `<div class="freq-votes" style="margin-top:14px"><div class="freq-subtitle">${escHtml(t('model.clip.prompts'))}</div>${result.detail.map(barOf).join('')}</div>`
+        : '';
     panel.innerHTML = `
         <div class="freq-disclaimer">
             <span class="freq-disclaimer-tag">${escHtml(t('model.tag'))}</span>
@@ -597,7 +600,8 @@ function renderModelPanel(panel, result) {
                 <span class="freq-score">${escHtml(t('model.device', { dev: result.device || '—' }))}</span>
             </div>
         </div>
-        <div class="freq-votes"><div class="freq-subtitle">${escHtml(t('model.classes'))}</div>${bars}</div>`;
+        <div class="freq-votes"><div class="freq-subtitle">${escHtml(t('model.classes'))}</div>${bars}</div>
+        ${detailBlock}`;
 }
 
 // ================= Convert =================

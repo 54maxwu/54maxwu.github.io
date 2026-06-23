@@ -5933,16 +5933,21 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         "fusion.src.edit": { zh: "\u4FEE\u5716\u75D5\u8DE1", en: "Editing trace" },
         "fusion.src.provenance": { zh: "\u4F86\u6E90\u6191\u8B49", en: "Provenance" },
         "fusion.detail.model": { zh: "\u6A21\u578B\u5224 AI ${pct}% \xB7 ${dev}", en: "model says AI ${pct}% \xB7 ${dev}" },
+        "fusion.detail.modelNeutral": { zh: "\u6A21\u578B ${pct}% \xB7 \u4FE1\u5FC3\u4E0D\u8DB3,\u4E0D\u8A08\u5165", en: "model ${pct}% \xB7 low confidence, not counted" },
         "fusion.detail.freq": { zh: "\u555F\u767C\u5F97\u5206 ${total}", en: "heuristic score ${total}" },
         "fusion.detail.forensics": { zh: "\u7AC4\u6539\u5206 ${score}", en: "tamper score ${score}" },
         "fusion.pending.prefix": { zh: "\u5C1A\u672A\u57F7\u884C:", en: "Not yet run:" },
         "fusion.pending.model": { zh: "AI \u6A21\u578B", en: "AI model" },
         "fusion.pending.forensics": { zh: "\u5340\u57DF\u9451\u8B58", en: "Forensics" },
         // ===== AI model tab =====
-        "model.tag": { zh: "\u771F\u6A21\u578B", en: "Real model" },
-        "model.disclaimer": { zh: "\u700F\u89BD\u5668\u5167\u904B\u884C\u7684\u795E\u7D93\u7DB2\u8DEF \xB7 \u9996\u6B21\u9700\u4E0B\u8F09\u6B0A\u91CD (~25\u201345MB) \xB7 \u5716\u7247\u4E0D\u4E0A\u50B3,\u50C5\u4E0B\u8F09\u6A21\u578B", en: "A neural net running in your browser \xB7 first run downloads ~25\u201345MB of weights \xB7 the image is never uploaded, only the model is downloaded" },
-        "model.runBtn": { zh: "\u57F7\u884C AI \u6A21\u578B\u5075\u6E2C", en: "Run AI model detection" },
-        "model.panelHint": { zh: "\u8F09\u5165 ai-source-detector (ViT,\u542B real \u985E\u5225\u8207\u5404\u751F\u6210\u5668\u5206\u985E),WebGPU \u52A0\u901F,\u7D50\u679C\u4E26\u5165\u7D9C\u5408\u5224\u5B9A\u3002", en: "Loads ai-source-detector (ViT, with a real class + per-generator classes), WebGPU-accelerated; result folds into the combined verdict." },
+        "model.tag": { zh: "CLIP \u96F6\u6A23\u672C", en: "CLIP zero-shot" },
+        "model.disclaimer": { zh: "\u700F\u89BD\u5668\u5167\u904B\u884C\u7684 CLIP \u96F6\u6A23\u672C\u5224\u65B7 \xB7 \u9996\u6B21\u9700\u4E0B\u8F09\u6B0A\u91CD (~85MB) \xB7 \u5716\u7247\u4E0D\u4E0A\u50B3,\u50C5\u4E0B\u8F09\u6A21\u578B", en: "CLIP zero-shot, running in your browser \xB7 first run downloads ~85MB of weights \xB7 the image is never uploaded, only the model is downloaded" },
+        "model.runBtn": { zh: "\u57F7\u884C CLIP \u5075\u6E2C", en: "Run CLIP detection" },
+        "model.panelHint": { zh: "\u8F09\u5165 CLIP (ViT-B/16),\u7528\u300C\u771F\u5BE6\u7167\u7247 vs AI \u751F\u6210\u300D\u591A\u7D44\u63CF\u8FF0\u6BD4\u5C0D,WebGPU \u52A0\u901F,\u7D50\u679C\u4E26\u5165\u7D9C\u5408\u5224\u5B9A\u3002", en: 'Loads CLIP (ViT-B/16) and compares the image against several "real photo vs AI-generated" descriptions; WebGPU-accelerated; folds into the combined verdict.' },
+        "model.clip.aiClass": { zh: "AI \u751F\u6210\u50BE\u5411", en: "AI-generated" },
+        "model.clip.realClass": { zh: "\u771F\u5BE6\u7167\u7247\u50BE\u5411", en: "Real photo" },
+        "model.clip.prompt": { zh: "\u63CF\u8FF0", en: "Prompt" },
+        "model.clip.prompts": { zh: "\u5404\u63CF\u8FF0\u7684 AI \u50BE\u5411(\u96F6\u6A23\u672C)", en: "Per-prompt AI score (zero-shot)" },
         "model.stage.init": { zh: "\u521D\u59CB\u5316\u2026", en: "Initializing\u2026" },
         "model.stage.load": { zh: "\u8F09\u5165\u6A21\u578B\u2026", en: "Loading model\u2026" },
         "model.stage.download": { zh: "\u4E0B\u8F09\u6B0A\u91CD ${pct}% \xB7 ${file}", en: "Downloading weights ${pct}% \xB7 ${file}" },
@@ -5951,7 +5956,7 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         "model.probLabel": { zh: "AI \u6A5F\u7387", en: "AI probability" },
         "model.classes": { zh: "\u5404\u985E\u5225\u5206\u6578", en: "Class scores" },
         "model.device": { zh: "\u904B\u7B97\u5F8C\u7AEF:${dev}", en: "Backend: ${dev}" },
-        "model.resultDisclaimer": { zh: "\u6A21\u578B ${id} \xB7 \u5F8C\u7AEF ${dev} \xB7 \u5C0F\u578B\u5075\u6E2C\u5668\u5C0D\u58D3\u7E2E\u5716/\u624B\u6A5F\u7167/\u7FFB\u62CD\u53EF\u80FD\u8AA4\u5831\u70BA AI,\u7D9C\u5408\u5224\u5B9A\u5DF2\u5C0D\u6B64\u7968\u964D\u6B0A\u4E26\u8A2D\u4E0A\u9650,\u50C5\u4F5C\u4E00\u7968\u53C3\u8003\u3002", en: "Model ${id} \xB7 backend ${dev} \xB7 small detectors can misfire (flag real/compressed/phone photos as AI); the combined verdict down-weights and caps this vote \u2014 treat it as one reference vote." },
+        "model.resultDisclaimer": { zh: "${id} \xB7 \u5F8C\u7AEF ${dev} \xB7 CLIP \u96F6\u6A23\u672C:\u7528\u8A9E\u610F\u6BD4\u5C0D\u300C\u771F\u5BE6 vs AI\u300D,\u6BD4\u5C0F\u578B\u5206\u985E\u5668\u6CDB\u5316\u597D,\u4F46\u4ECD\u975E\u7CBE\u6E96\u5075\u6E2C\u5668\u3002\u53EA\u6709 >80% \u6216 <30% \u624D\u6709\u53C3\u8003\u6027,\u4E2D\u9593\u5340\u9593\u7D9C\u5408\u5224\u5B9A\u4E0D\u8A08\u5165\u3002", en: '${id} \xB7 backend ${dev} \xB7 CLIP zero-shot: semantic "real vs AI" comparison \u2014 generalizes better than tiny classifiers but is still not a precise detector. Only >80% or <30% is meaningful; the mid-range is ignored by the combined verdict.' },
         "model.verdict.ai": { zh: "\u5224\u5B9A\u70BA AI \u751F\u6210", en: "Classified AI-generated" },
         "model.verdict.uncertain": { zh: "\u4E0D\u78BA\u5B9A", en: "Uncertain" },
         "model.verdict.real": { zh: "\u5224\u5B9A\u70BA\u771F\u5BE6", en: "Classified real" },
@@ -6242,12 +6247,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
   });
 
   // src/aimodel.js
-  function aiLabel(label) {
-    return /art|ai|fake|gener|synth|diffus|machine|sdxl|midjourney|dalle|flux/i.test(label);
-  }
-  function realLabel(label) {
-    return /human|real|photo|authentic|natural|genuine/i.test(label);
-  }
   async function loadLib() {
     if (_libPromise) return _libPromise;
     const url = TRANSFORMERS_CDN;
@@ -6273,30 +6272,25 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       const lib = await loadLib();
       const wantGpu = !!navigator.gpu;
       _device = wantGpu ? "webgpu" : "wasm";
-      const dtypeFor = (dev) => dev === "webgpu" ? "fp16" : "q8";
       const opts = {
         device: _device,
         dtype: dtypeFor(_device),
         progress_callback: (p2) => {
           if (!p2) return;
           if (p2.status === "progress" && p2.total) {
-            onProgress({
-              status: "download",
-              file: p2.file,
-              pct: Math.round(p2.loaded / p2.total * 100)
-            });
+            onProgress({ status: "download", file: p2.file, pct: Math.round(p2.loaded / p2.total * 100) });
           } else {
             onProgress({ status: "loading", file: p2.file });
           }
         }
       };
       try {
-        return await lib.pipeline("image-classification", MODEL_ID, opts);
+        return await lib.pipeline("zero-shot-image-classification", MODEL_ID, opts);
       } catch (err) {
         if (_device === "webgpu") {
           _device = "wasm";
           onProgress({ status: "fallback" });
-          return await lib.pipeline("image-classification", MODEL_ID, { ...opts, device: "wasm", dtype: dtypeFor("wasm") });
+          return await lib.pipeline("zero-shot-image-classification", MODEL_ID, { ...opts, device: "wasm", dtype: dtypeFor("wasm") });
         }
         throw err;
       }
@@ -6312,40 +6306,44 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
     onProgress({ status: "infer" });
     const url = URL.createObjectURL(file);
     try {
-      const raw = await pipe(url);
-      const labels = (Array.isArray(raw) ? raw : [raw]).map((r2) => ({
-        label: String(r2.label),
-        score: Number(r2.score)
-      }));
-      const real = labels.find((l2) => realLabel(l2.label));
-      const aiClasses = labels.filter((l2) => aiLabel(l2.label) && !realLabel(l2.label));
-      let aiProb = null;
-      if (real && aiClasses.length) {
-        const maxAi = Math.max(...aiClasses.map((l2) => l2.score));
-        const denom = maxAi + real.score;
-        aiProb = denom > 0 ? maxAi / denom : null;
-      } else if (aiClasses.length) {
-        aiProb = Math.max(...aiClasses.map((l2) => l2.score));
-      } else if (real) {
-        aiProb = 1 - real.score;
-      } else {
-        const top = labels.slice().sort((a2, b2) => b2.score - a2.score)[0];
-        aiProb = top && aiLabel(top.label) ? top.score : top ? 1 - top.score : null;
+      const pairScores = [];
+      for (const pair of PROMPT_PAIRS) {
+        const res = await pipe(url, [pair.ai, pair.real]);
+        const arr = Array.isArray(res) ? res : [res];
+        const aiEntry = arr.find((r2) => r2.label === pair.ai);
+        if (aiEntry) pairScores.push(Number(aiEntry.score));
       }
-      return { aiProb, labels, device: _device, modelId: MODEL_ID };
+      const aiProb = pairScores.length ? pairScores.reduce((s2, v2) => s2 + v2, 0) / pairScores.length : null;
+      const labels = [
+        { label: t2("model.clip.aiClass"), score: aiProb ?? 0, ai: true },
+        { label: t2("model.clip.realClass"), score: aiProb == null ? 0 : 1 - aiProb, ai: false }
+      ];
+      const detail = pairScores.map((s2, i2) => ({
+        label: `${t2("model.clip.prompt")} #${i2 + 1}`,
+        score: s2,
+        ai: true
+      }));
+      return { aiProb, labels, detail, device: _device, modelId: MODEL_ID, kind: "clip" };
     } finally {
       URL.revokeObjectURL(url);
     }
   }
-  var TRANSFORMERS_CDN, MODEL_ID, _libPromise, _pipePromise, _device;
+  var TRANSFORMERS_CDN, MODEL_ID, PROMPT_PAIRS, _libPromise, _pipePromise, _device, dtypeFor;
   var init_aimodel = __esm({
     "src/aimodel.js"() {
       init_i18n();
       TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2";
-      MODEL_ID = "onnx-community/ai-source-detector-ONNX";
+      MODEL_ID = "Xenova/clip-vit-base-patch16";
+      PROMPT_PAIRS = [
+        { ai: "an AI-generated image", real: "a real photograph" },
+        { ai: "a synthetic image created by AI", real: "a natural photo taken with a camera" },
+        { ai: "a computer-generated picture", real: "an authentic real-world photograph" },
+        { ai: "an image made by a diffusion model", real: "a genuine photo of a real scene" }
+      ];
       _libPromise = null;
       _pipePromise = null;
       _device = null;
+      dtypeFor = (dev) => dev === "webgpu" ? "fp16" : "q8";
     }
   });
 
@@ -6366,13 +6364,16 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       sources.push({ key: srcKey, kind, delta, detail });
     };
     if (model && Number.isFinite(model.aiProb)) {
-      const shrunk = 0.5 + (model.aiProb - 0.5) * 0.65;
-      const delta = clamp3((shrunk - 0.5) * 3.2, -1.5, 1.5);
+      const p2 = model.aiProb;
+      let delta = 0;
+      if (p2 >= 0.78) delta = clamp3((p2 - 0.78) / 0.22 * 1.5, 0, 1.5);
+      else if (p2 <= 0.3) delta = clamp3((p2 - 0.3) / 0.3 * 1.5, -1.5, 0);
+      const neutral = Math.abs(delta) < 0.02;
       add(
         delta,
         "fusion.src.model",
         "model",
-        t2("fusion.detail.model", { pct: Math.round(model.aiProb * 100), dev: model.device || "\u2014" })
+        neutral ? t2("fusion.detail.modelNeutral", { pct: Math.round(p2 * 100) }) : t2("fusion.detail.model", { pct: Math.round(p2 * 100), dev: model.device || "\u2014" })
       );
     }
     if (freq && freq.score) {
@@ -7244,16 +7245,18 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       });
       function renderModelPanel(panel, result) {
         const pct = Number.isFinite(result.aiProb) ? Math.round(result.aiProb * 100) : null;
-        const conf = pct == null ? null : pct >= 65 ? "medium" : pct >= 40 ? "weak" : "info";
-        const verdict = pct == null ? t2("model.verdict.unknown") : pct >= 65 ? t2("model.verdict.ai") : pct >= 40 ? t2("model.verdict.uncertain") : t2("model.verdict.real");
-        const bars = result.labels.slice().sort((a2, b2) => b2.score - a2.score).map((l2) => `
+        const conf = pct == null ? null : pct >= 80 ? "medium" : pct > 30 ? "weak" : "info";
+        const verdict = pct == null ? t2("model.verdict.unknown") : pct >= 80 ? t2("model.verdict.ai") : pct > 30 ? t2("model.verdict.uncertain") : t2("model.verdict.real");
+        const barOf = (l2) => `
             <div class="fusion-src">
                 <div class="fusion-src-top">
                     <span class="fusion-src-name">${escHtml(l2.label)}</span>
                     <span class="fusion-src-detail">${(l2.score * 100).toFixed(1)}%</span>
                 </div>
-                <div class="fusion-bar"><span class="fusion-bar-fill fusion-pos" style="width:${(l2.score * 100).toFixed(0)}%"></span></div>
-            </div>`).join("");
+                <div class="fusion-bar"><span class="fusion-bar-fill ${l2.ai === false ? "fusion-neg" : "fusion-pos"}" style="width:${(l2.score * 100).toFixed(0)}%"></span></div>
+            </div>`;
+        const bars = result.labels.slice().sort((a2, b2) => b2.score - a2.score).map(barOf).join("");
+        const detailBlock = result.detail && result.detail.length ? `<div class="freq-votes" style="margin-top:14px"><div class="freq-subtitle">${escHtml(t2("model.clip.prompts"))}</div>${result.detail.map(barOf).join("")}</div>` : "";
         panel.innerHTML = `
         <div class="freq-disclaimer">
             <span class="freq-disclaimer-tag">${escHtml(t2("model.tag"))}</span>
@@ -7266,7 +7269,8 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
                 <span class="freq-score">${escHtml(t2("model.device", { dev: result.device || "\u2014" }))}</span>
             </div>
         </div>
-        <div class="freq-votes"><div class="freq-subtitle">${escHtml(t2("model.classes"))}</div>${bars}</div>`;
+        <div class="freq-votes"><div class="freq-subtitle">${escHtml(t2("model.classes"))}</div>${bars}</div>
+        ${detailBlock}`;
       }
       document.getElementById("btnConvert").addEventListener("click", async () => {
         if (!currentFile || !currentBytes) return;

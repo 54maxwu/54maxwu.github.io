@@ -39,15 +39,21 @@ export function computeFusion(inputs) {
     };
 
     if (model && Number.isFinite(model.aiProb)) {
-        // Small detectors are poorly calibrated and over-flag real/phone photos,
-        // so we (1) SHRINK the probability 35% toward 0.5 to tame 99.8%-style
-        // overconfidence, then (2) CAP the log-odds push at ±1.5 so one model
-        // alone can only move the verdict to "leaning", never to "certain".
-        // It takes a *second* corroborating signal to cross into high confidence.
-        const shrunk = 0.5 + (model.aiProb - 0.5) * 0.65;
-        const delta = clamp((shrunk - 0.5) * 3.2, -1.5, 1.5);
+        // Small detectors are noisy in the middle of their range and notoriously
+        // over-flag photos of documents/ID cards/screens (lamination glare, moiré
+        // and recompression mimic "AI" texture stats). So the model only VOTES
+        // when it is confidently one-sided — a dead-band: aiProb in [0.30, 0.78]
+        // contributes nothing; outside it ramps to a capped ±1.5 log-odds push.
+        // One model still can't reach "certain" alone — a second signal must agree.
+        const p = model.aiProb;
+        let delta = 0;
+        if (p >= 0.78) delta = clamp((p - 0.78) / 0.22 * 1.5, 0, 1.5);
+        else if (p <= 0.30) delta = clamp((p - 0.30) / 0.30 * 1.5, -1.5, 0);
+        const neutral = Math.abs(delta) < 0.02;
         add(delta, 'fusion.src.model', 'model',
-            t('fusion.detail.model', { pct: Math.round(model.aiProb * 100), dev: model.device || '—' }));
+            neutral
+                ? t('fusion.detail.modelNeutral', { pct: Math.round(p * 100) })
+                : t('fusion.detail.model', { pct: Math.round(p * 100), dev: model.device || '—' }));
     }
     if (freq && freq.score) {
         const tot = clamp(freq.score.total, -4, 9);

@@ -1,33 +1,36 @@
-// In-browser AI-image classifier — a *real* trained model, not a heuristic.
+// In-browser AI-image detector — CLIP zero-shot.
 //
-// Loads transformers.js (Hugging Face) from a CDN on first use and runs a ViT
-// image-classification model entirely client-side via WebGPU (falling back to
-// WASM). The image is never uploaded — only the quantized model weights are
-// downloaded, once, then cached by the browser.
+// Loads transformers.js from a CDN on first use and runs CLIP
+// (Xenova/clip-vit-base-patch16) entirely client-side via WebGPU (falling back
+// to WASM). The image is never uploaded — only the model weights are, once.
 //
-// Model: onnx-community/ai-source-detector-ONNX. Unlike a binary SDXL-vs-one-
-// realset detector, it has an explicit "real" class plus per-generator classes
-// (stable_diffusion / midjourney / dalle / other_ai), so it generalizes better
-// to ordinary photos and yields a vendor breakdown. Still just one opinion —
-// small detectors can misfire on compressed/phone photos — so fusion.js shrinks
-// and CAPS this vote rather than letting it dominate.
+// Why CLIP zero-shot instead of a tiny fine-tuned classifier: the small SDXL/
+// generator classifiers badly over-flag real-world photos (documents, ID cards,
+// screenshots) because they overfit to one generator's artifacts. CLIP carries
+// broad world knowledge, so we ask it to compare each image against natural-
+// language descriptions of "a real photograph" vs "an AI-generated image",
+// averaged over several prompt phrasings. It is still just one opinion — and
+// zero-shot detection is far from perfect — so fusion.js gates it behind a
+// confidence dead-band and caps its influence.
 
 import { t } from './i18n.js';
 
 // Pin a version so behavior is reproducible. ESM build, browser-ready.
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2';
-const MODEL_ID = 'onnx-community/ai-source-detector-ONNX';
+const MODEL_ID = 'Xenova/clip-vit-base-patch16';
+
+// Balanced prompt pairs. Each pair is scored independently (clean 2-way softmax)
+// and the AI-side scores are averaged, so no single phrasing dominates.
+const PROMPT_PAIRS = [
+    { ai: 'an AI-generated image',                    real: 'a real photograph' },
+    { ai: 'a synthetic image created by AI',          real: 'a natural photo taken with a camera' },
+    { ai: 'a computer-generated picture',             real: 'an authentic real-world photograph' },
+    { ai: 'an image made by a diffusion model',       real: 'a genuine photo of a real scene' },
+];
 
 let _libPromise = null;   // resolves to the transformers module
-let _pipePromise = null;  // resolves to the classification pipeline
+let _pipePromise = null;  // resolves to the zero-shot pipeline
 let _device = null;
-
-function aiLabel(label) {
-    return /art|ai|fake|gener|synth|diffus|machine|sdxl|midjourney|dalle|flux/i.test(label);
-}
-function realLabel(label) {
-    return /human|real|photo|authentic|natural|genuine/i.test(label);
-}
 
 async function loadLib() {
     if (_libPromise) return _libPromise;
@@ -49,15 +52,14 @@ export function modelSupported() {
     return typeof Worker !== 'undefined' && typeof WebAssembly !== 'undefined';
 }
 
+const dtypeFor = (dev) => dev === 'webgpu' ? 'fp16' : 'q8';
+
 export async function getPipeline(onProgress = () => {}) {
     if (_pipePromise) return _pipePromise;
     _pipePromise = (async () => {
         const lib = await loadLib();
         const wantGpu = !!navigator.gpu;
         _device = wantGpu ? 'webgpu' : 'wasm';
-        // WebGPU runs fp16 well (~half the download); WASM uses the q8 quantized
-        // weights (~25MB) for a fast, broadly-compatible load.
-        const dtypeFor = (dev) => dev === 'webgpu' ? 'fp16' : 'q8';
         const opts = {
             device: _device,
             dtype: dtypeFor(_device),
@@ -67,24 +69,20 @@ export async function getPipeline(onProgress = () => {}) {
                 // events ('initiate'/'download'/'done') have no total, so map them
                 // to a generic "loading" message instead of a bogus undefined%.
                 if (p.status === 'progress' && p.total) {
-                    onProgress({
-                        status: 'download',
-                        file: p.file,
-                        pct: Math.round((p.loaded / p.total) * 100),
-                    });
+                    onProgress({ status: 'download', file: p.file, pct: Math.round((p.loaded / p.total) * 100) });
                 } else {
                     onProgress({ status: 'loading', file: p.file });
                 }
             },
         };
         try {
-            return await lib.pipeline('image-classification', MODEL_ID, opts);
+            return await lib.pipeline('zero-shot-image-classification', MODEL_ID, opts);
         } catch (err) {
             // WebGPU can fail on some drivers — retry once on WASM.
             if (_device === 'webgpu') {
                 _device = 'wasm';
                 onProgress({ status: 'fallback' });
-                return await lib.pipeline('image-classification', MODEL_ID, { ...opts, device: 'wasm', dtype: dtypeFor('wasm') });
+                return await lib.pipeline('zero-shot-image-classification', MODEL_ID, { ...opts, device: 'wasm', dtype: dtypeFor('wasm') });
             }
             throw err;
         }
@@ -101,36 +99,26 @@ export async function classifyImage(file, onProgress = () => {}) {
     onProgress({ status: 'infer' });
     const url = URL.createObjectURL(file);
     try {
-        // Default top_k returns the top classes; this model has 2 labels, so we
-        // get both. (Avoids depending on the topk/top_k option name across versions.)
-        const raw = await pipe(url);
-        const labels = (Array.isArray(raw) ? raw : [raw]).map(r => ({
-            label: String(r.label), score: Number(r.score),
-        }));
-        // Derive a single AI probability. This model has FOUR AI classes vs ONE
-        // "real" class, so probability mass naturally splits across the AI
-        // buckets — using 1 − P(real) would systematically over-flag real photos
-        // (it did: a photo whose top-1 class was "real" still scored 71% AI).
-        // Instead pit the strongest single AI class head-to-head against "real":
-        //   aiProb = maxAI / (maxAI + real)
-        // For a binary artificial/human model the two scores sum to 1, so this
-        // reduces to P(artificial) — fully backward-compatible.
-        const real = labels.find(l => realLabel(l.label));
-        const aiClasses = labels.filter(l => aiLabel(l.label) && !realLabel(l.label));
-        let aiProb = null;
-        if (real && aiClasses.length) {
-            const maxAi = Math.max(...aiClasses.map(l => l.score));
-            const denom = maxAi + real.score;
-            aiProb = denom > 0 ? maxAi / denom : null;
-        } else if (aiClasses.length) {
-            aiProb = Math.max(...aiClasses.map(l => l.score));
-        } else if (real) {
-            aiProb = 1 - real.score;
-        } else {
-            const top = labels.slice().sort((a, b) => b.score - a.score)[0];
-            aiProb = top && aiLabel(top.label) ? top.score : (top ? 1 - top.score : null);
+        const pairScores = [];
+        for (const pair of PROMPT_PAIRS) {
+            const res = await pipe(url, [pair.ai, pair.real]);
+            const arr = Array.isArray(res) ? res : [res];
+            const aiEntry = arr.find(r => r.label === pair.ai);
+            // Zero-shot softmaxes over the two candidates, so this is P(ai | pair).
+            if (aiEntry) pairScores.push(Number(aiEntry.score));
         }
-        return { aiProb, labels, device: _device, modelId: MODEL_ID };
+        const aiProb = pairScores.length
+            ? pairScores.reduce((s, v) => s + v, 0) / pairScores.length
+            : null;
+        // Expose a transparent two-class summary plus per-prompt AI scores.
+        const labels = [
+            { label: t('model.clip.aiClass'), score: aiProb ?? 0, ai: true },
+            { label: t('model.clip.realClass'), score: aiProb == null ? 0 : 1 - aiProb, ai: false },
+        ];
+        const detail = pairScores.map((s, i) => ({
+            label: `${t('model.clip.prompt')} #${i + 1}`, score: s, ai: true,
+        }));
+        return { aiProb, labels, detail, device: _device, modelId: MODEL_ID, kind: 'clip' };
     } finally {
         URL.revokeObjectURL(url);
     }
