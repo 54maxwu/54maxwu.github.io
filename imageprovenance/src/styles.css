@@ -405,6 +405,49 @@ a:hover { color: var(--text-muted); }
 .freq-viz-box canvas#radialCanvas { background: var(--surface-alt); }
 .freq-viz-hint { font-size: 11px; color: var(--text-subtle); line-height: 1.55; }
 
+/* ===== Combined verdict (fusion summary) ===== */
+#fusionSummary:empty { display: none; }
+.fusion-card {
+    display: flex; gap: 20px; align-items: center;
+    padding: 18px; margin-bottom: 20px;
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface-alt);
+}
+.fusion-gauge {
+    flex: none; width: 104px; height: 104px; border-radius: 50%;
+    display: grid; place-items: center;
+    transition: background var(--dur) var(--ease);
+}
+.fusion-gauge-inner {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: var(--surface); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px;
+    box-shadow: var(--shadow-sm);
+}
+.fusion-pct { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); line-height: 1; }
+.fusion-pct-sign { font-size: 13px; font-weight: 600; margin-left: 1px; }
+.fusion-pct-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); }
+.fusion-body { flex: 1; min-width: 0; }
+.fusion-verdict { font-size: 17px; font-weight: 650; letter-spacing: -0.015em; color: var(--text); }
+.fusion-verdict.conf-strong { color: var(--danger); }
+.fusion-verdict.conf-medium { color: var(--warn); }
+.fusion-verdict.conf-info { color: var(--success); }
+.fusion-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 12px; line-height: 1.5; }
+.fusion-breakdown { display: flex; flex-direction: column; gap: 9px; }
+.fusion-src { display: flex; flex-direction: column; gap: 4px; }
+.fusion-src-top { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+.fusion-src-name { font-weight: 600; color: var(--text); white-space: nowrap; }
+.fusion-src-detail { color: var(--text-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fusion-bar { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.fusion-bar-fill { display: block; height: 100%; border-radius: 3px; transition: width var(--dur) var(--ease); }
+.fusion-bar-fill.fusion-pos { background: var(--danger); }
+.fusion-bar-fill.fusion-neg { background: var(--success); }
+.fusion-pending { font-size: 11px; color: var(--text-subtle); margin-top: 12px; }
+@media (max-width: 560px) {
+    .fusion-card { flex-direction: column; align-items: stretch; gap: 14px; }
+    .fusion-gauge { align-self: center; }
+}
+
 .freq-subtitle { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 8px;
     text-transform: uppercase; letter-spacing: 0.05em; }
 .freq-vote {

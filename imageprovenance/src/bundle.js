@@ -11,11 +11,20 @@
     if (typeof require !== "undefined") return require.apply(this, arguments);
     throw Error('Dynamic require of "' + x2 + '" is not supported');
   });
-  var __esm = (fn, res) => function __init() {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e2) {
+      throw err = [e2], e2;
+    }
   };
   var __commonJS = (cb, mod) => function __require2() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e2) {
+      throw mod = 0, e2;
+    }
   };
   var __copyProps = (to, from, except, desc) => {
     if (from && typeof from === "object" || typeof from === "function") {
@@ -5610,287 +5619,6 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
     }
   });
 
-  // src/panel-metadata.js
-  function fmtExposure(t3) {
-    if (t3 == null) return null;
-    if (typeof t3 === "number") {
-      if (t3 >= 1) return `${t3}s`;
-      return `1/${Math.round(1 / t3)}s`;
-    }
-    if (Array.isArray(t3) && t3.length === 2) {
-      const [num, den] = t3;
-      if (num / den >= 1) return `${(num / den).toFixed(1)}s`;
-      return `${num}/${den}s`;
-    }
-    return String(t3);
-  }
-  function fmtCoord(deg, ref) {
-    if (deg == null) return null;
-    const d2 = Math.abs(deg);
-    const dd = Math.floor(d2);
-    const mm = Math.floor((d2 - dd) * 60);
-    const ss = ((d2 - dd - mm / 60) * 3600).toFixed(2);
-    return `${dd}\xB0${mm}'${ss}" ${ref || (deg >= 0 ? "" : "-")}`;
-  }
-  function row(label, value, mono = false) {
-    if (value == null || value === "") return "";
-    return `<div class="md-row"><span class="md-label">${escHtml(label)}</span><span class="md-value${mono ? " mono" : ""}">${escHtml(value)}</span></div>`;
-  }
-  function section(title, rows, opts = {}) {
-    const content = rows.filter(Boolean).join("");
-    if (!content) return "";
-    const note = opts.note ? `<div class="md-note ${opts.noteType || ""}">${escHtml(opts.note)}</div>` : "";
-    return `<section class="md-section ${opts.accent || ""}">
-        <h4 class="md-section-title">${escHtml(title)}${opts.count ? ` <span class="md-count">${opts.count}</span>` : ""}</h4>
-        ${note}
-        <div class="md-rows">${content}</div>
-    </section>`;
-  }
-  function renderMetadataPanel(container, ctx) {
-    const m2 = ctx.meta || {};
-    const jumbf = ctx.jumbf || {};
-    const file = ctx.file;
-    const hasAny = Object.keys(m2).filter((k2) => !k2.startsWith("_")).length > 0;
-    const signals = analyzeVerdict(m2, jumbf);
-    const verdictHtml = `
-        <section class="md-verdict md-verdict-${signals.level}">
-            <div class="md-verdict-icon">${signals.icon}</div>
-            <div class="md-verdict-text">
-                <div class="md-verdict-title">${escHtml(signals.title)}</div>
-                <div class="md-verdict-sub">${escHtml(signals.sub)}</div>
-            </div>
-        </section>`;
-    const cameraRows = [
-      row("\u54C1\u724C", m2.Make),
-      row("\u578B\u865F", m2.Model),
-      row("\u56FA\u4EF6", m2.Software),
-      row("\u93E1\u982D", m2.LensModel || m2.Lens),
-      row("\u93E1\u982D\u5EE0", m2.LensMake),
-      row("\u93E1\u982D\u5E8F\u5217\u865F", m2.LensSerialNumber),
-      row("\u6A5F\u8EAB\u5E8F\u5217\u865F", m2.BodySerialNumber || m2.SerialNumber),
-      row("\u6240\u6709\u8005", m2.OwnerName || m2.Artist)
-    ];
-    const captureRows = [
-      row("\u5149\u5708", m2.FNumber ? `f/${m2.FNumber}` : null),
-      row("\u5FEB\u9580", fmtExposure(m2.ExposureTime)),
-      row("ISO", m2.ISO || m2.ISOSpeedRatings),
-      row("\u7126\u8DDD", m2.FocalLength ? `${m2.FocalLength}mm` : null),
-      row("\u7B49\u6548\u7126\u8DDD", m2.FocalLengthIn35mmFormat ? `${m2.FocalLengthIn35mmFormat}mm (35mm)` : null),
-      row("\u66DD\u5149\u88DC\u511F", m2.ExposureCompensation != null ? `${m2.ExposureCompensation > 0 ? "+" : ""}${m2.ExposureCompensation} EV` : null),
-      row("\u66DD\u5149\u7A0B\u5E8F", m2.ExposureProgram),
-      row("\u6E2C\u5149\u6A21\u5F0F", m2.MeteringMode),
-      row("\u767D\u5E73\u8861", m2.WhiteBalance),
-      row("\u9583\u5149\u71C8", typeof m2.Flash === "string" ? m2.Flash : m2.Flash != null ? m2.Flash === 0 ? "\u672A\u9583\u5149" : "\u5DF2\u9583\u5149" : null)
-    ];
-    const formatDate = (d2) => d2 instanceof Date ? d2.toLocaleString("zh-CN") : d2 ? String(d2) : null;
-    const timeRows = [
-      row("\u62CD\u651D\u6642\u9593", formatDate(m2.DateTimeOriginal)),
-      row("\u6578\u5B57\u5316\u6642\u9593", formatDate(m2.DateTimeDigitized || m2.CreateDate)),
-      row("\u6700\u5F8C\u4FEE\u6539", formatDate(m2.ModifyDate || m2.DateTime))
-    ];
-    const lat = Number.isFinite(m2.latitude) ? m2.latitude : (Number.isFinite(m2.GPSLatitude) ? m2.GPSLatitude : null);
-    const lon = Number.isFinite(m2.longitude) ? m2.longitude : (Number.isFinite(m2.GPSLongitude) ? m2.GPSLongitude : null);
-    const alt = m2.GPSAltitude;
-    const hasGps = lat != null && lon != null;
-    const gpsRows = hasGps ? [
-      row("\u7D93\u7DEF\u5EA6", `${lat.toFixed(6)}, ${lon.toFixed(6)}`),
-      row("DMS", `${fmtCoord(lat, m2.GPSLatitudeRef || (lat >= 0 ? "N" : "S"))}  /  ${fmtCoord(lon, m2.GPSLongitudeRef || (lon >= 0 ? "E" : "W"))}`),
-      row("\u6D77\u62D4", alt != null ? `${typeof alt === "number" ? alt.toFixed(1) : alt}m` : null),
-      row("\u65B9\u5411", m2.GPSImgDirection != null ? `${m2.GPSImgDirection}\xB0 ${m2.GPSImgDirectionRef || ""}` : null),
-      row("\u6642\u9593\u6233 (UTC)", formatDate(m2.GPSDateStamp || m2.GPSTimeStamp))
-    ] : [];
-    const gpsNote = hasGps ? "\u26A0\uFE0F \u9019\u5F35\u5716\u9644\u5E36\u7CBE\u78BA GPS \u5EA7\u6A19,\u5206\u4EAB\u524D\u5EFA\u8B70\u7528\u300C\u8F49\u63DB\u300D\u6A19\u7C64\u9801\u525D\u96E2\u5143\u6578\u64DA\u3002" : null;
-    const gpsExtra = hasGps ? `<div class="md-actions">
-        <a class="btn-secondary btn-xs" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${lat},${lon}">\u5728 Google Maps \u67E5\u770B</a>
-        <a class="btn-secondary btn-xs" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15">\u5728 OpenStreetMap \u67E5\u770B</a>
-    </div>` : "";
-    const imgRows = [
-      row("\u5C3A\u5BF8", ctx.dims),
-      row("\u8272\u5F69\u7A7A\u9593", m2.ColorSpace === 1 || m2.ColorSpace === "sRGB" ? "sRGB" : m2.ColorSpace),
-      row("ICC \u914D\u7F6E", m2.ProfileDescription || m2.ICC_Profile_Description),
-      row("\u65B9\u5411", m2.Orientation),
-      row("\u5206\u8FA8\u7387", m2.XResolution ? `${m2.XResolution} \xD7 ${m2.YResolution || m2.XResolution} DPI` : null)
-    ];
-    const hist = m2.History || m2["xmpMM:History"] || m2.historyItems;
-    let histHtml = "";
-    if (Array.isArray(hist) && hist.length) {
-      const items = hist.slice(0, 20).map((h2) => {
-        const action = h2.action || h2.Action || "\u2014";
-        const when = h2.when ? formatDate(h2.when) : "";
-        const soft = h2.softwareAgent || h2.SoftwareAgent || "";
-        return `<li><span class="md-hist-action">${escHtml(action)}</span> <span class="md-hist-meta">${escHtml(soft)} ${escHtml(when)}</span></li>`;
-      }).join("");
-      histHtml = `<section class="md-section">
-            <h4 class="md-section-title">\u7DE8\u8F2F\u6B77\u53F2 <span class="md-count">${hist.length}</span></h4>
-            <ol class="md-hist">${items}</ol>
-        </section>`;
-    }
-    let c2paHtml = "";
-    if (jumbf.present) {
-      const c2paRows = [
-        row("DigitalSourceType", jumbf.digitalSourceType || "\u672A\u8072\u660E"),
-        row("JUMBF boxes", jumbf.indices.length),
-        row("Labels", jumbf.labels.join(", ") || "\u2014")
-      ];
-      c2paHtml = section("C2PA / Content Credentials", c2paRows, { accent: "accent" });
-    }
-    const rawLines = [];
-    for (const [k2, v2] of Object.entries(m2)) {
-      if (k2.startsWith("_")) continue;
-      let vs = v2;
-      if (v2 instanceof Date) vs = v2.toISOString();
-      else if (typeof v2 === "object") vs = JSON.stringify(v2);
-      else if (typeof v2 === "number") vs = v2.toString();
-      rawLines.push(`${k2}: ${vs}`);
-    }
-    const rawHtml = rawLines.length ? `<details class="md-raw">
-        <summary>\u5168\u90E8\u539F\u59CB\u5B57\u6BB5 (${rawLines.length})</summary>
-        <pre>${escHtml(rawLines.join("\n"))}</pre>
-    </details>` : "";
-    container.innerHTML = `
-        ${verdictHtml}
-        ${c2paHtml}
-        ${section("\u76F8\u6A5F\u8207\u93E1\u982D", cameraRows)}
-        ${section("\u62CD\u651D\u53C3\u6578", captureRows)}
-        ${section("\u6642\u9593", timeRows)}
-        ${hasGps ? section("\u5730\u7406\u4F4D\u7F6E", gpsRows, { note: gpsNote, noteType: "warn", accent: "accent" }) + gpsExtra : ""}
-        ${section("\u5716\u50CF\u5C6C\u6027", imgRows)}
-        ${histHtml}
-        ${!hasAny && !jumbf.present ? '<section class="md-empty">\u9019\u5F35\u5716\u5E7E\u4E4E\u4E0D\u542B\u4EFB\u4F55\u5143\u6578\u64DA \u2014\u2014 \u8981\u9EBC\u88AB\u525D\u96E2\u904E,\u8981\u9EBC\u6E90\u81EA AI \u751F\u6210\u6216\u622A\u5716\u3002</section>' : ""}
-        ${rawHtml}
-    `;
-  }
-  function analyzeVerdict(m2, jumbf) {
-    const hasCamera = !!(m2.Make && m2.Model);
-    const hasLens = !!(m2.LensModel || m2.Lens);
-    const hasCaptureParams = m2.FNumber && m2.ExposureTime && (m2.ISO || m2.ISOSpeedRatings);
-    const hasGps = m2.latitude != null || m2.GPSLatitude != null;
-    const hasMakerNote = !!(m2.MakerNote || m2.makerNote);
-    const c2paAi = jumbf?.digitalSourceType && [
-      "trainedAlgorithmicMedia",
-      "compositeWithTrainedAlgorithmicMedia",
-      "algorithmicMedia",
-      "dataDrivenMedia"
-    ].includes(jumbf.digitalSourceType);
-    const c2paReal = jumbf?.digitalSourceType === "digitalCapture";
-    const softIsAi = /Midjourney|Stable|Diffusion|ComfyUI|DALL|OpenAI|Firefly|Gemini|Imagen/i.test(m2.Software || "");
-    if (c2paAi || softIsAi) {
-      return {
-        level: "ai",
-        icon: "\u{1F916}",
-        title: "\u5143\u6578\u64DA\u76F4\u63A5\u8072\u660E AI \u751F\u6210",
-        sub: softIsAi ? `Software \u5B57\u6BB5: ${m2.Software}` : `C2PA DigitalSourceType: ${jumbf.digitalSourceType}`
-      };
-    }
-    if (c2paReal) {
-      return {
-        level: "strong",
-        icon: "\u{1F4F8}",
-        title: "\u76F8\u6A5F\u539F\u751F C2PA \u6191\u8B49",
-        sub: `C2PA DigitalSourceType = digitalCapture \xB7 \u8A2D\u5099\u5EE0\u5546\u7C3D\u540D\u53EF\u9A57\u8B49`
-      };
-    }
-    let realScore = 0;
-    if (hasCamera) realScore++;
-    if (hasLens) realScore++;
-    if (hasCaptureParams) realScore += 2;
-    if (hasMakerNote) realScore += 2;
-    if (hasGps) realScore++;
-    if (realScore >= 4) return {
-      level: "strong",
-      icon: "\u{1F4F8}",
-      title: "\u5F37\u70C8\u6307\u5411\u771F\u5BE6\u76F8\u6A5F\u62CD\u651D",
-      sub: "\u5143\u6578\u64DA\u5305\u542B\u76F8\u6A5F/\u93E1\u982D/\u62CD\u651D\u53C3\u6578/\u5EE0\u5546\u79C1\u6709\u5B57\u6BB5,AI \u5716\u7247\u901A\u5E38\u7121\u6CD5\u507D\u9020\u6240\u6709\u9019\u4E9B\u3002"
-    };
-    if (realScore >= 2) return {
-      level: "medium",
-      icon: "\u{1F4F7}",
-      title: "\u6709\u76F8\u6A5F\u5143\u6578\u64DA\u75D5\u8DE1",
-      sub: "\u90E8\u5206\u76F8\u6A5F\u5B57\u6BB5\u5B58\u5728,\u4F46\u4E0D\u8DB3\u4EE5\u78BA\u8A8D\u672A\u88AB\u507D\u9020\u3002"
-    };
-    if (hasCamera) return {
-      level: "weak",
-      icon: "\u{1F4CE}",
-      title: "\u50C5\u6709\u57FA\u790E\u76F8\u6A5F\u5B57\u6BB5",
-      sub: "Make/Model \u5B58\u5728,\u4F46\u7F3A\u5C11\u62CD\u651D\u53C3\u6578\u7B49\u5F37\u8B49\u64DA\u3002\u53EF\u80FD\u7D93\u904E\u4E86\u91CD\u58D3\u7E2E\u6216\u8EDF\u4EF6\u8655\u7406\u3002"
-    };
-    return {
-      level: "none",
-      icon: "\u25CB",
-      title: "\u7121\u53EF\u7528\u5143\u6578\u64DA",
-      sub: "\u5716\u7247\u5E7E\u4E4E\u4E0D\u542B\u5143\u6578\u64DA\u3002\u53EF\u80FD\u4F86\u81EA\u622A\u5716\u3001\u793E\u4EA4\u5A92\u9AD4\u91CD\u7DE8\u78BC,\u6216\u672C\u5C31\u662F AI \u751F\u6210\u3002"
-    };
-  }
-  var init_panel_metadata = __esm({
-    "src/panel-metadata.js"() {
-      init_utils();
-    }
-  });
-
-  // src/stats.js
-  async function readCounter(key) {
-    try {
-      const r2 = await fetch(`${API}/${WORKSPACE}/${key}`);
-      if (!r2.ok) return null;
-      const data = await r2.json();
-      return data?.data?.up_count ?? data?.count ?? data?.value ?? null;
-    } catch {
-      return null;
-    }
-  }
-  async function bumpCounter(key) {
-    try {
-      const r2 = await fetch(`${API}/${WORKSPACE}/${key}/up`);
-      if (!r2.ok) return null;
-      const data = await r2.json();
-      return data?.data?.up_count ?? data?.count ?? data?.value ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function renderCount(elId, val) {
-    const el = document.getElementById(elId);
-    if (!el) return;
-    el.textContent = val != null ? val.toLocaleString() : "\u2014";
-  }
-  async function trackAnalysis() {
-    const n2 = await bumpCounter("image-provenance-analyses");
-    renderCount("statAnalyses", n2);
-  }
-  async function trackConversion() {
-    const n2 = await bumpCounter("image-provenance-conversions");
-    renderCount("statConversions", n2);
-  }
-  async function initStats() {
-    const bar = document.getElementById("statsBar");
-    if (!bar) return;
-    bar.classList.remove("hidden");
-    const firstVisit = !sessionStorage.getItem(SESSION_KEY);
-    if (firstVisit) {
-      const n2 = await bumpCounter("image-provenance-visits");
-      renderCount("statVisits", n2);
-      sessionStorage.setItem(SESSION_KEY, "1");
-    } else {
-      readCounter("image-provenance-visits").then((n2) => renderCount("statVisits", n2));
-    }
-    COUNTERS.slice(1).forEach(({ key, el }) => {
-      readCounter(key).then((n2) => renderCount(el, n2));
-    });
-  }
-  var WORKSPACE, API, COUNTERS, SESSION_KEY;
-  var init_stats = __esm({
-    "src/stats.js"() {
-      WORKSPACE = "image-provenance";
-      API = "https://api.counterapi.dev/v2";
-      COUNTERS = [
-        { key: "image-provenance-visits", label: "\u8A2A\u554F", el: "statVisits" },
-        { key: "image-provenance-analyses", label: "\u6AA2\u6E2C", el: "statAnalyses" },
-        { key: "image-provenance-conversions", label: "\u8F49\u63DB", el: "statConversions" }
-      ];
-      SESSION_KEY = "ip_visited";
-    }
-  });
-
   // src/i18n.js
   function detectLang() {
     const params = new URLSearchParams(window.location.search);
@@ -5901,7 +5629,7 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
     return /^zh\b/i.test(navigator.language || "") ? "zh" : "en";
   }
   function getLang() {
-    return _lang || (_lang = detectLang());
+    return _lang ||= detectLang();
   }
   async function refineLangByIP() {
   }
@@ -6184,9 +5912,833 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         "seo.twDescription": {
           zh: "\u700F\u89BD\u5668\u5167\u904B\u884C\u7684\u514D\u8CBB AI \u5716\u7247\u6EAF\u6E90 \xB7 C2PA / EXIF / 65 \u983B\u57DF\u7279\u5FB5 \xB7 \u96F6\u5F8C\u7AEF\u5716\u7247\u4E0D\u4E0A\u50B3",
           en: "Free in-browser AI image provenance \xB7 C2PA / EXIF / 65 frequency features \xB7 Zero backend, no upload"
-        }
+        },
+        // ===== New tabs =====
+        "tab.model": { zh: "AI \u6A21\u578B", en: "AI Model" },
+        "tab.forensics": { zh: "\u9451\u8B58", en: "Forensics" },
+        // ===== Combined verdict (fusion) =====
+        "fusion.aiLikelihood": { zh: "AI \u53EF\u80FD\u6027", en: "AI likelihood" },
+        "fusion.sub": { zh: "\u7D9C\u5408\u6240\u6709\u8B49\u64DA\u5C64\u7684\u6821\u6E96\u5224\u5B9A \xB7 \u62D6\u5165\u65B0\u5716\u6703\u5373\u6642\u66F4\u65B0", en: "Calibrated across every evidence layer \xB7 updates live as analyses finish" },
+        "fusion.noEvidence": { zh: "\u5C1A\u7121\u6709\u6548\u8B49\u64DA,\u5404\u9805\u5206\u6790\u5B8C\u6210\u5F8C\u6703\u81EA\u52D5\u66F4\u65B0\u3002", en: "No usable evidence yet \u2014 this updates as each analysis finishes." },
+        "fusion.label.confirmed": { zh: "\u78BA\u8A8D AI \u751F\u6210 (\u4F86\u6E90\u6191\u8B49)", en: "Confirmed AI-generated (provenance)" },
+        "fusion.label.likelyAi": { zh: "\u5F88\u53EF\u80FD\u70BA AI \u751F\u6210 / \u4FEE\u5716", en: "Likely AI-generated / edited" },
+        "fusion.label.uncertain": { zh: "\u4E0D\u78BA\u5B9A,\u8B49\u64DA\u5206\u6B67", en: "Uncertain \u2014 mixed evidence" },
+        "fusion.label.likelyReal": { zh: "\u8F03\u53EF\u80FD\u70BA\u771F\u5BE6\u7167\u7247", en: "More likely a real photo" },
+        "fusion.label.inconclusive": { zh: "\u8CC7\u6599\u4E0D\u8DB3,\u7121\u6CD5\u5224\u5B9A", en: "Inconclusive \u2014 not enough signal" },
+        "fusion.src.model": { zh: "AI \u6A21\u578B", en: "AI model" },
+        "fusion.src.freq": { zh: "\u983B\u57DF\u555F\u767C", en: "Frequency heuristic" },
+        "fusion.src.forensics": { zh: "\u5340\u57DF\u9451\u8B58", en: "Forensics (ELA/noise)" },
+        "fusion.src.marker": { zh: "\u5EE0\u5546\u6A19\u8A18", en: "Vendor marker" },
+        "fusion.src.weak": { zh: "\u5F31\u8A0A\u865F", en: "Weak signal" },
+        "fusion.src.edit": { zh: "\u4FEE\u5716\u75D5\u8DE1", en: "Editing trace" },
+        "fusion.src.provenance": { zh: "\u4F86\u6E90\u6191\u8B49", en: "Provenance" },
+        "fusion.detail.model": { zh: "\u6A21\u578B\u5224 AI ${pct}% \xB7 ${dev}", en: "model says AI ${pct}% \xB7 ${dev}" },
+        "fusion.detail.freq": { zh: "\u555F\u767C\u5F97\u5206 ${total}", en: "heuristic score ${total}" },
+        "fusion.detail.forensics": { zh: "\u7AC4\u6539\u5206 ${score}", en: "tamper score ${score}" },
+        "fusion.pending.prefix": { zh: "\u5C1A\u672A\u57F7\u884C:", en: "Not yet run:" },
+        "fusion.pending.model": { zh: "AI \u6A21\u578B", en: "AI model" },
+        "fusion.pending.forensics": { zh: "\u5340\u57DF\u9451\u8B58", en: "Forensics" },
+        // ===== AI model tab =====
+        "model.tag": { zh: "\u771F\u6A21\u578B", en: "Real model" },
+        "model.disclaimer": { zh: "\u700F\u89BD\u5668\u5167\u904B\u884C\u7684\u795E\u7D93\u7DB2\u8DEF \xB7 \u9996\u6B21\u9700\u4E0B\u8F09\u6B0A\u91CD (~100MB) \xB7 \u5716\u7247\u4E0D\u4E0A\u50B3,\u50C5\u4E0B\u8F09\u6A21\u578B", en: "A neural net running in your browser \xB7 first run downloads ~100MB of weights \xB7 the image is never uploaded, only the model is downloaded" },
+        "model.runBtn": { zh: "\u57F7\u884C AI \u6A21\u578B\u5075\u6E2C", en: "Run AI model detection" },
+        "model.panelHint": { zh: "\u8F09\u5165 Organika/sdxl-detector (Swin),WebGPU \u52A0\u901F,\u7D50\u679C\u4E26\u5165\u7D9C\u5408\u5224\u5B9A\u3002", en: "Loads Organika/sdxl-detector (Swin), WebGPU-accelerated; result folds into the combined verdict." },
+        "model.stage.init": { zh: "\u521D\u59CB\u5316\u2026", en: "Initializing\u2026" },
+        "model.stage.load": { zh: "\u8F09\u5165\u6A21\u578B\u2026", en: "Loading model\u2026" },
+        "model.stage.download": { zh: "\u4E0B\u8F09\u6B0A\u91CD ${pct}% \xB7 ${file}", en: "Downloading weights ${pct}% \xB7 ${file}" },
+        "model.stage.fallback": { zh: "WebGPU \u4E0D\u53EF\u7528,\u6539\u7528 WASM\u2026", en: "WebGPU unavailable, falling back to WASM\u2026" },
+        "model.stage.infer": { zh: "\u63A8\u8AD6\u4E2D\u2026", en: "Running inference\u2026" },
+        "model.probLabel": { zh: "AI \u6A5F\u7387", en: "AI probability" },
+        "model.classes": { zh: "\u5404\u985E\u5225\u5206\u6578", en: "Class scores" },
+        "model.device": { zh: "\u904B\u7B97\u5F8C\u7AEF:${dev}", en: "Backend: ${dev}" },
+        "model.resultDisclaimer": { zh: "\u6A21\u578B ${id} \xB7 \u5F8C\u7AEF ${dev} \xB7 \u504F\u5411\u64F4\u6563\u6A21\u578B(SD/SDXL),\u5C0D\u5176\u4ED6\u751F\u6210\u5668\u53EF\u80FD\u6F0F\u5224,\u50C5\u4F5C\u4E00\u7968\u3002", en: "Model ${id} \xB7 backend ${dev} \xB7 biased toward diffusion (SD/SDXL); may miss other generators \u2014 counts as one vote." },
+        "model.verdict.ai": { zh: "\u5224\u5B9A\u70BA AI \u751F\u6210", en: "Classified AI-generated" },
+        "model.verdict.uncertain": { zh: "\u4E0D\u78BA\u5B9A", en: "Uncertain" },
+        "model.verdict.real": { zh: "\u5224\u5B9A\u70BA\u771F\u5BE6", en: "Classified real" },
+        "model.verdict.unknown": { zh: "\u7121\u6CD5\u89E3\u6790\u8F38\u51FA", en: "Could not parse output" },
+        "model.retry": { zh: "\u91CD\u8A66", en: "Retry" },
+        "model.err.unsupported": { zh: "\u6B64\u700F\u89BD\u5668\u4E0D\u652F\u63F4 WebAssembly,\u7121\u6CD5\u5728\u672C\u5730\u57F7\u884C\u6A21\u578B\u3002", en: "This browser lacks WebAssembly support, so the model cannot run locally." },
+        "model.err.lib": { zh: "\u7121\u6CD5\u8F09\u5165 transformers.js(\u9700\u8981\u7DB2\u8DEF\u9023\u7DDA):${msg}", en: "Failed to load transformers.js (needs network access): ${msg}" },
+        "model.err.load": { zh: "\u6A21\u578B\u8F09\u5165\u5931\u6557:${msg}", en: "Model failed to load: ${msg}" },
+        "model.err.run": { zh: "\u6A21\u578B\u57F7\u884C\u5931\u6557(\u9996\u6B21\u9700\u8981\u7DB2\u8DEF\u4E0B\u8F09\u6B0A\u91CD):${msg}", en: "Model run failed (first run needs network to download weights): ${msg}" },
+        // ===== Forensics tab (ELA + noise) =====
+        "forensics.tag": { zh: "\u5340\u57DF\u9451\u8B58", en: "Local forensics" },
+        "forensics.disclaimer": { zh: "ELA + \u566A\u8072\u6B98\u5DEE,\u6A19\u51FA\u53EF\u80FD\u88AB\u5C40\u90E8\u4FEE\u6539/\u91CD\u7E6A\u7684\u5340\u57DF\u3002\u5C0D JPEG \u6700\u6709\u6548;PNG/\u622A\u5716\u7D50\u679C\u50C5\u4F9B\u53C3\u8003\u3002", en: "ELA + noise residual to localize possibly edited/inpainted regions. Most effective on JPEG; PNG/screenshots are indicative only." },
+        "forensics.runBtn": { zh: "\u57F7\u884C\u5340\u57DF\u9451\u8B58", en: "Run local forensics" },
+        "forensics.panelHint": { zh: "\u8AA4\u5DEE\u5C64\u7D1A\u5206\u6790 (ELA) \u8207\u566A\u8072\u4E00\u81F4\u6027\u6AA2\u67E5,\u5B9A\u4F4D\u7AC4\u6539\u75D5\u8DE1\u3002", en: "Error Level Analysis (ELA) and noise-consistency check to locate tampering." },
+        "forensics.running": { zh: "\u6B63\u5728\u505A ELA \u91CD\u58D3\u7E2E\u8207\u566A\u8072\u5206\u6790\u2026", en: "Running ELA recompression and noise analysis\u2026" },
+        "forensics.err": { zh: "\u9451\u8B58\u5931\u6557:${msg}", en: "Forensics failed: ${msg}" },
+        "forensics.scoreLabel": { zh: "\u5C40\u90E8\u7AC4\u6539\u53EF\u7591\u5EA6", en: "Local tampering suspicion" },
+        "forensics.scoreDetail": { zh: "\u53EF\u7591\u5EA6 ${score} \xB7 ELA \u71B1\u9EDE\u6BD4 ${ratio} \xB7 \u566A\u8072\u4E0D\u5747 ${cov}", en: "suspicion ${score} \xB7 ELA hotspot ratio ${ratio} \xB7 noise CoV ${cov}" },
+        "forensics.res": { zh: "\u5206\u6790\u5206\u8FA8\u7387 ${w}\xD7${h} \xB7 ELA \u54C1\u8CEA ${q}%", en: "Analysis resolution ${w}\xD7${h} \xB7 ELA quality ${q}%" },
+        "forensics.verdict.high": { zh: "\u5B58\u5728\u660E\u986F\u5C40\u90E8\u7570\u5E38", en: "Clear localized anomaly" },
+        "forensics.verdict.some": { zh: "\u6709\u8F15\u5FAE\u5C40\u90E8\u7570\u5E38", en: "Minor localized anomaly" },
+        "forensics.verdict.low": { zh: "\u672A\u898B\u660E\u986F\u7AC4\u6539\u75D5\u8DE1", en: "No clear tampering trace" },
+        "forensics.ela.title": { zh: "\u8AA4\u5DEE\u5C64\u7D1A\u5206\u6790 (ELA)", en: "Error Level Analysis (ELA)" },
+        "forensics.ela.hint": { zh: "\u91CD\u65B0\u58D3\u7E2E\u5F8C\u7684\u5DEE\u7570 \xB7 \u8D8A\u4EAE\u4EE3\u8868\u8A72\u5340\u8AA4\u5DEE\u8D8A\u5927;\u4E00\u584A\u5340\u57DF\u660E\u986F\u6BD4\u5468\u570D\u4EAE = \u53EF\u80FD\u88AB\u8CBC\u4E0A/\u91CD\u7E6A\u3002", en: "Difference after recompression \xB7 brighter = larger error; a patch much brighter than its surroundings may be pasted/inpainted." },
+        "forensics.noise.title": { zh: "\u566A\u8072\u6B98\u5DEE\u5716", en: "Noise residual" },
+        "forensics.noise.hint": { zh: "\u9AD8\u901A\u6FFE\u6CE2\u5F8C\u7684\u566A\u8072 \xB7 \u771F\u5BE6\u7167\u7247\u566A\u8072\u5747\u52FB;\u82E5\u67D0\u5340\u7570\u5E38\u5E73\u6ED1(\u7121\u9846\u7C92)= \u53EF\u80FD AI \u91CD\u7E6A\u3002", en: "High-pass noise \xB7 a real photo has even grain; a region that is abnormally smooth may be AI-inpainted." }
       };
       _lang = null;
+    }
+  });
+
+  // src/forensics.js
+  async function bitmapFromFile(file) {
+    const blob = file instanceof Blob ? file : new Blob([file]);
+    return await createImageBitmap(blob);
+  }
+  function fitCanvas(bitmap) {
+    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+    const w2 = Math.max(1, Math.round(bitmap.width * scale));
+    const h2 = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w2;
+    canvas.height = h2;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(bitmap, 0, 0, w2, h2);
+    return { canvas, ctx, w: w2, h: h2 };
+  }
+  function canvasToJpegBitmap(canvas, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("toBlob failed"));
+            return;
+          }
+          createImageBitmap(blob).then(resolve, reject);
+        },
+        "image/jpeg",
+        quality
+      );
+    });
+  }
+  async function computeELA(srcCanvas, srcCtx, w2, h2, quality, amplify) {
+    const recompressed = await canvasToJpegBitmap(srcCanvas, quality);
+    const tmp = document.createElement("canvas");
+    tmp.width = w2;
+    tmp.height = h2;
+    const tctx = tmp.getContext("2d", { willReadFrequently: true });
+    tctx.drawImage(recompressed, 0, 0, w2, h2);
+    recompressed.close?.();
+    const a2 = srcCtx.getImageData(0, 0, w2, h2).data;
+    const b2 = tctx.getImageData(0, 0, w2, h2).data;
+    const out = tctx.createImageData(w2, h2);
+    const od = out.data;
+    const errMap = new Float32Array(w2 * h2);
+    let sum = 0, max = 0;
+    for (let i2 = 0, p2 = 0; i2 < a2.length; i2 += 4, p2++) {
+      const dr = Math.abs(a2[i2] - b2[i2]);
+      const dg = Math.abs(a2[i2 + 1] - b2[i2 + 1]);
+      const db = Math.abs(a2[i2 + 2] - b2[i2 + 2]);
+      const e2 = Math.max(dr, dg, db);
+      errMap[p2] = e2;
+      sum += e2;
+      if (e2 > max) max = e2;
+    }
+    const mean = sum / (w2 * h2);
+    const block = 24;
+    const bx = Math.ceil(w2 / block), by = Math.ceil(h2 / block);
+    const blockMeans = new Float32Array(bx * by);
+    for (let yb = 0; yb < by; yb++) {
+      for (let xb = 0; xb < bx; xb++) {
+        let bs = 0, bn = 0;
+        const x0 = xb * block, y0 = yb * block;
+        for (let y2 = y0; y2 < Math.min(y0 + block, h2); y2++) {
+          for (let x2 = x0; x2 < Math.min(x0 + block, w2); x2++) {
+            bs += errMap[y2 * w2 + x2];
+            bn++;
+          }
+        }
+        blockMeans[yb * bx + xb] = bn ? bs / bn : 0;
+      }
+    }
+    const sorted = Array.from(blockMeans).sort((p2, q2) => p2 - q2);
+    const median = sorted[Math.floor(sorted.length / 2)] || 0;
+    const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+    const hotspotRatio = median > 0.5 ? p95 / median : p95 > 4 ? 4 : 1;
+    const gain = amplify / Math.max(mean, 1);
+    for (let p2 = 0; p2 < errMap.length; p2++) {
+      const v2 = Math.min(1, errMap[p2] * gain / 255 * 8);
+      const [r2, g2, bb] = hot(v2);
+      const i2 = p2 * 4;
+      od[i2] = r2;
+      od[i2 + 1] = g2;
+      od[i2 + 2] = bb;
+      od[i2 + 3] = 255;
+    }
+    return { imageData: out, mean, max, hotspotRatio, quality };
+  }
+  function computeNoise(srcCtx, w2, h2) {
+    const d2 = srcCtx.getImageData(0, 0, w2, h2).data;
+    const gray = new Float32Array(w2 * h2);
+    for (let i2 = 0, p2 = 0; i2 < d2.length; i2 += 4, p2++) {
+      gray[p2] = 0.299 * d2[i2] + 0.587 * d2[i2 + 1] + 0.114 * d2[i2 + 2];
+    }
+    const blur = boxBlur(gray, w2, h2, 2);
+    const res = new Float32Array(w2 * h2);
+    let sumAbs = 0;
+    for (let p2 = 0; p2 < res.length; p2++) {
+      res[p2] = gray[p2] - blur[p2];
+      sumAbs += Math.abs(res[p2]);
+    }
+    const meanAbs = sumAbs / res.length || 1;
+    const block = 32;
+    const bx = Math.ceil(w2 / block), by = Math.ceil(h2 / block);
+    const energies = [];
+    for (let yb = 0; yb < by; yb++) {
+      for (let xb = 0; xb < bx; xb++) {
+        let s2 = 0, n2 = 0;
+        const x0 = xb * block, y0 = yb * block;
+        for (let y2 = y0; y2 < Math.min(y0 + block, h2); y2++) {
+          for (let x2 = x0; x2 < Math.min(x0 + block, w2); x2++) {
+            const v2 = res[y2 * w2 + x2];
+            s2 += v2 * v2;
+            n2++;
+          }
+        }
+        if (n2) energies.push(Math.sqrt(s2 / n2));
+      }
+    }
+    const eMean = energies.reduce((s2, v2) => s2 + v2, 0) / (energies.length || 1);
+    const eVar = energies.reduce((s2, v2) => s2 + (v2 - eMean) ** 2, 0) / (energies.length || 1);
+    const cov = eMean > 0.01 ? Math.sqrt(eVar) / eMean : 0;
+    const out = srcCtx.createImageData(w2, h2);
+    const od = out.data;
+    const gain = 6;
+    for (let p2 = 0; p2 < res.length; p2++) {
+      const v2 = Math.max(0, Math.min(255, 128 + res[p2] * gain));
+      const i2 = p2 * 4;
+      od[i2] = od[i2 + 1] = od[i2 + 2] = v2;
+      od[i2 + 3] = 255;
+    }
+    return { imageData: out, meanAbs, cov };
+  }
+  function boxBlur(src, w2, h2, r2) {
+    const tmp = new Float32Array(w2 * h2);
+    const out = new Float32Array(w2 * h2);
+    const win = 2 * r2 + 1;
+    for (let y2 = 0; y2 < h2; y2++) {
+      let acc = 0;
+      for (let x2 = -r2; x2 <= r2; x2++) acc += src[y2 * w2 + clamp2(x2, 0, w2 - 1)];
+      for (let x2 = 0; x2 < w2; x2++) {
+        tmp[y2 * w2 + x2] = acc / win;
+        const add = src[y2 * w2 + clamp2(x2 + r2 + 1, 0, w2 - 1)];
+        const sub = src[y2 * w2 + clamp2(x2 - r2, 0, w2 - 1)];
+        acc += add - sub;
+      }
+    }
+    for (let x2 = 0; x2 < w2; x2++) {
+      let acc = 0;
+      for (let y2 = -r2; y2 <= r2; y2++) acc += tmp[clamp2(y2, 0, h2 - 1) * w2 + x2];
+      for (let y2 = 0; y2 < h2; y2++) {
+        out[y2 * w2 + x2] = acc / win;
+        const add = tmp[clamp2(y2 + r2 + 1, 0, h2 - 1) * w2 + x2];
+        const sub = tmp[clamp2(y2 - r2, 0, h2 - 1) * w2 + x2];
+        acc += add - sub;
+      }
+    }
+    return out;
+  }
+  function hot(t3) {
+    t3 = clamp2(t3, 0, 1);
+    const stops = [
+      [0, 0, 0],
+      [120, 0, 0],
+      [230, 60, 0],
+      [255, 180, 0],
+      [255, 255, 200]
+    ];
+    const s2 = t3 * (stops.length - 1);
+    const i2 = Math.floor(s2), f2 = s2 - i2;
+    if (i2 >= stops.length - 1) return stops[stops.length - 1];
+    const [r0, g0, b0] = stops[i2], [r1, g1, b1] = stops[i2 + 1];
+    return [r0 + (r1 - r0) * f2, g0 + (g1 - g0) * f2, b0 + (b1 - b0) * f2];
+  }
+  async function runForensics(file, opts = {}) {
+    const quality = opts.quality ?? 0.9;
+    const amplify = opts.amplify ?? 20;
+    const bitmap = await bitmapFromFile(file);
+    try {
+      const { canvas, ctx, w: w2, h: h2 } = fitCanvas(bitmap);
+      const ela = await computeELA(canvas, ctx, w2, h2, quality, amplify);
+      const noise2 = computeNoise(ctx, w2, h2);
+      const elaSig = clamp2((ela.hotspotRatio - 2) / 4, 0, 1);
+      const noiseSig = clamp2((noise2.cov - 0.45) / 0.7, 0, 1);
+      const score = Math.round((elaSig * 0.6 + noiseSig * 0.4) * 100);
+      return {
+        w: w2,
+        h: h2,
+        quality,
+        ela: { imageData: ela.imageData, mean: ela.mean, max: ela.max, hotspotRatio: ela.hotspotRatio },
+        noise: { imageData: noise2.imageData, meanAbs: noise2.meanAbs, cov: noise2.cov },
+        score,
+        elaSig,
+        noiseSig
+      };
+    } finally {
+      bitmap.close?.();
+    }
+  }
+  function verdictOf(score) {
+    if (score >= 60) return { key: "forensics.verdict.high", conf: "medium" };
+    if (score >= 35) return { key: "forensics.verdict.some", conf: "weak" };
+    return { key: "forensics.verdict.low", conf: "info" };
+  }
+  function renderForensicsPanel(container, result) {
+    const v2 = verdictOf(result.score);
+    container.innerHTML = `
+        <div class="freq-disclaimer">
+            <span class="freq-disclaimer-tag">${esc(t2("forensics.tag"))}</span>
+            <span>${esc(t2("forensics.disclaimer"))}</span>
+        </div>
+        <div class="freq-head">
+            <div class="freq-verdict conf-${v2.conf}">
+                <span class="freq-verdict-label">${esc(t2("forensics.scoreLabel"))}</span>
+                <span class="freq-verdict-value">${esc(t2(v2.key))}</span>
+                <span class="freq-score">${esc(t2("forensics.scoreDetail", {
+      score: result.score,
+      ratio: result.ela.hotspotRatio.toFixed(2),
+      cov: result.noise.cov.toFixed(2)
+    }))}</span>
+            </div>
+            <div class="freq-timing">${esc(t2("forensics.res", { w: result.w, h: result.h, q: Math.round(result.quality * 100) }))}</div>
+        </div>
+        <div class="freq-viz forensics-viz">
+            <div class="freq-viz-box">
+                <div class="freq-viz-title">${esc(t2("forensics.ela.title"))}</div>
+                <canvas id="elaCanvas"></canvas>
+                <div class="freq-viz-hint">${esc(t2("forensics.ela.hint"))}</div>
+            </div>
+            <div class="freq-viz-box">
+                <div class="freq-viz-title">${esc(t2("forensics.noise.title"))}</div>
+                <canvas id="noiseCanvas"></canvas>
+                <div class="freq-viz-hint">${esc(t2("forensics.noise.hint"))}</div>
+            </div>
+        </div>
+    `;
+    paint(container.querySelector("#elaCanvas"), result.ela.imageData);
+    paint(container.querySelector("#noiseCanvas"), result.noise.imageData);
+  }
+  function paint(canvas, imageData) {
+    if (!canvas) return;
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    canvas.getContext("2d").putImageData(imageData, 0, 0);
+  }
+  function esc(s2) {
+    const d2 = document.createElement("div");
+    d2.textContent = s2 == null ? "" : String(s2);
+    return d2.innerHTML;
+  }
+  var MAX_SIDE, clamp2;
+  var init_forensics = __esm({
+    "src/forensics.js"() {
+      init_i18n();
+      MAX_SIDE = 1024;
+      clamp2 = (v2, lo, hi) => v2 < lo ? lo : v2 > hi ? hi : v2;
+    }
+  });
+
+  // src/aimodel.js
+  function aiLabel(label) {
+    return /art|\bai\b|fake|gener|synth|diffus|machine/i.test(label);
+  }
+  function realLabel(label) {
+    return /human|real|photo|authentic|natural/i.test(label);
+  }
+  async function loadLib() {
+    if (_libPromise) return _libPromise;
+    const url = TRANSFORMERS_CDN;
+    _libPromise = import(
+      /* @vite-ignore */
+      url
+    ).then((mod) => {
+      if (mod.env) mod.env.allowLocalModels = false;
+      return mod;
+    }).catch((err) => {
+      _libPromise = null;
+      throw new Error(t2("model.err.lib", { msg: err.message || err }));
+    });
+    return _libPromise;
+  }
+  function modelSupported() {
+    return typeof Worker !== "undefined" && typeof WebAssembly !== "undefined";
+  }
+  async function getPipeline(onProgress = () => {
+  }) {
+    if (_pipePromise) return _pipePromise;
+    _pipePromise = (async () => {
+      const lib = await loadLib();
+      const wantGpu = !!navigator.gpu;
+      _device = wantGpu ? "webgpu" : "wasm";
+      const opts = {
+        device: _device,
+        dtype: "fp32",
+        progress_callback: (p2) => {
+          if (p2 && p2.status === "progress" && p2.total) {
+            onProgress({
+              status: "download",
+              file: p2.file,
+              pct: Math.round(p2.loaded / p2.total * 100)
+            });
+          } else if (p2 && p2.status) {
+            onProgress({ status: p2.status, file: p2.file });
+          }
+        }
+      };
+      try {
+        return await lib.pipeline("image-classification", MODEL_ID, opts);
+      } catch (err) {
+        if (_device === "webgpu") {
+          _device = "wasm";
+          onProgress({ status: "fallback" });
+          return await lib.pipeline("image-classification", MODEL_ID, { ...opts, device: "wasm" });
+        }
+        throw err;
+      }
+    })().catch((err) => {
+      _pipePromise = null;
+      throw new Error(t2("model.err.load", { msg: err.message || err }));
+    });
+    return _pipePromise;
+  }
+  async function classifyImage(file, onProgress = () => {
+  }) {
+    const pipe = await getPipeline(onProgress);
+    onProgress({ status: "infer" });
+    const url = URL.createObjectURL(file);
+    try {
+      const raw = await pipe(url);
+      const labels = (Array.isArray(raw) ? raw : [raw]).map((r2) => ({
+        label: String(r2.label),
+        score: Number(r2.score)
+      }));
+      let aiProb = null;
+      const ai = labels.find((l2) => aiLabel(l2.label));
+      const real = labels.find((l2) => realLabel(l2.label));
+      if (ai) aiProb = ai.score;
+      else if (real) aiProb = 1 - real.score;
+      else {
+        const top = labels.slice().sort((a2, b2) => b2.score - a2.score)[0];
+        aiProb = top && aiLabel(top.label) ? top.score : top ? 1 - top.score : null;
+      }
+      return { aiProb, labels, device: _device, modelId: MODEL_ID };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  var TRANSFORMERS_CDN, MODEL_ID, _libPromise, _pipePromise, _device;
+  var init_aimodel = __esm({
+    "src/aimodel.js"() {
+      init_i18n();
+      TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2";
+      MODEL_ID = "Organika/sdxl-detector";
+      _libPromise = null;
+      _pipePromise = null;
+      _device = null;
+    }
+  });
+
+  // src/fusion.js
+  function computeFusion(inputs) {
+    const { detections = [], freq = null, forensics = null, model = null } = inputs || {};
+    const sources = [];
+    const strong = detections.filter((d2) => d2.hit && d2.category !== "edit" && d2.confidence === "strong");
+    const medium = detections.filter((d2) => d2.hit && d2.category !== "edit" && d2.confidence === "medium");
+    const weak = detections.filter((d2) => d2.hit && d2.category !== "edit" && d2.confidence === "weak");
+    const edits = detections.filter((d2) => d2.hit && d2.category === "edit");
+    let prob, label, conf, decisive = false;
+    let logit = -1.2;
+    let evidence = 0;
+    const add = (delta, srcKey, kind, detail) => {
+      logit += delta;
+      evidence += Math.abs(delta);
+      sources.push({ key: srcKey, kind, delta, detail });
+    };
+    if (model && Number.isFinite(model.aiProb)) {
+      add(
+        (model.aiProb - 0.5) * 5.5,
+        "fusion.src.model",
+        "model",
+        t2("fusion.detail.model", { pct: Math.round(model.aiProb * 100), dev: model.device || "\u2014" })
+      );
+    }
+    if (freq && freq.score) {
+      const tot = clamp3(freq.score.total, -4, 9);
+      add(
+        tot * 0.18,
+        "fusion.src.freq",
+        "freq",
+        t2("fusion.detail.freq", { total: freq.score.total })
+      );
+    }
+    if (forensics && Number.isFinite(forensics.score)) {
+      if (forensics.score >= 35) {
+        add(
+          (forensics.score - 30) / 100 * 1.6,
+          "fusion.src.forensics",
+          "forensics",
+          t2("fusion.detail.forensics", { score: forensics.score })
+        );
+      }
+    }
+    for (const m2 of medium) add(1.2, "fusion.src.marker", "marker", m2.title);
+    for (const w2 of weak) add(0.4, "fusion.src.weak", "weak", w2.title);
+    for (const e2 of edits) add(0.25, "fusion.src.edit", "edit", e2.title);
+    if (strong.length) {
+      decisive = true;
+      prob = 98;
+      label = t2("fusion.label.confirmed");
+      conf = "strong";
+      for (const s2 of strong) sources.unshift({ key: "fusion.src.provenance", kind: "strong", delta: 4, detail: s2.badgeText || s2.title });
+    } else {
+      prob = Math.round(sigmoid(logit) * 100);
+      if (evidence < 0.55) {
+        label = t2("fusion.label.inconclusive");
+        conf = null;
+      } else if (prob >= 70) {
+        label = t2("fusion.label.likelyAi");
+        conf = "medium";
+      } else if (prob >= 45) {
+        label = t2("fusion.label.uncertain");
+        conf = "weak";
+      } else {
+        label = t2("fusion.label.likelyReal");
+        conf = "info";
+      }
+    }
+    return { prob, label, conf, decisive, evidence, sources, hasModel: !!model, hasForensics: !!forensics };
+  }
+  function renderFusionSummary(container, fusion) {
+    if (!container) return;
+    const ringColor = fusion.prob >= 70 ? "var(--danger)" : fusion.prob >= 45 ? "var(--warn)" : fusion.decisive ? "var(--danger)" : "var(--success)";
+    const deg = Math.round(fusion.prob * 3.6);
+    const barsHtml = fusion.sources.length ? fusion.sources.map((s2) => {
+      const mag = clamp3(Math.abs(s2.delta) / 3, 0.06, 1) * 100;
+      const dir = s2.delta >= 0 ? "pos" : "neg";
+      return `
+                <div class="fusion-src">
+                    <div class="fusion-src-top">
+                        <span class="fusion-src-name">${esc2(t2(s2.key))}</span>
+                        <span class="fusion-src-detail">${esc2(s2.detail || "")}</span>
+                    </div>
+                    <div class="fusion-bar"><span class="fusion-bar-fill fusion-${dir}" style="width:${mag.toFixed(0)}%"></span></div>
+                </div>`;
+    }).join("") : `<div class="freq-empty">${esc2(t2("fusion.noEvidence"))}</div>`;
+    const pending = [];
+    if (!fusion.hasModel) pending.push(t2("fusion.pending.model"));
+    if (!fusion.hasForensics) pending.push(t2("fusion.pending.forensics"));
+    const pendingHtml = pending.length ? `<div class="fusion-pending">${esc2(t2("fusion.pending.prefix"))} ${pending.map(esc2).join(" \xB7 ")}</div>` : "";
+    container.innerHTML = `
+        <div class="fusion-card">
+            <div class="fusion-gauge" style="background:conic-gradient(${ringColor} ${deg}deg, var(--border) ${deg}deg)">
+                <div class="fusion-gauge-inner">
+                    <span class="fusion-pct">${fusion.prob}<span class="fusion-pct-sign">%</span></span>
+                    <span class="fusion-pct-label">${esc2(t2("fusion.aiLikelihood"))}</span>
+                </div>
+            </div>
+            <div class="fusion-body">
+                <div class="fusion-verdict ${fusion.conf ? "conf-" + fusion.conf : ""}">${esc2(fusion.label)}</div>
+                <div class="fusion-sub">${esc2(t2("fusion.sub"))}</div>
+                <div class="fusion-breakdown">${barsHtml}</div>
+                ${pendingHtml}
+            </div>
+        </div>`;
+  }
+  function esc2(s2) {
+    const d2 = document.createElement("div");
+    d2.textContent = s2 == null ? "" : String(s2);
+    return d2.innerHTML;
+  }
+  var sigmoid, clamp3;
+  var init_fusion = __esm({
+    "src/fusion.js"() {
+      init_i18n();
+      sigmoid = (x2) => 1 / (1 + Math.exp(-x2));
+      clamp3 = (v2, lo, hi) => v2 < lo ? lo : v2 > hi ? hi : v2;
+    }
+  });
+
+  // src/panel-metadata.js
+  function fmtExposure(t3) {
+    if (t3 == null) return null;
+    if (typeof t3 === "number") {
+      if (t3 >= 1) return `${t3}s`;
+      return `1/${Math.round(1 / t3)}s`;
+    }
+    if (Array.isArray(t3) && t3.length === 2) {
+      const [num, den] = t3;
+      if (num / den >= 1) return `${(num / den).toFixed(1)}s`;
+      return `${num}/${den}s`;
+    }
+    return String(t3);
+  }
+  function fmtCoord(deg, ref) {
+    if (deg == null) return null;
+    const d2 = Math.abs(deg);
+    const dd = Math.floor(d2);
+    const mm = Math.floor((d2 - dd) * 60);
+    const ss = ((d2 - dd - mm / 60) * 3600).toFixed(2);
+    return `${dd}\xB0${mm}'${ss}" ${ref || (deg >= 0 ? "" : "-")}`;
+  }
+  function row(label, value, mono = false) {
+    if (value == null || value === "") return "";
+    return `<div class="md-row"><span class="md-label">${escHtml(label)}</span><span class="md-value${mono ? " mono" : ""}">${escHtml(value)}</span></div>`;
+  }
+  function section(title, rows, opts = {}) {
+    const content = rows.filter(Boolean).join("");
+    if (!content) return "";
+    const note = opts.note ? `<div class="md-note ${opts.noteType || ""}">${escHtml(opts.note)}</div>` : "";
+    return `<section class="md-section ${opts.accent || ""}">
+        <h4 class="md-section-title">${escHtml(title)}${opts.count ? ` <span class="md-count">${opts.count}</span>` : ""}</h4>
+        ${note}
+        <div class="md-rows">${content}</div>
+    </section>`;
+  }
+  function renderMetadataPanel(container, ctx) {
+    const m2 = ctx.meta || {};
+    const jumbf = ctx.jumbf || {};
+    const file = ctx.file;
+    const hasAny = Object.keys(m2).filter((k2) => !k2.startsWith("_")).length > 0;
+    const signals = analyzeVerdict(m2, jumbf);
+    const verdictHtml = `
+        <section class="md-verdict md-verdict-${signals.level}">
+            <div class="md-verdict-icon">${signals.icon}</div>
+            <div class="md-verdict-text">
+                <div class="md-verdict-title">${escHtml(signals.title)}</div>
+                <div class="md-verdict-sub">${escHtml(signals.sub)}</div>
+            </div>
+        </section>`;
+    const cameraRows = [
+      row("\u54C1\u724C", m2.Make),
+      row("\u578B\u865F", m2.Model),
+      row("\u56FA\u4EF6", m2.Software),
+      row("\u93E1\u982D", m2.LensModel || m2.Lens),
+      row("\u93E1\u982D\u5EE0", m2.LensMake),
+      row("\u93E1\u982D\u5E8F\u5217\u865F", m2.LensSerialNumber),
+      row("\u6A5F\u8EAB\u5E8F\u5217\u865F", m2.BodySerialNumber || m2.SerialNumber),
+      row("\u6240\u6709\u8005", m2.OwnerName || m2.Artist)
+    ];
+    const captureRows = [
+      row("\u5149\u5708", m2.FNumber ? `f/${m2.FNumber}` : null),
+      row("\u5FEB\u9580", fmtExposure(m2.ExposureTime)),
+      row("ISO", m2.ISO || m2.ISOSpeedRatings),
+      row("\u7126\u8DDD", m2.FocalLength ? `${m2.FocalLength}mm` : null),
+      row("\u7B49\u6548\u7126\u8DDD", m2.FocalLengthIn35mmFormat ? `${m2.FocalLengthIn35mmFormat}mm (35mm)` : null),
+      row("\u66DD\u5149\u88DC\u511F", m2.ExposureCompensation != null ? `${m2.ExposureCompensation > 0 ? "+" : ""}${m2.ExposureCompensation} EV` : null),
+      row("\u66DD\u5149\u7A0B\u5E8F", m2.ExposureProgram),
+      row("\u6E2C\u5149\u6A21\u5F0F", m2.MeteringMode),
+      row("\u767D\u5E73\u8861", m2.WhiteBalance),
+      row("\u9583\u5149\u71C8", typeof m2.Flash === "string" ? m2.Flash : m2.Flash != null ? m2.Flash === 0 ? "\u672A\u9583\u5149" : "\u5DF2\u9583\u5149" : null)
+    ];
+    const formatDate = (d2) => d2 instanceof Date ? d2.toLocaleString("zh-CN") : d2 ? String(d2) : null;
+    const timeRows = [
+      row("\u62CD\u651D\u6642\u9593", formatDate(m2.DateTimeOriginal)),
+      row("\u6578\u5B57\u5316\u6642\u9593", formatDate(m2.DateTimeDigitized || m2.CreateDate)),
+      row("\u6700\u5F8C\u4FEE\u6539", formatDate(m2.ModifyDate || m2.DateTime))
+    ];
+    const lat = Number.isFinite(m2.latitude) ? m2.latitude : Number.isFinite(m2.GPSLatitude) ? m2.GPSLatitude : null;
+    const lon = Number.isFinite(m2.longitude) ? m2.longitude : Number.isFinite(m2.GPSLongitude) ? m2.GPSLongitude : null;
+    const alt = m2.GPSAltitude;
+    const hasGps = lat != null && lon != null;
+    const gpsRows = hasGps ? [
+      row("\u7D93\u7DEF\u5EA6", `${lat.toFixed(6)}, ${lon.toFixed(6)}`),
+      row("DMS", `${fmtCoord(lat, m2.GPSLatitudeRef || (lat >= 0 ? "N" : "S"))}  /  ${fmtCoord(lon, m2.GPSLongitudeRef || (lon >= 0 ? "E" : "W"))}`),
+      row("\u6D77\u62D4", alt != null ? `${typeof alt === "number" ? alt.toFixed(1) : alt}m` : null),
+      row("\u65B9\u5411", m2.GPSImgDirection != null ? `${m2.GPSImgDirection}\xB0 ${m2.GPSImgDirectionRef || ""}` : null),
+      row("\u6642\u9593\u6233 (UTC)", formatDate(m2.GPSDateStamp || m2.GPSTimeStamp))
+    ] : [];
+    const gpsNote = hasGps ? "\u26A0\uFE0F \u9019\u5F35\u5716\u9644\u5E36\u7CBE\u78BA GPS \u5EA7\u6A19,\u5206\u4EAB\u524D\u5EFA\u8B70\u7528\u300C\u8F49\u63DB\u300D\u6A19\u7C64\u9801\u525D\u96E2\u5143\u6578\u64DA\u3002" : null;
+    const gpsExtra = hasGps ? `<div class="md-actions">
+        <a class="btn-secondary btn-xs" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${lat},${lon}">\u5728 Google Maps \u67E5\u770B</a>
+        <a class="btn-secondary btn-xs" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15">\u5728 OpenStreetMap \u67E5\u770B</a>
+    </div>` : "";
+    const imgRows = [
+      row("\u5C3A\u5BF8", ctx.dims),
+      row("\u8272\u5F69\u7A7A\u9593", m2.ColorSpace === 1 || m2.ColorSpace === "sRGB" ? "sRGB" : m2.ColorSpace),
+      row("ICC \u914D\u7F6E", m2.ProfileDescription || m2.ICC_Profile_Description),
+      row("\u65B9\u5411", m2.Orientation),
+      row("\u5206\u8FA8\u7387", m2.XResolution ? `${m2.XResolution} \xD7 ${m2.YResolution || m2.XResolution} DPI` : null)
+    ];
+    const hist = m2.History || m2["xmpMM:History"] || m2.historyItems;
+    let histHtml = "";
+    if (Array.isArray(hist) && hist.length) {
+      const items = hist.slice(0, 20).map((h2) => {
+        const action = h2.action || h2.Action || "\u2014";
+        const when = h2.when ? formatDate(h2.when) : "";
+        const soft = h2.softwareAgent || h2.SoftwareAgent || "";
+        return `<li><span class="md-hist-action">${escHtml(action)}</span> <span class="md-hist-meta">${escHtml(soft)} ${escHtml(when)}</span></li>`;
+      }).join("");
+      histHtml = `<section class="md-section">
+            <h4 class="md-section-title">\u7DE8\u8F2F\u6B77\u53F2 <span class="md-count">${hist.length}</span></h4>
+            <ol class="md-hist">${items}</ol>
+        </section>`;
+    }
+    let c2paHtml = "";
+    if (jumbf.present) {
+      const c2paRows = [
+        row("DigitalSourceType", jumbf.digitalSourceType || "\u672A\u8072\u660E"),
+        row("JUMBF boxes", jumbf.indices.length),
+        row("Labels", jumbf.labels.join(", ") || "\u2014")
+      ];
+      c2paHtml = section("C2PA / Content Credentials", c2paRows, { accent: "accent" });
+    }
+    const rawLines = [];
+    for (const [k2, v2] of Object.entries(m2)) {
+      if (k2.startsWith("_")) continue;
+      let vs = v2;
+      if (v2 instanceof Date) vs = v2.toISOString();
+      else if (typeof v2 === "object") vs = JSON.stringify(v2);
+      else if (typeof v2 === "number") vs = v2.toString();
+      rawLines.push(`${k2}: ${vs}`);
+    }
+    const rawHtml = rawLines.length ? `<details class="md-raw">
+        <summary>\u5168\u90E8\u539F\u59CB\u5B57\u6BB5 (${rawLines.length})</summary>
+        <pre>${escHtml(rawLines.join("\n"))}</pre>
+    </details>` : "";
+    container.innerHTML = `
+        ${verdictHtml}
+        ${c2paHtml}
+        ${section("\u76F8\u6A5F\u8207\u93E1\u982D", cameraRows)}
+        ${section("\u62CD\u651D\u53C3\u6578", captureRows)}
+        ${section("\u6642\u9593", timeRows)}
+        ${hasGps ? section("\u5730\u7406\u4F4D\u7F6E", gpsRows, { note: gpsNote, noteType: "warn", accent: "accent" }) + gpsExtra : ""}
+        ${section("\u5716\u50CF\u5C6C\u6027", imgRows)}
+        ${histHtml}
+        ${!hasAny && !jumbf.present ? '<section class="md-empty">\u9019\u5F35\u5716\u5E7E\u4E4E\u4E0D\u542B\u4EFB\u4F55\u5143\u6578\u64DA \u2014\u2014 \u8981\u9EBC\u88AB\u525D\u96E2\u904E,\u8981\u9EBC\u6E90\u81EA AI \u751F\u6210\u6216\u622A\u5716\u3002</section>' : ""}
+        ${rawHtml}
+    `;
+  }
+  function analyzeVerdict(m2, jumbf) {
+    const hasCamera = !!(m2.Make && m2.Model);
+    const hasLens = !!(m2.LensModel || m2.Lens);
+    const hasCaptureParams = m2.FNumber && m2.ExposureTime && (m2.ISO || m2.ISOSpeedRatings);
+    const hasGps = m2.latitude != null || m2.GPSLatitude != null;
+    const hasMakerNote = !!(m2.MakerNote || m2.makerNote);
+    const c2paAi = jumbf?.digitalSourceType && [
+      "trainedAlgorithmicMedia",
+      "compositeWithTrainedAlgorithmicMedia",
+      "algorithmicMedia",
+      "dataDrivenMedia"
+    ].includes(jumbf.digitalSourceType);
+    const c2paReal = jumbf?.digitalSourceType === "digitalCapture";
+    const softIsAi = /Midjourney|Stable|Diffusion|ComfyUI|DALL|OpenAI|Firefly|Gemini|Imagen/i.test(m2.Software || "");
+    if (c2paAi || softIsAi) {
+      return {
+        level: "ai",
+        icon: "\u{1F916}",
+        title: "\u5143\u6578\u64DA\u76F4\u63A5\u8072\u660E AI \u751F\u6210",
+        sub: softIsAi ? `Software \u5B57\u6BB5: ${m2.Software}` : `C2PA DigitalSourceType: ${jumbf.digitalSourceType}`
+      };
+    }
+    if (c2paReal) {
+      return {
+        level: "strong",
+        icon: "\u{1F4F8}",
+        title: "\u76F8\u6A5F\u539F\u751F C2PA \u6191\u8B49",
+        sub: `C2PA DigitalSourceType = digitalCapture \xB7 \u8A2D\u5099\u5EE0\u5546\u7C3D\u540D\u53EF\u9A57\u8B49`
+      };
+    }
+    let realScore = 0;
+    if (hasCamera) realScore++;
+    if (hasLens) realScore++;
+    if (hasCaptureParams) realScore += 2;
+    if (hasMakerNote) realScore += 2;
+    if (hasGps) realScore++;
+    if (realScore >= 4) return {
+      level: "strong",
+      icon: "\u{1F4F8}",
+      title: "\u5F37\u70C8\u6307\u5411\u771F\u5BE6\u76F8\u6A5F\u62CD\u651D",
+      sub: "\u5143\u6578\u64DA\u5305\u542B\u76F8\u6A5F/\u93E1\u982D/\u62CD\u651D\u53C3\u6578/\u5EE0\u5546\u79C1\u6709\u5B57\u6BB5,AI \u5716\u7247\u901A\u5E38\u7121\u6CD5\u507D\u9020\u6240\u6709\u9019\u4E9B\u3002"
+    };
+    if (realScore >= 2) return {
+      level: "medium",
+      icon: "\u{1F4F7}",
+      title: "\u6709\u76F8\u6A5F\u5143\u6578\u64DA\u75D5\u8DE1",
+      sub: "\u90E8\u5206\u76F8\u6A5F\u5B57\u6BB5\u5B58\u5728,\u4F46\u4E0D\u8DB3\u4EE5\u78BA\u8A8D\u672A\u88AB\u507D\u9020\u3002"
+    };
+    if (hasCamera) return {
+      level: "weak",
+      icon: "\u{1F4CE}",
+      title: "\u50C5\u6709\u57FA\u790E\u76F8\u6A5F\u5B57\u6BB5",
+      sub: "Make/Model \u5B58\u5728,\u4F46\u7F3A\u5C11\u62CD\u651D\u53C3\u6578\u7B49\u5F37\u8B49\u64DA\u3002\u53EF\u80FD\u7D93\u904E\u4E86\u91CD\u58D3\u7E2E\u6216\u8EDF\u4EF6\u8655\u7406\u3002"
+    };
+    return {
+      level: "none",
+      icon: "\u25CB",
+      title: "\u7121\u53EF\u7528\u5143\u6578\u64DA",
+      sub: "\u5716\u7247\u5E7E\u4E4E\u4E0D\u542B\u5143\u6578\u64DA\u3002\u53EF\u80FD\u4F86\u81EA\u622A\u5716\u3001\u793E\u4EA4\u5A92\u9AD4\u91CD\u7DE8\u78BC,\u6216\u672C\u5C31\u662F AI \u751F\u6210\u3002"
+    };
+  }
+  var init_panel_metadata = __esm({
+    "src/panel-metadata.js"() {
+      init_utils();
+    }
+  });
+
+  // src/stats.js
+  async function readCounter(key) {
+    try {
+      const r2 = await fetch(`${API}/${WORKSPACE}/${key}`);
+      if (!r2.ok) return null;
+      const data = await r2.json();
+      return data?.data?.up_count ?? data?.count ?? data?.value ?? null;
+    } catch {
+      return null;
+    }
+  }
+  async function bumpCounter(key) {
+    try {
+      const r2 = await fetch(`${API}/${WORKSPACE}/${key}/up`);
+      if (!r2.ok) return null;
+      const data = await r2.json();
+      return data?.data?.up_count ?? data?.count ?? data?.value ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function renderCount(elId, val) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = val != null ? val.toLocaleString() : "\u2014";
+  }
+  async function trackAnalysis() {
+    const n2 = await bumpCounter("image-provenance-analyses");
+    renderCount("statAnalyses", n2);
+  }
+  async function trackConversion() {
+    const n2 = await bumpCounter("image-provenance-conversions");
+    renderCount("statConversions", n2);
+  }
+  async function initStats() {
+    const bar = document.getElementById("statsBar");
+    if (!bar) return;
+    bar.classList.remove("hidden");
+    const firstVisit = !sessionStorage.getItem(SESSION_KEY);
+    if (firstVisit) {
+      const n2 = await bumpCounter("image-provenance-visits");
+      renderCount("statVisits", n2);
+      sessionStorage.setItem(SESSION_KEY, "1");
+    } else {
+      readCounter("image-provenance-visits").then((n2) => renderCount("statVisits", n2));
+    }
+    COUNTERS.slice(1).forEach(({ key, el }) => {
+      readCounter(key).then((n2) => renderCount(el, n2));
+    });
+  }
+  var WORKSPACE, API, COUNTERS, SESSION_KEY;
+  var init_stats = __esm({
+    "src/stats.js"() {
+      WORKSPACE = "image-provenance";
+      API = "https://api.counterapi.dev/v2";
+      COUNTERS = [
+        { key: "image-provenance-visits", label: "\u8A2A\u554F", el: "statVisits" },
+        { key: "image-provenance-analyses", label: "\u6AA2\u6E2C", el: "statAnalyses" },
+        { key: "image-provenance-conversions", label: "\u8F49\u63DB", el: "statConversions" }
+      ];
+      SESSION_KEY = "ip_visited";
     }
   });
 
@@ -6200,6 +6752,9 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       init_watermark();
       init_frequency();
       init_panel();
+      init_forensics();
+      init_aimodel();
+      init_fusion();
       init_metadata();
       init_panel_metadata();
       init_stats();
@@ -6214,6 +6769,26 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       var currentJumbf = null;
       var lastFreqBytes = null;
       var lastFreqResult = null;
+      var currentDetections = null;
+      var lastForensicsResult = null;
+      var lastModelResult = null;
+      function refreshFusion() {
+        if (!currentDetections) return;
+        const fusion = computeFusion({
+          detections: currentDetections,
+          freq: lastFreqResult,
+          forensics: lastForensicsResult,
+          model: lastModelResult
+        });
+        renderFusionSummary(document.getElementById("fusionSummary"), fusion);
+        const hb = document.getElementById("headerBadge");
+        if (hb) {
+          const hot2 = fusion.prob >= 45 || fusion.decisive;
+          document.getElementById("headerTitle").textContent = fusion.decisive ? t2("result.aiHit") : fusion.label;
+          hb.textContent = `${fusion.prob}%`;
+          hb.className = "pill " + (hot2 ? "badge-hit" : "badge-clean");
+        }
+      }
       var sel = document.getElementById("cameraSelector");
       function renderCameraSelector() {
         const groupHtml = CAMERA_GROUPS.map((g2) => {
@@ -6287,8 +6862,8 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         return 0.88 + Math.random() * 0.07;
       }
       var uploadArea = document.getElementById("uploadArea");
-      var fileInput = document.getElementById("fileInput");
       document.body.dataset.imgstate = "empty";
+      var fileInput = document.getElementById("fileInput");
       uploadArea.addEventListener("click", (e2) => {
         if (e2.target.closest("input, button, a")) return;
         fileInput.click();
@@ -6327,8 +6902,8 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         previewBlockEl.addEventListener("drop", (e2) => {
           e2.preventDefault();
           previewBlockEl.classList.remove("dragover");
-          const f = e2.dataTransfer.files?.[0];
-          if (f) handleFile(f);
+          const f2 = e2.dataTransfer.files?.[0];
+          if (f2) handleFile(f2);
         });
       }
       document.addEventListener("paste", (e2) => {
@@ -6336,8 +6911,12 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         if (!items) return;
         for (const it of items) {
           if (it.type?.startsWith("image/")) {
-            const f = it.getAsFile();
-            if (f) { handleFile(f); e2.preventDefault(); return; }
+            const f2 = it.getAsFile();
+            if (f2) {
+              handleFile(f2);
+              e2.preventDefault();
+              return;
+            }
           }
         }
       });
@@ -6417,10 +6996,27 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       var resultView = document.getElementById("resultView");
       var previewBlock = document.getElementById("previewBlock");
       var analysisLog = document.getElementById("analysisLog");
+      function resetSubPanel(panelId, btnId, prefix) {
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        panel.innerHTML = `
+        <div class="freq-disclaimer">
+            <span class="freq-disclaimer-tag">${escHtml(t2(prefix + ".tag"))}</span>
+            <span>${escHtml(t2(prefix + ".disclaimer"))}</span>
+        </div>
+        <button class="btn-primary" id="${btnId}">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            ${escHtml(t2(prefix + ".runBtn"))}
+        </button>
+        <p class="panel-hint">${escHtml(t2(prefix + ".panelHint"))}</p>`;
+      }
       async function handleFile(file) {
         currentFile = file;
         lastFreqBytes = null;
         lastFreqResult = null;
+        currentDetections = null;
+        lastForensicsResult = null;
+        lastModelResult = null;
         emptyState.classList.add("hidden");
         resultView.classList.remove("hidden");
         previewBlock.classList.remove("hidden");
@@ -6441,6 +7037,9 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         <p class="panel-hint">${t2("freq.panelHint.html")}</p>`;
         document.getElementById("metadataPanel").innerHTML = "";
         document.getElementById("detectionItems").innerHTML = "";
+        document.getElementById("fusionSummary").innerHTML = "";
+        resetSubPanel("forensicsPanel", "btnRunForensics", "forensics");
+        resetSubPanel("modelPanel", "btnRunModel", "model");
         document.getElementById("convertResult").style.display = "none";
         document.getElementById("btnConvert").disabled = false;
         document.getElementById("previewImg").src = URL.createObjectURL(file);
@@ -6516,9 +7115,12 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
             `;
             container.appendChild(div);
           });
+          currentDetections = detections;
+          refreshFusion();
           document.getElementById("metadataPanel")._pending = true;
           trackAnalysis();
           document.getElementById("btnRunFreq")?.click();
+          document.getElementById("btnRunForensics")?.click();
         } catch (err) {
           const errLine = document.createElement("div");
           errLine.className = "log-line done hit";
@@ -6568,10 +7170,94 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
           lastFreqBytes = currentBytes;
           lastFreqResult = result;
           renderFrequencyPanel(panel, result);
+          refreshFusion();
         } catch (err) {
           panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px">${escHtml(t2("freq.err", { msg: err.message }))}</div>`;
         }
       });
+      document.addEventListener("click", async (ev) => {
+        const btn = ev.target.closest && ev.target.closest("#btnRunForensics");
+        if (!btn) return;
+        if (!currentFile) return;
+        const panel = document.getElementById("forensicsPanel");
+        if (lastForensicsResult) {
+          renderForensicsPanel(panel, lastForensicsResult);
+          return;
+        }
+        btn.disabled = true;
+        panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span>${escHtml(t2("forensics.running"))}</span></div>`;
+        try {
+          const result = await runForensics(currentFile);
+          lastForensicsResult = result;
+          renderForensicsPanel(panel, result);
+          refreshFusion();
+        } catch (err) {
+          panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px">${escHtml(t2("forensics.err", { msg: err.message }))}</div>`;
+        }
+      });
+      document.addEventListener("click", async (ev) => {
+        const btn = ev.target.closest && ev.target.closest("#btnRunModel");
+        if (!btn) return;
+        if (!currentFile) return;
+        const panel = document.getElementById("modelPanel");
+        if (lastModelResult) {
+          renderModelPanel(panel, lastModelResult);
+          return;
+        }
+        if (!modelSupported()) {
+          panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px">${escHtml(t2("model.err.unsupported"))}</div>`;
+          return;
+        }
+        btn.disabled = true;
+        const setStage = (msg) => {
+          panel.innerHTML = `<div class="loading"><div class="spinner"></div><br><span id="modelStage">${escHtml(msg)}</span></div>`;
+        };
+        setStage(t2("model.stage.init"));
+        try {
+          const result = await classifyImage(currentFile, (p2) => {
+            const el = document.getElementById("modelStage");
+            let msg;
+            if (p2.status === "download") msg = t2("model.stage.download", { pct: p2.pct, file: p2.file || "" });
+            else if (p2.status === "fallback") msg = t2("model.stage.fallback");
+            else if (p2.status === "infer") msg = t2("model.stage.infer");
+            else msg = t2("model.stage.load");
+            if (el) el.textContent = msg;
+            else setStage(msg);
+          });
+          lastModelResult = result;
+          renderModelPanel(panel, result);
+          refreshFusion();
+        } catch (err) {
+          panel.innerHTML = `<div style="color:var(--danger);font-weight:600;padding:16px;line-height:1.7">${escHtml(t2("model.err.run", { msg: err.message }))}</div>
+            <button class="btn-secondary" id="btnRunModel" style="margin-top:12px">${escHtml(t2("model.retry"))}</button>`;
+        }
+      });
+      function renderModelPanel(panel, result) {
+        const pct = Number.isFinite(result.aiProb) ? Math.round(result.aiProb * 100) : null;
+        const conf = pct == null ? null : pct >= 65 ? "medium" : pct >= 40 ? "weak" : "info";
+        const verdict = pct == null ? t2("model.verdict.unknown") : pct >= 65 ? t2("model.verdict.ai") : pct >= 40 ? t2("model.verdict.uncertain") : t2("model.verdict.real");
+        const bars = result.labels.slice().sort((a2, b2) => b2.score - a2.score).map((l2) => `
+            <div class="fusion-src">
+                <div class="fusion-src-top">
+                    <span class="fusion-src-name">${escHtml(l2.label)}</span>
+                    <span class="fusion-src-detail">${(l2.score * 100).toFixed(1)}%</span>
+                </div>
+                <div class="fusion-bar"><span class="fusion-bar-fill fusion-pos" style="width:${(l2.score * 100).toFixed(0)}%"></span></div>
+            </div>`).join("");
+        panel.innerHTML = `
+        <div class="freq-disclaimer">
+            <span class="freq-disclaimer-tag">${escHtml(t2("model.tag"))}</span>
+            <span>${escHtml(t2("model.resultDisclaimer", { id: result.modelId, dev: result.device || "\u2014" }))}</span>
+        </div>
+        <div class="freq-head">
+            <div class="freq-verdict ${conf ? "conf-" + conf : ""}">
+                <span class="freq-verdict-label">${escHtml(t2("model.probLabel"))}</span>
+                <span class="freq-verdict-value">${pct == null ? "\u2014" : pct + "%"} \xB7 ${escHtml(verdict)}</span>
+                <span class="freq-score">${escHtml(t2("model.device", { dev: result.device || "\u2014" }))}</span>
+            </div>
+        </div>
+        <div class="freq-votes"><div class="freq-subtitle">${escHtml(t2("model.classes"))}</div>${bars}</div>`;
+      }
       document.getElementById("btnConvert").addEventListener("click", async () => {
         if (!currentFile || !currentBytes) return;
         const btn = document.getElementById("btnConvert");
@@ -6651,6 +7337,11 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         syncLangToggle();
         renderCameraSelector();
         renderGpsOptions();
+        if (currentDetections) refreshFusion();
+        if (lastForensicsResult) renderForensicsPanel(document.getElementById("forensicsPanel"), lastForensicsResult);
+        else if (currentFile) resetSubPanel("forensicsPanel", "btnRunForensics", "forensics");
+        if (lastModelResult) renderModelPanel(document.getElementById("modelPanel"), lastModelResult);
+        else if (currentFile) resetSubPanel("modelPanel", "btnRunModel", "model");
         const mp = document.getElementById("metadataPanel");
         if (mp && mp.innerHTML && currentMeta) {
           renderMetadataPanel(mp, {

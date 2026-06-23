@@ -112,6 +112,8 @@
                 <div class="result-view hidden" id="resultView">
                     <div class="tab-bar">
                         <button class="tab-btn active" data-tab="detect" data-i18n="tab.detect">溯源</button>
+                        <button class="tab-btn" data-tab="model" data-i18n="tab.model">AI 模型</button>
+                        <button class="tab-btn" data-tab="forensics" data-i18n="tab.forensics">鑑識</button>
                         <button class="tab-btn" data-tab="freq" data-i18n="tab.freq">頻域</button>
                         <button class="tab-btn" data-tab="meta" data-i18n="tab.meta">元數據</button>
                         <button class="tab-btn" data-tab="convert" data-i18n="tab.convert">轉換</button>
@@ -119,7 +121,36 @@
 
                     <div class="tab-panel" data-panel="detect">
                         <div class="analysis-log hidden" id="analysisLog"></div>
+                        <div id="fusionSummary"></div>
                         <div id="detectionItems"></div>
+                    </div>
+
+                    <div class="tab-panel hidden" data-panel="model">
+                        <div id="modelPanel">
+                            <div class="freq-disclaimer">
+                                <span class="freq-disclaimer-tag" data-i18n="model.tag">真模型</span>
+                                <span data-i18n="model.disclaimer">瀏覽器內運行的神經網路 · 首次需下載權重 (~100MB) · 圖片不上傳,僅下載模型</span>
+                            </div>
+                            <button class="btn-primary" id="btnRunModel">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                <span data-i18n="model.runBtn">執行 AI 模型偵測</span>
+                            </button>
+                            <p class="panel-hint" data-i18n="model.panelHint">載入 Organika/sdxl-detector (Swin),WebGPU 加速,結果並入綜合判定。</p>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel hidden" data-panel="forensics">
+                        <div id="forensicsPanel">
+                            <div class="freq-disclaimer">
+                                <span class="freq-disclaimer-tag" data-i18n="forensics.tag">區域鑑識</span>
+                                <span data-i18n="forensics.disclaimer">ELA + 噪聲殘差,標出可能被局部修改/重繪的區域。對 JPEG 最有效;PNG/截圖結果僅供參考。</span>
+                            </div>
+                            <button class="btn-primary" id="btnRunForensics">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                <span data-i18n="forensics.runBtn">執行區域鑑識</span>
+                            </button>
+                            <p class="panel-hint" data-i18n="forensics.panelHint">誤差層級分析 (ELA) 與噪聲一致性檢查,定位竄改痕跡。</p>
+                        </div>
                     </div>
                     <div class="tab-panel hidden" data-panel="freq">
                         <div id="freqPanel">
