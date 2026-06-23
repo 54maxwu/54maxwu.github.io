@@ -39,8 +39,14 @@ export function computeFusion(inputs) {
     };
 
     if (model && Number.isFinite(model.aiProb)) {
-        // Model is the heaviest soft vote: logit ±2.75 across [0,1].
-        add((model.aiProb - 0.5) * 5.5, 'fusion.src.model', 'model',
+        // Small detectors are poorly calibrated and over-flag real/phone photos,
+        // so we (1) SHRINK the probability 35% toward 0.5 to tame 99.8%-style
+        // overconfidence, then (2) CAP the log-odds push at ±1.5 so one model
+        // alone can only move the verdict to "leaning", never to "certain".
+        // It takes a *second* corroborating signal to cross into high confidence.
+        const shrunk = 0.5 + (model.aiProb - 0.5) * 0.65;
+        const delta = clamp((shrunk - 0.5) * 3.2, -1.5, 1.5);
+        add(delta, 'fusion.src.model', 'model',
             t('fusion.detail.model', { pct: Math.round(model.aiProb * 100), dev: model.device || '—' }));
     }
     if (freq && freq.score) {

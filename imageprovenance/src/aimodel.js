@@ -1,29 +1,32 @@
 // In-browser AI-image classifier — a *real* trained model, not a heuristic.
 //
-// Loads transformers.js (Hugging Face) from a CDN on first use and runs a Swin
-// image-classification model (Organika/sdxl-detector) entirely client-side via
-// WebGPU (falling back to WASM). The image is never uploaded — only the model
-// weights are downloaded, once, then cached by the browser.
+// Loads transformers.js (Hugging Face) from a CDN on first use and runs a ViT
+// image-classification model entirely client-side via WebGPU (falling back to
+// WASM). The image is never uploaded — only the quantized model weights are
+// downloaded, once, then cached by the browser.
 //
-// This is one model's opinion. It is strongest on diffusion imagery (SD/SDXL)
-// and can miss other generators, so fusion.js treats it as a heavy vote, not a
-// verdict. Kept on a dedicated tab because the first run pulls ~100MB of weights.
+// Model: onnx-community/ai-source-detector-ONNX. Unlike a binary SDXL-vs-one-
+// realset detector, it has an explicit "real" class plus per-generator classes
+// (stable_diffusion / midjourney / dalle / other_ai), so it generalizes better
+// to ordinary photos and yields a vendor breakdown. Still just one opinion —
+// small detectors can misfire on compressed/phone photos — so fusion.js shrinks
+// and CAPS this vote rather than letting it dominate.
 
 import { t } from './i18n.js';
 
 // Pin a version so behavior is reproducible. ESM build, browser-ready.
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2';
-const MODEL_ID = 'Organika/sdxl-detector';
+const MODEL_ID = 'onnx-community/ai-source-detector-ONNX';
 
 let _libPromise = null;   // resolves to the transformers module
 let _pipePromise = null;  // resolves to the classification pipeline
 let _device = null;
 
 function aiLabel(label) {
-    return /art|\bai\b|fake|gener|synth|diffus|machine/i.test(label);
+    return /art|ai|fake|gener|synth|diffus|machine|sdxl|midjourney|dalle|flux/i.test(label);
 }
 function realLabel(label) {
-    return /human|real|photo|authentic|natural/i.test(label);
+    return /human|real|photo|authentic|natural|genuine/i.test(label);
 }
 
 async function loadLib() {
@@ -52,9 +55,12 @@ export async function getPipeline(onProgress = () => {}) {
         const lib = await loadLib();
         const wantGpu = !!navigator.gpu;
         _device = wantGpu ? 'webgpu' : 'wasm';
+        // WebGPU runs fp16 well (~half the download); WASM uses the q8 quantized
+        // weights (~25MB) for a fast, broadly-compatible load.
+        const dtypeFor = (dev) => dev === 'webgpu' ? 'fp16' : 'q8';
         const opts = {
             device: _device,
-            dtype: 'fp32',
+            dtype: dtypeFor(_device),
             progress_callback: (p) => {
                 if (p && p.status === 'progress' && p.total) {
                     onProgress({
@@ -74,7 +80,7 @@ export async function getPipeline(onProgress = () => {}) {
             if (_device === 'webgpu') {
                 _device = 'wasm';
                 onProgress({ status: 'fallback' });
-                return await lib.pipeline('image-classification', MODEL_ID, { ...opts, device: 'wasm' });
+                return await lib.pipeline('image-classification', MODEL_ID, { ...opts, device: 'wasm', dtype: dtypeFor('wasm') });
             }
             throw err;
         }
@@ -97,13 +103,14 @@ export async function classifyImage(file, onProgress = () => {}) {
         const labels = (Array.isArray(raw) ? raw : [raw]).map(r => ({
             label: String(r.label), score: Number(r.score),
         }));
-        // Derive a single AI probability: prefer an explicit AI-class score;
-        // otherwise 1 - realScore; otherwise the top label's polarity.
+        // Derive a single AI probability. With a multi-class model the robust
+        // estimate is 1 − P(real): summing several AI classes against one real
+        // class. Fall back to a single AI class, then to top-label polarity.
         let aiProb = null;
-        const ai = labels.find(l => aiLabel(l.label));
         const real = labels.find(l => realLabel(l.label));
-        if (ai) aiProb = ai.score;
-        else if (real) aiProb = 1 - real.score;
+        const ai = labels.find(l => aiLabel(l.label));
+        if (real) aiProb = 1 - real.score;
+        else if (ai) aiProb = ai.score;
         else {
             const top = labels.slice().sort((a, b) => b.score - a.score)[0];
             aiProb = top && aiLabel(top.label) ? top.score : (top ? 1 - top.score : null);

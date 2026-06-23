@@ -5940,9 +5940,9 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         "fusion.pending.forensics": { zh: "\u5340\u57DF\u9451\u8B58", en: "Forensics" },
         // ===== AI model tab =====
         "model.tag": { zh: "\u771F\u6A21\u578B", en: "Real model" },
-        "model.disclaimer": { zh: "\u700F\u89BD\u5668\u5167\u904B\u884C\u7684\u795E\u7D93\u7DB2\u8DEF \xB7 \u9996\u6B21\u9700\u4E0B\u8F09\u6B0A\u91CD (~100MB) \xB7 \u5716\u7247\u4E0D\u4E0A\u50B3,\u50C5\u4E0B\u8F09\u6A21\u578B", en: "A neural net running in your browser \xB7 first run downloads ~100MB of weights \xB7 the image is never uploaded, only the model is downloaded" },
+        "model.disclaimer": { zh: "\u700F\u89BD\u5668\u5167\u904B\u884C\u7684\u795E\u7D93\u7DB2\u8DEF \xB7 \u9996\u6B21\u9700\u4E0B\u8F09\u6B0A\u91CD (~25\u201345MB) \xB7 \u5716\u7247\u4E0D\u4E0A\u50B3,\u50C5\u4E0B\u8F09\u6A21\u578B", en: "A neural net running in your browser \xB7 first run downloads ~25\u201345MB of weights \xB7 the image is never uploaded, only the model is downloaded" },
         "model.runBtn": { zh: "\u57F7\u884C AI \u6A21\u578B\u5075\u6E2C", en: "Run AI model detection" },
-        "model.panelHint": { zh: "\u8F09\u5165 Organika/sdxl-detector (Swin),WebGPU \u52A0\u901F,\u7D50\u679C\u4E26\u5165\u7D9C\u5408\u5224\u5B9A\u3002", en: "Loads Organika/sdxl-detector (Swin), WebGPU-accelerated; result folds into the combined verdict." },
+        "model.panelHint": { zh: "\u8F09\u5165 ai-source-detector (ViT,\u542B real \u985E\u5225\u8207\u5404\u751F\u6210\u5668\u5206\u985E),WebGPU \u52A0\u901F,\u7D50\u679C\u4E26\u5165\u7D9C\u5408\u5224\u5B9A\u3002", en: "Loads ai-source-detector (ViT, with a real class + per-generator classes), WebGPU-accelerated; result folds into the combined verdict." },
         "model.stage.init": { zh: "\u521D\u59CB\u5316\u2026", en: "Initializing\u2026" },
         "model.stage.load": { zh: "\u8F09\u5165\u6A21\u578B\u2026", en: "Loading model\u2026" },
         "model.stage.download": { zh: "\u4E0B\u8F09\u6B0A\u91CD ${pct}% \xB7 ${file}", en: "Downloading weights ${pct}% \xB7 ${file}" },
@@ -5951,7 +5951,7 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         "model.probLabel": { zh: "AI \u6A5F\u7387", en: "AI probability" },
         "model.classes": { zh: "\u5404\u985E\u5225\u5206\u6578", en: "Class scores" },
         "model.device": { zh: "\u904B\u7B97\u5F8C\u7AEF:${dev}", en: "Backend: ${dev}" },
-        "model.resultDisclaimer": { zh: "\u6A21\u578B ${id} \xB7 \u5F8C\u7AEF ${dev} \xB7 \u504F\u5411\u64F4\u6563\u6A21\u578B(SD/SDXL),\u5C0D\u5176\u4ED6\u751F\u6210\u5668\u53EF\u80FD\u6F0F\u5224,\u50C5\u4F5C\u4E00\u7968\u3002", en: "Model ${id} \xB7 backend ${dev} \xB7 biased toward diffusion (SD/SDXL); may miss other generators \u2014 counts as one vote." },
+        "model.resultDisclaimer": { zh: "\u6A21\u578B ${id} \xB7 \u5F8C\u7AEF ${dev} \xB7 \u5C0F\u578B\u5075\u6E2C\u5668\u5C0D\u58D3\u7E2E\u5716/\u624B\u6A5F\u7167/\u7FFB\u62CD\u53EF\u80FD\u8AA4\u5831\u70BA AI,\u7D9C\u5408\u5224\u5B9A\u5DF2\u5C0D\u6B64\u7968\u964D\u6B0A\u4E26\u8A2D\u4E0A\u9650,\u50C5\u4F5C\u4E00\u7968\u53C3\u8003\u3002", en: "Model ${id} \xB7 backend ${dev} \xB7 small detectors can misfire (flag real/compressed/phone photos as AI); the combined verdict down-weights and caps this vote \u2014 treat it as one reference vote." },
         "model.verdict.ai": { zh: "\u5224\u5B9A\u70BA AI \u751F\u6210", en: "Classified AI-generated" },
         "model.verdict.uncertain": { zh: "\u4E0D\u78BA\u5B9A", en: "Uncertain" },
         "model.verdict.real": { zh: "\u5224\u5B9A\u70BA\u771F\u5BE6", en: "Classified real" },
@@ -6243,10 +6243,10 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
 
   // src/aimodel.js
   function aiLabel(label) {
-    return /art|\bai\b|fake|gener|synth|diffus|machine/i.test(label);
+    return /art|ai|fake|gener|synth|diffus|machine|sdxl|midjourney|dalle|flux/i.test(label);
   }
   function realLabel(label) {
-    return /human|real|photo|authentic|natural/i.test(label);
+    return /human|real|photo|authentic|natural|genuine/i.test(label);
   }
   async function loadLib() {
     if (_libPromise) return _libPromise;
@@ -6273,9 +6273,10 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       const lib = await loadLib();
       const wantGpu = !!navigator.gpu;
       _device = wantGpu ? "webgpu" : "wasm";
+      const dtypeFor = (dev) => dev === "webgpu" ? "fp16" : "q8";
       const opts = {
         device: _device,
-        dtype: "fp32",
+        dtype: dtypeFor(_device),
         progress_callback: (p2) => {
           if (p2 && p2.status === "progress" && p2.total) {
             onProgress({
@@ -6294,7 +6295,7 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         if (_device === "webgpu") {
           _device = "wasm";
           onProgress({ status: "fallback" });
-          return await lib.pipeline("image-classification", MODEL_ID, { ...opts, device: "wasm" });
+          return await lib.pipeline("image-classification", MODEL_ID, { ...opts, device: "wasm", dtype: dtypeFor("wasm") });
         }
         throw err;
       }
@@ -6316,10 +6317,10 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
         score: Number(r2.score)
       }));
       let aiProb = null;
-      const ai = labels.find((l2) => aiLabel(l2.label));
       const real = labels.find((l2) => realLabel(l2.label));
-      if (ai) aiProb = ai.score;
-      else if (real) aiProb = 1 - real.score;
+      const ai = labels.find((l2) => aiLabel(l2.label));
+      if (real) aiProb = 1 - real.score;
+      else if (ai) aiProb = ai.score;
       else {
         const top = labels.slice().sort((a2, b2) => b2.score - a2.score)[0];
         aiProb = top && aiLabel(top.label) ? top.score : top ? 1 - top.score : null;
@@ -6334,7 +6335,7 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
     "src/aimodel.js"() {
       init_i18n();
       TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2";
-      MODEL_ID = "Organika/sdxl-detector";
+      MODEL_ID = "onnx-community/ai-source-detector-ONNX";
       _libPromise = null;
       _pipePromise = null;
       _device = null;
@@ -6358,8 +6359,10 @@ LSB\u504F\u79FB: ${wm.lsbBias.toFixed(4)}`,
       sources.push({ key: srcKey, kind, delta, detail });
     };
     if (model && Number.isFinite(model.aiProb)) {
+      const shrunk = 0.5 + (model.aiProb - 0.5) * 0.65;
+      const delta = clamp3((shrunk - 0.5) * 3.2, -1.5, 1.5);
       add(
-        (model.aiProb - 0.5) * 5.5,
+        delta,
         "fusion.src.model",
         "model",
         t2("fusion.detail.model", { pct: Math.round(model.aiProb * 100), dev: model.device || "\u2014" })
