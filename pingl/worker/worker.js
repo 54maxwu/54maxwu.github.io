@@ -65,6 +65,18 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Upgrade, Connection',
 };
 
+// Only this site's own browser pages may open a signaling room; reject any
+// third-party origin so strangers can't join/relay through a guessed room id.
+const ALLOWED_ORIGINS = new Set([
+  'https://kd88.com', 'https://www.kd88.com', 'https://54maxwu.github.io'
+]);
+function originAllowed(origin) {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  try { const h = new URL(origin).hostname; return h === 'localhost' || h === '127.0.0.1'; }
+  catch (e) { return false; }
+}
+
 export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -80,6 +92,9 @@ export default {
       const roomId = parts[1];
       if (!/^[a-zA-Z0-9_-]{1,32}$/.test(roomId)) {
         return new Response('invalid room id', { status: 400, headers: CORS });
+      }
+      if (!originAllowed(req.headers.get('Origin'))) {
+        return new Response('forbidden origin', { status: 403, headers: CORS });
       }
       const id = env.ROOMS.idFromName(roomId);
       const stub = env.ROOMS.get(id);

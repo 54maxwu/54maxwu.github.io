@@ -49,11 +49,24 @@ export class Room {
   }
 }
 
+// 只允許自家站台的瀏覽器連入房間中轉，擋掉任意第三方網站連線炸房/竊聽。
+const ALLOWED_ORIGINS = new Set([
+  'https://kd88.com', 'https://www.kd88.com', 'https://54maxwu.github.io'
+]);
+function originAllowed(origin){
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  try { const h = new URL(origin).hostname; return h === 'localhost' || h === '127.0.0.1'; }
+  catch (e) { return false; }
+}
+
 export default {
   async fetch(request, env){
     const url = new URL(request.url);
     const m = url.pathname.match(/^\/room\/(.+)$/);
     if (!m) return new Response('bomb-signal OK — 用 WebSocket 連到 /room/<房號>', { status: 200 });
+    if (!originAllowed(request.headers.get('Origin')))
+      return new Response('forbidden origin', { status: 403 });
     const stub = env.ROOM.get(env.ROOM.idFromName(decodeURIComponent(m[1])));
     return stub.fetch(request);
   }

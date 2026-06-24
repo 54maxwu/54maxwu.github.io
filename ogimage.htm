@@ -1669,7 +1669,8 @@
         try { current.draw(ctx, values, images); }
         catch (e) { console.error(e); }
         document.getElementById('dims').textContent = `${current.w} × ${current.h} px`;
-        try { ogDataUrl = canvas.toDataURL('image/png'); } catch (e) {}
+        // toDataURL is deferred to refreshSocial() so it only runs when the social
+        // preview pane is actually visible, not on every keystroke/slider change.
         if (activePane === 'social') refreshSocial();
         setStatus('已生成預覽', 'ok');
     }
@@ -2056,6 +2057,7 @@
         () => genPlatform, v => genPlatform = v, () => refreshSocial()
     );
     function refreshSocial() {
+        try { ogDataUrl = canvas.toDataURL('image/png'); } catch (e) {}
         feed.className = 'feed feed-' + genPlatform;
         scHost.innerHTML = socialCardHTML(genPlatform, {
             imgSrc: ogDataUrl,

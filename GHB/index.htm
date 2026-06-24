@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,maximum-scale=1,minimum-scale=1" />
 <style>
     body {
@@ -57,18 +59,23 @@
           slider.classList.remove('active');
         }
 
+        const pointerY = (e) => {
+          if (e.pageY != null) return e.pageY;
+          const t = e.touches && e.touches[0];
+          return t ? t.pageY + slider.offsetTop : startY;
+        }
+
         const start = (e) => {
           isDown = true;
           slider.classList.add('active');
-          startY = e.pageY || e.touches[0].pageY + slider.offsetTop;
+          startY = pointerY(e);
           scrollTop = slider.scrollTop;
         }
 
         const move = (e) => {
           if(!isDown) return;
           e.preventDefault();
-          const x = e.pageY || e.touches[0].pageY + slider.offsetTop;
-          const dist = (x - startY);
+          const dist = (pointerY(e) - startY);
           slider.scrollTop = scrollTop - 1.5 * dist;
         }
 

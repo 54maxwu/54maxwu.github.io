@@ -12,6 +12,7 @@
 
 (function() {
     'use strict';
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     var heighlight = "Referral Libre 50";
     var css = '#myMenu {width:300px;background:cornsilk;display:none;position:fixed;right:40px;top:200px;z-index:999;padding:3px;border:solid;border-color:brown;} #result{border-top:#ffffff30;border-style:groove;text-align:left;margin-left:20px;margin-top:4px;margin-bottom:2px;font-size:smaller;padding-top:4px;}',
         head = document.head || document.getElementsByTagName('head')[0],
@@ -37,7 +38,7 @@ document.oncontextmenu = function(ev) {
     str += '<button type="button" onclick="cc()" style="position:absolute;right:0;top:0;background-color:transparent;border:0">❌</button>';
     str += '<div id="result"></div>';
     str += '</div>';
-document.body.innerHTML += str
+document.body.insertAdjacentHTML('beforeend', str)
 
 window.getWithdraw = (player) => {
     let result = document.getElementById('result');
@@ -58,7 +59,7 @@ window.getWithdraw = (player) => {
       .then((r) => {
         if(r.data.count > 0){
             r.data.records.forEach(d=>{
-                result.innerHTML += `單號: ${d.ordernumber} 出款方式: ${d.withdrawBankName} 出款帳號: <font color='#056b00' size='6'>${d.withdrawBankAccount}</font> <p>`
+                result.innerHTML += `單號: ${esc(d.ordernumber)} 出款方式: ${esc(d.withdrawBankName)} 出款帳號: <font color='#056b00' size='6'>${esc(d.withdrawBankAccount)}</font> <p>`
             })
         }else{
             result.innerHTML = "近90天沒出過款"

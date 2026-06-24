@@ -14,8 +14,9 @@
 
     var origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function() {
+        this._url = arguments[1];
         this.addEventListener('load', function() {
-            if(this.url.split("?")[0]=='https://bo.desafiobet.com/Player/GetTransactionHistory'){
+            if(typeof this._url === 'string' && this._url.split("?")[0]=='https://bo.desafiobet.com/Player/GetTransactionHistory'){
                 document.getElementsByClassName("row-fluid")[6].getElementsByClassName("span6")[3].innerHTML += "<div><font color='red'>("+formatSeconds(secDiff(new Date(document.getElementsByClassName("row-fluid")[6].getElementsByClassName("span6")[1].innerText),new Date(document.getElementsByClassName("row-fluid")[6].getElementsByClassName("span6")[3].innerText)))+")</font></div>"
             }
         });

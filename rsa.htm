@@ -542,7 +542,15 @@
     // PEM HELPERS
     // ══════════════════════════════════════════════
     function arrayBufferToBase64(buf) {
-        return btoa(String.fromCharCode(...new Uint8Array(buf)));
+        // Chunked to avoid "Maximum call stack size exceeded" when spreading a
+        // large byte array into String.fromCharCode (big keys / hybrid payloads).
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        const CHUNK = 0x8000;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+        }
+        return btoa(bin);
     }
     function base64ToArrayBuffer(b64) {
         const bin = atob(b64);

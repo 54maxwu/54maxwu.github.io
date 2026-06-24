@@ -499,6 +499,7 @@ function renderChecksum(file, digests) {
     wrap.innerHTML = '<div class="checksum-item"><div class="name">提示</div><div class="value">請選擇一個檔案，工具會即時顯示各種雜湊值。</div></div>';
     return;
   }
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   wrap.innerHTML = [
     ['檔案名稱', file.name],
     ['大小', `${(file.size / 1024).toFixed(2)} KB`],
@@ -506,7 +507,7 @@ function renderChecksum(file, digests) {
     ['SHA-1', digests['SHA-1']],
     ['SHA-256', digests['SHA-256']],
     ['SHA-512', digests['SHA-512']],
-  ].map(([k, v]) => `<div class="checksum-item"><div class="name">${k}</div><div class="value">${v}</div></div>`).join('');
+  ].map(([k, v]) => `<div class="checksum-item"><div class="name">${k}</div><div class="value">${esc(v)}</div></div>`).join('');
 }
 
 async function handleChecksumFile(file) {
@@ -515,7 +516,8 @@ async function handleChecksumFile(file) {
     const digests = await digestFile(file);
     renderChecksum(file, digests);
   } catch (e) {
-    document.getElementById('checksum-output').innerHTML = `<div class="checksum-item"><div class="name">錯誤</div><div class="value">${e.message || '雜湊計算失敗'}</div></div>`;
+    const msg = String(e.message || '雜湊計算失敗').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    document.getElementById('checksum-output').innerHTML = `<div class="checksum-item"><div class="name">錯誤</div><div class="value">${msg}</div></div>`;
   }
 }
 

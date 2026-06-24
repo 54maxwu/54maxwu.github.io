@@ -324,7 +324,7 @@
     </div>
     </div><!-- /.page-content -->
 
-    <script src="https://cdn.jsdelivr.net/npm/ua-parser-js@2.0.0-alpha.3/dist/ua-parser.pack.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ua-parser-js@2.0.0-alpha.3/dist/ua-parser.pack.min.js" integrity="sha384-hwoWg0bWIC868lHCMF61z34CduQXdwWbXowWhihke0FwnUFf4Yx7yGRN7ZcwHvMp" crossorigin="anonymous"></script>
     <script>
     // ── Helpers ──
     function badge(enabled, onLabel, offLabel) {
@@ -405,11 +405,19 @@
     const AudioCtx = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
     setText('webAudio', badge(!!AudioCtx, 'Web Audio 支援'));
 
-    // ── Public IP (ipify JSONP) ──
-    window.__ipCb = data => setText('publicIP', `<span class="badge badge-info">&#127760; ${data.ip}</span>`);
-    const s = document.createElement('script');
-    s.src = 'https://api.ipify.org?format=jsonp&callback=__ipCb';
-    document.head.appendChild(s);
+    // ── Public IP (CORS fetch, no JSONP/script-injection) ──
+    fetch('https://api.ipify.org?format=json')
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('publicIP');
+            if (!el) return;
+            el.textContent = '';
+            const span = document.createElement('span');
+            span.className = 'badge badge-info';
+            span.textContent = '\u{1F310} ' + (data.ip || '');
+            el.appendChild(span);
+        })
+        .catch(() => setText('publicIP', infoBadge('查詢失敗')));
 
     // ── DNS Query ──
     // Pre-fill from URL query string if present
@@ -429,8 +437,9 @@
             .then(data => {
                 if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
                     const ips = [...new Set(data.Answer.filter(a => a.type === 1).map(a => a.data))];
+                    const escIp = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
                     out.innerHTML = ips.length
-                        ? ips.map(ip => `<span class="dns-record">${ip}</span>`).join('')
+                        ? ips.map(ip => `<span class="dns-record">${escIp(ip)}</span>`).join('')
                         : '無 A 記錄';
                 } else {
                     out.textContent = '查無結果 (Status: ' + data.Status + ')';

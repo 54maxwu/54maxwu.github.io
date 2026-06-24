@@ -504,7 +504,7 @@ CATEGORIES.forEach(cat => {
   tab.className = 'cat-tab';
   tab.style.setProperty('--accent', cat.accent);
   const shortTitle = cat.title.replace(/^[一二三四五六七八]、/, m => m[0] + '. ');
-  tab.innerHTML = `<span style="color:${esc(cat.accent)}">●</span> ${esc(shortTitle.replace(/^./, c => c).slice(0, 22))}<span class="count">${cat.entries.length}</span>`;
+  tab.innerHTML = `<span style="color:${esc(cat.accent)}">●</span> ${esc(shortTitle.slice(0, 22))}<span class="count">${cat.entries.length}</span>`;
   tab.addEventListener('click', () => {
     const target = document.getElementById(cat.id);
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });

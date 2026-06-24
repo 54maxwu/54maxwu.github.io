@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OTP 產生器</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/otpauth@9/dist/otpauth.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/otpauth@9.5.1/dist/otpauth.umd.min.js" integrity="sha384-0go2788AAI3kBklL2S9l2eJP5a65DpqcZQ6Ryjyj4ZJKFY2mCE+ykeUOsVPNTJKv" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js" integrity="sha384-9Q0jWoineiIq95JeIyBsNV90KKLfDsbkj29k/YFxf76a2JwkHDYkMuSbNGN6XJfV" crossorigin="anonymous"></script>
 
     <style>
         :root {
@@ -538,13 +538,17 @@
         }
 
         function startTimer(period) {
+            let pendingRegen = false;
             function update() {
                 const epoch = Date.now();
                 const p = Math.max(1, period);
                 const remaining = p - (Math.floor(epoch / 1000) % p);
                 el.timerBar.style.width = (remaining / p * 100) + '%';
-                if (remaining <= 1) {
+                if (remaining <= 1 && !pendingRegen) {
+                    pendingRegen = true;
                     setTimeout(() => { if (el.otpType.value === 'totp') generateOTP(); }, 1100);
+                } else if (remaining > 1) {
+                    pendingRegen = false;
                 }
             }
             if (timerInterval) clearInterval(timerInterval);
@@ -618,7 +622,6 @@
 
         el.otpUri.addEventListener('input', parseUri);
         el.otpType.addEventListener('change', () => { toggleFields(); generateOTP(); });
-        el.copyBtn.addEventListener('click', () => {});
         [el.secret, el.issuer, el.account, el.algorithm, el.digits, el.period, el.counter]
             .forEach(e => e.addEventListener('input', generateOTP));
 

@@ -180,7 +180,24 @@ tbody td{padding:9px 14px;color:#334155;word-break:break-word;max-width:300px}
 <script src="lib/esprima.js"></script>
 <script src="lib/jsonsql.js"></script>
 <script src="lib/sampleJSON.js"></script>
-<script src="lib/xlsx.full.min.js"></script>
+<script>
+// xlsx.full.min.js (~900KB) is loaded on demand the first time an XLSX export
+// is requested, instead of eagerly on every page load.
+var _xlsxLoading = null;
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve();
+  if (!_xlsxLoading) {
+    _xlsxLoading = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'lib/xlsx.full.min.js';
+      s.onload = resolve;
+      s.onerror = function () { _xlsxLoading = null; reject(new Error('xlsx load failed')); };
+      document.head.appendChild(s);
+    });
+  }
+  return _xlsxLoading;
+}
+</script>
 <script>
 // ── State ──────────────────────────────────────────────
 var db = null;          // jsonsql instance
@@ -412,9 +429,13 @@ function downloadAs(fmt) {
     return;
   }
   if (fmt === 'XLSX') {
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(clean), 'Sheet1');
-    XLSX.writeFile(wb, 'excelFile.xlsx');
+    loadXLSX().then(function () {
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(clean), 'Sheet1');
+      XLSX.writeFile(wb, 'excelFile.xlsx');
+    }).catch(function () {
+      showErr('queryErr', 'XLSX 函式庫載入失敗，請重試');
+    });
   }
 }
 function trigger(name, data, type) {

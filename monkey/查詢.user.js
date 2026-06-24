@@ -11,6 +11,7 @@
 
 (function() {
     'use strict';
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     var heighlight = "Referral Libre 50";
     var css = '#myMenu {width:300px;background:cornsilk;display:none;position:fixed;right:40px;top:200px;z-index:999;padding:3px;border:solid;border-color:brown;} #result{border-top:#ffffff30;border-style:groove;text-align:left;margin-left:20px;margin-top:4px;margin-bottom:2px;font-size:smaller;padding-top:4px;}',
         head = document.head || document.getElementsByTagName('head')[0],
@@ -46,7 +47,7 @@ document.oncontextmenu = function(ev) {
     str += '<tr><td id="totalmoney" style="padding:5px;text-align:center;">x</td><td id="bonus" style="padding:5px;text-align:center;">x</td><td id="canusemoney" style="padding:5px;text-align:center;">x</td></tr>';
     str += '</tbody></table>';
     str += '</div>';
-document.body.innerHTML += str
+document.body.insertAdjacentHTML('beforeend', str)
 window.nAdd = (n1, n2) => {
     let n1base = n1.toString().split(".")[1]?.length ?? 0;
     let n2base = n2.toString().split(".")[1]?.length ?? 0;
@@ -144,9 +145,9 @@ window.ss = () => {
             let datestr = new Date(d.createdat+8*3600*1000).toISOString().split('.')[0]
             let dd = datestr.substr(5,2)+'/'+datestr.substr(8,2)
             if(d.promoname == heighlight){
-                str += `<font size='3' color='red'>${dd} ${d.promoname} (${d.bonus}) 💥 </font><br>`;
+                str += `<font size='3' color='red'>${esc(dd)} ${esc(d.promoname)} (${esc(d.bonus)}) 💥 </font><br>`;
             }else{
-                str += `${dd} ${d.promoname} (${d.bonus}) <br>`;
+                str += `${esc(dd)} ${esc(d.promoname)} (${esc(d.bonus)}) <br>`;
             }
         })
         document.getElementById('result').innerHTML = str;
