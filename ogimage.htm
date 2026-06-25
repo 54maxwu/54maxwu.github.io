@@ -208,6 +208,15 @@
         .ctl-btn-sm:hover { border-color: #0d9488; color: #0d9488; }
         .ctl-btn-sm.ghost { color: #94a3b8; }
         .ctl-btn-sm.ghost:hover { border-color: #ef4444; color: #ef4444; }
+        .ctl-btn-sm.active { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+
+        /* per-image fit + zoom controls */
+        .img-adjust { display: flex; align-items: center; gap: 12px; margin-top: 9px; flex-wrap: wrap; }
+        .fit-group { display: flex; gap: 4px; flex-shrink: 0; }
+        .fit-group .ctl-btn-sm { padding: 6px 14px; }
+        .zoom-group { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #64748b; flex: 1; min-width: 150px; }
+        .zoom-group input[type=range] { flex: 1; accent-color: #0d9488; cursor: pointer; height: 4px; }
+        .zoom-val { font-family: ui-monospace, Consolas, monospace; color: #0d9488; min-width: 38px; text-align: right; }
 
         /* ── Preview panel ── */
         .og-preview {
@@ -268,6 +277,19 @@
         }
         .fmt-btn:hover { color: #0d9488; }
         .fmt-btn.active { background: #fff; color: #0d9488; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        .dl-wrap { position: relative; }
+        .dl-menu {
+            position: absolute; right: 0; bottom: calc(100% + 8px);
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+            box-shadow: 0 12px 30px rgba(0,0,0,.18); padding: 6px; min-width: 196px;
+            z-index: 50; display: flex; flex-direction: column; gap: 2px;
+        }
+        .dl-item {
+            text-align: left; padding: 10px 12px; font-size: 13px; font-weight: 600;
+            border: none; background: transparent; color: #334155; border-radius: 7px;
+            cursor: pointer; font-family: inherit; transition: background .12s, color .12s;
+        }
+        .dl-item:hover { background: #f0fdfa; color: #0d9488; }
 
         .btn {
             padding: 10px 22px;
@@ -731,7 +753,14 @@
                                 </div>
                                 <div class="bar-actions">
                                     <button type="button" class="btn btn-secondary" id="resetBtn">還原預設</button>
-                                    <button type="button" class="btn btn-primary" id="downloadBtn">下載 PNG ↓</button>
+                                    <div class="dl-wrap">
+                                        <button type="button" class="btn btn-primary" id="downloadBtn">下載 PNG ▾</button>
+                                        <div class="dl-menu" id="dlMenu" hidden>
+                                            <button type="button" class="dl-item" data-dl="landscape">橫式 1200×630</button>
+                                            <button type="button" class="dl-item" data-dl="square">方形 1080×1080</button>
+                                            <button type="button" class="dl-item" data-dl="both">兩張一起下載</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -865,15 +894,21 @@
         });
         return out;
     }
+    // Honours optional per-image overrides stashed on the element:
+    //   img._fit  = 'cover' (default, fills+crops) | 'contain' (whole image, letterboxed)
+    //   img._zoom = scale multiplier (1 = natural fit). Both set from the form UI.
     function drawImageCover(ctx, img, x, y, w, h, r) {
         ctx.save();
         roundRect(ctx, x, y, w, h, r || 0);
         ctx.clip();
-        const ir = img.width / img.height, br = w / h;
-        let dw, dh, dx, dy;
-        if (ir > br) { dh = h; dw = h * ir; dx = x - (dw - w) / 2; dy = y; }
-        else         { dw = w; dh = w / ir; dx = x; dy = y - (dh - h) / 2; }
-        ctx.drawImage(img, dx, dy, dw, dh);
+        const fit = img._fit || 'cover';
+        const zoom = img._zoom || 1;
+        const base = fit === 'contain'
+            ? Math.min(w / img.width, h / img.height)
+            : Math.max(w / img.width, h / img.height);
+        const s = base * zoom;
+        const dw = img.width * s, dh = img.height * s;
+        ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
         ctx.restore();
     }
     function placeholderImg(ctx, x, y, w, h, r, text) {
@@ -1987,6 +2022,42 @@
                 const btns = document.createElement('div');
                 btns.className = 'img-btns'; btns.appendChild(pick); btns.appendChild(clear);
 
+                // fit (cover/contain) + zoom — stashed on the image element so the
+                // canvas draw helpers can read them without per-template plumbing.
+                const adj = document.createElement('div');
+                adj.className = 'img-adjust'; adj.hidden = true;
+                const fitGroup = document.createElement('div');
+                fitGroup.className = 'fit-group';
+                const fitCover = document.createElement('button');
+                fitCover.type = 'button'; fitCover.className = 'ctl-btn-sm fit-btn'; fitCover.textContent = '填滿';
+                const fitContain = document.createElement('button');
+                fitContain.type = 'button'; fitContain.className = 'ctl-btn-sm fit-btn'; fitContain.textContent = '完整';
+                fitGroup.appendChild(fitCover); fitGroup.appendChild(fitContain);
+                const zoomGroup = document.createElement('label');
+                zoomGroup.className = 'zoom-group';
+                const zoom = document.createElement('input');
+                zoom.type = 'range'; zoom.min = '0.3'; zoom.max = '2.5'; zoom.step = '0.02'; zoom.value = '1';
+                const zoomVal = document.createElement('span');
+                zoomVal.className = 'zoom-val';
+                zoomGroup.appendChild(document.createTextNode('縮放'));
+                zoomGroup.appendChild(zoom); zoomGroup.appendChild(zoomVal);
+                adj.appendChild(fitGroup); adj.appendChild(zoomGroup);
+
+                function syncAdj() {
+                    const img = images[f.key];
+                    adj.hidden = !img;
+                    if (!img) return;
+                    const fit = img._fit || 'cover';
+                    fitCover.classList.toggle('active', fit === 'cover');
+                    fitContain.classList.toggle('active', fit === 'contain');
+                    const z = img._zoom || 1;
+                    zoom.value = z;
+                    zoomVal.textContent = Math.round(z * 100) + '%';
+                }
+                fitCover.addEventListener('click', () => { const i = images[f.key]; if (!i) return; i._fit = 'cover'; syncAdj(); render(); });
+                fitContain.addEventListener('click', () => { const i = images[f.key]; if (!i) return; i._fit = 'contain'; syncAdj(); render(); });
+                zoom.addEventListener('input', () => { const i = images[f.key]; if (!i) return; i._zoom = parseFloat(zoom.value); zoomVal.textContent = Math.round(i._zoom * 100) + '%'; render(); });
+
                 function refreshThumb() {
                     if (images[f.key]) {
                         thumb.classList.add('has-img');
@@ -2007,17 +2078,18 @@
                     const rd = new FileReader();
                     rd.onload = () => {
                         const img = new Image();
-                        img.onload = () => { images[f.key] = img; refreshThumb(); render(); };
+                        img.onload = () => { img._fit = 'cover'; img._zoom = 1; images[f.key] = img; refreshThumb(); syncAdj(); render(); };
                         img.src = rd.result;
                     };
                     rd.readAsDataURL(fl);
                 });
                 clear.addEventListener('click', () => {
-                    delete images[f.key]; file.value = ''; refreshThumb(); render();
+                    delete images[f.key]; file.value = ''; refreshThumb(); syncAdj(); render();
                 });
-                refreshThumb();
+                refreshThumb(); syncAdj();
                 wrap.appendChild(thumb); wrap.appendChild(btns); wrap.appendChild(file);
                 group.appendChild(wrap);
+                group.appendChild(adj);
             }
             formFields.appendChild(group);
         });
@@ -2101,19 +2173,48 @@
         if (document.getElementById('proxyModal').classList.contains('show')) document.getElementById('proxyModal').classList.remove('show');
     });
 
-    document.getElementById('downloadBtn').addEventListener('click', () => {
-        render(); // ensure latest
-        try {
-            const a = document.createElement('a');
-            a.download = `og-${current.id}-${format === 'square' ? '1080x1080' : '1200x630'}-${Date.now()}.png`;
-            a.href = canvas.toDataURL('image/png');
-            a.click();
-            toast(format === 'square' ? '已下載方形 PNG' : '已下載橫式 PNG');
-        } catch (e) {
-            console.error(e);
-            toast('下載失敗');
-        }
+    // Render a given format to a throwaway canvas so downloads never depend on
+    // which format is currently on screen — the user picks per download.
+    function renderFormat(fmt) {
+        const sq = fmt === 'square';
+        const c = document.createElement('canvas');
+        c.width = sq ? SQ : current.w;
+        c.height = sq ? SQ : current.h;
+        const cx2 = c.getContext('2d');
+        cx2.clearRect(0, 0, c.width, c.height);
+        try { sq ? drawSquare(cx2, values, images) : current.draw(cx2, values, images); }
+        catch (e) { console.error(e); }
+        return c;
+    }
+    function downloadFormat(fmt) {
+        const c = renderFormat(fmt);
+        const a = document.createElement('a');
+        a.download = `og-${current.id}-${fmt === 'square' ? '1080x1080' : '1200x630'}-${Date.now()}.png`;
+        a.href = c.toDataURL('image/png');
+        a.click();
+    }
+
+    const dlMenu = document.getElementById('dlMenu');
+    document.getElementById('downloadBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        dlMenu.hidden = !dlMenu.hidden;
     });
+    dlMenu.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', () => { if (!dlMenu.hidden) dlMenu.hidden = true; });
+    dlMenu.querySelectorAll('.dl-item').forEach(item => item.addEventListener('click', () => {
+        const dl = item.dataset.dl;
+        dlMenu.hidden = true;
+        try {
+            if (dl === 'both') {
+                downloadFormat('landscape');
+                setTimeout(() => downloadFormat('square'), 400);
+                toast('已下載兩張 PNG');
+            } else {
+                downloadFormat(dl);
+                toast(dl === 'square' ? '已下載方形 PNG' : '已下載橫式 PNG');
+            }
+        } catch (e) { console.error(e); toast('下載失敗'); }
+    }));
     document.getElementById('resetBtn').addEventListener('click', () => {
         Object.keys(images).forEach(k => delete images[k]);
         selectTemplate(current, false);
