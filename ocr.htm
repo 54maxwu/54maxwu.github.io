@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>OCR 文字辨識</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            z-index: 10;
+            gap: 14px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+        }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color .2s, color .2s, border-color .2s;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+        .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+        .page-content {
+            padding: 12px 20px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
+
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 18px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Controls bar ── */
+        .ctl-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px 16px;
+            flex-wrap: wrap;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+        .ctl-group { display: flex; align-items: center; gap: 8px; }
+        .ctl-sep { width: 1px; height: 26px; background: #e2e8f0; }
+        .ctl-label { font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: .06em; text-transform: uppercase; }
+
+        .btn {
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: .04em;
+            font-family: inherit;
+            transition: background .15s, box-shadow .15s, transform .08s;
+        }
+        .btn-primary {
+            background: linear-gradient(145deg, #14b8a6, #0d9488);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(13,148,136,0.35);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 14px rgba(13,148,136,0.45); }
+        .btn-primary:active { transform: scale(.97); }
+        .btn-primary:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+        .btn-secondary {
+            background: #fff;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-secondary:hover { background: #f8fafc; color: #0d9488; border-color: #0d9488; }
+        .btn-secondary:active { transform: scale(.97); }
+        .btn-secondary:disabled { opacity: .5; cursor: not-allowed; }
+
+        .sel {
+            font-size: 13px;
+            padding: 8px 10px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            color: #1e293b;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .sel:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+
+        .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #475569; cursor: pointer; user-select: none; }
+        .chk input { width: 16px; height: 16px; accent-color: #0d9488; cursor: pointer; }
+
+        .hint { font-size: 12px; color: #94a3b8; }
+
+        /* ── Main grid ── */
+        .ocr-grid {
+            margin-top: 14px;
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 900px) {
+            .ocr-grid { grid-template-columns: 1fr; overflow: auto; }
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.78);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        @media (max-width: 900px) {
+            .panel { min-height: 340px; }
+        }
+        .panel-head {
+            padding: 10px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .panel-head .t { font-size: 11px; font-weight: 800; color: #0d9488; letter-spacing: .08em; text-transform: uppercase; }
+
+        /* ── Image stage ── */
+        .ocr-stage {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            overflow: auto;
+            position: relative;
+            background:
+                repeating-conic-gradient(#eef2f6 0% 25%, #f8fafc 0% 50%) 50%/22px 22px;
+            transition: background-color .15s, box-shadow .15s;
+        }
+        .ocr-stage { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .ocr-stage::-webkit-scrollbar { width: 9px; height: 9px; }
+        .ocr-stage::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .ocr-stage.drag { box-shadow: inset 0 0 0 3px #0d9488; }
+        .ocr-imgwrap { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
+        .ocr-imgwrap img { display: block; max-width: 100%; max-height: 100%; height: auto; border-radius: 6px; }
+        .ocr-overlay {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        .stage-empty {
+            text-align: center; color: #94a3b8; font-size: 14px; line-height: 1.9;
+            padding: 30px; max-width: 380px;
+        }
+        .stage-empty .big { font-size: 40px; margin-bottom: 8px; opacity: .55; }
+        .stage-empty b { color: #0d9488; }
+
+        /* ── Result tabs ── */
+        .res-tabs { display: flex; gap: 4px; padding: 8px 10px 0; background: #fff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+        .res-tab {
+            padding: 8px 15px; font-size: 13px; font-weight: 600; border: none;
+            border-bottom: 2px solid transparent; background: transparent; color: #64748b;
+            cursor: pointer; font-family: inherit; transition: color .12s, border-color .12s;
+        }
+        .res-tab:hover { color: #0d9488; }
+        .res-tab.active { color: #0d9488; border-bottom-color: #0d9488; }
+        .res-pane { display: none; flex: 1; min-height: 0; flex-direction: column; }
+        .res-pane.active { display: flex; }
+
+        .ocr-text {
+            flex: 1; min-height: 0; width: 100%; resize: none;
+            border: none; outline: none; padding: 14px 16px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 13.5px; line-height: 1.6; color: #1e293b; background: transparent;
+        }
+        .ocr-text { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .ocr-text::-webkit-scrollbar { width: 9px; }
+        .ocr-text::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .ocr-text::placeholder { color: #94a3b8; }
+
+        .words-wrap { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 7px; align-content: flex-start; }
+        .words-wrap { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .words-wrap::-webkit-scrollbar { width: 9px; }
+        .words-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .word-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0;
+            background: #fff; font-size: 13px; color: #1e293b; cursor: pointer;
+            font-family: ui-monospace, Consolas, monospace; transition: border-color .12s, background .12s, transform .08s;
+        }
+        .word-chip:hover { border-color: #0d9488; background: #f0fdfa; }
+        .word-chip.active { border-color: #0d9488; background: #ccfbf1; box-shadow: 0 0 0 2px rgba(13,148,136,.18); }
+        .word-chip .cf { font-size: 10.5px; font-weight: 800; padding: 1px 5px; border-radius: 5px; }
+        .cf.hi { background: #ecfdf5; color: #15803d; }
+        .cf.mid { background: #fffbeb; color: #b45309; }
+        .cf.lo { background: #fef2f2; color: #b91c1c; }
+        .words-empty { width: 100%; text-align: center; color: #94a3b8; font-size: 13px; padding: 40px 16px; }
+
+        .res-foot {
+            border-top: 1px solid #e2e8f0; background: #f8fafc;
+            padding: 9px 14px; display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .res-stats { font-size: 12px; color: #64748b; font-family: ui-monospace, Consolas, monospace; }
+        .res-stats b { color: #1e293b; }
+        .foot-btns { display: flex; gap: 8px; }
+        .mini-btn {
+            padding: 7px 13px; font-size: 12px; font-weight: 700; border-radius: 7px;
+            border: 1px solid #cbd5e1; background: #fff; color: #475569; cursor: pointer; font-family: inherit;
+            transition: background .12s, color .12s, border-color .12s;
+        }
+        .mini-btn:hover { border-color: #0d9488; color: #0d9488; }
+        .mini-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        /* ── Progress bar (engine + recognize) ── */
+        .prog-wrap { padding: 0 14px; flex-shrink: 0; }
+        .prog-wrap.show { padding: 10px 14px; }
+        .prog-track { height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+        .prog-fill { height: 100%; width: 0; background: linear-gradient(90deg, #14b8a6, #0d9488); border-radius: 999px; transition: width .2s; }
+        .prog-label { font-size: 11px; color: #64748b; margin-top: 5px; font-family: ui-monospace, Consolas, monospace; }
+
+        /* ── Toast ── */
+        .file-warn {
+            background: #fffbeb; border-bottom: 1px solid #fde68a; color: #92400e;
+            font-size: 13px; line-height: 1.6; padding: 10px 24px; text-align: center; flex-shrink: 0;
+        }
+        .file-warn b { color: #b45309; }
+
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b; color: #f1f5f9; padding: 9px 18px; border-radius: 8px;
+            font-size: 13px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.4);
+            opacity: 0; transition: opacity .2s, transform .2s; z-index: 200;
+            pointer-events: none; border: 1px solid #334155;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>OCR 文字辨識</h1>
+        <div class="header-meta">
+            <span class="hint">純前端辨識,圖片不會上傳</span>
+            <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
+        </div>
+    </div>
+
+    <div id="fileWarn" class="file-warn" hidden>
+        ⚠ 你正以 <b>file://</b> 開啟,深度學習 PP-OCR 無法載入(瀏覽器限制)。請改用本機伺服器網址
+        <b>http://127.0.0.1:8000/ocr.htm</b>,或把引擎切換成 <b>Tesseract</b>。
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="ctl-bar">
+                <div class="ctl-group">
+                    <button type="button" class="btn btn-primary" id="pickBtn">選擇圖片</button>
+                    <button type="button" class="btn btn-primary" id="runBtn" disabled>辨識文字</button>
+                    <button type="button" class="btn btn-secondary" id="clearBtn" disabled>清除</button>
+                </div>
+                <div class="ctl-sep"></div>
+                <div class="ctl-group">
+                    <span class="ctl-label">引擎</span>
+                    <select class="sel" id="engineSel">
+                        <option value="paddle">深度學習 PP-OCR</option>
+                        <option value="tesseract">Tesseract (輕量)</option>
+                    </select>
+                </div>
+                <div class="ctl-sep"></div>
+                <div class="ctl-group">
+                    <span class="ctl-label">語言</span>
+                    <select class="sel" id="langSel">
+                        <option value="eng">英文</option>
+                        <option value="tha+eng">泰文</option>
+                        <option value="chi_tra+eng">繁體中文</option>
+                        <option value="chi_sim+eng">簡體中文</option>
+                        <option value="jpn+eng">日文</option>
+                        <option value="kor+eng">韓文</option>
+                    </select>
+                </div>
+                <div class="ctl-group">
+                    <span class="ctl-label">字元範圍</span>
+                    <select class="sel" id="rangeSel">
+                        <option value="alnum">英文 + 數字</option>
+                        <option value="digit">純數字</option>
+                        <option value="alpha">純英文</option>
+                        <option value="all">不限 (含符號)</option>
+                    </select>
+                </div>
+                <div class="ctl-group">
+                    <span class="ctl-label">前處理</span>
+                    <select class="sel" id="ppSel">
+                        <option value="binary">自動二值化 (推薦)</option>
+                        <option value="gray">灰階 + 強化</option>
+                        <option value="none">無 (原圖)</option>
+                    </select>
+                </div>
+                <div class="ctl-group">
+                    <span class="ctl-label">最低信心</span>
+                    <input type="range" id="confRange" min="0" max="95" step="5" value="0" style="width:92px;accent-color:#0d9488;cursor:pointer;">
+                    <span class="hint" id="confVal" style="min-width:32px;">0%</span>
+                </div>
+                <div class="ctl-group">
+                    <label class="chk"><input type="checkbox" id="upChk" checked> 放大小圖</label>
+                    <label class="chk"><input type="checkbox" id="boxChk" checked> 顯示框</label>
+                    <label class="chk"><input type="checkbox" id="viewProcChk"> 顯示處理後</label>
+                </div>
+                <span class="hint">拖拉 / Ctrl+V 貼上 · 截圖建議前處理選「無」</span>
+                <input type="file" id="fileInput" accept="image/*" hidden>
+            </div>
+
+            <div class="ocr-grid">
+                <div class="panel">
+                    <div class="panel-head">
+                        <span class="t">原圖 / 辨識框</span>
+                        <span class="hint" id="imgMeta"></span>
+                    </div>
+                    <div class="ocr-stage" id="stage">
+                        <div class="stage-empty" id="stageEmpty">
+                            <div class="big">🔍</div>
+                            點「<b>選擇圖片</b>」、把圖片<b>拖進來</b>,或直接 <b>Ctrl+V</b> 貼上<br>
+                            印刷體的英文與數字辨識效果最佳
+                        </div>
+                        <div class="ocr-imgwrap" id="imgWrap" hidden>
+                            <img id="ocrImg" alt="">
+                            <canvas class="ocr-overlay" id="overlay"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="res-tabs">
+                        <button type="button" class="res-tab active" data-pane="text">純文字</button>
+                        <button type="button" class="res-tab" data-pane="words">逐字 (可點選定位)</button>
+                    </div>
+                    <div class="prog-wrap" id="progWrap">
+                        <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+                        <div class="prog-label" id="progLabel"></div>
+                    </div>
+                    <div class="res-pane active" data-pane="text">
+                        <textarea class="ocr-text" id="ocrText" placeholder="辨識結果會顯示在這裡,可直接編輯與複製…" spellcheck="false"></textarea>
+                    </div>
+                    <div class="res-pane" data-pane="words">
+                        <div class="words-wrap" id="wordsWrap">
+                            <div class="words-empty">尚未辨識,逐字結果會列在這裡</div>
+                        </div>
+                    </div>
+                    <div class="res-foot">
+                        <span class="res-stats" id="resStats">—</span>
+                        <div class="foot-btns">
+                            <button type="button" class="mini-btn" id="copyBtn" disabled>⧉ 複製文字</button>
+                            <button type="button" class="mini-btn" id="dlBtn" disabled>↓ 下載 .txt</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- PP-OCR (PaddleJS) deep-learning OCR — runs fully in-browser (WebGL), no upload.
+         Lazy ESM import; if the CDN/init fails the UI falls back to Tesseract. -->
+    <script type="module">
+        window.PaddleOCRReady = (async () => {
+            try {
+                const mod = await import('https://cdn.jsdelivr.net/npm/@paddlejs-models/ocr@1.1.1/+esm');
+                // package exports named init/recognize; fall back to default if bundled that way
+                window.PaddleOCR = (mod && typeof mod.recognize === 'function') ? mod : (mod.default || mod);
+                return window.PaddleOCR;
+            } catch (e) {
+                console.error('[PaddleOCR load failed]', e);
+                window.PaddleOCRError = e;
+                return null;
+            }
+        })();
+    </script>
+    <script>
+    // ── Elements ───────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    const stage = $('stage'), stageEmpty = $('stageEmpty'), imgWrap = $('imgWrap');
+    const ocrImg = $('ocrImg'), overlay = $('overlay'), octx = overlay.getContext('2d');
+    const fileInput = $('fileInput'), pickBtn = $('pickBtn'), runBtn = $('runBtn'), clearBtn = $('clearBtn');
+    const engineSel = $('engineSel');
+    const langSel = $('langSel'), rangeSel = $('rangeSel'), ppSel = $('ppSel'), upChk = $('upChk'), boxChk = $('boxChk'), viewProcChk = $('viewProcChk');
+    const confRange = $('confRange'), confVal = $('confVal');
+    const baseImg = new Image();   // the true OCR source (always the original, decoupled from the view)
+    const ocrText = $('ocrText'), wordsWrap = $('wordsWrap'), resStats = $('resStats');
+    const copyBtn = $('copyBtn'), dlBtn = $('dlBtn'), imgMeta = $('imgMeta');
+    const progWrap = $('progWrap'), progFill = $('progFill'), progLabel = $('progLabel');
+    const $statusPill = $('statusPill'), $statusText = $('statusText'), $toast = $('toast');
+
+    // ── State ──────────────────────────────────────────────
+    let worker = null;            // reused Tesseract worker
+    let workerLang = '';          // langs the current worker was created with
+    let paddleInited = false;     // PP-OCR model loaded?
+    let hasImage = false;
+    let words = [];               // {text, confidence, line, bbox:{x0,y0,x1,y1}} natural coords
+    let rawText = '';             // unfiltered engine text (used when min-confidence = 0)
+    let minConf = 0;
+    let selected = -1;
+    let busy = false;
+    let originalSrc = '';         // dataURL of the loaded original
+    let procCanvas = null;        // last pre-processed canvas (what the engine actually saw)
+    let procScale = 1;            // procCanvas size / natural size
+    let viewProc = false;         // showing the processed image instead of the original
+
+    // ── Status / toast ─────────────────────────────────────
+    function setStatus(text, kind) {
+        $statusText.textContent = text;
+        $statusPill.classList.remove('idle', 'busy', 'ok', 'err');
+        $statusPill.classList.add(kind || 'idle');
+    }
+    let toastTimer = null;
+    function toast(msg) {
+        $toast.textContent = msg;
+        $toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $toast.classList.remove('show'), 1800);
+    }
+    function setProgress(p, label) {
+        progWrap.classList.toggle('show', p != null);
+        progFill.style.width = ((p || 0) * 100).toFixed(0) + '%';
+        progLabel.textContent = label || '';
+    }
+
+    // ── Display a source in the stage. isNew = a freshly loaded original
+    // (resets results); otherwise it's just a view swap (original ↔ processed). ──
+    function displaySrc(src, isNew) {
+        ocrImg.onload = () => {
+            overlay.width = ocrImg.naturalWidth;
+            overlay.height = ocrImg.naturalHeight;
+            if (isNew) {
+                hasImage = true;
+                imgWrap.hidden = false; stageEmpty.hidden = true;
+                words = []; selected = -1; ocrText.value = ''; renderWords();
+                procCanvas = null; viewProc = false; viewProcChk.checked = false;
+                resStats.textContent = `${ocrImg.naturalWidth} × ${ocrImg.naturalHeight} px`;
+                imgMeta.textContent = `${ocrImg.naturalWidth} × ${ocrImg.naturalHeight}`;
+                runBtn.disabled = false; clearBtn.disabled = false;
+                copyBtn.disabled = true; dlBtn.disabled = true;
+                setStatus('圖片已載入', 'ok');
+            }
+            redrawBoxes();
+        };
+        ocrImg.onerror = () => { toast('無法載入此圖片'); setStatus('載入失敗', 'err'); };
+        ocrImg.src = src;
+    }
+    function loadImage(src) { originalSrc = src; baseImg.src = src; displaySrc(src, true); }
+    function ensureBase() { return baseImg.complete && baseImg.naturalWidth ? Promise.resolve() : new Promise(r => { baseImg.onload = r; }); }
+    // Swap the stage between the original and the pre-processed (what OCR saw).
+    function showView(proc) {
+        viewProc = proc && !!procCanvas;
+        imgMeta.textContent = viewProc ? '處理後影像 (引擎輸入)' : `${ocrImg.naturalWidth} × ${ocrImg.naturalHeight}`;
+        displaySrc(viewProc ? procCanvas.toDataURL('image/png') : originalSrc, false);
+    }
+    function handleFile(file) {
+        if (!file || !file.type.startsWith('image/')) { toast('請提供圖片檔'); return; }
+        const rd = new FileReader();
+        rd.onload = () => loadImage(rd.result);
+        rd.readAsDataURL(file);
+    }
+
+    // ── Bradley–Roth adaptive (local) threshold ────────────
+    // A single global threshold dies under uneven lighting / glare (exactly the
+    // photo-of-an-ID case). This compares each pixel to the mean of its local
+    // window via an integral image, so shadows and highlights are handled per-region.
+    function adaptiveThreshold(gray, w, h) {
+        const integ = new Float64Array((w + 1) * (h + 1));
+        for (let y = 0; y < h; y++) {
+            let rowsum = 0;
+            for (let x = 0; x < w; x++) {
+                rowsum += gray[y * w + x];
+                integ[(y + 1) * (w + 1) + (x + 1)] = integ[y * (w + 1) + (x + 1)] + rowsum;
+            }
+        }
+        const out = new Uint8Array(w * h);
+        const S = Math.max(16, Math.floor(Math.min(w, h) / 22));   // window ≈ image/22
+        const half = S >> 1, T = 0.15;                              // 15% below local mean → ink
+        for (let y = 0; y < h; y++) {
+            const y1 = Math.max(0, y - half), y2 = Math.min(h - 1, y + half);
+            for (let x = 0; x < w; x++) {
+                const x1 = Math.max(0, x - half), x2 = Math.min(w - 1, x + half);
+                const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+                const sum = integ[(y2 + 1) * (w + 1) + (x2 + 1)] - integ[y1 * (w + 1) + (x2 + 1)]
+                          - integ[(y2 + 1) * (w + 1) + x1] + integ[y1 * (w + 1) + x1];
+                out[y * w + x] = (gray[y * w + x] * count <= sum * (1 - T)) ? 0 : 255;
+            }
+        }
+        return out;
+    }
+
+    // ── Normalize → source canvas fed to the OCR engine ────
+    // Returns { canvas, scale }. Boxes come back in canvas space, so we divide
+    // by `scale` to map them onto the displayed (natural-size) original image.
+    function buildSource() {
+        const src = baseImg.naturalWidth ? baseImg : ocrImg;
+        const nw = src.naturalWidth, nh = src.naturalHeight;
+        let scale = 1;
+        const maxSide = Math.max(nw, nh);
+        if (upChk.checked && maxSide < 1200) scale = Math.min(3, 1800 / maxSide);  // small text → ~300dpi
+        const c = document.createElement('canvas');
+        c.width = Math.round(nw * scale);
+        c.height = Math.round(nh * scale);
+        const cx = c.getContext('2d');
+        cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+        cx.drawImage(src, 0, 0, c.width, c.height);
+
+        const mode = ppSel.value;
+        if (mode !== 'none') {
+            const W = c.width, H = c.height;
+            const id = cx.getImageData(0, 0, W, H), a = id.data;
+            // 1) grayscale + track range for contrast stretch
+            const gray = new Uint8Array(W * H);
+            let mn = 255, mx = 0;
+            for (let i = 0, p = 0; i < a.length; i += 4, p++) {
+                const g = (0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2]) | 0;
+                gray[p] = g; if (g < mn) mn = g; if (g > mx) mx = g;
+            }
+            // 2) contrast/illumination normalize (stretch to full 0–255)
+            const rng = Math.max(1, mx - mn);
+            for (let p = 0; p < gray.length; p++) gray[p] = ((gray[p] - mn) * 255 / rng) | 0;
+            // 3) binarize (adaptive) unless gray-only mode
+            const outGray = mode === 'binary' ? adaptiveThreshold(gray, W, H) : gray;
+            for (let i = 0, p = 0; i < a.length; i += 4, p++) {
+                a[i] = a[i + 1] = a[i + 2] = outGray[p]; a[i + 3] = 255;
+            }
+            cx.putImageData(id, 0, 0);
+        }
+        return { canvas: c, scale };
+    }
+
+    // ── Char whitelist by selected range ───────────────────
+    function whitelistFor(range) {
+        const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        const D = '0123456789';
+        const P = ' .,:;!?@#%&()[]{}/\\-_+=*\'"$';
+        if (range === 'digit') return D + ' .,-:/';
+        if (range === 'alpha') return A + ' .,-\'';
+        if (range === 'alnum') return A + D + P;
+        return '';   // 'all' → no restriction
+    }
+
+    // ── Recognize ──────────────────────────────────────────
+    async function getWorker() {
+        if (typeof Tesseract === 'undefined') throw new Error('辨識引擎載入失敗 (CDN 無法連線)');
+        const langs = langSel.value;                       // e.g. 'eng' | 'tha+eng'
+        if (worker && workerLang === langs) return worker;
+        if (worker) { try { await worker.terminate(); } catch (e) {} worker = null; }
+        setStatus('載入語言模型…', 'busy');
+        setProgress(0, `下載語言模型 (${langs})…`);
+        worker = await Tesseract.createWorker(langs.split('+'), 1, {
+            logger: m => {
+                if (m.status === 'recognizing text') { setProgress(m.progress, `辨識中… ${(m.progress * 100).toFixed(0)}%`); }
+                else if (m.progress != null) { setProgress(m.progress, m.status); }
+            }
+        });
+        workerLang = langs;
+        return worker;
+    }
+
+    function collectWords(data) {
+        const out = [];
+        if (Array.isArray(data.words) && data.words.length) {
+            let li = 0, prevY = null;
+            data.words.forEach(w => {
+                const y = w.bbox ? w.bbox.y0 : 0, hh = w.bbox ? (w.bbox.y1 - w.bbox.y0) : 12;
+                if (prevY !== null && Math.abs(y - prevY) > Math.max(8, hh * 0.6)) li++;
+                prevY = y; out.push({ ...w, _line: li });
+            });
+            return out;
+        }
+        let li = 0;
+        (data.blocks || []).forEach(b => (b.paragraphs || []).forEach(p =>
+            (p.lines || []).forEach(l => { (l.words || []).forEach(w => out.push({ ...w, _line: li })); li++; })));
+        return out;
+    }
+
+    // Re-derive the visible output from `words` for the current min-confidence,
+    // without re-running OCR. Filtering kills most non-text junk (QR/logos/icons),
+    // which tends to come back at low confidence.
+    function rebuildText(list) {
+        let out = '', prev = null;
+        list.forEach(w => { if (prev !== null) out += (w.line !== prev ? '\n' : ' '); out += w.text; prev = w.line; });
+        return out.trim();
+    }
+    function applyFilter() {
+        minConf = +confRange.value; confVal.textContent = minConf + '%';
+        const kept = words.filter(w => w.confidence >= minConf);
+        ocrText.value = minConf > 0 ? rebuildText(kept) : rawText;
+        renderWords(); redrawBoxes();
+        const avg = kept.length ? kept.reduce((s, x) => s + x.confidence, 0) / kept.length : 0;
+        const dropped = words.length - kept.length;
+        resStats.textContent = `${kept.length} 字詞 · ${ocrText.value.length} 字元 · 平均信心 ${avg.toFixed(0)}%`
+            + (dropped ? ` · 已濾除 ${dropped}` : '');
+        copyBtn.disabled = !ocrText.value; dlBtn.disabled = !ocrText.value;
+    }
+
+    async function recognize() {
+        if (!hasImage || busy) return;
+        busy = true;
+        runBtn.disabled = true; clearBtn.disabled = true;
+        try {
+            await ensureBase();
+            if (engineSel.value === 'paddle') await runPaddle();
+            else await runTesseract();
+            selected = -1;
+            applyFilter();
+            setProgress(null);
+            setStatus(words.length ? '辨識完成' : '未偵測到文字', words.length ? 'ok' : 'err');
+            if (!words.length) toast('沒有偵測到文字,換清楚一點的圖,或切換另一個引擎');
+        } catch (e) {
+            console.error(e);
+            setProgress(null);
+            setStatus('辨識失敗', 'err');
+            toast(e.message || '辨識失敗');
+        } finally {
+            busy = false;
+            runBtn.disabled = !hasImage; clearBtn.disabled = !hasImage;
+        }
+    }
+
+    // ── Engine A: Tesseract (traditional, whitelist + manual normalize) ──
+    async function runTesseract() {
+        const w = await getWorker();
+        const wl = langSel.value === 'eng' ? whitelistFor(rangeSel.value) : '';   // whitelist is Latin-only
+        await w.setParameters({ tessedit_char_whitelist: wl });
+        setStatus('辨識中…', 'busy'); setProgress(0, '辨識中… 0%');
+        const { canvas, scale } = buildSource();
+        procCanvas = canvas; procScale = scale;
+        const { data } = await w.recognize(canvas, {}, { text: true, blocks: true });
+        rawText = (data.text || '').replace(/\n{3,}/g, '\n\n').trim();
+        words = collectWords(data)
+            .filter(wd => (wd.text || '').trim() !== '')
+            .map(wd => ({
+                text: wd.text, confidence: wd.confidence, line: wd._line || 0, poly: null,
+                bbox: { x0: wd.bbox.x0 / scale, y0: wd.bbox.y0 / scale, x1: wd.bbox.x1 / scale, y1: wd.bbox.y1 / scale }
+            }));
+        if (viewProcChk.checked) showView(true);
+    }
+
+    // ── Engine B: PP-OCR (deep learning, in-browser via PaddleJS) ──
+    // The detector finds text regions itself, so non-text (QR/logos/icons) is
+    // mostly excluded. Returns quad polygons in natural-image pixel coords.
+    async function runPaddle() {
+        setStatus('載入深度學習模型…', 'busy'); setProgress(0, '載入 PP-OCR 模型…');
+        const ocr = await window.PaddleOCRReady;
+        if (!ocr) {
+            const why = location.protocol === 'file:'
+                ? '偵測到以 file:// 開啟 — 瀏覽器禁止從本機檔案動態載入遠端模組。請用本機伺服器開啟(見下方),或改用 Tesseract。'
+                : (window.PaddleOCRError ? ('模組載入錯誤:' + window.PaddleOCRError.message) : 'CDN 無法連線');
+            throw new Error('PP-OCR 載入失敗 — ' + why);
+        }
+        if (!paddleInited) { await ocr.init(); paddleInited = true; }
+        // OCR always runs on the original; no manual pre-processing for this engine.
+        procCanvas = null; viewProc = false; viewProcChk.checked = false;
+        setStatus('辨識中…', 'busy'); setProgress(0.4, '偵測 + 辨識中…');
+        const res = await ocr.recognize(baseImg);
+        const texts  = res?.text || res?.texts || [];
+        const pts    = res?.points || res?.boxes || res?.box || [];
+        const scores = res?.scores || res?.confidences || res?.score || [];
+        words = texts.map((t, i) => {
+            const raw = pts[i];
+            const poly = (Array.isArray(raw) && raw.length)
+                ? raw.map(p => Array.isArray(p) ? { x: p[0], y: p[1] } : { x: p.x, y: p.y })
+                : null;
+            let bbox = { x0: 0, y0: 0, x1: 0, y1: 0 };
+            if (poly) {
+                const xs = poly.map(p => p.x), ys = poly.map(p => p.y);
+                bbox = { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+            }
+            let cf = scores[i] != null ? scores[i] : 1;
+            if (cf <= 1) cf *= 100;
+            return { text: String(t ?? ''), confidence: cf, line: i, poly, bbox };
+        }).filter(w => w.text.trim() !== '');
+        rawText = words.map(w => w.text).join('\n');
+        setProgress(0.95, '');
+    }
+
+    // ── Overlay boxes ──────────────────────────────────────
+    function cfClass(c) { return c >= 85 ? 'hi' : c >= 60 ? 'mid' : 'lo'; }
+    function cfColor(c) { return c >= 85 ? '#15803d' : c >= 60 ? '#d97706' : '#dc2626'; }
+    function redrawBoxes() {
+        octx.clearRect(0, 0, overlay.width, overlay.height);
+        if (!boxChk.checked) return;
+        const vs = viewProc ? procScale : 1;   // boxes are in natural coords; scale up for processed view
+        const lw = Math.max(1.5, overlay.width / 600);
+        words.forEach((wd, i) => {
+            if (wd.confidence < minConf) return;
+            const on = i === selected;
+            octx.lineWidth = on ? lw * 2 : lw;
+            octx.strokeStyle = on ? '#0d9488' : cfColor(wd.confidence);
+            if (wd.poly && wd.poly.length) {                 // PP-OCR quad
+                octx.beginPath();
+                wd.poly.forEach((p, k) => { const x = p.x * vs, y = p.y * vs; k ? octx.lineTo(x, y) : octx.moveTo(x, y); });
+                octx.closePath();
+                if (on) { octx.fillStyle = 'rgba(13,148,136,.18)'; octx.fill(); }
+                octx.stroke();
+            } else {                                          // axis-aligned box
+                const b = wd.bbox, x = b.x0 * vs, y = b.y0 * vs, w = (b.x1 - b.x0) * vs, h = (b.y1 - b.y0) * vs;
+                if (on) { octx.fillStyle = 'rgba(13,148,136,.18)'; octx.fillRect(x, y, w, h); }
+                octx.strokeRect(x, y, w, h);
+            }
+        });
+    }
+
+    function renderWords() {
+        const vis = words.filter(w => w.confidence >= minConf);
+        if (!vis.length) { wordsWrap.innerHTML = '<div class="words-empty">尚未辨識,逐字結果會列在這裡</div>'; return; }
+        wordsWrap.innerHTML = '';
+        words.forEach((wd, i) => {
+            if (wd.confidence < minConf) return;
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'word-chip' + (i === selected ? ' active' : '');
+            chip.innerHTML = `<span>${escapeHtml(wd.text)}</span><span class="cf ${cfClass(wd.confidence)}">${wd.confidence.toFixed(0)}</span>`;
+            chip.addEventListener('click', () => {
+                selected = (selected === i) ? -1 : i;
+                renderWords(); redrawBoxes();
+            });
+            wordsWrap.appendChild(chip);
+        });
+    }
+    function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    // ── Clear ──────────────────────────────────────────────
+    function clearAll() {
+        hasImage = false; words = []; selected = -1;
+        procCanvas = null; viewProc = false; viewProcChk.checked = false; originalSrc = '';
+        ocrImg.removeAttribute('src');
+        imgWrap.hidden = true; stageEmpty.hidden = false;
+        octx.clearRect(0, 0, overlay.width, overlay.height);
+        ocrText.value = ''; renderWords();
+        resStats.textContent = '—'; imgMeta.textContent = '';
+        runBtn.disabled = true; clearBtn.disabled = true; copyBtn.disabled = true; dlBtn.disabled = true;
+        fileInput.value = ''; setProgress(null);
+        setStatus('已清除', 'idle');
+    }
+
+    // ── Result tabs ────────────────────────────────────────
+    document.querySelectorAll('.res-tab').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('.res-tab').forEach(x => x.classList.toggle('active', x === t));
+        document.querySelectorAll('.res-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === t.dataset.pane));
+    }));
+
+    // ── Copy / download ────────────────────────────────────
+    async function copyText() {
+        const txt = ocrText.value;
+        if (!txt) return;
+        try { await navigator.clipboard.writeText(txt); toast('已複製文字'); }
+        catch {
+            ocrText.select();
+            try { document.execCommand('copy'); toast('已複製文字'); } catch { toast('複製失敗'); }
+        }
+    }
+    function downloadText() {
+        const txt = ocrText.value;
+        if (!txt) return;
+        const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `ocr-${Date.now()}.txt`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        toast('已下載 .txt');
+    }
+
+    // ── Wire up ────────────────────────────────────────────
+    pickBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+    runBtn.addEventListener('click', recognize);
+    clearBtn.addEventListener('click', clearAll);
+    copyBtn.addEventListener('click', copyText);
+    dlBtn.addEventListener('click', downloadText);
+    boxChk.addEventListener('change', redrawBoxes);
+    viewProcChk.addEventListener('change', () => {
+        if (viewProcChk.checked && !procCanvas) { viewProcChk.checked = false; toast('先按「辨識文字」才有處理後影像'); return; }
+        showView(viewProcChk.checked);
+    });
+    confRange.addEventListener('input', () => {
+        minConf = +confRange.value; confVal.textContent = minConf + '%';
+        if (words.length) applyFilter();
+    });
+    // PP-OCR ignores the whitelist / manual normalize / its own language picker,
+    // so grey those out when it's the active engine.
+    function updateEngineUI() {
+        const paddle = engineSel.value === 'paddle';
+        [langSel, rangeSel, ppSel, upChk, viewProcChk].forEach(el => { el.disabled = paddle; });
+        runBtn.textContent = paddle ? '辨識文字 (PP-OCR)' : '辨識文字';
+    }
+    engineSel.addEventListener('change', updateEngineUI);
+    updateEngineUI();
+
+    // drag & drop
+    ['dragenter', 'dragover'].forEach(ev => stage.addEventListener(ev, e => { e.preventDefault(); stage.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev => stage.addEventListener(ev, e => { e.preventDefault(); if (ev !== 'dragleave' || e.target === stage) stage.classList.remove('drag'); }));
+    stage.addEventListener('drop', e => {
+        const f = e.dataTransfer.files[0];
+        if (f) handleFile(f);
+    });
+    // paste
+    window.addEventListener('paste', e => {
+        const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+        if (item) { handleFile(item.getAsFile()); toast('已貼上圖片'); }
+    });
+
+    // ── Init ───────────────────────────────────────────────
+    if (location.protocol === 'file:') document.getElementById('fileWarn').hidden = false;
+    setProgress(null);
+    setStatus(typeof Tesseract === 'undefined' ? '引擎載入中…' : '準備就緒', 'idle');
+    </script>
+</body>
+</html>
