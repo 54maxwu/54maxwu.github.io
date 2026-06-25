@@ -259,6 +259,15 @@
             font-size: 12px; color: #64748b; font-family: ui-monospace, Consolas, monospace;
         }
         .bar-actions { display: flex; gap: 8px; }
+        .preview-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .fmt-switch { display: flex; gap: 4px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 9px; padding: 3px; }
+        .fmt-btn {
+            padding: 6px 12px; font-size: 12px; font-weight: 700; border: none; border-radius: 6px;
+            background: transparent; color: #64748b; cursor: pointer; font-family: inherit;
+            transition: background .12s, color .12s;
+        }
+        .fmt-btn:hover { color: #0d9488; }
+        .fmt-btn.active { background: #fff; color: #0d9488; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
 
         .btn {
             padding: 10px 22px;
@@ -713,7 +722,13 @@
                                 <canvas id="canvas" width="1200" height="630"></canvas>
                             </div>
                             <div class="preview-bar">
-                                <span class="dims" id="dims">1200 × 630 px</span>
+                                <div class="preview-left">
+                                    <div class="fmt-switch">
+                                        <button type="button" class="fmt-btn active" data-fmt="landscape">橫式 1200×630</button>
+                                        <button type="button" class="fmt-btn" data-fmt="square">方形 1080×1080</button>
+                                    </div>
+                                    <span class="dims" id="dims">1200 × 630 px</span>
+                                </div>
                                 <div class="bar-actions">
                                     <button type="button" class="btn btn-secondary" id="resetBtn">還原預設</button>
                                     <button type="button" class="btn btn-primary" id="downloadBtn">下載 PNG ↓</button>
@@ -1635,6 +1650,8 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     let current = TEMPLATES[0];
+    let format = 'landscape';   // 'landscape' (1200×630) | 'square' (1080×1080)
+    const SQ = 1080;            // square canvas size
     const values = {};   // key -> string (template-specific image content)
     const images = {};   // key -> HTMLImageElement
     let ogDataUrl = '';  // generated image, used by social previews
@@ -1663,16 +1680,190 @@
     }
 
     function render() {
-        canvas.width = current.w;
-        canvas.height = current.h;
-        ctx.clearRect(0, 0, current.w, current.h);
-        try { current.draw(ctx, values, images); }
+        const sq = format === 'square';
+        const W = sq ? SQ : current.w, H = sq ? SQ : current.h;
+        canvas.width = W;
+        canvas.height = H;
+        ctx.clearRect(0, 0, W, H);
+        try { sq ? drawSquare(ctx, values, images) : current.draw(ctx, values, images); }
         catch (e) { console.error(e); }
-        document.getElementById('dims').textContent = `${current.w} × ${current.h} px`;
+        document.getElementById('dims').textContent = `${W} × ${H} px`;
         // toDataURL is deferred to refreshSocial() so it only runs when the social
         // preview pane is actually visible, not on every keystroke/slider change.
         if (activePane === 'social') refreshSocial();
         setStatus('已生成預覽', 'ok');
+    }
+
+    // ── Square (1:1) adapter ───────────────────────────────
+    // The bespoke templates are tuned for 1200×630. Rather than stretch them,
+    // the square format re-flows each template's own content + colours into one
+    // of three vertical layouts: full-bleed overlay, centred statement, or an
+    // image-card-over-text stack. The selected template still drives the look
+    // (palette, eyebrow source, image), just composed for a 1:1 frame.
+    const SQ_OVERLAY = new Set(['blog-cover', 'news-ribbon', 'overlay-arrow']);
+    function drawSquare(ctx, v, im) {
+        const S = SQ;
+        const id = current.id;
+        const img = im.image || im.image2 || im.avatar || null;
+        const tc = v.titleColor || '#ffffff';
+        const sc = v.subColor || tc;
+        const accent = v.accent || '#0d9488';
+        const eyebrow = v.badge || v.category || v.label || v.brand || v.logo || v.domain || '';
+        const byline = [v.author, v.date].filter(Boolean).join('   •   ');
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+        // ── Variant A: full-bleed image with bottom overlay ──
+        if (SQ_OVERLAY.has(id)) {
+            if (im.image) drawImageCover(ctx, im.image, 0, 0, S, S, 0);
+            else {
+                let g = ctx.createLinearGradient(0, 0, S, S);
+                g.addColorStop(0, darken(accent, 30)); g.addColorStop(1, lighten(accent, 10));
+                ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+                placeholderImg(ctx, 0, 0, S, S, 0, '上傳背景圖片');
+            }
+            let ov = ctx.createLinearGradient(0, S * 0.3, 0, S);
+            ov.addColorStop(0, 'rgba(8,11,22,0)'); ov.addColorStop(1, 'rgba(8,11,22,0.9)');
+            ctx.fillStyle = ov; ctx.fillRect(0, 0, S, S);
+
+            const M = 84, maxW = S - 2 * M;
+            ctx.font = `800 58px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 72;
+            const hasFoot = !!byline || !!v.cta;
+            const stackH = (eyebrow ? 52 : 0) + tlines.length * tlh + (hasFoot ? 56 : 0);
+            let y = S - M - stackH;
+            if (eyebrow) {
+                ctx.font = `800 17px ${FF}`; setLS(ctx, '2px');
+                const tw = ctx.measureText(String(eyebrow).toUpperCase()).width, bw = tw + 34, bh = 38;
+                roundRect(ctx, M, y, bw, bh, bh / 2); ctx.fillStyle = accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+                ctx.fillText(String(eyebrow).toUpperCase(), M + 17, y + bh / 2 + 1);
+                ctx.textBaseline = 'alphabetic'; setLS(ctx, '0px'); y += 52;
+            }
+            ctx.fillStyle = tc; ctx.font = `800 58px ${FF}`;
+            tlines.forEach((ln, i) => ctx.fillText(ln, M, y + i * tlh + 52));
+            y += tlines.length * tlh;
+            if (byline) { ctx.font = `500 22px ${FF}`; ctx.fillStyle = hexA(tc, .85); ctx.fillText(byline, M, y + 36); }
+            else if (v.cta) {
+                ctx.font = `700 20px ${FF}`;
+                const tw = ctx.measureText(v.cta).width, bw = tw + 52, bh = 50;
+                roundRect(ctx, M, y + 8, bw, bh, bh / 2); ctx.fillStyle = accent; ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(v.cta, M + bw / 2, y + 8 + bh / 2 + 1);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            }
+            return;
+        }
+
+        // ── Variant B: centred statement (no image template) ──
+        if (id === 'minimal-quote') {
+            let g = ctx.createLinearGradient(0, 0, S, S);
+            g.addColorStop(0, v.bg1 || accent); g.addColorStop(1, v.bg2 || darken(accent, 20));
+            ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+            let rg = ctx.createRadialGradient(S / 2, S * 0.42, 40, S / 2, S * 0.42, 560);
+            rg.addColorStop(0, 'rgba(255,255,255,0.10)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = rg; ctx.fillRect(0, 0, S, S);
+            ctx.textAlign = 'center';
+            if (eyebrow) {
+                ctx.font = `800 19px ${FF}`; setLS(ctx, '3px'); ctx.fillStyle = hexA(tc, .7);
+                ctx.fillText(String(eyebrow).toUpperCase(), S / 2, 180); setLS(ctx, '0px');
+            }
+            const maxW = S - 220;
+            ctx.font = `800 64px ${FF}`;
+            const tlines = wrapLines(ctx, v.title, maxW), tlh = 82;
+            ctx.font = `500 27px ${FF}`;
+            const slines = v.subtitle ? wrapLines(ctx, v.subtitle, maxW - 60) : [], slh = 40;
+            const hasDiv = tlines.length && slines.length, dgap = hasDiv ? 52 : 0;
+            const blockH = tlines.length * tlh + dgap + slines.length * slh;
+            let y = (S - blockH) / 2 + 8;
+            ctx.fillStyle = tc; ctx.font = `800 64px ${FF}`;
+            tlines.forEach((ln, i) => ctx.fillText(ln, S / 2, y + i * tlh + 58)); y += tlines.length * tlh;
+            if (hasDiv) { ctx.fillStyle = hexA(tc, .45); ctx.fillRect(S / 2 - 30, y + 24, 60, 3); y += dgap; }
+            if (slines.length) {
+                ctx.fillStyle = hexA(sc, .88); ctx.font = `500 27px ${FF}`;
+                slines.forEach((ln, i) => ctx.fillText(ln, S / 2, y + i * slh + 28));
+            }
+            ctx.textAlign = 'left';
+            return;
+        }
+
+        // ── Variant C: image card over a text stack ──
+        if (v.bg1 && v.bg2) {
+            let g = ctx.createLinearGradient(0, 0, S, S);
+            g.addColorStop(0, v.bg1); g.addColorStop(1, v.bg2);
+            ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+        } else if (v.bg) {
+            ctx.fillStyle = v.bg; ctx.fillRect(0, 0, S, S);
+            let rg = ctx.createRadialGradient(S * 0.8, S * 0.18, 20, S * 0.8, S * 0.18, 520);
+            rg.addColorStop(0, hexA(accent, .35)); rg.addColorStop(1, hexA(accent, 0));
+            ctx.fillStyle = rg; ctx.fillRect(0, 0, S, S);
+        } else {
+            let g = ctx.createLinearGradient(0, 0, S, S);
+            g.addColorStop(0, darken(accent, 28)); g.addColorStop(1, lighten(accent, 6));
+            ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+        }
+
+        const M = 84, maxW = S - 2 * M;
+        let y;
+        if (current.fields.some(f => f.type === 'image')) {
+            const cardX = M, cardY = M, cardW = maxW, cardH = 460, cardR = 26;
+            roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
+            ctx.fillStyle = v.cardBg || hexA(tc, .08); ctx.fill();
+            if (img) drawImageCover(ctx, img, cardX + 14, cardY + 14, cardW - 28, cardH - 28, cardR - 8);
+            else placeholderImg(ctx, cardX + 14, cardY + 14, cardW - 28, cardH - 28, cardR - 8, '上傳圖片');
+            ctx.lineWidth = 1.5; ctx.strokeStyle = hexA(tc, .15);
+            roundRect(ctx, cardX, cardY, cardW, cardH, cardR); ctx.stroke();
+            y = cardY + cardH + 52;
+        } else {
+            y = 210;
+        }
+
+        if (eyebrow) {
+            ctx.font = `800 17px ${FF}`; setLS(ctx, '2px');
+            const tw = ctx.measureText(String(eyebrow).toUpperCase()).width, bw = tw + 32, bh = 38;
+            roundRect(ctx, M, y, bw, bh, bh / 2); ctx.fillStyle = accent; ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+            ctx.fillText(String(eyebrow).toUpperCase(), M + 16, y + bh / 2 + 1);
+            ctx.textBaseline = 'alphabetic'; setLS(ctx, '0px'); y += bh + 26;
+        }
+        ctx.fillStyle = tc; ctx.font = `800 54px ${FF}`;
+        const tlines = wrapLines(ctx, v.title, maxW), tlh = 64;
+        tlines.forEach((ln, i) => ctx.fillText(ln, M, y + i * tlh + 46)); y += tlines.length * tlh + 22;
+        if (v.subtitle) {
+            ctx.fillStyle = hexA(sc, .82); ctx.font = `400 24px ${FF}`;
+            const sl = wrapLines(ctx, v.subtitle, maxW), slh = 35;
+            sl.forEach((ln, i) => ctx.fillText(ln, M, y + i * slh + 20)); y += sl.length * slh + 24;
+        }
+        if (v.price) { ctx.fillStyle = accent; ctx.font = `800 44px ${FF}`; ctx.fillText(v.price, M, y + 38); y += 72; }
+        if (byline || im.avatar) {
+            let ax = M;
+            if (im.avatar) { const ar = 24; avatarImg(ctx, im.avatar, M + ar, y + ar, ar); ax = M + 2 * ar + 16; }
+            if (v.author || v.date) {
+                ctx.font = `500 21px ${FF}`; ctx.fillStyle = sc; ctx.textBaseline = 'middle';
+                ctx.fillText(byline || v.author || '', ax, y + (im.avatar ? 24 : 12));
+                ctx.textBaseline = 'alphabetic';
+            }
+            y += (im.avatar ? 48 : 30) + 24;
+        }
+        if (v.cta) {
+            ctx.font = `700 21px ${FF}`;
+            const tw = ctx.measureText(v.cta).width, bw = tw + 56, bh = 54;
+            roundRect(ctx, M, y, bw, bh, 10); ctx.fillStyle = accent; ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(v.cta, M + bw / 2, y + bh / 2 + 1);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        }
+    }
+
+    // Always render the landscape OG image (independent of the preview format)
+    // so social previews + the og:image asset stay 1200×630 regardless of which
+    // format is on screen.
+    const socialCanvas = document.createElement('canvas');
+    function renderOgDataUrl() {
+        socialCanvas.width = current.w; socialCanvas.height = current.h;
+        const sctx = socialCanvas.getContext('2d');
+        sctx.clearRect(0, 0, current.w, current.h);
+        try { current.draw(sctx, values, images); } catch (e) { console.error(e); }
+        try { ogDataUrl = socialCanvas.toDataURL('image/png'); } catch (e) {}
     }
 
     // ── Status / toast ─────────────────────────────────────
@@ -1914,10 +2105,10 @@
         render(); // ensure latest
         try {
             const a = document.createElement('a');
-            a.download = `og-${current.id}-${Date.now()}.png`;
+            a.download = `og-${current.id}-${format === 'square' ? '1080x1080' : '1200x630'}-${Date.now()}.png`;
             a.href = canvas.toDataURL('image/png');
             a.click();
-            toast('已下載 PNG');
+            toast(format === 'square' ? '已下載方形 PNG' : '已下載橫式 PNG');
         } catch (e) {
             console.error(e);
             toast('下載失敗');
@@ -1928,6 +2119,11 @@
         selectTemplate(current, false);
         toast('已還原預設內容');
     });
+    document.querySelectorAll('.fmt-btn').forEach(b => b.addEventListener('click', () => {
+        format = b.dataset.fmt;
+        document.querySelectorAll('.fmt-btn').forEach(x => x.classList.toggle('active', x.dataset.fmt === format));
+        render();
+    }));
 
     // ── Preview tabs ───────────────────────────────────────
     let activePane = 'canvas';
@@ -2057,7 +2253,7 @@
         () => genPlatform, v => genPlatform = v, () => refreshSocial()
     );
     function refreshSocial() {
-        try { ogDataUrl = canvas.toDataURL('image/png'); } catch (e) {}
+        renderOgDataUrl();
         feed.className = 'feed feed-' + genPlatform;
         scHost.innerHTML = socialCardHTML(genPlatform, {
             imgSrc: ogDataUrl,
