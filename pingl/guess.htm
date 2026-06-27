@@ -1204,8 +1204,10 @@ function refreshTurnUi() {
 }
 
 function setGuessEnabled(on) {
+  // Only lock the submit button when it isn't your turn — leave the digit
+  // boxes editable so you can prepare your next guess while waiting.
   $('guessBtn').disabled = !on;
-  document.querySelectorAll('#guessDigits .digit-box').forEach(el => { el.disabled = !on; });
+  document.querySelectorAll('#guessDigits .digit-box').forEach(el => { el.disabled = false; });
 }
 
 function submitGuess() {
