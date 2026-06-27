@@ -244,6 +244,9 @@
   .ny-top{display:flex;justify-content:space-between;font-size:14px}
   .ny-top .k{color:var(--sub)} .ny-top .v{font-weight:700;color:var(--blue-d)}
   .ny-say{font-size:12px;color:#64748b;line-height:1.6;margin-top:3px}
+  .guide-link{font-size:11.5px;font-weight:400;color:var(--blue-d);cursor:pointer;
+    background:var(--blue-l);padding:3px 9px;border-radius:6px;white-space:nowrap}
+  .guide-link:hover{background:var(--blue-sel)}
 
   .score-big{display:flex;align-items:center;gap:18px;margin-bottom:6px}
   .ring{position:relative;flex-shrink:0;line-height:0}
@@ -1326,7 +1329,7 @@ function renderDashboard(a,overall,luck){
     const cai=a.ziwei.palaces.find(p=>p.name==="財帛");
     const fu=a.ziwei.palaces.find(p=>p.name==="夫妻");
     const starsOf=p=>p&&p.majorStars.length?p.majorStars.map(s=>s.name+(s.mutagen?`<span class="badge ${s.mutagen==='祿'?'good':s.mutagen==='忌'?'bad':'blue'}" style="padding:0 5px">化${s.mutagen}</span>`:"")).join("、"):'<span style="color:#94a3b8">借對宮</span>';
-    return `<div style="font-size:12.5px;color:var(--sub);margin-bottom:8px">命主 ${a.ziwei.soul}・身主 ${a.ziwei.body}・${a.ziwei.fiveElementsClass}</div>
+    return `<div style="font-size:12px;color:var(--sub);margin-bottom:8px;line-height:1.7">命主 <b>${a.ziwei.soul}</b>（先天主導你的星）・身主 <b>${a.ziwei.body}</b>（後天養成你的星）・<b>${a.ziwei.fiveElementsClass}</b>（決定大運幾歲起運）</div>
       <div class="kv"><span class="k">命宮</span><span class="v">${starsOf(ming)}</span></div>
       <div class="kv"><span class="k">官祿(事業)</span><span class="v">${starsOf(guan)}</span></div>
       <div class="kv"><span class="k">財帛(財運)</span><span class="v">${starsOf(cai)}</span></div>
@@ -1339,7 +1342,7 @@ function renderDashboard(a,overall,luck){
     <!-- 八字四柱（橫跨全寬，最重要） -->
     <div class="card full">
       <h3><span class="ic">柱</span>八字四柱
-        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱：天干十神・地支藏干・十二長生・納音</span></h3>
+        <span class="rtab guide-link" data-p="bazi" style="margin-left:auto">看每格白話解釋 →</span></h3>
       ${renderBaziTable(a)}
     </div>
 
@@ -1376,7 +1379,9 @@ function renderDashboard(a,overall,luck){
         ${renderGodTally(a.godTally)}
       </div>
       <div class="card">
-        <h3><span class="ic">煞</span>神煞</h3>
+        <h3><span class="ic">煞</span>神煞
+          <span class="rtab guide-link" data-p="shensha" style="margin-left:auto">看白話解釋 →</span></h3>
+        <div style="font-size:11.5px;color:var(--sub);margin-bottom:6px"><span style="color:#15803d">綠＝吉星(加分)</span>、<span style="color:#b91c1c">紅＝凶星(注意)</span></div>
         <div style="line-height:2">${ssShort}</div>
       </div>
       ${a.chenggu?`<div class="card">
@@ -1390,8 +1395,9 @@ function renderDashboard(a,overall,luck){
     <!-- 第3欄：用神 + 紫微 -->
     <div class="colstack">
       <div class="card">
-        <h3><span class="ic">用</span>用神喜忌</h3>
-        <div style="font-size:12.5px;line-height:1.75;color:#475569">${a.yong.note}</div>
+        <h3><span class="ic">用</span>用神喜忌
+          <span class="rtab guide-link" data-p="god" style="margin-left:auto">看白話建議 →</span></h3>
+        <div style="font-size:12.5px;line-height:1.8;color:#475569">喜用神 ${a.yong.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7;padding:0 7px">${w}</span>`).join("")}（對你有利、多親近）；忌神 ${a.yong.avoid.length?a.yong.avoid.map(w=>`<span class="badge bad" style="padding:0 7px">${w}</span>`).join(""):"—"}（盡量避開）。</div>
       </div>
       <div class="card">
         <h3><span class="ic">紫</span>紫微（重點宮位）</h3>
@@ -1402,7 +1408,7 @@ function renderDashboard(a,overall,luck){
     <!-- 大運（橫跨全寬）：總覽放精簡大運；逐年流年請見「大運流年」分頁 -->
     <div class="card full">
       <h3><span class="ic">運</span>大運走勢
-        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">逐年流年・流月 → 見上方「大運流年」分頁</span></h3>
+        <span class="rtab guide-link" data-p="luck" style="margin-left:auto">看每運白話＋逐年流年 →</span></h3>
       ${renderDaYunMini(a)}
     </div>
   </div>`;
@@ -1529,7 +1535,8 @@ function renderName(a){
     ${n.grids.map(g=>`<div class="kv"><span class="k">${g.name} <span style="font-size:11px;color:#94a3b8">${g.meaning}</span></span>
       <span class="v">${g.num}（${g.wx}）<span class="badge ${g.luck===3?'good':g.luck===1?'bad':'mid'}">${luckText(g.luck)}</span></span></div>`).join("")}
     <div class="note" style="margin-top:12px">三才配置 <b>${n.sancai.wx.join("－")}</b>
-      <span class="badge ${n.sancai.luck==='吉'?'good':n.sancai.luck==='凶'?'bad':'mid'}">${n.sancai.luck}</span><br>${n.sancai.desc}</div></div>`;
+      <span class="badge ${n.sancai.luck==='吉'?'good':n.sancai.luck==='凶'?'bad':'mid'}">${n.sancai.luck}</span>
+      <span style="font-size:11px;color:#94a3b8">（三才＝天格‧人格‧地格三者的五行生剋，看名字的基礎吉凶）</span><br>${n.sancai.desc}</div></div>`;
 }
 
 /* 命局綜評（自家公式，透明可解釋） */
