@@ -63,10 +63,29 @@
   .adv-box{display:none;padding-top:6px;border-top:1px dashed var(--line);margin-top:6px}
   .adv-box.show{display:block}
 
-  .go{width:100%;padding:13px;background:var(--blue);color:#fff;border:none;border-radius:8px;
+  .go-row{display:flex;gap:10px;align-items:stretch}
+  .go{flex:1;padding:13px;background:var(--blue);color:#fff;border:none;border-radius:8px;
     font-size:15px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit}
   .go:hover{background:var(--blue-d)}
   .go:disabled{opacity:.4;cursor:not-allowed}
+  .go-save{flex:0 0 auto;padding:13px 20px;background:#fff;color:var(--blue-d);border:1px solid var(--blue);
+    border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap}
+  .go-save:hover{background:var(--blue-l)}
+
+  /* 我的命盤（存檔清單） */
+  .saved-box{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:none}
+  .saved-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:10px}
+  .saved-title .saved-hint{font-size:11.5px;font-weight:400;color:#94a3b8;margin-left:4px}
+  .saved-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+  .saved-item{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:9px;overflow:hidden;transition:.12s}
+  .saved-item:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(59,130,246,.1)}
+  .si-main{flex:1;padding:9px 12px;cursor:pointer;min-width:0}
+  .si-main:hover{background:var(--blue-l)}
+  .si-name{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .si-sub{font-size:11px;color:var(--sub);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .si-del{flex:0 0 auto;width:34px;border:none;border-left:1px solid var(--line);background:#fff;
+    color:#cbd5e1;cursor:pointer;font-size:13px;transition:.12s}
+  .si-del:hover{background:#fee2e2;color:#dc2626}
 
   /* Result */
   #result{display:none}
@@ -495,7 +514,15 @@
     </div>
   </div>
 
-  <button class="go" id="go">啟盤推算</button>
+  <div class="go-row">
+    <button class="go" id="go">啟盤推算</button>
+    <button class="go-save" id="saveBtn" title="把目前輸入的生辰存到本機">💾 存檔</button>
+  </div>
+
+  <div class="saved-box" id="savedBox">
+    <div class="saved-title">📁 我的命盤<span class="saved-hint">（存在這台裝置，點一下即可載入推算）</span></div>
+    <div class="saved-list" id="savedList"></div>
+  </div>
  </div><!-- /#formZone -->
 
   <div id="result"></div>
@@ -1414,8 +1441,8 @@ function expandForm(){
 }
 $("#recap").addEventListener("click",expandForm);
 
-/* ====== 啟動 ====== */
-$("#go").addEventListener("click",()=>{
+/* ====== 推算（抽出共用） ====== */
+function runChart(){
   const res=$("#result");
   try{
     res.innerHTML=`<div class="loading">排盤推算中…</div>`;res.classList.add("show");
@@ -1436,7 +1463,87 @@ $("#go").addEventListener("click",()=>{
       }catch(e){res.innerHTML=`<div class="card"><div class="empty-tip" style="color:var(--bad)">⚠ ${e}</div></div>`;}
     },60);
   }catch(e){res.innerHTML=`<div class="card"><div class="empty-tip" style="color:var(--bad)">⚠ ${e}</div></div>`;}
+}
+$("#go").addEventListener("click",runChart);
+
+/* ====== 存檔 / 讀檔（localStorage） ====== */
+const SAVE_KEY="tzd_saved_charts_v1";
+/* 設定某個 seg 段到指定值（同步 .on 與 segVal、觸發時辰列顯隱） */
+function setSeg(key,val){
+  const seg=document.querySelector(`.seg[data-seg="${key}"]`); if(!seg||val==null) return;
+  seg.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===val));
+  segVal[key]=val;
+  if(key==="hknown1") $(".hrow1").style.display=val==="1"?"flex":"none";
+  if(key==="hknown2") $(".hrow2").style.display=val==="1"?"flex":"none";
+}
+/* 把某人 n 的所有欄位打包 */
+function snapshotPerson(n){
+  return {
+    name:$("#name"+n).value, y:$("#y"+n).value, m:$("#m"+n).value, d:$("#d"+n).value,
+    h:$("#h"+n).value, min:$("#min"+n).value, lon:$("#lon"+n)?.value, zi:$("#zi"+n)?.value,
+    sex:segVal["sex"+n], cal:segVal["cal"+n], hknown:segVal["hknown"+n], tst:segVal["tst"+n]
+  };
+}
+/* 還原某人 n */
+function restorePerson(n,p){
+  if(!p) return;
+  $("#name"+n).value=p.name||""; $("#y"+n).value=p.y||"";
+  $("#m"+n).value=p.m||1; $("#d"+n).value=p.d||1;
+  $("#h"+n).value=p.h||0; $("#min"+n).value=p.min||0;
+  if($("#lon"+n)&&p.lon!=null) $("#lon"+n).value=p.lon;
+  if($("#zi"+n)&&p.zi) $("#zi"+n).value=p.zi;
+  setSeg("sex"+n,p.sex); setSeg("cal"+n,p.cal);
+  setSeg("hknown"+n,p.hknown||"1"); setSeg("tst"+n,p.tst||"0");
+}
+function loadSaves(){ try{return JSON.parse(localStorage.getItem(SAVE_KEY))||[];}catch(e){return [];} }
+function writeSaves(arr){ localStorage.setItem(SAVE_KEY,JSON.stringify(arr)); }
+function savedLabel(rec){
+  if(rec.mode==="couple") return `${rec.p1.name||"本人"} ✕ ${rec.p2.name||"對方"}`;
+  return rec.p1.name||"未命名";
+}
+function savedSub(rec){
+  const p=rec.p1; const cal=p.cal==="lunar"?"農":"國";
+  const t=p.hknown==="1"?` ${String(p.h).padStart(2,"0")}:${String(p.min).padStart(2,"0")}`:" 時辰不詳";
+  return `${rec.mode==="couple"?"合盤・":""}${p.sex}・${cal}${p.y}/${p.m}/${p.d}${t}`;
+}
+function saveCurrent(){
+  if(!$("#y1").value){ alert("請先填入出生年份再存檔"); return; }
+  const rec={ id:String(Date.now())+Math.floor(performance.now()), mode:MODE, p1:snapshotPerson(1) };
+  if(MODE==="couple") rec.p2=snapshotPerson(2);
+  const arr=loadSaves(); arr.unshift(rec); writeSaves(arr); renderSaves();
+  const btn=$("#saveBtn"); const old=btn.textContent; btn.textContent="✓ 已存"; setTimeout(()=>btn.textContent=old,1200);
+}
+function deleteSave(id){
+  writeSaves(loadSaves().filter(r=>r.id!==id)); renderSaves();
+}
+function applySave(id){
+  const rec=loadSaves().find(r=>r.id===id); if(!rec) return;
+  // 切換模式
+  document.querySelector(`.mode-btn[data-mode="${rec.mode}"]`)?.click();
+  restorePerson(1,rec.p1);
+  if(rec.mode==="couple") restorePerson(2,rec.p2);
+  runChart();
+}
+function renderSaves(){
+  const box=$("#savedBox"), list=$("#savedList"); const arr=loadSaves();
+  if(!arr.length){ box.style.display="none"; return; }
+  box.style.display="block";
+  list.innerHTML=arr.map(rec=>`<div class="saved-item" data-id="${rec.id}">
+    <div class="si-main" data-act="load" data-id="${rec.id}">
+      <div class="si-name">${savedLabel(rec)}</div>
+      <div class="si-sub">${savedSub(rec)}</div>
+    </div>
+    <button class="si-del" data-act="del" data-id="${rec.id}" title="刪除">✕</button>
+  </div>`).join("");
+}
+$("#saveBtn").addEventListener("click",saveCurrent);
+$("#savedList").addEventListener("click",e=>{
+  const t=e.target.closest("[data-act]"); if(!t) return;
+  if(t.dataset.act==="del"){ e.stopPropagation();
+    if(confirm("確定刪除這筆存檔？")) deleteSave(t.dataset.id);
+  } else applySave(t.dataset.id);
 });
+renderSaves();
 </script>
 </body>
 </html>
