@@ -188,6 +188,15 @@
   .bar i{display:block;height:100%;border-radius:4px;transition:width .4s}
   .wx-bars .val{font-size:12px;color:var(--sub);width:34px;text-align:right}
 
+  /* 十神能量條（含白話註解） */
+  .god-bars{display:flex;flex-direction:column;gap:9px}
+  .god-bar .gb-top{display:flex;align-items:center;gap:8px}
+  .god-bar .gb-name{width:34px;font-weight:700;font-size:13px;flex:none}
+  .god-bar .val{font-size:12px;color:var(--sub);width:34px;text-align:right;flex:none}
+  .god-bar .gb-note{font-size:11px;color:#94a3b8;margin:2px 0 0 42px;line-height:1.4}
+  .dash .god-bars{gap:5px}
+  .dash .god-bar .gb-note{display:none}
+
   .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;margin:2px}
   .badge.good{background:#dcfce7;color:#15803d} .badge.bad{background:#fee2e2;color:#b91c1c}
   .badge.mid{background:#fef3c7;color:#b45309} .badge.blue{background:var(--blue-sel);color:var(--blue-d)}
@@ -629,13 +638,26 @@ function renderYong(y){
 }
 
 /* ====== 十神分布 ====== */
-function renderGodTally(gt){
+function renderGodTally(gt, showIntro=false){
   const max=Math.max(...Object.values(gt),0.1);
   const colors={比劫:"#3b82f6",食傷:"#16a34a",財星:"#d97706",官殺:"#dc2626",印星:"#8b5cf6"};
-  return `<div class="wx-bars">${Object.entries(gt).map(([k,v])=>`
-    <div><span class="wxn" style="width:30px;font-size:12px">${k}</span>
-      <div class="bar"><i style="width:${Math.max(4,v/max*100)}%;background:${colors[k]}"></i></div>
-      <span class="val">${v.toFixed(1)}</span></div>`).join("")}</div>`;
+  // 五大類白話一句（自訂精簡，比 GLOSSARY 更短，放在條下）
+  const GOD_NOTE={
+    比劫:"自我、同儕、競爭、講義氣",
+    食傷:"才華、表達、創意、輸出",
+    財星:"財富、務實、慾望、行動力",
+    官殺:"壓力、責任、自律、權威",
+    印星:"學識、靠山、貴人、被照顧"
+  };
+  const top=Object.entries(gt).slice().sort((a,b)=>b[1]-a[1])[0];
+  const intro=showIntro?`<div class="cap" style="margin-bottom:12px">把八字裡的五行力量，換算成「對你來說」的五種角色能量。<b>條越長代表那股力量越強</b>（數字為加權分，無上限、彼此相比看高低）。你最突出的是 <b style="color:${colors[top[0]]}">${top[0]}</b>，個性與行事會偏這個方向。</div>`:"";
+  return `${intro}<div class="god-bars">${Object.entries(gt).map(([k,v])=>`
+    <div class="god-bar">
+      <div class="gb-top"><span class="gb-name" style="color:${colors[k]}">${k}</span>
+        <div class="bar"><i style="width:${Math.max(4,v/max*100)}%;background:${colors[k]}"></i></div>
+        <span class="val">${v.toFixed(1)}</span></div>
+      <div class="gb-note">${GOD_NOTE[k]||""}</div>
+    </div>`).join("")}</div>`;
 }
 
 /* ====== 神煞 ====== */
@@ -930,14 +952,13 @@ function renderSingle(a){
        <div class="kv"><span class="k">月柱</span><span class="v">${a.bz.nayin.month}</span></div>
        <div class="kv"><span class="k">日柱</span><span class="v">${a.bz.nayin.day}</span></div>
        ${a.bz.nayin.hour?`<div class="kv"><span class="k">時柱</span><span class="v">${a.bz.nayin.hour}</span></div>`:""}</div>
-     <div class="card"><h3><span class="ic">神</span>十神能量</h3>${renderGodTally(a.godTally)}</div>
+     <div class="card"><h3><span class="ic">神</span>十神能量</h3>${renderGodTally(a.godTally,true)}</div>
    </div></div>
 
    <div class="panel" data-panel="god"><div class="grid g2">
      <div class="card full"><h3><span class="ic">身</span>身強弱判定</h3>${renderStrength(a.strength)}</div>
      <div class="card"><h3><span class="ic">用</span>用神・喜忌</h3>${renderYong(a.yong)}</div>
-     <div class="card"><h3><span class="ic">神</span>十神能量分布</h3>
-       <div class="cap">五大十神類別的力量比重，反映性格傾向。</div>${renderGodTally(a.godTally)}</div>
+     <div class="card"><h3><span class="ic">神</span>十神能量分布</h3>${renderGodTally(a.godTally,true)}</div>
    </div></div>
 
    <div class="panel" data-panel="ziwei">${renderZiwei(a)}</div>
