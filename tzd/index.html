@@ -386,6 +386,16 @@
     font-size:13px;color:#475569;line-height:1.8;margin-top:10px}
   .note b{color:var(--ink)}
 
+  /* 一段話讀懂你的命 */
+  .sum-card{background:linear-gradient(135deg,#fffbeb 0%,#fff 60%);border-color:#fde68a}
+  .sum-body{font-size:14px;line-height:1.95;color:#334155}
+  .sum-body p{margin:0 0 12px}
+  .sum-body p:last-child{margin-bottom:0}
+  .sum-body b{color:var(--ink)}
+  .sum-tag{display:inline-block;font-size:11.5px;font-weight:700;color:#b45309;background:#fef3c7;
+    border-radius:6px;padding:2px 9px;margin-right:8px;vertical-align:middle}
+  .sum-foot{font-size:12.5px;color:#94a3b8;border-top:1px dashed #fde68a;padding-top:10px}
+
   .palace-card{border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:8px}
   .palace-card .ptitle{font-size:13.5px;font-weight:600;margin-bottom:3px;display:flex;justify-content:space-between}
   .palace-card .pstars{font-size:13px;margin:4px 0}
@@ -1079,6 +1089,52 @@ function renderDaYunMini(a){
   return `<div class="cap" style="margin-bottom:8px">${dy.dir}・${dy.startDesc}（喜用 ${a.yong.primary.join("")}）</div><div class="timeline">${tl}</div>`;
 }
 
+/* ====== 一段話讀懂你的命（白話綜合解讀） ====== */
+function renderSummary(a){
+  const name=a.name||"你";
+  const str=a.strength.strength;
+  const strSay={極強:"自我能量極強、很有主見",身強:"自我能量偏強、有衝勁、扛得住事",中和:"日主強弱適中、是最平衡的狀態",身弱:"自我能量偏弱、較需要支援與貴人",極弱:"自我能量很弱、宜順勢借力而非硬撐"}[str]||"";
+  const pat=a.pattern.patterns[0]; const patP=PATTERN_PLAIN[pat.name]||{};
+  const yong=a.yong.primary.join("、"); const avoid=a.yong.avoid.join("、");
+  // 喜用的開運面向（取第一個喜用五行的色/方位/行業）
+  const r0=WX_REMEDY[a.yong.primary[0]]||{};
+  // 紫微命宮主星
+  let mingSay="";
+  if(a.ziwei){
+    const ming=a.ziwei.palaces.find(p=>p.name==="命宮");
+    if(ming&&ming.majorStars.length){
+      const names=ming.majorStars.map(s=>s.name);
+      const descs=names.map(n=>(GLOSSARY[n]||"").split("：").slice(-1)[0]).filter(Boolean);
+      mingSay=`你的紫微命宮坐 <b>${names.join("、")}</b>，個性上${descs.join("；")}。`;
+    }else{
+      mingSay="你的紫微命宮無主星，個性較隨環境而變、可塑性高，要參考對宮的星。";
+    }
+  }
+  // 神煞重點（挑最有感的吉/凶各一）
+  const goodSS=a.shensha.filter(s=>/貴人|文昌|將星|天德|月德|祿/.test(s.name)).map(s=>s.name);
+  const badSS=a.shensha.filter(s=>/羊刃|劫煞|空亡|亡神/.test(s.name)).map(s=>s.name);
+  let ssSay="";
+  if(goodSS.length) ssSay+=`命帶吉星 <b style="color:#15803d">${goodSS.join("、")}</b>，這是你的助力。`;
+  if(badSS.length) ssSay+=`也有 <b style="color:#b91c1c">${badSS.join("、")}</b> 要留意，凡事多一分謹慎。`;
+  // 今年運
+  const nowY=new Date().getFullYear();
+  const ln=calcLiuNian(a.bz.solar.y,nowY,1,a.yong.primary,a.bz.dGan)[0];
+  const yearSay=ln?`<b>今年（${nowY}）</b>對你是「<b style="color:${ln.tier==='旺'?'#15803d':ln.tier==='弱'?'#b91c1c':'#b45309'}">${ln.tier==='旺'?'順遂得力':ln.tier==='弱'?'較費力、宜守':'平穩待時'}</b>」之年，走 ${ln.ganGod}運（${godShort?godShort(ln.ganGod):""}）。`:"";
+
+  return `<div class="card full sum-card">
+    <h3><span class="ic" style="background:#fef3c7;color:#b45309">解</span>一段話讀懂${name}的命
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">下面用白話幫你把整張命盤的重點講完，看這段就好</span></h3>
+    <div class="sum-body">
+      <p><span class="sum-tag">你是誰</span>${name}是 <b>${a.sex}・屬${a.sx.sx}・${a.sign}座</b>。八字日主${str}（${strSay}）。命格屬 <b>${pat.name}</b>——${patP.say||pat.desc}</p>
+      ${mingSay?`<p><span class="sum-tag">個性</span>${mingSay}</p>`:""}
+      <p><span class="sum-tag">怎麼走最順</span>${patP.tip||""} 你的<b>喜用五行是 ${yong}</b>${avoid?`、忌神是 ${avoid}`:""}。多親近喜用——例如穿 <b>${r0.colors||""}</b> 的衣物、往 <b>${r0.dir||""}</b> 發展、選 ${r0.ind?r0.ind.split("、").slice(0,3).join("、"):""} 這類領域，運勢會更順。</p>
+      ${ssSay?`<p><span class="sum-tag">提醒</span>${ssSay}</p>`:""}
+      ${yearSay?`<p><span class="sum-tag">今年運勢</span>${yearSay}逐年細節見「大運流年」分頁。</p>`:""}
+      <p class="sum-foot">想深入了解某一塊，再點上方各分頁；命理是參考，路還是自己走出來的。</p>
+    </div>
+  </div>`;
+}
+
 /* ====== Dashboard 總覽（寬版多欄，一頁看完） ====== */
 function renderDashboard(a,overall,luck){
   const nowY=new Date().getFullYear();
@@ -1108,6 +1164,7 @@ function renderDashboard(a,overall,luck){
   })() : `<div class="empty-tip" style="padding:14px">紫微排盤需準確出生時辰</div>`;
 
   return `<div class="grid g3">
+    ${renderSummary(a)}
     <!-- 八字四柱（橫跨全寬，最重要） -->
     <div class="card full">
       <h3><span class="ic">柱</span>八字四柱
