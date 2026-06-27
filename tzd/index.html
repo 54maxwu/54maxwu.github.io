@@ -343,6 +343,13 @@
   /* 紫微方格盤 */
   /* 紫微頁左右分欄：左說明、右命盤 */
   .zw-layout{display:flex;gap:18px;align-items:flex-start}
+  /* 頂部：命盤總評 ｜ 一段話總結 左右並排 */
+  .zw-top2{display:flex;gap:16px;align-items:stretch;margin-bottom:14px}
+  .zw-top2>div{flex:1 1 0;min-width:0}
+  .zw-top2 .zw-overview{margin-bottom:0;height:100%}
+  .zw-top2 .zw-summary{margin-top:0;border-top:none;padding-top:0;height:100%;
+    background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
+  @media(max-width:900px){ .zw-top2{flex-direction:column} }
   .zw-side{flex:0 0 320px;max-width:320px}
   .ziwei-wrap{position:relative;flex:1 1 auto;min-width:0}
   @media(max-width:920px){
@@ -505,6 +512,13 @@
   .star-dict .sd-row:first-of-type{border-top:none}
   .star-dict .sd-row b{flex:none;width:34px;color:var(--ink);font-weight:700}
   .star-dict .sd-row span{color:#64748b}
+  .sihua-dict{margin-top:12px}
+  .sihua-dict .sh-intro{font-size:12px;color:#475569;line-height:1.75;margin-bottom:8px}
+  .sihua-dict .sh-intro b{color:var(--ink)}
+  .sihua-dict .sh-row{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px dashed #f1f5f9;font-size:12px;color:#475569;line-height:1.6}
+  .sihua-dict .sh-row .sh{flex:none;margin-top:1px}
+  .sihua-dict .sh-row b{color:var(--ink)}
+  .sihua-dict .sh-foot{font-size:11px;color:#94a3b8;line-height:1.6;margin-top:8px;border-top:1px dashed #e2e8f0;padding-top:7px}
   .star-dict .sd-row{border-radius:6px;transition:.2s}
   .star-dict .sd-row.hl{background:#dbeafe;box-shadow:0 0 0 2px #93c5fd;padding-left:6px;padding-right:6px}
   .zw-cell .star .star-nm.star-click{cursor:pointer;text-decoration:underline dotted #bfdbfe;text-underline-offset:2px}
@@ -1419,15 +1433,26 @@ function renderZiwei(a){
     <div class="sd-title">🔆 十四主星 白話速查</div>
     ${ZW_STARS.map(n=>`<div class="sd-row" data-stardict="${n}"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
   </div>`;
+  const sihuaCard=`<div class="star-dict sihua-dict">
+    <div class="sd-title">✨ 四化是什麼？（化祿/權/科/忌）</div>
+    <div class="sh-intro">「四化」是你<b>出生那一年的天干</b>，讓四顆星各自「變化」出一種特殊力量，<b>跟你一輩子</b>。就像幫某顆星「加裝備」——星名後面有彩色小標的，就是被化到的星。</div>
+    <div class="sh-row"><span class="sh sh-祿">祿</span><div><b>化祿＝財祿、好處、順遂</b>。這顆星帶來機會、收入、貴人緣，是你<b>最容易得到甜頭</b>的地方。</div></div>
+    <div class="sh-row"><span class="sh sh-權">權</span><div><b>化權＝權力、能力、掌控</b>。這顆星讓你在那塊特別<b>強勢、有主導力、做得起來</b>，適合掌權扛責。</div></div>
+    <div class="sh-row"><span class="sh sh-科">科</span><div><b>化科＝名聲、貴人、文書</b>。這顆星帶來<b>好名聲、考運、貴人相助</b>，遇難也較能化解。</div></div>
+    <div class="sh-row"><span class="sh sh-忌">忌</span><div><b>化忌＝執著、牽絆、功課</b>。這顆星是你<b>最在意、最容易卡關</b>的地方，不是壞事，而是這輩子要學會放下、用心經營的課題。</div></div>
+    <div class="sh-foot">舉例：「天梁化權」＝天梁這顆星被加上「權」的力量，在它管的事上你會更有主導力；「太陰化忌」＝太陰那塊是你較放不下、要多用心的功課。</div>
+  </div>`;
   return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
         <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解＋三方四正連線</span></h3>
-      ${ziweiOverview(z,a,cellByBranch,bodyBranch)}
+      <div class="zw-top2">
+        <div class="zw-top-l">${ziweiOverview(z,a,cellByBranch,bodyBranch)}</div>
+        <div class="zw-top-r">${ziweiSummary(z,a)}</div>
+      </div>
       <div class="zw-layout">
-        <div class="zw-side">${legend}${starDict}</div>
+        <div class="zw-side">${legend}${sihuaCard}${starDict}</div>
         <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
-      </div>
-      ${ziweiSummary(z,a)}</div>`;
+      </div></div>`;
 }
 
 /* 紫微命盤總評卡：跑遍12宮排序，主動給整體結論＋最強/最弱宮＋圖例 */
