@@ -237,6 +237,20 @@
   .palace-card .pstars{font-size:13px;margin:4px 0}
   .palace-card .pdesc{font-size:12px;color:var(--sub)}
 
+  .cg-card .cg-body{display:flex;gap:18px;flex-wrap:wrap;margin-top:6px}
+  .cg-card .cg-left{flex:1 1 220px;min-width:200px}
+  .cg-card .cg-right{flex:1 1 260px;min-width:230px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+  .cg-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .cg-row .cg-k{color:var(--sub);width:52px;flex:none}
+  .cg-row .cg-sub{color:var(--ink);flex:1}
+  .cg-row .cg-w{font-weight:600;color:var(--blue-d)}
+  .cg-total{margin-top:10px;font-size:15px;color:var(--ink)}
+  .cg-total b{font-size:19px;color:var(--blue-d)}
+  .cg-total .cg-num{font-size:12px;color:#94a3b8;margin-left:4px}
+  .cg-ptitle{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:8px}
+  .cg-poem{font-size:14px;line-height:2;color:#334155;letter-spacing:1px}
+  .cg-warn{margin-top:12px;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 11px}
+
   .disclaimer{text-align:center;font-size:12px;color:#94a3b8;margin-top:24px;line-height:1.8}
 
   .empty-tip{text-align:center;color:var(--sub);font-size:13px;padding:30px}
@@ -362,7 +376,8 @@
 </div>
 
 <script type="module">
-import { buildBazi, lunar2solar, leapMonth, GAN_WX } from "./engine-calendar.js";
+import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX } from "./engine-calendar.js";
+import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, nameAnalysis, luckText } from "./engine-aux.js";
@@ -462,6 +477,12 @@ function readPerson(n){
       analysis.ziwei=extractZiwei(astro);
     }catch(e){analysis.ziwei=null;}
   }else analysis.ziwei=null;
+  // 袁天罡稱骨（年干支+農曆月日+時辰，時辰依真太陽時）
+  try{
+    const eff=bz.effective||{y:bz.solar.y,m:bz.solar.m,d:bz.solar.d};
+    const lun=solar2lunar(eff.y,eff.m,eff.d);
+    analysis.chenggu=chengGu(bz,lun);
+  }catch(e){analysis.chenggu=null;}
   return analysis;
 }
 
@@ -541,6 +562,31 @@ function renderShensha(list){
   return list.map(s=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)">
     <div><b>${s.name}</b> <span class="badge gray">${s.positions.join("、")}</span></div>
     <div style="font-size:12.5px;color:var(--sub);margin-top:2px">${s.desc}</div></div>`).join("");
+}
+
+/* ====== 袁天罡稱骨 ====== */
+function renderChengGu(cg){
+  if(!cg) return "";
+  const rows=cg.parts.map(p=>`<div class="cg-row">
+    <span class="cg-k">${p.label}</span>
+    <span class="cg-sub">${p.sub}</span>
+    <span class="cg-w">${p.cn}</span></div>`).join("");
+  const poem=cg.poem.length
+    ? `<div class="cg-poem">${cg.poem.map(line=>`<div>${line}</div>`).join("")}</div>`
+    : "";
+  const note=cg.hourKnown?"":`<div class="cg-warn">※ 未填出生時辰，僅以「年＋月＋日」三項計算，補上時辰會更準。</div>`;
+  return `<div class="card cg-card"><h3><span class="ic">秤</span>袁天罡稱骨 · 八字幾兩重</h3>
+    <div class="cap">這是一套傳統「查表」算命法：把出生年、月、日、時各換成一個「兩錢數」相加，得到骨重，再對照一首評語詩。<b>與八字／紫微是不同系統</b>，圖個趣味參考即可。</div>
+    <div class="cg-body">
+      <div class="cg-left">
+        ${rows}
+        <div class="cg-total">合計骨重　<b>${cg.totalCN}</b><span class="cg-num">（${cg.total.toFixed(1)} 兩）</span></div>
+      </div>
+      <div class="cg-right">
+        <div class="cg-ptitle">「${cg.totalCN}」的評語</div>
+        ${poem}
+      </div>
+    </div>${note}</div>`;
 }
 
 /* ====== 格局 ====== */
@@ -724,6 +770,12 @@ function renderDashboard(a,overall,luck){
         <h3><span class="ic">煞</span>神煞</h3>
         <div style="line-height:2">${ssShort}</div>
       </div>
+      ${a.chenggu?`<div class="card">
+        <h3><span class="ic">秤</span>八字幾兩重</h3>
+        <div style="font-size:15px;margin-bottom:4px">骨重 <b style="font-size:20px;color:var(--blue-d)">${a.chenggu.totalCN}</b></div>
+        <div style="font-size:12.5px;color:var(--sub);line-height:1.7">${a.chenggu.poem[0]||""}</div>
+        <div style="text-align:right;margin-top:6px"><span class="rtab" style="font-size:12px;color:var(--blue-d);cursor:pointer;background:var(--blue-l);padding:4px 10px;border-radius:6px" data-p="shensha">看完整評語 →</span></div>
+      </div>`:""}
     </div>
 
     <!-- 第3欄：用神 + 紫微 -->
@@ -795,7 +847,9 @@ function renderSingle(a){
 
    <div class="panel" data-panel="luck">${luck.html}</div>
 
-   <div class="panel" data-panel="shensha"><div class="grid g2">
+   <div class="panel" data-panel="shensha">
+     ${renderChengGu(a.chenggu)}
+     <div class="grid g2">
      <div class="card"><h3><span class="ic">煞</span>神煞</h3>
        <div class="cap">命盤中的吉神與凶煞，標示其所在柱位。</div>${renderShensha(a.shensha)}</div>
      <div class="card"><h3><span class="ic">格</span>格局</h3>

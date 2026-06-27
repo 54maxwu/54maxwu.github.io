@@ -249,5 +249,27 @@ export function lunar2solar(lY,lM,lD,isLeap){
   return {y:t.getUTCFullYear(), m:t.getUTCMonth()+1, d:t.getUTCDate()};
 }
 
+/* ---------- 國曆轉農曆 (1900-2100) ---------- */
+export function solar2lunar(y,m,d){
+  // 與 1900-01-31（農曆1900正月初一）的天數差
+  const base=Date.UTC(1900,0,31);
+  let offset=Math.floor((Date.UTC(y,m-1,d)-base)/86400000);
+  let lY=1900;
+  for(;lY<2101;lY++){ const yd=lYearDays(lY); if(offset<yd) break; offset-=yd; }
+  const leapM=leapMonth(lY);
+  let lM=1, isLeap=false;
+  for(;lM<=12;lM++){
+    const dm=monthDays(lY,lM);
+    if(offset<dm){ isLeap=false; break; }
+    offset-=dm;
+    if(leapM>0 && lM===leapM){
+      const dl=leapDays(lY);
+      if(offset<dl){ isLeap=true; break; }
+      offset-=dl;
+    }
+  }
+  return {y:lY, m:lM, d:offset+1, isLeap};
+}
+
 /* 匯出供其他層使用 */
 export { gatherTerms, solarTermJDE, sunLongitude, JIE };
