@@ -236,6 +236,12 @@
   .na-cand b{color:var(--blue-d)}
   .na-egs{color:#7c3aed;font-weight:600}
   .na-fav{font-size:11.5px;color:#b45309;margin-bottom:8px;line-height:1.6}
+  .na-sx{margin-top:10px;padding-top:10px;border-top:1px dashed #fde68a}
+  .na-sx-t{font-size:12.5px;font-weight:700;color:#b45309;margin-bottom:6px}
+  .na-sx-r{font-size:12px;color:#475569;line-height:1.8}
+  .na-sx-r b{color:var(--ink);letter-spacing:2px}
+  .na-sx-k{display:inline-block;font-size:10px;font-weight:700;color:#fff;padding:1px 6px;border-radius:5px;margin-right:4px}
+  .na-sx-k.good{background:#16a34a} .na-sx-k.bad{background:#dc2626}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -730,7 +736,7 @@ import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX, GAN, ZHI, ZHI_W
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
-import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
+import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, SX_NAMING, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, PALACE_ORDER, SIHUA_DESC } from "./engine-ziwei.js";
 import { GLOSSARY } from "./glossary.js";
@@ -987,7 +993,7 @@ function radarChart(items, opt={}){
     return `<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" font-size="13" font-weight="700" fill="${it.color}" text-anchor="${anchor}">${it.label}</text>
       <text x="${lx.toFixed(1)}" y="${(ly+17).toFixed(1)}" font-size="10" fill="#94a3b8" text-anchor="${anchor}">${it.value.toFixed(1)}</text>`;
   }).join("");
-  return `<svg class="radar" viewBox="0 0 220 208" width="100%" style="max-width:260px;display:block;margin:0 auto">
+  return `<svg class="radar" viewBox="-30 -16 280 244" width="100%" style="max-width:300px;display:block;margin:0 auto">
     <circle cx="${cx}" cy="${cy}" r="${R+2}" fill="none" stroke="#f1f5f9" stroke-width="1"/>
     ${grid}${axes}
     <polygon points="${dataPoly}" fill="${opt.fill||'rgba(59,130,246,.18)'}" stroke="${opt.stroke||'#3b82f6'}" stroke-width="2" stroke-linejoin="round"/>
@@ -1331,7 +1337,7 @@ function renderZiwei(a){
     <ul class="lg-list">
       <li><b>十二個格子＝人生十二個面向</b>：每格上面藍字是宮名（如「命宮＝核心性格」「夫妻＝感情婚姻」），下面灰字是它管什麼。<b>藍底那格是「命宮」，最重要</b>。</li>
       <li><b>格子裡的大字＝主星</b>：代表這個面向的「個性／能量」，星名下方已直接寫白話意思（如「紫微＝帝王星，主領導」）。</li>
-      <li><b>星旁的小灰字（廟旺得利平不陷）＝這顆星的力量強弱</b>：<span style="color:#b08900">廟旺＝很強、平＝普通、不陷＝偏弱</span>。</li>
+      <li><b>星旁的小灰字＝這顆星的力量強弱</b>，由強到弱共七級：<span style="color:#b08900"><b>廟</b>(最強)＞<b>旺</b>(很強)＞<b>得</b>(不錯)＞<b>利</b>(尚可)＞<b>平</b>(普通)＞<b>不</b>(偏弱)＞<b>陷</b>(最弱)</span>。</li>
       <li><b>彩色小標＝四化</b>：<span class="sh sh-祿">祿</span>好處財祿、<span class="sh sh-權">權</span>權力能力、<span class="sh sh-科">科</span>名聲貴人、<span class="sh sh-忌">忌</span>牽絆阻礙。</li>
       <li><b>格子角落兩字（如壬午）＝干支座標</b>，排盤用的，不懂可以略過。</li>
       <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span></b>：連到要「合看」的另三宮（對宮＋兩三合宮），這四宮合稱<b>三方四正</b>，論命要一起看才完整。</li>
@@ -1820,14 +1826,25 @@ function renderName(a){
     <div class="note" style="margin-top:12px">三才配置 <b>${n.sancai.wx.join("－")}</b>
       <span class="badge ${n.sancai.luck==='吉'?'good':n.sancai.luck==='凶'?'bad':'mid'}">${n.sancai.luck}</span>
       <span style="font-size:11px;color:#94a3b8">（三才＝天格‧人格‧地格三者的五行生剋，看名字的基礎吉凶）</span><br>${n.sancai.desc}</div>
-    ${renderNameAdvice(n, a.yong&&a.yong.primary)}</div>`;
+    ${renderNameAdvice(n, a.yong&&a.yong.primary, a.sx&&a.sx.sx)}</div>`;
 }
 
 /* 改名建議：凶格 → 要改哪個字、改成幾畫、有哪些字可選 */
-function renderNameAdvice(n, favorWx){
+/* 生肖宜用部首與範例字 */
+function sxNamingBlock(sx){
+  const d=SX_NAMING[sx]; if(!d) return "";
+  return `<div class="na-sx">
+    <div class="na-sx-t">🐾 屬${sx} 取名宜忌（傳統姓名學）</div>
+    <div class="na-sx-r"><span class="na-sx-k good">宜用</span>部首 <b>${d.like.join(" ")}</b>　<span style="color:#94a3b8">（${d.likeWhy}）</span></div>
+    <div class="na-sx-r"><span class="na-sx-k bad">忌用</span>部首 <b>${d.avoid.join(" ")}</b>　<span style="color:#94a3b8">（${d.avoidWhy}）</span></div>
+    <div class="na-sx-r">宜用字例：<span class="na-egs">${d.eg.join("、")}</span></div>
+  </div>`;
+}
+function renderNameAdvice(n, favorWx, sx){
   let adv=[];
   try{ adv=nameSuggest(n.chars,n.grids,favorWx); }catch(e){ adv=[]; }
-  if(!adv.length) return `<div class="na-ok">✓ 五格沒有明顯凶數，姓名整體穩定，不需特別改名。</div>`;
+  const sxBlock=sxNamingBlock(sx);
+  if(!adv.length) return `<div class="na-ok">✓ 五格沒有明顯凶數，姓名整體穩定，不需特別改名。</div>${sxBlock}`;
   const favor=new Set(favorWx||[]);
   const favorNote=favor.size?`<div class="na-fav">⭐ 標記者＝筆畫五行剛好補你的喜用神（${[...favor].join("、")}），優先考慮這些。</div>`:"";
   const rows=adv.map(g=>{
@@ -1848,6 +1865,7 @@ function renderNameAdvice(n, favorWx){
     <div class="na-title">✍ 改名建議（針對凶數）</div>
     <div class="na-intro">姓名五格中，<b>天格＝姓</b>（不能改），<b>人格／地格／外格／總格</b>都跟「名字的字」有關。某格是<b style="color:#b91c1c">凶</b>時，把對應的字換成下面建議的筆畫，那一格就會轉吉。筆畫以康熙字典為準，<b>實際取名請再確認字義與讀音</b>。</div>
     ${favorNote}${rows}
+    ${sxBlock}
   </div>`;
 }
 
