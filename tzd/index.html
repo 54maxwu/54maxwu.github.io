@@ -225,10 +225,18 @@
   .ln-row .yr{font-weight:600;width:88px} .ln-row .gz{width:50px} .ln-row .g{color:var(--sub);font-size:12.5px;flex:1}
 
   /* 紫微方格盤 */
-  .ziwei-wrap{position:relative;max-width:680px;margin:0 auto}
-  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:stretch}
-  .zw-cell{border:1px solid var(--line);border-radius:8px;padding:8px 7px;background:var(--soft);
-    font-size:11px;display:flex;flex-direction:column;min-height:96px}
+  /* 紫微頁左右分欄：左說明、右命盤 */
+  .zw-layout{display:flex;gap:18px;align-items:flex-start}
+  .zw-side{flex:0 0 320px;max-width:320px}
+  .ziwei-wrap{position:relative;flex:1 1 auto;min-width:0}
+  @media(max-width:920px){
+    .zw-layout{flex-direction:column}
+    .zw-side{flex:1 1 auto;max-width:none;width:100%}
+    .ziwei-wrap{width:100%}
+  }
+  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:stretch}
+  .zw-cell{border:1px solid var(--line);border-radius:9px;padding:10px 9px;background:var(--soft);
+    font-size:12px;display:flex;flex-direction:column;min-height:118px}
   .zw-cell.clickable{cursor:pointer;transition:.12s}
   .zw-cell.clickable:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(59,130,246,.12)}
   .zw-cell.active{border-color:var(--blue-d);box-shadow:0 0 0 2px var(--blue-sel)}
@@ -253,16 +261,16 @@
   @media(max-width:560px){ .zw-pop{width:240px} }
   .zw-cell.center{grid-column:2/4;grid-row:2/4;background:#fff;justify-content:center;align-items:center;text-align:center}
   .zw-cell.ming{background:var(--blue-l);border-color:#bfdbfe}
-  .zw-cell .pn{font-size:11px;font-weight:600;color:var(--blue-d);margin-bottom:4px;line-height:1.3}
-  .zw-cell .pn .pn-note{display:block;font-size:9px;font-weight:400;color:#94a3b8;margin-top:1px}
-  .zw-cell .star{font-size:13px;font-weight:600;line-height:1.4;margin-top:2px}
-  .zw-cell .star .sh{font-size:9px;color:#fff;padding:0 3px;border-radius:3px;margin-left:2px}
-  .zw-cell .star .br{font-size:9px;color:#b08900;margin-left:2px;font-weight:600}
-  .zw-cell .star-note{font-size:9.5px;color:#64748b;line-height:1.35;margin:1px 0 3px}
+  .zw-cell .pn{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:5px;line-height:1.3}
+  .zw-cell .pn .pn-note{display:block;font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px}
+  .zw-cell .star{font-size:15px;font-weight:700;line-height:1.45;margin-top:3px}
+  .zw-cell .star .sh{font-size:10px;color:#fff;padding:0 4px;border-radius:3px;margin-left:3px}
+  .zw-cell .star .br{font-size:10px;color:#b08900;margin-left:3px;font-weight:600}
+  .zw-cell .star-note{font-size:11px;color:#64748b;line-height:1.4;margin:2px 0 4px}
   .sh-祿{background:#16a34a}.sh-權{background:#dc2626}.sh-科{background:#2563eb}.sh-忌{background:#64748b}
-  .zw-cell .mn{font-size:9.5px;color:#b6c0cf;margin-top:auto;padding-top:3px;text-align:right}
+  .zw-cell .mn{font-size:10.5px;color:#b6c0cf;margin-top:auto;padding-top:4px;text-align:right}
 
-  .zw-legend{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:12px;max-width:680px;margin-left:auto;margin-right:auto}
+  .zw-legend{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
   .zw-legend .lg-title{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:8px}
   .zw-legend .lg-list{margin:0;padding-left:18px;font-size:12px;color:#475569;line-height:1.85}
   .zw-legend .lg-list li{margin-bottom:4px}
@@ -300,11 +308,12 @@
   .loading{text-align:center;padding:30px;color:var(--sub)}
   @media(max-width:560px){
     .bazi-table .gan,.bazi-table .zhi{font-size:21px}
-    .ziwei-grid{gap:4px}
-    .zw-cell{padding:5px 4px;font-size:10px;min-height:84px}
-    .zw-cell .star{font-size:11.5px}
-    .zw-cell .star-note{font-size:8.5px}
-    .zw-cell .pn .pn-note{font-size:8px}
+    .ziwei-grid{gap:5px}
+    .zw-cell{padding:7px 5px;font-size:11px;min-height:100px}
+    .zw-cell .pn{font-size:12px}
+    .zw-cell .star{font-size:13px}
+    .zw-cell .star-note{font-size:9.5px}
+    .zw-cell .pn .pn-note{font-size:9px}
   }
 </style>
 </head>
@@ -718,8 +727,8 @@ function renderZiwei(a){
   let cells="";
   for(let r=0;r<4;r++)for(let c=0;c<4;c++){
     if(r>=1&&r<=2&&c>=1&&c<=2){ if(r===1&&c===1){cells+=`<div class="zw-cell center">
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">${a.name||"命盤"}</div>
-        <div style="font-size:12px;color:var(--sub);line-height:1.9">
+        <div style="font-weight:700;font-size:19px;margin-bottom:8px">${a.name||"命盤"}</div>
+        <div style="font-size:13.5px;color:var(--sub);line-height:2.1">
           命主 ${z.soul||"—"}・身主 ${z.body||"—"}<br>
           ${z.fiveElementsClass||""}<br>
           生肖 ${(z.zodiac||a.sx.sx).replace(/座$/,"")}・${(z.sign||a.sign+"座").replace(/座座$/,"座")}</div></div>`;} continue; }
@@ -752,9 +761,11 @@ function renderZiwei(a){
   </div>`;
   return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
         <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解</span></h3>
-      ${legend}
-      <div class="ziwei-wrap"><div class="ziwei-grid">${cells}</div>
-        <div class="zw-pop" id="zwPop" hidden></div></div></div>`;
+      <div class="zw-layout">
+        <div class="zw-side">${legend}</div>
+        <div class="ziwei-wrap"><div class="ziwei-grid">${cells}</div>
+          <div class="zw-pop" id="zwPop" hidden></div></div>
+      </div></div>`;
 }
 
 /* 單一宮位的浮動框內容 */
