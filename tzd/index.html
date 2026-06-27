@@ -497,9 +497,12 @@
     <div class="adv-box" id="adv1">
       <div class="row">
         <div class="fld"><label>真太陽時校正</label>
-          <div class="seg" data-seg="tst1"><button data-v="0" class="on">不校正</button><button data-v="1">校正(填經度)</button></div>
+          <div class="seg" data-seg="tst1"><button data-v="0" class="on">不校正</button><button data-v="1">校正(更準)</button></div>
         </div>
-        <div class="fld"><label>出生地經度（東經為正，如台北121.5）</label><input id="lon1" type="number" step="0.1" value="121.5"></div>
+        <div class="fld"><label>出生縣市（選了自動校正經度）</label>
+          <select id="city1" class="city-sel"></select>
+          <input id="lon1" type="hidden" value="121.5">
+        </div>
       </div>
       <div class="fld"><label>子時換日派別</label>
         <select id="zi1">
@@ -590,6 +593,25 @@ function fillSelect(sel,from,to,suffix,fn){
 const SHICHEN=["子(23-01)","丑(01-03)","寅(03-05)","卯(05-07)","辰(07-09)","巳(09-11)","午(11-13)","未(13-15)","申(15-17)","酉(17-19)","戌(19-21)","亥(21-23)"];
 ["h1","h2"].forEach(id=>{const s=$("#"+id);for(let i=0;i<24;i++){const o=document.createElement("option");o.value=i;o.textContent=String(i).padStart(2,"0")+" 時";s.appendChild(o);}});
 ["min1","min2"].forEach(id=>{const s=$("#"+id);for(let i=0;i<60;i+=5){const o=document.createElement("option");o.value=i;o.textContent=String(i).padStart(2,"0")+" 分";s.appendChild(o);}});
+
+/* 台灣各縣市中心經度（東經），選了自動帶入做真太陽時校正 */
+const TW_CITY=[
+  ["不指定（不校正）",""],
+  ["台北市",121.56],["新北市",121.47],["基隆市",121.74],["桃園市",121.30],
+  ["新竹市",120.97],["新竹縣",121.10],["苗栗縣",120.82],["台中市",120.68],
+  ["彰化縣",120.54],["南投縣",120.97],["雲林縣",120.43],["嘉義市",120.45],
+  ["嘉義縣",120.30],["台南市",120.21],["高雄市",120.31],["屏東縣",120.49],
+  ["宜蘭縣",121.75],["花蓮縣",121.61],["台東縣",121.14],
+  ["澎湖縣",119.57],["金門縣",118.32],["連江縣(馬祖)",119.95]
+];
+(function initCity(){
+  const sel=$("#city1"); if(!sel) return;
+  TW_CITY.forEach(([name,lon])=>{const o=document.createElement("option");o.value=lon;o.textContent=name;sel.appendChild(o);});
+  sel.addEventListener("change",()=>{
+    if(sel.value===""){ setSeg("tst1","0"); }     // 不指定 → 不校正
+    else { $("#lon1").value=sel.value; setSeg("tst1","1"); }  // 選了縣市 → 帶經度並開啟校正
+  });
+})();
 
 /* seg 按鈕通用 */
 const segVal={};
@@ -1605,6 +1627,7 @@ function snapshotPerson(n){
   return {
     name:$("#name"+n).value, y:$("#y"+n).value, m:$("#m"+n).value, d:$("#d"+n).value,
     h:$("#h"+n).value, min:$("#min"+n).value, lon:$("#lon"+n)?.value, zi:$("#zi"+n)?.value,
+    city:$("#city"+n)?.value,
     sex:segVal["sex"+n], cal:segVal["cal"+n], hknown:segVal["hknown"+n], tst:segVal["tst"+n]
   };
 }
@@ -1615,6 +1638,7 @@ function restorePerson(n,p){
   $("#m"+n).value=p.m||1; $("#d"+n).value=p.d||1;
   $("#h"+n).value=p.h||0; $("#min"+n).value=p.min||0;
   if($("#lon"+n)&&p.lon!=null) $("#lon"+n).value=p.lon;
+  if($("#city"+n)&&p.city!=null) $("#city"+n).value=p.city;
   if($("#zi"+n)&&p.zi) $("#zi"+n).value=p.zi;
   setSeg("sex"+n,p.sex); setSeg("cal"+n,p.cal);
   setSeg("hknown"+n,p.hknown||"1"); setSeg("tst"+n,p.tst||"0");
