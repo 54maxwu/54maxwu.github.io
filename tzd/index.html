@@ -212,6 +212,10 @@
   .cs12-row.hl{background:#ede9fe;box-shadow:0 0 0 2px #c4b5fd;padding-left:6px;padding-right:6px}
   .bazi-table .cs.cs-click{cursor:pointer;text-decoration:underline dotted #c4b5fd;text-underline-offset:2px}
   .bazi-table .cs.cs-click:hover{color:#6d28d9}
+  .bazi-table .god.god-click{cursor:pointer;text-decoration:underline dotted #93c5fd;text-underline-offset:2px}
+  .bazi-table .god.god-click:hover{color:var(--blue)}
+  .bazi-table .cg-god{color:#94a3b8;cursor:pointer;text-decoration:underline dotted #cbd5e1;text-underline-offset:2px}
+  .bazi-table .cg-god:hover{color:var(--blue)}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -802,14 +806,15 @@ function renderBaziTable(a, showLegend=false){
   const cell=(p,title)=>{
     if(!p) return `<td><div class="gz-cell"><div style="color:#cbd5e1;font-size:13px;padding:20px 0">時辰不詳<br><span style="font-size:11px">（補上出生時間更準）</span></div></div></td>`;
     const ganWx=GAN_WX[p.gan], zhiWx=ZHI_WX_MAP[p.zhi];
-    const cangan=p.cangan.map(cg=>`<span class="wx-${GAN_WX[cg.gan]}">${cg.gan}</span><span style="color:#cbd5e1">${cg.god||""}</span>`).join("　");
+    const cangan=p.cangan.map(cg=>`<span class="wx-${GAN_WX[cg.gan]}">${cg.gan}</span>${cg.god&&cg.god!=="日主"?`<span class="cg-god god-click" data-god="${cg.god}" title="點我看「${cg.god}」是什麼">${cg.god}</span>`:`<span style="color:#cbd5e1">${cg.god||""}</span>`}`).join("　");
     const godNote = p.ganGod==="日主"
       ? `<div class="cell-note">這就是「你自己」，整張命盤的主角</div>`
       : (godPlain(p.ganGod)?`<div class="cell-note">${p.ganGod}＝${godPlain(p.ganGod)}</div>`:"");
     const csNote = p.changSheng&&GLOSSARY[p.changSheng]
       ? `<div class="cell-note sub">${p.changSheng}：${GLOSSARY[p.changSheng].split("：")[0].replace(/^像/,"")}</div>`:"";
+    const godClickable=p.ganGod&&p.ganGod!=="日主";
     return `<td><div class="gz-cell">
-      <div class="god">${p.ganGod}</div>
+      <div class="god${godClickable?' god-click':''}"${godClickable?` data-god="${p.ganGod}" title="點我看「${p.ganGod}」是什麼"`:''}>${p.ganGod}</div>
       <div class="gan wx-${ganWx}">${p.gan}<span class="wx-tag">${ganWx}</span></div>
       <div class="zhi wx-${zhiWx}">${p.zhi}<span class="wx-tag">${zhiWx}</span></div>
       ${godNote}
@@ -832,6 +837,12 @@ function renderBaziTable(a, showLegend=false){
       <div class="cs12-title">🌱 十二長生 白話對照（能量由生到滅再重生）</div>
       <div class="cs12-grid">
         ${[["長生","剛出生：生機勃勃、前途看好，能量正要往上"],["沐浴","剛出生要洗澡：不穩定、易迷惘，又叫桃花地"],["冠帶","成年戴冠：開始成熟、嶄露頭角"],["臨官","入朝當官：實力到位、可以擔當，很旺(又叫祿)"],["帝旺","登上巔峰：能量最強，氣勢最盛但要防過剛"],["衰","盛極轉衰：氣勢走下坡，宜守不宜衝"],["病","生病：能量低、易疲累，需要休養"],["死","生命終結：能量最弱，做事易力不從心"],["墓","入庫收藏：能量收斂內守，有積蓄但較封閉"],["絕","氣斷重來：低到極點即將反轉，是變動轉機之地"],["胎","受孕成胎：新的開始正在孕育，有潛力待發"],["養","胎兒養育：休養蓄力、準備再出發"]].map(([k,v])=>`<div class="cs12-row" data-cs12="${k}"><b>${k}</b><span>${v}</span></div>`).join("")}
+      </div>
+    </div>
+    <div class="cs12-box">
+      <div class="cs12-title" style="color:var(--blue-d)">🔵 十神 白話對照（藍字那個＝它對「你」扮演的角色）</div>
+      <div class="cs12-grid">
+        ${["比肩","劫財","食神","傷官","正財","偏財","正官","七殺","正印","偏印"].map(k=>`<div class="cs12-row god12-row" data-god12="${k}"><b style="color:var(--blue-d);width:40px">${k}</b><span>${(GLOSSARY[k]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
       </div>
     </div>
   </div>`;
@@ -1694,20 +1705,15 @@ function bindTabs(luckCtx){
 
 /* ====== 點四柱的十二長生 → 上方對照表高亮 ====== */
 function bindChangSheng(){
-  $$(".cs-click").forEach(el=>{
-    el.addEventListener("click",()=>{
-      const cs=el.dataset.cs;
-      const rows=$$(`.cs12-row`);
-      if(!rows.length) return;
-      rows.forEach(r=>r.classList.remove("hl"));
-      const target=$$(`.cs12-row[data-cs12="${cs}"]`)[0];
-      if(target){
-        target.classList.add("hl");
-        target.scrollIntoView({behavior:"smooth",block:"center"});
-        setTimeout(()=>target.classList.remove("hl"),2600);
-      }
-    });
-  });
+  const flash=(sel)=>{
+    const target=$$(sel)[0]; if(!target) return;
+    $$(".cs12-row.hl").forEach(r=>r.classList.remove("hl"));
+    target.classList.add("hl");
+    target.scrollIntoView({behavior:"smooth",block:"center"});
+    setTimeout(()=>target.classList.remove("hl"),2600);
+  };
+  $$(".cs-click").forEach(el=>el.addEventListener("click",()=>flash(`.cs12-row[data-cs12="${el.dataset.cs}"]`)));
+  $$(".god-click").forEach(el=>el.addEventListener("click",()=>flash(`.god12-row[data-god12="${el.dataset.god}"]`)));
 }
 
 /* ====== 紫微宮位浮動框＋三方四正連線 ====== */
