@@ -188,11 +188,18 @@ export function analyzeYongShen(bz, strengthInfo){
     primary = [...new Set([...th.need, ...primary])];
   }
 
-  // 通關：若命局有兩行相戰（最旺 vs 它所剋且該被剋者也旺），取通關者
+  // 去重 + 解決矛盾：同一五行不可既喜用又忌神。
+  // 調候用神優先：凡已列入喜用(primary)的五行，一律從忌神(avoid)中剔除。
+  const primarySet = new Set([...new Set(primary)].filter(Boolean));
+  const cleanAvoid = [...new Set(avoid)].filter(w=>w && !primarySet.has(w));
+  if(avoid.some(w=>primarySet.has(w)) && th.need.length){
+    note += " （註：因調候需要，原本扶抑要忌的「" + th.need.join("、") + "」改列為喜用，以調候為先。）";
+  }
+
   return {
     method,
-    primary: [...new Set(primary)].filter(Boolean),
-    avoid:   [...new Set(avoid)].filter(Boolean),
+    primary: [...primarySet],
+    avoid:   cleanAvoid,
     tiaohou: th,
     note
   };

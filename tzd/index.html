@@ -396,6 +396,7 @@
     font-weight:700;font-size:16px;background:#fff;border:1px solid var(--line)}
   .rmd-detail{font-size:11.5px;color:#475569;line-height:1.75}
   .rmd-detail b{color:var(--blue-d);font-weight:600;margin-right:3px}
+  .cdot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:2px;vertical-align:middle}
 
   /* 星座/生肖 豐富卡 */
   .sign-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -893,6 +894,18 @@ const WX_REMEDY={
   金:{colors:"白色、銀色、金色",dir:"西方、西北",num:"4、9",ind:"金融、機械、科技、五金、軍警、珠寶",act:"佩戴金屬飾品、聽金屬樂音、環境保持整潔明亮"},
   水:{colors:"黑色、藍色、灰色",dir:"北方",num:"1、6",ind:"貿易、運輸、水產、旅遊、流通、自由業",act:"多喝水、近水而居、養魚、穿深藍黑色"}
 };
+/* 把顏色名稱（黑色、藍色…）渲染成有底色的小色塊，一看就懂 */
+const COLOR_HEX={"紅色":"#dc2626","橙色":"#ea580c","黃色":"#eab308","綠色":"#16a34a","青色":"#0d9488",
+  "藍色":"#2563eb","深藍":"#1e3a8a","紫色":"#7c3aed","黑色":"#1f2937","灰色":"#6b7280","白色":"#f8fafc",
+  "銀色":"#cbd5e1","金色":"#d4af37","咖啡色":"#78350f","米色":"#e7d8b1"};
+function colorize(str){
+  return str.split("、").map(c=>{
+    const hex=COLOR_HEX[c];
+    if(!hex) return c;
+    const light=["白色","銀色","米色","黃色","金色"].includes(c);
+    return `<span class="cdot" style="background:${hex};${light?'border:1px solid #cbd5e1;':''}"></span><span style="color:${light?'#64748b':hex};font-weight:600">${c}</span>`;
+  }).join("、");
+}
 /* 五行調補說明卡 */
 function renderRemedy(yong, avoid){
   const need=[...new Set(yong)].filter(Boolean);
@@ -902,7 +915,7 @@ function renderRemedy(yong, avoid){
     return `<div class="rmd-row">
       <span class="rmd-wx wx-${w}">${w}</span>
       <div class="rmd-detail">
-        <div><b>顏色</b>${r.colors}　<b>方位</b>${r.dir}　<b>幸運數</b>${r.num}</div>
+        <div><b>顏色</b>${colorize(r.colors)}　<b>方位</b>${r.dir}　<b>幸運數</b>${r.num}</div>
         <div><b>適合領域</b>${r.ind}</div>
         <div><b>生活上</b>${r.act}</div>
       </div></div>`;}).join("");
@@ -956,7 +969,7 @@ function renderYong(y){
   return `<div class="cap" style="margin-bottom:10px">「<b>喜用神</b>」＝對你最有幫助的五行，平常多<b>親近它</b>(顏色、方位、行業)會更順；「<b>忌神</b>」＝對你較不利、要盡量避開的五行。這是全盤<b>趨吉避凶的核心</b>。</div>
     <div style="margin-bottom:8px">喜用神（多親近）：${y.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7">${w}</span>`).join("")}</div>
     <div style="margin-bottom:10px">忌神（盡量避）：${y.avoid.length?y.avoid.map(w=>`<span class="badge bad">${w}</span>`).join(""):'<span style="color:#94a3b8">—</span>'}</div>
-    <div class="note" style="margin-top:0">👉 白話建議：多穿 <b>${r0.colors||""}</b>、往 <b>${r0.dir||""}</b> 發展、選 ${r0.ind?r0.ind.split("、").slice(0,3).join("、"):""} 這類方向，運勢會更順。完整調補方式見「八字四柱」頁的五行能量卡。</div>
+    <div class="note" style="margin-top:0">👉 白話建議：多穿 ${r0.colors?colorize(r0.colors):""}、往 <b>${r0.dir||""}</b> 發展、選 ${r0.ind?r0.ind.split("、").slice(0,3).join("、"):""} 這類方向，運勢會更順。完整調補方式見「八字四柱」頁的五行能量卡。</div>
     <details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--blue-d)">▸ 看命理術語版</summary>
       <div style="font-size:12px;color:#94a3b8;margin-top:6px">取用方法：${y.method}。${y.note}</div></details>`;
 }
@@ -965,16 +978,16 @@ function renderYong(y){
 function renderGodTally(gt, showIntro=false){
   const max=Math.max(...Object.values(gt),0.1);
   const colors={比劫:"#3b82f6",食傷:"#16a34a",財星:"#d97706",官殺:"#dc2626",印星:"#8b5cf6"};
-  // 五大類白話一句（自訂精簡，比 GLOSSARY 更短，放在條下）
+  // 五大類白話：一句完整定義（這類在講什麼）
   const GOD_NOTE={
-    比劫:"自我、同儕、競爭、講義氣",
-    食傷:"才華、表達、創意、輸出",
-    財星:"財富、務實、慾望、行動力",
-    官殺:"壓力、責任、自律、權威",
-    印星:"學識、靠山、貴人、被照顧"
+    比劫:"跟你「同一掛」的力量——自我、兄弟朋友同事、競爭較勁、講義氣。強代表很有主見、靠自己；但也容易為人破費、跟人爭。",
+    食傷:"你「往外輸出」的力量——才華、口才、表達、創意、生養。強代表聰明有想法、能秀；但太強會心高氣傲、愛批評。",
+    財星:"你「掌控、追求」的力量——財富、務實、慾望、行動力（也代表男性的感情）。強代表會賺會花、目標明確；太弱則財較淡。",
+    官殺:"「管住你」的力量——壓力、責任、規矩、地位、權威（也代表女性的感情）。強代表能扛事、有自律；太強則壓力大、易緊繃。",
+    印星:"「照顧你」的力量——學識、靠山、長輩貴人、被疼愛。強代表有貴人、愛學習、有安全感；太強則易依賴、想太多。"
   };
   const top=Object.entries(gt).slice().sort((a,b)=>b[1]-a[1])[0];
-  const intro=showIntro?`<div class="cap" style="margin-bottom:12px">把八字裡的五行力量，換算成「對你來說」的五種角色能量。<b>條越長代表那股力量越強</b>（數字為加權分，無上限、彼此相比看高低）。你最突出的是 <b style="color:${colors[top[0]]}">${top[0]}</b>，個性與行事會偏這個方向。</div>`:"";
+  const intro=showIntro?`<div class="cap" style="margin-bottom:12px">這張圖把你的八字換算成<b>五種「人生角色能量」</b>——每一條代表一種力量在你身上有多強（條越長越強）。<b>下面每條都附白話解釋它在講什麼</b>。你最突出的是 <b style="color:${colors[top[0]]}">${top[0]}</b>，個性與做事會偏這個方向。</div>`:"";
   return `${intro}<div class="god-bars">${Object.entries(gt).map(([k,v])=>`
     <div class="god-bar">
       <div class="gb-top"><span class="gb-name" style="color:${colors[k]}">${k}</span>
@@ -1351,7 +1364,7 @@ function renderSummary(a){
     <div class="sum-body">
       <p><span class="sum-tag">你是誰</span>${name}是 <b>${a.sex}・屬${a.sx.sx}・${a.sign}座</b>。八字日主${str}（${strSay}）。命格屬 <b>${pat.name}</b>——${patP.say||pat.desc}</p>
       ${mingSay?`<p><span class="sum-tag">個性</span>${mingSay}</p>`:""}
-      <p><span class="sum-tag">怎麼走最順</span>${patP.tip||""} 你的<b>喜用五行是 ${yong}</b>${avoid?`、忌神是 ${avoid}`:""}。多親近喜用——例如穿 <b>${r0.colors||""}</b> 的衣物、往 <b>${r0.dir||""}</b> 發展、選 ${r0.ind?r0.ind.split("、").slice(0,3).join("、"):""} 這類領域，運勢會更順。</p>
+      <p><span class="sum-tag">怎麼走最順</span>${patP.tip||""} 你的<b>喜用五行是 ${yong}</b>${avoid?`、忌神是 ${avoid}`:""}。多親近喜用——例如穿 ${r0.colors?colorize(r0.colors):""} 的衣物、往 <b>${r0.dir||""}</b> 發展、選 ${r0.ind?r0.ind.split("、").slice(0,3).join("、"):""} 這類領域，運勢會更順。</p>
       ${ssSay?`<p><span class="sum-tag">提醒</span>${ssSay}</p>`:""}
       ${yearSay?`<p><span class="sum-tag">今年運勢</span>${yearSay}逐年細節見「大運流年」分頁。</p>`:""}
       <p class="sum-foot">想深入了解某一塊，再點上方各分頁；命理是參考，路還是自己走出來的。</p>
