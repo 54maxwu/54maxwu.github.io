@@ -282,6 +282,10 @@
   .hl-tip{font-size:12px;color:#15803d;background:#f0fdf4;border-radius:7px;padding:6px 10px;line-height:1.6}
   .hl-avoid{margin-top:10px;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;
     border-radius:8px;padding:9px 12px;line-height:1.65}
+  .hl-yr{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:4px 0;font-size:12px;color:#475569}
+  .hl-yr-y{font-weight:700;color:var(--ink);min-width:78px}
+  .hl-yr-wx{font-size:11px;background:#fee2e2;color:#b91c1c;padding:0 7px;border-radius:10px;font-weight:600}
+  .hl-yr-org{color:#64748b}
 
   .score-big{display:flex;align-items:center;gap:18px;margin-bottom:6px}
   .ring{position:relative;flex-shrink:0;line-height:0}
@@ -644,7 +648,7 @@
 </div>
 
 <script type="module">
-import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX } from "./engine-calendar.js";
+import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX, GAN, ZHI, ZHI_WX } from "./engine-calendar.js";
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
@@ -1502,7 +1506,26 @@ function renderHealth(a){
       <div class="hl-tip">💡 ${r.tip}</div>
     </div>`).join("")
     : `<div class="hl-row"><div class="hl-say">你的五行算是平衡，沒有特別突出的弱項，整體體質尚穩——維持規律作息即可。</div></div>`;
-  const avoidLine=avoidWx.length?`<div class="hl-avoid">行運走到你的忌神（${avoidWx.join("、")}）年份時，要多留意 ${avoidWx.map(w=>WX_HEALTH[w].organ.split("、").slice(0,2).join("、")).join("；")} 這些部位。</div>`:"";
+  // 算出未來幾個「忌神年份」具體是哪幾年（流年天干或地支五行踩到忌神）
+  const allAvoid=new Set(a.yong.avoid||[]);
+  let avoidLine="";
+  if(allAvoid.size){
+    const nowY=new Date().getFullYear();
+    const years=[];
+    for(let yr=nowY; yr<nowY+12 && years.length<5; yr++){
+      const g=GAN[((yr-4)%10+10)%10], z=ZHI[((yr-4)%12+12)%12];
+      const wxs=[...new Set([GAN_WX[g],ZHI_WX[z]])].filter(w=>allAvoid.has(w));
+      if(wxs.length){
+        const organs=[...new Set(wxs.map(w=>WX_HEALTH[w].organ.split("、").slice(0,2).join("、")))].join("；");
+        years.push(`<div class="hl-yr"><span class="hl-yr-y">${yr} ${g}${z}</span><span class="hl-yr-wx">${wxs.join("、")}年</span><span class="hl-yr-org">留意 ${organs}</span></div>`);
+      }
+    }
+    avoidLine=`<div class="hl-avoid">
+      <div style="font-weight:600;color:#b45309;margin-bottom:5px">⚠ 你的忌神是 ${[...allAvoid].join("、")}，當流年（每一年）的五行踩到忌神時，那些對應部位較需注意。近年的忌神年份：</div>
+      ${years.length?years.join(""):"<div style=\"color:#94a3b8\">近 12 年內無明顯忌神年。</div>"}
+      <div style="font-size:11px;color:#b6c0cf;margin-top:6px">＊「水年/火年」就是該年干支五行屬水或火的年份，不是壞年，只是這方面多保養。</div>
+    </div>`;
+  }
   return `<div class="card"><h3><span class="ic" style="background:#dcfce7;color:#15803d">疾</span>健康提醒（八字疾厄）</h3>
     <div class="cap" style="margin-bottom:10px">八字五行對應身體臟腑（<b>木→肝膽、火→心血管、土→脾胃、金→肺與呼吸道、水→腎與泌尿</b>）。某五行<b>太弱或太旺</b>，對應部位就比較需要照顧。這是體質傾向參考，<b>不是診斷，身體不適請就醫</b>。</div>
     ${body}${avoidLine}</div>`;
