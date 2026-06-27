@@ -363,18 +363,22 @@
   .pd-sf-eg{margin-top:7px;background:#f8fafc;border-radius:7px;padding:7px 9px;font-size:11px;color:#475569;line-height:1.6}
   .pd-sf-eg b{color:var(--ink)}
 
-  /* 宮位浮動框 */
-  /* 宮位詳解：畫面置中浮層 */
-  .zw-overlay{position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:40;animation:tzdFade .15s ease}
-  .zw-overlay[hidden]{display:none}
-  .zw-pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;
-    width:340px;max-width:90vw;background:#fff;
-    border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 20px 50px rgba(15,23,42,.3);
-    padding:16px 18px 17px;max-height:82vh;overflow-y:auto;animation:tzdPop .18s ease}
+  /* 宮位詳解：可拖曳浮動視窗（無遮罩，可同時看命盤） */
+  .zw-pop{position:fixed;top:90px;left:50%;z-index:50;
+    width:420px;max-width:92vw;background:#fff;
+    border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 18px 48px rgba(15,23,42,.28);
+    max-height:80vh;display:flex;flex-direction:column;animation:tzdPop .15s ease}
   .zw-pop[hidden]{display:none}
-  .zw-pop-x{position:absolute;top:8px;right:8px;width:24px;height:24px;border:none;border-radius:50%;
-    background:var(--soft);color:#64748b;cursor:pointer;font-size:13px;line-height:1;
-    display:flex;align-items:center;justify-content:center}
+  .zw-pop.dragging{box-shadow:0 24px 60px rgba(15,23,42,.4);opacity:.97;user-select:none}
+  .zw-pop-bar{display:flex;align-items:center;justify-content:space-between;
+    padding:9px 12px;border-bottom:1px solid var(--line);cursor:grab;
+    background:linear-gradient(#f8fafc,#fff);border-radius:14px 14px 0 0;flex:none}
+  .zw-pop.dragging .zw-pop-bar{cursor:grabbing}
+  .zw-pop-drag{font-size:11.5px;color:#94a3b8;font-weight:600;letter-spacing:1px}
+  .zw-pop-body{padding:14px 18px 16px;overflow-y:auto}
+  .zw-pop-x{width:26px;height:26px;border:none;border-radius:50%;
+    background:var(--soft);color:#64748b;cursor:pointer;font-size:14px;line-height:1;
+    display:flex;align-items:center;justify-content:center;flex:none}
   .zw-pop-x:hover{background:#fee2e2;color:#dc2626}
   .pd-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding-right:24px}
   .pd-head .pd-name{font-size:18px;font-weight:700;color:var(--blue-d)}
@@ -384,7 +388,13 @@
   .pd-starbox{border-top:1px dashed #e2e8f0;padding-top:8px;display:flex;flex-direction:column;gap:6px}
   .pd-star{font-size:12px;color:#475569;line-height:1.6}
   .pd-star b{color:var(--ink)}
-  @media(max-width:560px){ .zw-pop{width:90vw;padding:14px 15px} }
+  @media(max-width:560px){
+    .zw-pop{left:0!important;right:0;top:auto!important;bottom:0;width:100%;max-width:100%;
+      max-height:75vh;border-radius:16px 16px 0 0;animation:tzdSlideUp .2s ease}
+    .zw-pop-drag{font-size:0}
+    .zw-pop-drag::before{content:"宮位詳解";font-size:13px;color:var(--blue-d);font-weight:700;letter-spacing:0}
+  }
+  @keyframes tzdSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
   /* 五行調補卡 */
   .rmd{margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px}
@@ -528,6 +538,51 @@
     .zw-cell .star{font-size:13px}
     .zw-cell .star-note{font-size:9.5px}
     .zw-cell .pn .pn-note{font-size:9px}
+  }
+
+  /* ===== 手機 RWD 全面優化 ===== */
+  @media(max-width:640px){
+    .app-header{padding:10px 14px;min-height:52px;gap:8px}
+    .app-header h1{font-size:15px}
+    .app-header .logo{width:26px;height:26px;font-size:14px}
+    .page-content{padding:12px 12px 50px}
+    .card{padding:14px 13px;border-radius:10px}
+    .card h3{font-size:14px;flex-wrap:wrap}
+    .form-card{padding:15px 13px}
+    /* tab 列＋摘要列改可橫向捲動、字小一點 */
+    .tabbar-row{flex-direction:column;gap:8px}
+    .summary-bar{font-size:12px;padding:7px 10px;gap:6px}
+    .summary-bar .sb-name{font-size:14px}
+    .summary-bar .sb-pill{padding:2px 8px;font-size:11.5px}
+    .rtab{padding:6px 11px;font-size:13px}
+    /* 表單欄位：日期那排允許換行不擠 */
+    .row{flex-wrap:wrap}
+    .fld{min-width:0}
+    /* recap 膠囊縮小 */
+    .recap{max-width:62vw}
+    .recap .rinfo{font-size:11.5px}
+    /* 四柱表在手機更好讀 */
+    .bazi-table{border-spacing:4px}
+    .bazi-table th .th-sub{font-size:9px}
+    .bazi-table .gz-cell{padding:8px 3px}
+    .bazi-table .cangan{font-size:10px}
+    .bazi-table .cell-note{font-size:10px}
+    /* 紫微左欄說明在手機收窄、字夠大 */
+    .zw-side{font-size:13px}
+    /* 大運時間軸可橫滑 */
+    .timeline{padding-bottom:10px}
+    /* 健康/神煞/調補等卡內距縮 */
+    .rmd,.zw-legend,.bz-legend,.na-box{padding:11px 12px}
+    /* 流年詳細卡單欄 */
+    .ly-grid{grid-template-columns:1fr}
+    /* 字級基準微調，避免過大溢出 */
+    .sum-body{font-size:13px}
+    .note{font-size:12.5px;padding:10px 11px}
+  }
+  @media(max-width:400px){
+    .bazi-table .gan,.bazi-table .zhi{font-size:18px}
+    .zw-cell .star{font-size:12px}
+    .recap{max-width:55vw}
   }
 </style>
 </head>
@@ -1812,11 +1867,7 @@ function bindZiweiPopover(){
     return {x:cr.left-wr.left+cr.width/2, y:cr.top-wr.top+cr.height/2};};
   const clearLines=()=>{ if(svg) svg.innerHTML=""; };
   const clearHi=()=>grid.querySelectorAll(".zw-cell.active,.zw-cell.sfsz").forEach(c=>c.classList.remove("active","sfsz"));
-  // 半透明遮罩（置中浮層用）
-  let overlay=$("#zwOverlay");
-  if(!overlay){ overlay=document.createElement("div"); overlay.id="zwOverlay"; overlay.className="zw-overlay"; overlay.hidden=true; document.body.appendChild(overlay); }
-  const close=()=>{ pop.hidden=true; overlay.hidden=true; clearHi(); clearLines(); };
-  overlay.onclick=close;
+  const close=()=>{ pop.hidden=true; clearHi(); clearLines(); };
   // 畫三方四正連線
   const drawLines=(srcCell)=>{
     if(!svg) return;
@@ -1842,12 +1893,34 @@ function bindZiweiPopover(){
     clearHi(); clearLines();
     cell.classList.add("active");
     drawLines(cell);
-    pop.innerHTML=`<button class="zw-pop-x" aria-label="關閉">✕</button><div class="zw-pop-body">${decodeURIComponent(cell.dataset.detail||"")}</div>`;
-    overlay.hidden=false;
-    pop.hidden=false;   // CSS 已把 #zwPop 設為畫面置中 fixed
-    pop.scrollTop=0;
+    pop.innerHTML=`<div class="zw-pop-bar" id="zwBar"><span class="zw-pop-drag">⠿ 可拖曳移動</span><button class="zw-pop-x" aria-label="關閉">✕</button></div>`
+      +`<div class="zw-pop-body">${decodeURIComponent(cell.dataset.detail||"")}</div>`;
+    // 首次開啟：置中偏右；之後保留上次位置
+    if(!pop.dataset.moved){
+      const w=pop.offsetWidth||380;
+      pop.style.left=Math.max(12,(window.innerWidth-w)/2)+"px";
+      pop.style.top="90px";
+    }
+    pop.hidden=false;
+    pop.querySelector(".zw-pop-body").scrollTop=0;
     pop.querySelector(".zw-pop-x").addEventListener("click",ev=>{ev.stopPropagation();close();});
   });
+  // 拖曳移動（抓標題列）
+  let drag=null;
+  pop.addEventListener("mousedown",e=>{
+    const bar=e.target.closest(".zw-pop-bar"); if(!bar||e.target.closest(".zw-pop-x")) return;
+    const r=pop.getBoundingClientRect();
+    drag={dx:e.clientX-r.left, dy:e.clientY-r.top};
+    pop.classList.add("dragging"); e.preventDefault();
+  });
+  document.addEventListener("mousemove",e=>{
+    if(!drag) return;
+    let x=e.clientX-drag.dx, y=e.clientY-drag.dy;
+    x=Math.min(Math.max(0,x),window.innerWidth-60);
+    y=Math.min(Math.max(0,y),window.innerHeight-40);
+    pop.style.left=x+"px"; pop.style.top=y+"px"; pop.dataset.moved="1";
+  });
+  document.addEventListener("mouseup",()=>{ if(drag){drag=null;pop.classList.remove("dragging");} });
   // Esc 關閉
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!pop.hidden) close(); });
 }
