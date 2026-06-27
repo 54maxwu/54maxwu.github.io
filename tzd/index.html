@@ -1175,6 +1175,7 @@ function expandForm(){
   $(".page-content").classList.remove("wide");
   $("#recap").classList.remove("show");
   $(".app-header .tag").classList.remove("hide");
+  $("#result").classList.remove("show");   // 回到輸入時收起舊命盤，避免表單下還卡著一長串
   window.scrollTo({top:0,behavior:"smooth"});
 }
 $("#recap").addEventListener("click",expandForm);
