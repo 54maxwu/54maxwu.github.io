@@ -184,6 +184,7 @@
   .bazi-table .gz-cell{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px 4px}
   .bazi-table .gan{font-size:26px;font-weight:700;line-height:1.2}
   .bazi-table .zhi{font-size:26px;font-weight:700;line-height:1.2}
+  .bazi-table .gz-tip{cursor:help;border-bottom:1px dotted #cbd5e1;display:inline-block}
   .bazi-table .god{font-size:11px;color:var(--blue-d);margin:2px 0}
   .bazi-table .cangan{font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.5}
   .bazi-table .cs{font-size:10.5px;color:#a78bfa;margin-top:3px}
@@ -789,7 +790,7 @@
 </div>
 
 <script type="module">
-import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX, GAN, ZHI, ZHI_WX } from "./engine-calendar.js";
+import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX, GAN, ZHI, ZHI_WX, GAN_YY, ZHI_YY } from "./engine-calendar.js";
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
@@ -808,6 +809,14 @@ const BRIGHT_NOTE={
   "不":"不得地－力量偏弱，較難施展",
   "陷":"落陷－力量最弱，易有缺憾"
 };
+/* 天干、地支白話意象（給四柱大字 tooltip） */
+const GAN_IMG={甲:"大樹、棟樑，正直向上",乙:"花草、藤蔓，柔韌靈活",丙:"太陽、烈火，熱情外放",丁:"燭火、星火，溫暖細膩",
+  戊:"高山、大地，穩重可靠",己:"田園、軟土，包容務實",庚:"刀劍、金屬，剛毅果決",辛:"珠寶、首飾，精緻講究",
+  壬:"江河、大水，聰明奔放",癸:"雨露、泉水，細膩內斂"};
+const ZHI_SX={子:"鼠",丑:"牛",寅:"虎",卯:"兔",辰:"龍",巳:"蛇",午:"馬",未:"羊",申:"猴",酉:"雞",戌:"狗",亥:"豬"};
+const ZHI_HR={子:"23–01",丑:"01–03",寅:"03–05",卯:"05–07",辰:"07–09",巳:"09–11",午:"11–13",未:"13–15",申:"15–17",酉:"17–19",戌:"19–21",亥:"21–23"};
+function ganTip(g){return `${g}＝${GAN_YY[g]||""}${GAN_WX[g]||""}，像${GAN_IMG[g]||""}`;}
+function zhiTip(z){return `${z}＝${ZHI_YY[z]||""}${ZHI_WX[z]||""}，生肖屬${ZHI_SX[z]||""}、時辰${ZHI_HR[z]||""}點`;}
 /* 亮度→七級訊號條（廟7…陷1），像手機訊號強弱 */
 const BR_LEVEL={廟:7,旺:6,得:5,利:4,平:3,不:2,陷:1};
 function brBars(brightness){
@@ -997,8 +1006,8 @@ function renderBaziTable(a, showLegend=false){
     const godClickable=p.ganGod&&p.ganGod!=="日主";
     return `<td><div class="gz-cell">
       <div class="god${godClickable?' god-click':''}"${godClickable?` data-god="${p.ganGod}" title="點我看「${p.ganGod}」是什麼"`:''}>${p.ganGod}</div>
-      <div class="gan wx-${ganWx}">${p.gan}<span class="wx-tag">${ganWx}</span></div>
-      <div class="zhi wx-${zhiWx}">${p.zhi}<span class="wx-tag">${zhiWx}</span></div>
+      <div class="gan wx-${ganWx} gz-tip" title="${ganTip(p.gan)}">${p.gan}<span class="wx-tag">${ganWx}</span></div>
+      <div class="zhi wx-${zhiWx} gz-tip" title="${zhiTip(p.zhi)}">${p.zhi}<span class="wx-tag">${zhiWx}</span></div>
       ${godNote}
       <div class="cs${p.changSheng?' cs-click':''}"${p.changSheng?` data-cs="${p.changSheng}" title="點我看「${p.changSheng}」是什麼"`:''}>${p.changSheng||""}</div>
       ${csNote}
@@ -1011,9 +1020,9 @@ function renderBaziTable(a, showLegend=false){
     <ul class="lg-list">
       <li><b>四個直行＝四柱</b>：年、月、日、時，分別代表人生不同階段（標題下方已寫）。<b>「日柱」的上面那個大字就是「你自己」</b>。</li>
       <li><b>最上面藍字＝十神</b>：那個字（天干）對「你」來說扮演什麼角色，例如「正印＝靠山貴人」「正官＝規矩責任」，下方已附白話。</li>
-      <li><b>中間兩個大字＝天干＋地支</b>：每字旁的小灰字是它的<b>五行</b>（木火土金水）。顏色也按五行區分。</li>
-      <li><b>紫色字＝十二長生</b>：這個天干在這格的「能量階段」，像人的一生十二步（見下方對照表）。</li>
-      <li><b>灰色小字＝藏干＋納音</b>：藏干＝地支裡「暗藏」的天干（地支表面一個字，裡面其實藏著幾股五行力量）；納音＝用六十甲子配出的另一套五行象徵（如海中金、爐中火），算是這一柱的「別名／質地」。</li>
+      <li><b>中間兩個大字＝天干＋地支</b>（八字的核心）：每字旁小灰字是它的<b>五行</b>，顏色也按五行分。<b>把滑鼠移到大字上（手機長按）</b>會顯示它的陰陽五行與意象（如「甲＝陽木，像大樹」「子＝陽水，屬鼠、深夜23-1點」）。天干＝天上的氣、地支＝地上的根與時間。</li>
+      <li><b>紫色字＝十二長生</b>：這個天干在這格的「能量階段」，像人的一生十二步（見下方對照表，可點四柱裡的長生連動）。</li>
+      <li><b>灰色小字＝藏干＋納音</b>：藏干＝地支裡「暗藏」的天干（<b>排第一個的力量最大、是主角</b>）；納音＝六十甲子配出的另一套五行象徵（如海中金），是這柱的「別名／質地」。</li>
     </ul>
     <div class="cs12-box">
       <div class="cs12-title">🌱 十二長生 白話對照（能量由生到滅再重生）</div>
@@ -1305,9 +1314,11 @@ function luckLegend(yong){
   return `<div class="zw-legend" style="margin-bottom:14px">
     <div class="lg-title">📖 這頁怎麼看</div>
     <ul class="lg-list">
-      <li><b>大運＝每十年一個階段</b>，流年＝每一年。藍框那柱／當年是<b>現在所在</b>。</li>
+      <li><b>大運＝每十年一個階段、流年＝每一年、流月＝每個月</b>，由粗到細。藍框那柱／當年是<b>現在所在</b>。</li>
+      <li><b>「起運」</b>＝你的大運從幾歲開始套用（由出生到節氣的天數換算，每3天約抵1歲）。<b>「順行／逆行」</b>＝大運干支往前或往後排，由你的性別＋出生年陰陽決定——<b>懂結果就好、不用算</b>。</li>
       <li><b>名稱下方的「十神」</b>（正官、七殺、正印…）＝這段時間「主導你的能量類型」，下方已附白話（如「正官＝名譽責任」「七殺＝壓力挑戰」）。</li>
       <li><b><span style="color:#15803d">旺／得力之運</span></b>＝這段時間的五行<b>幫到你的喜用神（${yong.join("")}）</b>，較順；<b><span style="color:#b91c1c">弱／忌神當道</span></b>＝踩到忌神，較費力、宜守。</li>
+      <li>年齡採<b>虛歲</b>（出生即1歲）來對應大運，與身分證實歲約差1歲，屬正常。</li>
     </ul>
   </div>`;
 }
@@ -1862,10 +1873,16 @@ function renderHealth(a){
 /* ====== 星座（豐富版） ====== */
 function renderSign(a){
   const d=SIGN_DETAIL[a.sign]||{};
-  const rising=a.rising?`<span class="kv2"><span class="k2">上升（近似）</span><b>${a.rising}座</b></span>`:"";
-  const tags=[d.element,d.mode&&d.mode+"星座",d.ruler&&"守護星 "+d.ruler].filter(Boolean)
-    .map(t=>`<span class="badge gray" style="font-size:11px">${t}</span>`).join("");
+  const ELEM_TIP={火象:"火象＝熱情、衝勁、行動派",土象:"土象＝務實、穩重、重物質",風象:"風象＝理性、善溝通、重思想",水象:"水象＝感性、直覺、重感情"};
+  const MODE_TIP={開創:"開創＝主動發起、喜歡帶頭開始",固定:"固定＝穩定執著、認定就堅持",變動:"變動＝靈活善變、適應力強"};
+  const rising=a.rising?`<span class="kv2"><span class="k2">上升（近似）</span><b title="上升星座＝別人對你的第一印象、外在形象，跟太陽星座不同">${a.rising}座 ⓘ</b></span>`:"";
+  const tags=[
+    d.element&&`<span class="badge gray gz-tip" style="font-size:11px" title="${ELEM_TIP[d.element]||d.element}">${d.element} ⓘ</span>`,
+    d.mode&&`<span class="badge gray gz-tip" style="font-size:11px" title="${MODE_TIP[d.mode]||d.mode}">${d.mode}星座 ⓘ</span>`,
+    d.ruler&&`<span class="badge gray gz-tip" style="font-size:11px" title="守護星＝主宰這個星座的行星，影響你的核心特質">守護星 ${d.ruler} ⓘ</span>`
+  ].filter(Boolean).join("");
   return `<div class="card"><h3><span class="ic">星</span>星座</h3>
+    <div class="cap" style="margin-bottom:8px">每個星座由<b>元素（火土風水）＋性質（開創/固定/變動）</b>決定基本性格。<b>太陽星座</b>＝你的核心個性；<b>上升星座</b>＝外人對你的第一印象。（標 ⓘ 的滑過/長按看說明）</div>
     <div class="sign-head">
       <span class="sign-name">${a.sign}座</span>
       <span class="sign-date">${d.date||""}</span>${rising}
@@ -1976,6 +1993,7 @@ function renderSingle(a){
 function renderName(a){
   const n=a.nameInfo;
   return `<div class="card"><h3><span class="ic">名</span>姓名五格剖象</h3>
+    <div class="cap" style="margin-bottom:8px">把名字每個字的<b>康熙字典筆畫</b>，依規則組成<b>五格</b>（天/人/地/外/總），再用傳統姓名學的<b>81 數理</b>判斷每格<span class="badge good" style="font-size:10px">大吉</span><span class="badge mid" style="font-size:10px">半吉</span><span class="badge bad" style="font-size:10px">凶</span>。</div>
     ${n.hasEstimate?'<div class="cap" style="color:#d97706">⚠ 部分用字筆畫未收錄，以估算值計算，僅供參考。</div>':''}
     <div style="margin:8px 0">${n.chars.map(c=>`<span class="badge gray">${c.c} ${c.n}畫</span>`).join("")} 　總 ${n.total} 畫</div>
     ${n.grids.map(g=>`<div class="kv"><span class="k">${g.name} <span style="font-size:11px;color:#94a3b8">${g.meaning}</span></span>
