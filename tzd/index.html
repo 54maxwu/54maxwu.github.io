@@ -235,6 +235,7 @@
   .na-cand{font-size:12px;color:#475569;line-height:1.7;margin:2px 0}
   .na-cand b{color:var(--blue-d)}
   .na-egs{color:#7c3aed;font-weight:600}
+  .na-fav{font-size:11.5px;color:#b45309;margin-bottom:8px;line-height:1.6}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -356,12 +357,20 @@
   .pd-sf-title{font-weight:700;color:var(--ink);font-size:12px;margin-bottom:4px}
   .pd-sf-intro{margin-bottom:6px}
   .pd-sf-intro b{color:#dc2626}
-  .sf-line{display:flex;align-items:baseline;gap:6px;margin:4px 0;line-height:1.55}
-  .sf-line b{color:var(--blue-d);flex:none;white-space:nowrap}
-  .sf-tag{flex:none;font-size:10px;font-weight:700;color:#fff;padding:1px 6px;border-radius:5px;white-space:nowrap}
+  .sf-line{display:grid;grid-template-columns:38px auto 1fr;align-items:start;gap:8px;margin:7px 0;line-height:1.6}
+  .sf-line .sf-pal{color:var(--blue-d);white-space:nowrap;font-size:13px}
+  .sf-line .sf-desc{color:#64748b;font-size:12px}
+  .sf-tag{font-size:10px;font-weight:700;color:#fff;padding:2px 0;border-radius:5px;white-space:nowrap;text-align:center}
   .sf-tag.opp{background:#dc2626} .sf-tag.he{background:#0891b2}
   .pd-sf-eg{margin-top:7px;background:#f8fafc;border-radius:7px;padding:7px 9px;font-size:11px;color:#475569;line-height:1.6}
   .pd-sf-eg b{color:var(--ink)}
+  .pd-verdict{font-size:13px;line-height:1.75;border-radius:8px;padding:10px 12px;margin-bottom:10px}
+  .pd-verdict b{font-weight:700}
+  .pdv-good{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+  .pdv-ok{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+  .pdv-mid{background:#f8fafc;border:1px solid #e2e8f0;color:#475569}
+  .pdv-bad{background:#fffbeb;border:1px solid #fde68a;color:#b45309}
+  .pd-sf-rel{font-size:11.5px;color:#94a3b8;margin-bottom:4px}
 
   /* 宮位詳解：可拖曳浮動視窗（無遮罩，可同時看命盤） */
   .zw-pop{position:fixed;top:90px;left:50%;z-index:50;
@@ -525,6 +534,17 @@
   .tzd-btn-cancel:hover{background:var(--soft)}
   .tzd-btn-ok{background:#dc2626;color:#fff;border-color:#dc2626}
   .tzd-btn-ok:hover{background:#b91c1c}
+  /* 從存檔挑人 */
+  .pick-save{margin-left:10px;font-size:11.5px;font-weight:600;color:var(--blue-d);
+    background:var(--blue-l);border:none;border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit}
+  .pick-save:hover{background:var(--blue-sel)}
+  .pk-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:12px}
+  .pk-list{display:flex;flex-direction:column;gap:7px;max-height:50vh;overflow-y:auto}
+  .pk-item{display:flex;flex-direction:column;align-items:flex-start;text-align:left;
+    border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer;background:#fff;font-family:inherit}
+  .pk-item:hover{border-color:#93c5fd;background:var(--blue-l)}
+  .pk-name{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .pk-sub{font-size:11px;color:var(--sub);margin-top:2px}
   /* 輕提示 */
   .tzd-toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(12px);
     background:rgba(15,23,42,.92);color:#fff;font-size:14px;padding:11px 20px;border-radius:24px;
@@ -609,7 +629,8 @@
   <div class="person-grid" id="personGrid">
   <!-- Person 1 -->
   <div class="form-card" id="card1">
-    <div class="ph">◆ <span id="p1label">命主資料</span></div>
+    <div class="ph">◆ <span id="p1label">命主資料</span>
+      <button type="button" class="pick-save" data-pick="1">📁 從我的命盤選</button></div>
     <div class="row">
       <div class="fld"><label>姓名（可留空）</label><input id="name1" placeholder="如 王小明"></div>
       <div class="fld" style="max-width:140px"><label>性別</label>
@@ -660,7 +681,8 @@
 
   <!-- Person 2 (couple) -->
   <div class="form-card person2" id="card2">
-    <div class="ph">◆ 對方資料</div>
+    <div class="ph">◆ 對方資料
+      <button type="button" class="pick-save" data-pick="2">📁 從我的命盤選</button></div>
     <div class="row">
       <div class="fld"><label>姓名（可留空）</label><input id="name2" placeholder="如 李小花"></div>
       <div class="fld" style="max-width:140px"><label>性別</label>
@@ -875,6 +897,8 @@ const PILLAR_LIFE={
   日柱:"自己與配偶（約 33–48 歲，日干就是你本人）",
   時柱:"子女、晚年（約 48 歲後）"
 };
+/* 去掉字串尾端的句號（避免拼接時出現「。。」） */
+function stripDot(s){ return (s||"").replace(/[。\s]+$/,""); }
 /* 取十神白話（GLOSSARY 第一句） */
 function godPlain(g){
   if(!g||g==="日主") return "";
@@ -933,12 +957,46 @@ function renderBaziTable(a, showLegend=false){
 }
 
 /* ====== 五行條 ====== */
+/* ====== 五角雷達圖（戰鬥力風格，五行/十神共用） ======
+ * items: [{label, value, color}]  共5項
+ */
+function radarChart(items, opt={}){
+  const N=items.length, R=opt.r||78, cx=110, cy=104;
+  const maxV=Math.max(...items.map(i=>i.value),0.1);
+  const ang=i=>(-90 + i*360/N)*Math.PI/180;            // 從正上方開始
+  const pt=(i,rad)=>[cx+rad*Math.cos(ang(i)), cy+rad*Math.sin(ang(i))];
+  // 背景同心五邊形（4 圈）
+  let grid="";
+  for(let ring=1;ring<=4;ring++){
+    const rr=R*ring/4;
+    const poly=items.map((_,i)=>pt(i,rr).map(n=>n.toFixed(1)).join(",")).join(" ");
+    grid+=`<polygon points="${poly}" fill="none" stroke="#e2e8f0" stroke-width="1"/>`;
+  }
+  // 軸線
+  let axes="";
+  items.forEach((_,i)=>{const[x,y]=pt(i,R);axes+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`;});
+  // 數值多邊形
+  const dataPts=items.map((it,i)=>pt(i, R*Math.max(0.04,it.value/maxV)));
+  const dataPoly=dataPts.map(p=>p.map(n=>n.toFixed(1)).join(",")).join(" ");
+  // 頂點圓點
+  const dots=dataPts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${items[i].color}"/>`).join("");
+  // 標籤 + 數值
+  const labels=items.map((it,i)=>{
+    const[lx,ly]=pt(i,R+15);
+    const anchor=Math.abs(lx-cx)<6?"middle":(lx>cx?"start":"end");
+    return `<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" font-size="13" font-weight="700" fill="${it.color}" text-anchor="${anchor}">${it.label}</text>
+      <text x="${lx.toFixed(1)}" y="${(ly+17).toFixed(1)}" font-size="10" fill="#94a3b8" text-anchor="${anchor}">${it.value.toFixed(1)}</text>`;
+  }).join("");
+  return `<svg class="radar" viewBox="0 0 220 208" width="100%" style="max-width:260px;display:block;margin:0 auto">
+    <circle cx="${cx}" cy="${cy}" r="${R+2}" fill="none" stroke="#f1f5f9" stroke-width="1"/>
+    ${grid}${axes}
+    <polygon points="${dataPoly}" fill="${opt.fill||'rgba(59,130,246,.18)'}" stroke="${opt.stroke||'#3b82f6'}" stroke-width="2" stroke-linejoin="round"/>
+    ${dots}${labels}
+  </svg>`;
+}
 function renderWuxing(tally){
-  const max=Math.max(...Object.values(tally),0.1);
-  return `<div class="wx-bars">${["木","火","土","金","水"].map(k=>`
-    <div><span class="wxn wx-${k}">${k}</span>
-      <div class="bar"><i style="width:${Math.max(4,tally[k]/max*100)}%;background:${WX_COLOR[k]}"></i></div>
-      <span class="val">${tally[k].toFixed(1)}</span></div>`).join("")}</div>`;
+  const items=["木","火","土","金","水"].map(k=>({label:k,value:tally[k],color:WX_COLOR[k]}));
+  return radarChart(items,{fill:"rgba(22,163,74,.14)",stroke:"#16a34a"});
 }
 
 /* 五行調補對照：每個五行對應的顏色/方位/季節時段/行業/生活面向 */
@@ -1042,8 +1100,9 @@ function renderGodTally(gt, showIntro=false){
     印星:"「照顧你」的力量——學識、靠山、長輩貴人、被疼愛。強代表有貴人、愛學習、有安全感；太強則易依賴、想太多。"
   };
   const top=Object.entries(gt).slice().sort((a,b)=>b[1]-a[1])[0];
-  const intro=showIntro?`<div class="cap" style="margin-bottom:12px">這張圖把你的八字換算成<b>五種「人生角色能量」</b>——每一條代表一種力量在你身上有多強（條越長越強）。<b>下面每條都附白話解釋它在講什麼</b>。你最突出的是 <b style="color:${colors[top[0]]}">${top[0]}</b>，個性與做事會偏這個方向。</div>`:"";
-  return `${intro}<div class="god-bars">${Object.entries(gt).map(([k,v])=>`
+  const intro=showIntro?`<div class="cap" style="margin-bottom:12px">這張圖把你的八字換算成<b>五種「人生角色能量」</b>——角越往外代表那股力量越強。<b>下面每條都附白話解釋它在講什麼</b>。你最突出的是 <b style="color:${colors[top[0]]}">${top[0]}</b>，個性與做事會偏這個方向。</div>`:"";
+  const radar=radarChart(Object.entries(gt).map(([k,v])=>({label:k,value:v,color:colors[k]})),{fill:"rgba(99,102,241,.14)",stroke:"#6366f1"});
+  return `${intro}${radar}<div class="god-bars" style="margin-top:8px">${Object.entries(gt).map(([k,v])=>`
     <div class="god-bar">
       <div class="gb-top"><span class="gb-name" style="color:${colors[k]}">${k}</span>
         <div class="bar"><i style="width:${Math.max(4,v/max*100)}%;background:${colors[k]}"></i></div>
@@ -1257,12 +1316,12 @@ function renderZiwei(a){
         +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
     }).join("")
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
-    // 三方四正的宮名（對宮＋兩三合宮）
+    // 三方四正的宮（對宮＋兩三合宮）：宮名＋完整物件(供整合判斷)
     const b=p.earthlyBranch;
-    const oppName=(cellByBranch[ZW_CHONG[b]]||{}).name||"";
-    const heName=(ZW_SANHE[b]||[]).map(tb=>(cellByBranch[tb]||{}).name||"").filter(Boolean);
+    const oppPal=cellByBranch[ZW_CHONG[b]]||null;
+    const hePals=(ZW_SANHE[b]||[]).map(tb=>cellByBranch[tb]||null).filter(Boolean);
     // 浮動框內容（點擊跳出）
-    const detail=palaceDetailHTML(p,{opp:oppName,he:heName});
+    const detail=palaceDetailHTML(p,{opp:(oppPal||{}).name||"",he:hePals.map(x=>x.name),oppPal,hePals});
     cells+=`<div class="zw-cell clickable ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
       <div class="pn">${p.name}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
       <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
@@ -1300,7 +1359,7 @@ function ziweiSummary(z,a){
   const name=a.name||"這個人";
   const pget=n=>z.palaces.find(p=>p.name===n);
   const starList=p=>p&&p.majorStars.length?p.majorStars.map(s=>s.name):[];
-  const starPlain=names=>names.map(n=>(GLOSSARY[n]||"").split("：").slice(-1)[0]).filter(Boolean);
+  const starPlain=names=>names.map(n=>stripDot((GLOSSARY[n]||"").split("：").slice(-1)[0])).filter(Boolean);
   // 命宮
   const ming=pget("命宮"); const mingStars=starList(ming);
   let mingSay;
@@ -1346,12 +1405,13 @@ function palaceDetailHTML(p, rel){
     return g?`<div class="pd-star"><b>${s.name}</b>：${g}</div>`:"";
   }).join("");
   const palMeaning=GLOSSARY[p.name]||p.desc||"";
-  // 三方四正白話：把實際連到的宮名帶進來、講清楚關聯
   const opp=rel&&rel.opp?rel.opp:"";
   const he=rel&&rel.he&&rel.he.length?rel.he:[];
+  // 把本宮＋對宮＋三合宮的星整合，算出白話結論
+  const verdict=sfszVerdict(p, rel);
   const sfszLines=[
-    opp?`<div class="sf-line"><span class="sf-tag opp">對宮</span><b>${opp}</b>　正對面那一宮，是這件事的「另一面、外在表現或結果」，影響最直接。</div>`:"",
-    he.length?`<div class="sf-line"><span class="sf-tag he">三合</span><b>${he.join("、")}</b>　跟本宮同一組、會互相加分助力的兩宮。</div>`:""
+    opp?`<div class="sf-line"><span class="sf-tag opp">對宮</span><b class="sf-pal">${opp}</b><span class="sf-desc">${starsOfPalShort(rel&&rel.oppPal)}</span></div>`:"",
+    he.length?`<div class="sf-line"><span class="sf-tag he">三合</span><b class="sf-pal">${he.join("、")}</b><span class="sf-desc">${(rel&&rel.hePals||[]).map(starsOfPalShort).filter(Boolean).join("；")||"借對宮論"}</span></div>`:""
   ].join("");
   return `<div class="pd-head"><span class="pd-name">${p.name}</span>`
     +`<span class="pd-gz">${p.heavenlyStem||""}${p.earthlyBranch||""}</span></div>`
@@ -1359,11 +1419,48 @@ function palaceDetailHTML(p, rel){
     +`<div class="pd-stars-line">坐這宮的主星：${stars}</div>`
     +(starDescs?`<div class="pd-starbox">${starDescs}</div>`:"")
     +`<div class="pd-sfsz">
-        <div class="pd-sf-title">🔗 為什麼盤上拉出紅線？</div>
-        <div class="pd-sf-intro">紫微看任何一宮，<b>不能只看這一格</b>，要把紅線連到的另外三宮「一起合看」，吉凶才準。它們和「${p.name}」是這樣的關係：</div>
+        <div class="pd-sf-title">📊 綜合這宮＋連線三宮，整體判斷</div>
+        <div class="pd-verdict pdv-${verdict.tone}">${verdict.text}</div>
+        <div class="pd-sf-rel">同時參考（紅線連到的三宮）：</div>
         ${sfszLines}
-        <div class="pd-sf-eg">👉 白話說：想了解「${p.name}」這件事，除了看這格本身，<b>還要把上面那三宮的好壞一起加進來</b>判斷——例如那幾宮有吉星，就算本宮普通也會被拉抬；反之有凶星，本宮再好也會打折。</div>
       </div>`;
+}
+/* 一個宮的主星簡述（含亮度），給三方四正列用 */
+function starsOfPalShort(pal){
+  if(!pal) return "";
+  if(!pal.majorStars||!pal.majorStars.length) return "（無主星）";
+  return pal.majorStars.map(s=>`${s.name}${s.brightness||""}${s.mutagen?`化${s.mutagen}`:""}`).join("、");
+}
+/* 把本宮＋三方四正整合成一句白話結論 */
+function sfszVerdict(p, rel){
+  const pals=[p, rel&&rel.oppPal, ...((rel&&rel.hePals)||[])].filter(Boolean);
+  const allStars=pals.flatMap(x=>x.majorStars||[]);
+  // 評分：亮度(廟+2旺+1.5得+1利+0.5平0不-1陷-1.5) + 化(祿/權/科+1.5, 忌-1.5)
+  const BR={廟:2,旺:1.5,得:1,利:0.5,平:0,不:-1,陷:-1.5};
+  let score=0, names=[], good=[], bad=[];
+  allStars.forEach(s=>{
+    const b=BR[s.brightness]!=null?BR[s.brightness]:0; score+=b;
+    if(s.mutagen==="祿"||s.mutagen==="權"||s.mutagen==="科"){score+=1.5; good.push(`${s.name}化${s.mutagen}`);}
+    if(s.mutagen==="忌"){score-=1.5; bad.push(`${s.name}化忌`);}
+    if(b>=1.5) good.push(`${s.name}${s.brightness}`);
+    if(b<=-1) bad.push(`${s.name}${s.brightness}`);
+    names.push(s.name);
+  });
+  const empty = !(p.majorStars&&p.majorStars.length);
+  // 各宮面向的白話主題
+  const topic={命宮:"你的個性與一生主軸",兄弟:"手足、合夥與身邊人際",夫妻:"感情與婚姻",子女:"子女緣與創造力",
+    財帛:"財運與賺錢方式",疾厄:"健康與壓力",遷移:"在外發展與際遇",僕役:"朋友部屬與人脈",
+    官祿:"事業與職涯",田宅:"不動產與家庭",福德:"福分、興趣與心境",父母:"與父母長輩、學業文書"}[p.name]||"這個面向";
+  let tone, lead;
+  if(score>=4){ tone="good"; lead=`<b>整體偏吉、力量強</b>`; }
+  else if(score>=1){ tone="ok"; lead=`<b>大致不錯、平穩中帶亮點</b>`; }
+  else if(score>-1){ tone="mid"; lead=`<b>中規中矩、起伏看後天努力</b>`; }
+  else{ tone="bad"; lead=`<b>力量偏弱、較需用心經營</b>`; }
+  const goodTxt=good.length?`亮點在 ${[...new Set(good)].slice(0,3).join("、")}` : "";
+  const badTxt=bad.length?`要留意 ${[...new Set(bad)].slice(0,3).join("、")}` : "";
+  const detail=[goodTxt,badTxt].filter(Boolean).join("，");
+  const emptyNote=empty?`本宮無主星、力量較依賴對宮，個性與表現較隨環境變化。` : "";
+  return {tone, text:`把「${p.name}」連同對宮、三合宮一起看，<b>${topic}</b>這塊 ${lead}。${detail?detail+"。":""}${emptyNote}`};
 }
 
 /* 地支三方四正（對宮＝沖、三合＝左右隔四格） */
@@ -1396,7 +1493,7 @@ function renderSummary(a){
     const ming=a.ziwei.palaces.find(p=>p.name==="命宮");
     if(ming&&ming.majorStars.length){
       const names=ming.majorStars.map(s=>s.name);
-      const descs=names.map(n=>(GLOSSARY[n]||"").split("：").slice(-1)[0]).filter(Boolean);
+      const descs=names.map(n=>stripDot((GLOSSARY[n]||"").split("：").slice(-1)[0])).filter(Boolean);
       mingSay=`你的紫微命宮坐 <b>${names.join("、")}</b>，個性上${descs.join("；")}。`;
     }else{
       mingSay="你的紫微命宮無主星，個性較隨環境而變、可塑性高，要參考對宮的星。";
@@ -1663,7 +1760,7 @@ function renderSingle(a){
      <span class="sb-pill">${a.strength.strength}</span>
      <span class="sb-pill">${a.pattern.patterns[0].name}</span>
      <span class="sb-pill">喜用 ${a.yong.primary.map(w=>`<b class="wx-${w}">${w}</b>`).join("")}</span>
-     <span class="sb-pill">忌 ${a.yong.avoid.length?a.yong.avoid.map(w=>`<b class="wx-${w}">${w}</b>`).join(""):"—"}</span>
+     <span class="sb-pill">忌 ${a.yong.avoid.length?a.yong.avoid.map(w=>`<b class="wx-${w}">${w}</b>`).join(""):'<span style="color:#94a3b8">無</span>'}</span>
    </div>
    </div>
 
@@ -1723,14 +1820,16 @@ function renderName(a){
     <div class="note" style="margin-top:12px">三才配置 <b>${n.sancai.wx.join("－")}</b>
       <span class="badge ${n.sancai.luck==='吉'?'good':n.sancai.luck==='凶'?'bad':'mid'}">${n.sancai.luck}</span>
       <span style="font-size:11px;color:#94a3b8">（三才＝天格‧人格‧地格三者的五行生剋，看名字的基礎吉凶）</span><br>${n.sancai.desc}</div>
-    ${renderNameAdvice(n)}</div>`;
+    ${renderNameAdvice(n, a.yong&&a.yong.primary)}</div>`;
 }
 
 /* 改名建議：凶格 → 要改哪個字、改成幾畫、有哪些字可選 */
-function renderNameAdvice(n){
+function renderNameAdvice(n, favorWx){
   let adv=[];
-  try{ adv=nameSuggest(n.chars,n.grids); }catch(e){ adv=[]; }
+  try{ adv=nameSuggest(n.chars,n.grids,favorWx); }catch(e){ adv=[]; }
   if(!adv.length) return `<div class="na-ok">✓ 五格沒有明顯凶數，姓名整體穩定，不需特別改名。</div>`;
+  const favor=new Set(favorWx||[]);
+  const favorNote=favor.size?`<div class="na-fav">⭐ 標記者＝筆畫五行剛好補你的喜用神（${[...favor].join("、")}），優先考慮這些。</div>`:"";
   const rows=adv.map(g=>{
     if(g.fixable===false){
       return `<div class="na-row"><div class="na-head"><span class="badge bad">${g.grid} 凶</span></div>
@@ -1738,7 +1837,8 @@ function renderNameAdvice(n){
     }
     const cands=g.cands.map(c=>{
       const egs=charsByStroke(c.stroke).slice(0,6);
-      return `<div class="na-cand">改成 <b>${c.stroke} 畫</b>（${g.grid}→${c.grid}，吉）${egs.length?`：例如 <span class="na-egs">${egs.join("、")}</span>`:"（此筆畫無範例字，可請命名老師選）"}</div>`;
+      const fav=c.wx&&favor.has(c.wx);
+      return `<div class="na-cand">${fav?'⭐ ':''}改成 <b>${c.stroke} 畫</b>（${g.grid}→${c.grid}，吉${c.wx?`・五行屬${c.wx}${fav?'，補喜用':''}`:''}）${egs.length?`：例如 <span class="na-egs">${egs.join("、")}</span>`:"（此筆畫無範例字，可請命名老師選）"}</div>`;
     }).join("");
     return `<div class="na-row"><div class="na-head"><span class="badge bad">${g.grid} 凶</span>
         <span class="na-who">建議改「${g.who}」（目前 ${g.curStroke} 畫）</span></div>
@@ -1747,7 +1847,7 @@ function renderNameAdvice(n){
   return `<div class="na-box">
     <div class="na-title">✍ 改名建議（針對凶數）</div>
     <div class="na-intro">姓名五格中，<b>天格＝姓</b>（不能改），<b>人格／地格／外格／總格</b>都跟「名字的字」有關。某格是<b style="color:#b91c1c">凶</b>時，把對應的字換成下面建議的筆畫，那一格就會轉吉。筆畫以康熙字典為準，<b>實際取名請再確認字義與讀音</b>。</div>
-    ${rows}
+    ${favorNote}${rows}
   </div>`;
 }
 
@@ -2081,6 +2181,30 @@ $("#savedList").addEventListener("click",e=>{
   } else applySave(t.dataset.id);
 });
 renderSaves();
+
+/* ====== 雙人合盤：從存檔挑人填入 ====== */
+function showPicker(n){
+  const arr=loadSaves();
+  const ov=document.createElement("div"); ov.className="tzd-modal-ov";
+  const list=arr.length?arr.map(rec=>`<button type="button" class="pk-item" data-id="${rec.id}">
+      <span class="pk-name">${savedLabel(rec)}</span><span class="pk-sub">${savedSub(rec)}</span></button>`).join("")
+    : `<div style="text-align:center;color:#94a3b8;padding:20px;font-size:13px">還沒有任何存檔。<br>先在單人命盤填好生辰、按「💾 存檔」即可。</div>`;
+  ov.innerHTML=`<div class="tzd-modal" style="max-width:380px">
+    <div class="pk-title">📁 從我的命盤選一位填入「${n===1?'本人':'對方'}」</div>
+    <div class="pk-list">${list}</div>
+    <div style="text-align:right;margin-top:10px"><button type="button" class="tzd-btn-cancel">取消</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector(".tzd-btn-cancel").onclick=close;
+  ov.onclick=e=>{ if(e.target===ov) close(); };
+  ov.querySelectorAll(".pk-item").forEach(b=>b.onclick=()=>{
+    const rec=arr.find(r=>r.id===b.dataset.id); if(!rec) return;
+    restorePerson(n, rec.mode==="couple"?rec.p1:rec.p1);
+    close();
+  });
+}
+$$(".pick-save").forEach(b=>b.addEventListener("click",()=>showPicker(+b.dataset.pick)));
 </script>
 </body>
 </html>

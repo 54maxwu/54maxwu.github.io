@@ -298,24 +298,25 @@ function luckyNumbers(){
   for(let n=1;n<=81;n++){ if(luck81(n)===3) arr.push(n); }
   return arr;
 }
-/* 某字若改成 x 畫，重算該格數→是否吉。回傳建議的候選筆畫(就近 2-3 個) */
-function suggestStrokes(targetFn, curStroke){
-  // targetFn(x) = 該格在「這個字改成 x 畫」時的格數
+/* 某字若改成 x 畫，重算該格數→是否吉。回傳建議的候選筆畫(就近 2-3 個)
+ * favorWx: 喜用神五行陣列，會優先推薦「該筆畫五行＝喜用」的選項 */
+function suggestStrokes(targetFn, curStroke, favorWx){
   const goods=luckyNumbers();
+  const favor=new Set(favorWx||[]);
   const cand=[];
   for(let x=1;x<=24;x++){            // 名字單字常見 1~24 畫
     if(x===curStroke) continue;
-    if(goods.includes(targetFn(x))) cand.push({stroke:x, grid:targetFn(x)});
+    if(goods.includes(targetFn(x))) cand.push({stroke:x, grid:targetFn(x), wx:strokeWx(x), fav:favor.has(strokeWx(x))});
   }
-  // 依與原筆畫的接近程度排序（改動越小越好寫）
-  cand.sort((a,b)=>Math.abs(a.stroke-curStroke)-Math.abs(b.stroke-curStroke));
+  // 先排「符合喜用五行」者，再依與原筆畫的接近程度（改動越小越好寫）
+  cand.sort((a,b)=>(b.fav-a.fav) || (Math.abs(a.stroke-curStroke)-Math.abs(b.stroke-curStroke)));
   return cand.slice(0,3);
 }
 
 /* 改名建議：針對「凶」的格，指出要改名字的哪個字、改成幾畫
  * 五格公式(單姓雙名)：天=姓+1、人=姓+名1、地=名1+名2、外=名2+1、總=姓+名1+名2
  */
-export function nameSuggest(info, grids){
+export function nameSuggest(info, grids, favorWx){
   const n=info.length;
   if(n<2) return [];
   const s=info[0].n, m1=info[1].n, m2=(n>=3?info[2].n:null);
@@ -332,7 +333,7 @@ export function nameSuggest(info, grids){
     else if(g.name==="外格"){ if(m2==null){ adv.push({grid:"外格",fixable:false,note:"單名的外格較固定，建議改用雙名來調整外格。"}); return; } who="名的第二個字"; cur=m2; fn=x=>x+1; }
     else if(g.name==="總格"){ who=(m2!=null?"名的任一個字":"名字"); cur=(m2!=null?m2:m1); fn=(m2!=null?(x=>s+m1+x):(x=>s+x)); }
     if(fn){
-      const cands=suggestStrokes(fn,cur);
+      const cands=suggestStrokes(fn,cur,favorWx);
       adv.push({grid:g.name, fixable:cands.length>0, who, curStroke:cur, cands});
     }
   });
