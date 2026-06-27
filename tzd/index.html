@@ -353,8 +353,38 @@
   .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:stretch}
   .zw-cell{border:1px solid var(--line);border-radius:9px;padding:10px 9px;background:var(--soft);
     font-size:12px;display:flex;flex-direction:column;min-height:118px}
-  .zw-cell.clickable{cursor:pointer;transition:.12s}
+  .zw-cell.clickable{cursor:pointer;transition:.12s;position:relative}
   .zw-cell.clickable:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(59,130,246,.12)}
+  /* 宮位吉凶底色（左邊框條） */
+  .zw-cell.zwt-good{border-left:4px solid #16a34a}
+  .zw-cell.zwt-ok{border-left:4px solid #2563eb}
+  .zw-cell.zwt-mid{border-left:4px solid #cbd5e1}
+  .zw-cell.zwt-bad{border-left:4px solid #f59e0b;background:#fffdf5}
+  .zw-dot{position:absolute;top:7px;left:7px;width:8px;height:8px;border-radius:50%}
+  .zw-badge{display:inline-block;font-size:9px;font-weight:700;color:#fff;border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:middle}
+  .zw-badge.ming-b{background:var(--blue-d)} .zw-badge.body-b{background:#7c3aed}
+
+  /* 命盤總評卡 */
+  .zw-overview{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .ov-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:15px}
+  .ov-total{font-size:12px;font-weight:700;color:#fff;padding:3px 10px;border-radius:8px}
+  .ovt-good{background:#16a34a} .ovt-ok{background:#2563eb} .ovt-mid{background:#64748b} .ovt-bad{background:#f59e0b}
+  .ov-note{font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:12px}
+  .ov-note b{color:var(--ink)}
+  .ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+  @media(max-width:640px){ .ov-grid{grid-template-columns:1fr} }
+  .ov-col-t{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:6px}
+  .ov-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .ov-chip{display:inline-flex;flex-direction:column;font-size:13px;font-weight:700;color:#fff;
+    padding:4px 10px;border-radius:8px;line-height:1.25}
+  .ov-chip small{font-size:10px;font-weight:400;opacity:.92}
+  .ov-chip.ovt-good{background:#16a34a} .ov-chip.ovt-ok{background:#2563eb}
+  .ov-chip.ovt-mid{background:#94a3b8} .ov-chip.ovt-bad{background:#f59e0b}
+  .ov-extra{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#475569;line-height:1.65;
+    border-top:1px dashed #e2e8f0;padding-top:10px;margin-bottom:8px}
+  .ov-extra b{color:var(--blue-d)}
+  .ov-legend{font-size:11.5px;color:var(--sub);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .ov-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 1px 0 6px}
   .zw-cell.active{border-color:var(--blue-d);box-shadow:0 0 0 2px var(--blue-sel);position:relative;z-index:2}
   .zw-cell.sfsz{border-color:#fca5a5;background:#fef2f2;box-shadow:0 0 0 1px #fecaca;position:relative;z-index:2}
   .zw-cell.sfsz.ming{background:#fef2f2}
@@ -473,6 +503,9 @@
   /* 紫微命盤白話總結 */
   .zw-summary{margin-top:18px;padding-top:16px;border-top:2px dashed #e2e8f0}
   .zw-summary .zs-title{font-size:15px;font-weight:700;color:var(--blue-d);margin-bottom:10px}
+  .zw-summary .zs-speed{font-size:15px;line-height:1.8;color:var(--ink);background:#eff6ff;
+    border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:9px 13px;margin:0 0 12px}
+  .zw-summary .zs-speed b{color:var(--blue-d)}
   .zw-summary .zs-lead{font-size:14px;line-height:1.9;color:#334155;margin:0 0 12px}
   .zw-summary .zs-lead b{color:var(--ink)}
   .zw-summary .zs-rows{display:flex;flex-direction:column;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px}
@@ -1304,6 +1337,8 @@ function renderZiwei(a){
   // 方格盤
   const cellByBranch={};
   z.palaces.forEach(p=>{ if(p.earthlyBranch) cellByBranch[p.earthlyBranch]=p; });
+  const bodyBranch=z.earthlyBranchOfBodyPalace||""; // 身宮所在地支
+  const TONE_DOT={good:"#16a34a",ok:"#2563eb",mid:"#94a3b8",bad:"#f59e0b"};
   let cells="";
   for(let r=0;r<4;r++)for(let c=0;c<4;c++){
     if(r>=1&&r<=2&&c>=1&&c<=2){ if(r===1&&c===1){cells+=`<div class="zw-cell center">
@@ -1326,10 +1361,15 @@ function renderZiwei(a){
     const b=p.earthlyBranch;
     const oppPal=cellByBranch[ZW_CHONG[b]]||null;
     const hePals=(ZW_SANHE[b]||[]).map(tb=>cellByBranch[tb]||null).filter(Boolean);
+    // 該宮吉凶評分（含三方四正）
+    const sc=palaceScore(p, cellByBranch);
+    const isBody=bodyBranch&&b===bodyBranch;
+    const badge=(p.name==='命宮'?'<span class="zw-badge ming-b">命宮</span>':'')+(isBody?'<span class="zw-badge body-b">身宮</span>':'');
     // 浮動框內容（點擊跳出）
     const detail=palaceDetailHTML(p,{opp:(oppPal||{}).name||"",he:hePals.map(x=>x.name),oppPal,hePals});
-    cells+=`<div class="zw-cell clickable ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
-      <div class="pn">${p.name}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
+    cells+=`<div class="zw-cell clickable zwt-${sc.tone} ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
+      <span class="zw-dot" style="background:${TONE_DOT[sc.tone]}" title="這宮整體：${sc.word}"></span>
+      <div class="pn">${p.name}${badge}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
       <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
   }
   const legend=`<div class="zw-legend">
@@ -1338,9 +1378,12 @@ function renderZiwei(a){
       <li><b>十二個格子＝人生十二個面向</b>：每格上面藍字是宮名（如「命宮＝核心性格」「夫妻＝感情婚姻」），下面灰字是它管什麼。<b>藍底那格是「命宮」，最重要</b>。</li>
       <li><b>格子裡的大字＝主星</b>：代表這個面向的「個性／能量」，星名下方已直接寫白話意思（如「紫微＝帝王星，主領導」）。</li>
       <li><b>星旁的小灰字＝這顆星的力量強弱</b>，由強到弱共七級：<span style="color:#b08900"><b>廟</b>(最強)＞<b>旺</b>(很強)＞<b>得</b>(不錯)＞<b>利</b>(尚可)＞<b>平</b>(普通)＞<b>不</b>(偏弱)＞<b>陷</b>(最弱)</span>。</li>
-      <li><b>彩色小標＝四化</b>：<span class="sh sh-祿">祿</span>好處財祿、<span class="sh sh-權">權</span>權力能力、<span class="sh sh-科">科</span>名聲貴人、<span class="sh sh-忌">忌</span>牽絆阻礙。</li>
-      <li><b>格子角落兩字（如壬午）＝干支座標</b>，排盤用的，不懂可以略過。</li>
-      <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span></b>：連到要「合看」的另三宮（對宮＋兩三合宮），這四宮合稱<b>三方四正</b>，論命要一起看才完整。</li>
+      <li><b>彩色小標＝四化</b>（出生那年天干決定、跟你一輩子的特殊加成）：<span class="sh sh-祿">祿</span>好處財祿、<span class="sh sh-權">權</span>權力能力、<span class="sh sh-科">科</span>名聲貴人、<span class="sh sh-忌">忌</span>牽絆阻礙（功課所在）。</li>
+      <li><b>左上角圓點＝這宮整體強弱</b>（已幫你算好）：<span style="color:#16a34a">●</span>強旺、<span style="color:#2563eb">●</span>不錯、<span style="color:#94a3b8">●</span>中等、<span style="color:#f59e0b">●</span>偏弱。</li>
+      <li><b>命宮＝你是誰、身宮＝後天會變成的樣子</b>；格內有藍/紫徽章標示。</li>
+      <li><b>有些格寫「無主星」＝空宮</b>：不是壞事，代表那面向個性較<b>隨環境而變</b>，要看「對宮」（正對面那宮）的星來借用論斷。</li>
+      <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span>＝三方四正</b>：連到要「一起合看」的另三宮——<b>對宮</b>（正對面，看外在結果）＋<b>兩個三合宮</b>（同組互助）。論命要四宮合看才完整。</li>
+      <li><b>格子角落兩字（如壬午）＝干支座標</b>，排盤用的，不懂可略過。</li>
     </ul>
     <div class="lg-foot">命主 <b>${z.soul}</b>＝先天主導你的星、身主 <b>${z.body}</b>＝後天養成你的星；<b>${z.fiveElementsClass}</b>＝決定大運幾歲起運的五行局。</div>
   </div>`;
@@ -1352,12 +1395,49 @@ function renderZiwei(a){
   </div>`;
   return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
         <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解＋三方四正連線</span></h3>
+      ${ziweiOverview(z,a,cellByBranch,bodyBranch)}
       <div class="zw-layout">
         <div class="zw-side">${legend}${starDict}</div>
         <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
       </div>
       ${ziweiSummary(z,a)}</div>`;
+}
+
+/* 紫微命盤總評卡：跑遍12宮排序，主動給整體結論＋最強/最弱宮＋圖例 */
+function ziweiOverview(z,a,cellByBranch,bodyBranch){
+  const name=a.name||"你";
+  const scored=z.palaces.map(p=>({p, sc:palaceScore(p,cellByBranch)}))
+    .map(o=>({name:o.p.name, topic:PALACE_SHORT[o.p.name]||o.p.name, ...o.sc}));
+  const sorted=scored.slice().sort((a,b)=>b.score-a.score);
+  const strong=sorted.slice(0,3);
+  const weak=sorted.slice(-2).reverse();
+  const avg=scored.reduce((s,x)=>s+x.score,0)/scored.length;
+  let oTone,oWord;
+  if(avg>=2){oTone="good";oWord="整體偏旺，是格局不錯的命盤";}
+  else if(avg>=0.5){oTone="ok";oWord="整體平穩，有亮點也有要努力的地方";}
+  else if(avg>=-0.5){oTone="mid";oWord="整體中等，運勢起伏看後天經營";}
+  else{oTone="bad";oWord="整體較需用心，靠努力與調整補強";}
+  const emptyCnt=scored.filter(x=>x.empty).length;
+  // 化忌落宮（你的功課）
+  let jiPalace="";
+  z.palaces.forEach(p=>p.majorStars.forEach(s=>{ if(s.mutagen==="忌") jiPalace=`${p.name}的${s.name}`; }));
+  const chip=(x)=>`<span class="ov-chip ovt-${x.tone}">${x.name}<small>${x.topic}</small></span>`;
+  const bodyName=(z.palaces.find(p=>p.earthlyBranch===bodyBranch)||{}).name||"";
+  return `<div class="zw-overview">
+    <div class="ov-head"><span class="ov-total ovt-${oTone}">命盤總評</span><b>${oWord}</b></div>
+    <div class="ov-note">這是<b>${name}一輩子的「先天命盤」，不是今年運勢</b>（今年運勢請看上方「大運流年」分頁）。下面幫你把 12 宮排好了：</div>
+    <div class="ov-grid">
+      <div class="ov-col"><div class="ov-col-t">💪 你最強的三塊（優勢）</div><div class="ov-chips">${strong.map(chip).join("")}</div></div>
+      <div class="ov-col"><div class="ov-col-t">⚠ 最該用心的兩塊</div><div class="ov-chips">${weak.map(chip).join("")}</div></div>
+    </div>
+    <div class="ov-extra">
+      <span>🏠 命宮＝你是誰；身宮＝後天會變成的樣子${bodyName?`（你的身宮在 <b>${bodyName}</b>）`:""}。</span>
+      ${jiPalace?`<span>📌 你這輩子的「功課」在 <b>${jiPalace}化忌</b>——這塊最容易卡關、要多用心。</span>`:""}
+      ${emptyCnt?`<span>⭕ 你有 <b>${emptyCnt}</b> 個空宮（沒有主星），代表那些面向個性較隨環境、看對宮，不是壞事。</span>`:""}
+    </div>
+    <div class="ov-legend">每格左上角圓點＝該宮整體：<span class="ov-dot" style="background:#16a34a"></span>強旺　<span class="ov-dot" style="background:#2563eb"></span>不錯　<span class="ov-dot" style="background:#94a3b8"></span>中等　<span class="ov-dot" style="background:#f59e0b"></span>偏弱</div>
+  </div>`;
 }
 
 /* 紫微命盤白話總結 */
@@ -1387,14 +1467,27 @@ function ziweiSummary(z,a){
     const mutSay=mut.length?`（帶${mut.join("、")}，${p.majorStars.some(s=>s.mutagen==='祿'||s.mutagen==='權'||s.mutagen==='科')?'多為加分助力':'要多留意'}）`:"";
     return `<div class="zs-row"><span class="zs-k">${label}</span><span>坐 <b>${st.join("、")}</b>${mutSay}——${starPlain(st).join("；")}。</span></div>`;
   }).join("");
-  // 四化整體
+  // 四化：拆成「甜蜜點(祿權科)」與「功課(忌)」
   let sihua="";
-  const allMut=[];
-  z.palaces.forEach(p=>p.majorStars.forEach(s=>{ if(s.mutagen) allMut.push(`${p.name}的${s.name}化${s.mutagen}`); }));
-  if(allMut.length) sihua=`<div class="zs-row"><span class="zs-k">四化</span><span>你這張盤的四化落在：${allMut.join("、")}。化祿/權/科是機會與助力所在，化忌是要多用心、易卡關之處。</span></div>`;
+  const sweet=[], task=[];
+  z.palaces.forEach(p=>p.majorStars.forEach(s=>{
+    if(s.mutagen==="祿"||s.mutagen==="權"||s.mutagen==="科") sweet.push(`${p.name}的${s.name}化${s.mutagen}`);
+    if(s.mutagen==="忌") task.push(`${p.name}的${s.name}化忌`);
+  }));
+  if(sweet.length||task.length){
+    sihua=`<div class="zs-row"><span class="zs-k">四化</span><span>`
+      +(sweet.length?`<b style="color:#15803d">甜蜜點</b>（機會與助力所在）：${sweet.join("、")}。`:"")
+      +(task.length?`<b style="color:#b91c1c">人生功課</b>（最該用心、易卡關）：${task.join("、")}。`:"")
+      +`</span></div>`;
+  }
 
+  // 一句人物速寫：用命宮主星的關鍵特質拼一句
+  const traitOf=p=>{const st=starList(p);return st.map(n=>{const g=GLOSSARY[n]||"";const m=g.match(/[：]([^，。]+)/);return m?m[1]:"";}).filter(Boolean);};
+  const mc=ming&&ming.majorStars.length?traitOf(ming):traitOf(pget("遷移"));
+  const speed=mc.length?`<p class="zs-speed">👤 一句話形容${name}：是一個<b>${mc.slice(0,3).join("、")}</b>的人。</p>`:"";
   return `<div class="zw-summary">
     <div class="zs-title">🔮 一段話總結${name}的紫微命盤</div>
+    ${speed}
     <p class="zs-lead">${mingSay} 命主星 <b>${z.soul}</b>、身主星 <b>${z.body}</b>，五行屬 <b>${z.fiveElementsClass}</b>。</p>
     <div class="zs-rows">${blocks}${sihua}</div>
     <p class="zs-foot">綜合來看，${name}適合往「命宮＋事業宮」星曜的特質發展最順；想細看任何一宮，點上方該宮格會跳出詳解與三方四正連線。紫微為性格與運勢的參考，最終仍由自己掌握。</p>
@@ -1438,35 +1531,44 @@ function starsOfPalShort(pal){
   return pal.majorStars.map(s=>`${s.name}${s.brightness||""}${s.mutagen?`化${s.mutagen}`:""}`).join("、");
 }
 /* 把本宮＋三方四正整合成一句白話結論 */
-function sfszVerdict(p, rel){
-  const pals=[p, rel&&rel.oppPal, ...((rel&&rel.hePals)||[])].filter(Boolean);
+/* 各宮的白話主題 */
+const PALACE_TOPIC={命宮:"你的個性與一生主軸",兄弟:"手足、合夥與身邊人際",夫妻:"感情與婚姻",子女:"子女緣與創造力",
+  財帛:"財運與賺錢方式",疾厄:"健康與壓力",遷移:"在外發展與際遇",僕役:"朋友部屬與人脈",
+  官祿:"事業與職涯",田宅:"不動產與家庭",福德:"福分、興趣與心境",父母:"與父母長輩、學業文書"};
+const PALACE_SHORT={命宮:"個性",兄弟:"手足人際",夫妻:"感情",子女:"子女",財帛:"財運",疾厄:"健康",
+  遷移:"外出運",僕役:"人脈",官祿:"事業",田宅:"家庭不動產",福德:"福分心境",父母:"父母長輩"};
+/* 純評分：把本宮＋三方四正的星算成分數＋吉凶級 */
+function palaceScore(p, palByBranch){
+  const b=p.earthlyBranch;
+  const pals=[p, palByBranch[ZW_CHONG[b]], ...((ZW_SANHE[b]||[]).map(tb=>palByBranch[tb]))].filter(Boolean);
   const allStars=pals.flatMap(x=>x.majorStars||[]);
-  // 評分：亮度(廟+2旺+1.5得+1利+0.5平0不-1陷-1.5) + 化(祿/權/科+1.5, 忌-1.5)
   const BR={廟:2,旺:1.5,得:1,利:0.5,平:0,不:-1,陷:-1.5};
-  let score=0, names=[], good=[], bad=[];
+  let score=0, good=[], bad=[];
   allStars.forEach(s=>{
-    const b=BR[s.brightness]!=null?BR[s.brightness]:0; score+=b;
+    const br=BR[s.brightness]!=null?BR[s.brightness]:0; score+=br;
     if(s.mutagen==="祿"||s.mutagen==="權"||s.mutagen==="科"){score+=1.5; good.push(`${s.name}化${s.mutagen}`);}
     if(s.mutagen==="忌"){score-=1.5; bad.push(`${s.name}化忌`);}
-    if(b>=1.5) good.push(`${s.name}${s.brightness}`);
-    if(b<=-1) bad.push(`${s.name}${s.brightness}`);
-    names.push(s.name);
+    if(br>=1.5) good.push(`${s.name}${s.brightness}`);
+    if(br<=-1) bad.push(`${s.name}${s.brightness}`);
   });
-  const empty = !(p.majorStars&&p.majorStars.length);
-  // 各宮面向的白話主題
-  const topic={命宮:"你的個性與一生主軸",兄弟:"手足、合夥與身邊人際",夫妻:"感情與婚姻",子女:"子女緣與創造力",
-    財帛:"財運與賺錢方式",疾厄:"健康與壓力",遷移:"在外發展與際遇",僕役:"朋友部屬與人脈",
-    官祿:"事業與職涯",田宅:"不動產與家庭",福德:"福分、興趣與心境",父母:"與父母長輩、學業文書"}[p.name]||"這個面向";
-  let tone, lead;
-  if(score>=4){ tone="good"; lead=`<b>整體偏吉、力量強</b>`; }
-  else if(score>=1){ tone="ok"; lead=`<b>大致不錯、平穩中帶亮點</b>`; }
-  else if(score>-1){ tone="mid"; lead=`<b>中規中矩、起伏看後天努力</b>`; }
-  else{ tone="bad"; lead=`<b>力量偏弱、較需用心經營</b>`; }
-  const goodTxt=good.length?`亮點在 ${[...new Set(good)].slice(0,3).join("、")}` : "";
-  const badTxt=bad.length?`要留意 ${[...new Set(bad)].slice(0,3).join("、")}` : "";
+  let tone, word;
+  if(score>=4){ tone="good"; word="強旺、是你的優勢"; }
+  else if(score>=1){ tone="ok"; word="不錯、平穩有亮點"; }
+  else if(score>-1){ tone="mid"; word="中等、看後天努力"; }
+  else{ tone="bad"; word="偏弱、較需用心"; }
+  return {score, tone, word, good:[...new Set(good)], bad:[...new Set(bad)],
+    empty:!(p.majorStars&&p.majorStars.length)};
+}
+function sfszVerdict(p, rel){
+  const palByBranch={}; // 從 rel 重建（rel 已含 oppPal/hePals）
+  const sc=palaceScore(p, (function(){const m={};[p,rel&&rel.oppPal,...((rel&&rel.hePals)||[])].filter(Boolean).forEach(x=>m[x.earthlyBranch]=x);return m;})());
+  const topic=PALACE_TOPIC[p.name]||"這個面向";
+  const leadMap={good:"<b>強旺、是你的優勢</b>",ok:"<b>大致不錯、平穩中帶亮點</b>",mid:"<b>中規中矩、起伏看後天努力</b>",bad:"<b>力量偏弱、較需用心經營</b>"};
+  const goodTxt=sc.good.length?`亮點在 ${sc.good.slice(0,3).join("、")}` : "";
+  const badTxt=sc.bad.length?`要留意 ${sc.bad.slice(0,3).join("、")}` : "";
   const detail=[goodTxt,badTxt].filter(Boolean).join("，");
-  const emptyNote=empty?`本宮無主星、力量較依賴對宮，個性與表現較隨環境變化。` : "";
-  return {tone, text:`把「${p.name}」連同對宮、三合宮一起看，<b>${topic}</b>這塊 ${lead}。${detail?detail+"。":""}${emptyNote}`};
+  const emptyNote=sc.empty?`本宮無主星、力量較依賴對宮，個性與表現較隨環境變化。` : "";
+  return {tone:sc.tone, text:`把「${p.name}」連同對宮、三合宮一起看，<b>${topic}</b>這塊 ${leadMap[sc.tone]}。${detail?detail+"。":""}${emptyNote}`};
 }
 
 /* 地支三方四正（對宮＝沖、三合＝左右隔四格） */
