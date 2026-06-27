@@ -225,9 +225,32 @@
   .ln-row .yr{font-weight:600;width:88px} .ln-row .gz{width:50px} .ln-row .g{color:var(--sub);font-size:12.5px;flex:1}
 
   /* 紫微方格盤 */
-  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:680px;margin:0 auto;align-items:stretch}
+  .ziwei-wrap{position:relative;max-width:680px;margin:0 auto}
+  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:stretch}
   .zw-cell{border:1px solid var(--line);border-radius:8px;padding:8px 7px;background:var(--soft);
     font-size:11px;display:flex;flex-direction:column;min-height:96px}
+  .zw-cell.clickable{cursor:pointer;transition:.12s}
+  .zw-cell.clickable:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(59,130,246,.12)}
+  .zw-cell.active{border-color:var(--blue-d);box-shadow:0 0 0 2px var(--blue-sel)}
+
+  /* 宮位浮動框 */
+  .zw-pop{position:absolute;z-index:30;width:280px;max-width:88vw;background:#fff;
+    border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.18);
+    padding:14px 16px 15px}
+  .zw-pop[hidden]{display:none}
+  .zw-pop-x{position:absolute;top:8px;right:8px;width:24px;height:24px;border:none;border-radius:50%;
+    background:var(--soft);color:#64748b;cursor:pointer;font-size:13px;line-height:1;
+    display:flex;align-items:center;justify-content:center}
+  .zw-pop-x:hover{background:#fee2e2;color:#dc2626}
+  .pd-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding-right:24px}
+  .pd-head .pd-name{font-size:18px;font-weight:700;color:var(--blue-d)}
+  .pd-head .pd-gz{font-size:12px;color:#94a3b8}
+  .pd-meaning{font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:8px}
+  .pd-stars-line{font-size:13px;color:var(--ink);margin-bottom:8px}
+  .pd-starbox{border-top:1px dashed #e2e8f0;padding-top:8px;display:flex;flex-direction:column;gap:6px}
+  .pd-star{font-size:12px;color:#475569;line-height:1.6}
+  .pd-star b{color:var(--ink)}
+  @media(max-width:560px){ .zw-pop{width:240px} }
   .zw-cell.center{grid-column:2/4;grid-row:2/4;background:#fff;justify-content:center;align-items:center;text-align:center}
   .zw-cell.ming{background:var(--blue-l);border-color:#bfdbfe}
   .zw-cell .pn{font-size:11px;font-weight:600;color:var(--blue-d);margin-bottom:4px;line-height:1.3}
@@ -710,19 +733,12 @@ function renderZiwei(a){
         +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
     }).join("")
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
-    cells+=`<div class="zw-cell ${p.name==='命宮'?'ming':''}">
+    // 浮動框內容（點擊跳出）
+    const detail=palaceDetailHTML(p);
+    cells+=`<div class="zw-cell clickable ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" title="點我看「${p.name}」詳解">
       <div class="pn">${p.name}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
       <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
   }
-  // 十二宮逐宮解
-  const palaceCards=z.palaces.map(p=>{
-    const stars=p.majorStars.length?p.majorStars.map(s=>`${s.name}${s.mutagen?`<span class="badge ${s.mutagen==='祿'?'good':s.mutagen==='忌'?'bad':'blue'}" style="padding:0 6px">化${s.mutagen}</span>`:""}`).join("、"):'<span style="color:#94a3b8">借對宮／無主星</span>';
-    const main=p.majorStars[0];
-    return `<div class="palace-card">
-      <div class="ptitle"><span>${p.name}</span><span style="font-size:11px;color:#94a3b8">${p.heavenlyStem||""}${p.earthlyBranch||""}</span></div>
-      <div class="pstars">${stars}</div>
-      <div class="pdesc">${p.desc}${main&&main.desc?`　·　${main.name}：${main.desc}`:""}</div></div>`;
-  }).join("");
   const legend=`<div class="zw-legend">
     <div class="lg-title">📖 看不懂？這張盤這樣讀</div>
     <ul class="lg-list">
@@ -734,10 +750,28 @@ function renderZiwei(a){
     </ul>
     <div class="lg-foot">命主 <b>${z.soul}</b>＝先天主導你的星、身主 <b>${z.body}</b>＝後天養成你的星；<b>${z.fiveElementsClass}</b>＝決定大運幾歲起運的五行局。</div>
   </div>`;
-  return `<div class="card"><h3><span class="ic">紫</span>紫微斗數 · 命盤</h3>
+  return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
+        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解</span></h3>
       ${legend}
-      <div class="ziwei-grid">${cells}</div></div>
-    <div class="card"><h3><span class="ic">宮</span>十二宮詳解</h3>${palaceCards}</div>`;
+      <div class="ziwei-wrap"><div class="ziwei-grid">${cells}</div>
+        <div class="zw-pop" id="zwPop" hidden></div></div></div>`;
+}
+
+/* 單一宮位的浮動框內容 */
+function palaceDetailHTML(p){
+  const stars=p.majorStars.length
+    ? p.majorStars.map(s=>`${s.name}${s.brightness?`<span style="color:#b08900;font-size:11px">${s.brightness}</span>`:""}${s.mutagen?`<span class="badge ${s.mutagen==='祿'?'good':s.mutagen==='忌'?'bad':'blue'}" style="padding:0 6px;margin-left:2px">化${s.mutagen}</span>`:""}`).join("、")
+    : '<span style="color:#94a3b8">無主星，借對宮星曜論斷</span>';
+  const starDescs=p.majorStars.map(s=>{
+    const g=GLOSSARY[s.name];
+    return g?`<div class="pd-star"><b>${s.name}</b>：${g}</div>`:"";
+  }).join("");
+  const palMeaning=GLOSSARY[p.name]||p.desc||"";
+  return `<div class="pd-head"><span class="pd-name">${p.name}</span>`
+    +`<span class="pd-gz">${p.heavenlyStem||""}${p.earthlyBranch||""}</span></div>`
+    +`<div class="pd-meaning">這一宮看：${palMeaning}</div>`
+    +`<div class="pd-stars-line">主星：${stars}</div>`
+    +(starDescs?`<div class="pd-starbox">${starDescs}</div>`:"");
 }
 
 /* ====== 緊湊大運時間軸（dashboard 用） ====== */
@@ -1012,6 +1046,7 @@ function bindTabs(luckCtx){
     $$(".panel").forEach(p=>p.classList.toggle("on",p.dataset.panel===t.dataset.p));
     window.scrollTo({top:0,behavior:"smooth"});
   }));
+  bindZiweiPopover();
   const lyBox=$("#liuyueBox");
   if(lyBox && luckCtx){
     lyBox.addEventListener("click",()=>{
@@ -1025,6 +1060,37 @@ function bindTabs(luckCtx){
       det.dataset.open="1";lyBox.innerHTML=lyBox.innerHTML.replace("▸","▾");
     });
   }
+}
+
+/* ====== 紫微宮位浮動框 ====== */
+function bindZiweiPopover(){
+  const grid=$(".ziwei-grid"); const pop=$("#zwPop");
+  if(!grid||!pop) return;
+  const wrap=$(".ziwei-wrap");
+  const close=()=>{ pop.hidden=true; grid.querySelectorAll(".zw-cell.active").forEach(c=>c.classList.remove("active")); };
+  grid.addEventListener("click",e=>{
+    const cell=e.target.closest(".zw-cell.clickable");
+    if(!cell) return;
+    if(cell.classList.contains("active")){ close(); return; }
+    grid.querySelectorAll(".zw-cell.active").forEach(c=>c.classList.remove("active"));
+    cell.classList.add("active");
+    pop.innerHTML=`<button class="zw-pop-x" aria-label="關閉">✕</button><div class="zw-pop-body">${decodeURIComponent(cell.dataset.detail||"")}</div>`;
+    pop.hidden=false;
+    // 定位：在格子右側；若超出容器右緣則改放左側
+    const wr=wrap.getBoundingClientRect(), cr=cell.getBoundingClientRect();
+    const top=cr.top-wr.top;
+    pop.style.top=top+"px";
+    const popW=pop.offsetWidth, gap=10;
+    let left=cr.right-wr.left+gap;
+    if(left+popW>wr.width){ left=cr.left-wr.left-popW-gap; }
+    if(left<0) left=Math.max(4,(wr.width-popW)/2);
+    pop.style.left=left+"px";
+    pop.querySelector(".zw-pop-x").addEventListener("click",ev=>{ev.stopPropagation();close();});
+  });
+  document.addEventListener("click",e=>{
+    if(pop.hidden) return;
+    if(!e.target.closest(".ziwei-wrap")) close();
+  });
 }
 
 /* ====== 收合 / 展開表單 ====== */
