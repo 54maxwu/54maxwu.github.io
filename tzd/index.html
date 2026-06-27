@@ -1590,8 +1590,8 @@ function renderSingle(a){
        <div class="cap" style="margin-bottom:10px">納音＝用六十甲子配出的<b>另一套五行象徵</b>（如海中金、爐中火），是每一柱的「別名／質地」，傳統用來補充看個性與緣分，屬趣味參考。</div>
        ${[["年柱",a.bz.nayin.year],["月柱",a.bz.nayin.month],["日柱",a.bz.nayin.day],...(a.bz.nayin.hour?[["時柱",a.bz.nayin.hour]]:[])].map(([k,v])=>`
          <div class="ny-row" data-nayin="${v}"><div class="ny-top"><span class="k">${k}</span><span class="v">${v}</span></div>
-           <div class="ny-say">${NAYIN_PLAIN[v]||""}</div></div>`).join("")}</div>
-     <div class="card"><h3><span class="ic">神</span>十神能量</h3>${renderGodTally(a.godTally,true)}</div>
+           <div class="ny-say">${NAYIN_PLAIN[v]||""}</div></div>`).join("")}
+       <div style="text-align:right;margin-top:10px"><span class="rtab guide-link" data-p="god">看十神能量分布 →</span></div></div>
    </div></div>
 
    <div class="panel" data-panel="god"><div class="grid g2">
