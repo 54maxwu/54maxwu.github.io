@@ -248,6 +248,18 @@
     background:var(--blue-l);padding:3px 9px;border-radius:6px;white-space:nowrap}
   .guide-link:hover{background:var(--blue-sel)}
 
+  /* 健康提醒（疾厄） */
+  .hl-row{padding:11px 0;border-bottom:1px solid var(--line)}
+  .hl-row:last-child{border-bottom:none}
+  .hl-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .hl-wx{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px;background:#fff;border:1px solid var(--line);flex:none}
+  .hl-organ{font-size:12.5px;color:var(--sub)}
+  .hl-say{font-size:13px;color:#475569;line-height:1.7;margin-bottom:5px}
+  .hl-tip{font-size:12px;color:#15803d;background:#f0fdf4;border-radius:7px;padding:6px 10px;line-height:1.6}
+  .hl-avoid{margin-top:10px;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;
+    border-radius:8px;padding:9px 12px;line-height:1.65}
+
   .score-big{display:flex;align-items:center;gap:18px;margin-bottom:6px}
   .ring{position:relative;flex-shrink:0;line-height:0}
   .ring svg{display:block}
@@ -1414,6 +1426,54 @@ function renderDashboard(a,overall,luck){
   </div>`;
 }
 
+/* ====== 八字健康（疾厄）分析 ====== */
+/* 五行→臟腑/身體部位，及偏弱(缺)/偏旺(亢)各自的提醒 */
+const WX_HEALTH={
+  木:{organ:"肝、膽、筋骨、神經、眼睛、頭部",
+    weak:"木弱：易疲倦、筋骨痠軟、視力或情緒低落，肝膽機能偏弱。",
+    over:"木過旺：易肝火大、頭痛、抽筋、情緒緊繃易怒，要疏壓。",
+    tip:"少熬夜養肝、多伸展筋骨、保持心情舒暢、護眼。"},
+  火:{organ:"心、小腸、血液循環、血壓、精神",
+    weak:"火弱：易手腳冰冷、循環差、心悸、精神不振。",
+    over:"火過旺：易上火、失眠、心煩、血壓偏高、口乾舌燥。",
+    tip:"作息規律、別過度操勞與熬夜、注意血壓與情緒平穩。"},
+  土:{organ:"脾、胃、腸道、肌肉、消化系統",
+    weak:"土弱：腸胃較弱、易消化不良、食慾差、容易疲累。",
+    over:"土過旺：易脹氣、濕氣重、體重或血糖問題、思慮過多傷脾。",
+    tip:"飲食定時定量、少生冷油膩、別暴飲暴食、別想太多。"},
+  金:{organ:"肺、大腸、氣管、呼吸道、皮膚、鼻",
+    weak:"金弱：呼吸道與皮膚較敏感、易感冒咳嗽、過敏、便秘。",
+    over:"金過旺：易乾燥、皮膚或呼吸道發炎、大腸躁動。",
+    tip:"注意保暖與空氣品質、多補水潤肺、顧好呼吸道與皮膚。"},
+  水:{organ:"腎、膀胱、泌尿、生殖、骨髓、耳、內分泌",
+    weak:"水弱：易腰痠、頻尿或泌尿問題、精力不足、怕冷、耳鳴。",
+    over:"水過旺：易水腫、腎與膀胱負擔重、生殖泌尿系統易失調。",
+    tip:"別憋尿、適度補水但別過量、保暖腰腎、節制房勞、顧內分泌。"}
+};
+function renderHealth(a){
+  const t=a.tally; const avoid=new Set(a.yong.avoid||[]);
+  const vals=Object.values(t); const avg=vals.reduce((x,y)=>x+y,0)/5;
+  // 找出偏弱(<平均*0.55 或最弱)與偏旺(>平均*1.6)的五行
+  const items=["木","火","土","金","水"].map(w=>({w,v:t[w]}));
+  const weakOnes=items.filter(i=>i.v<avg*0.6).sort((x,y)=>x.v-y.v);
+  const overOnes=items.filter(i=>i.v>avg*1.7).sort((x,y)=>y.v-x.v);
+  const rows=[];
+  weakOnes.slice(0,2).forEach(i=>{const h=WX_HEALTH[i.w];rows.push({w:i.w,kind:"偏弱",say:h.weak,organ:h.organ,tip:h.tip});});
+  overOnes.slice(0,2).forEach(i=>{const h=WX_HEALTH[i.w];rows.push({w:i.w,kind:"偏旺",say:h.over,organ:h.organ,tip:h.tip});});
+  // 忌神對應的器官也提醒（行運踩到忌神時較易出狀況）
+  const avoidWx=[...avoid].filter(w=>WX_HEALTH[w]&&!rows.some(r=>r.w===w));
+  const body=rows.length?rows.map(r=>`<div class="hl-row">
+      <div class="hl-head"><span class="hl-wx wx-${r.w}">${r.w}</span><span class="badge ${r.kind==='偏弱'?'mid':'bad'}">${r.kind}</span><span class="hl-organ">${r.organ}</span></div>
+      <div class="hl-say">${r.say}</div>
+      <div class="hl-tip">💡 ${r.tip}</div>
+    </div>`).join("")
+    : `<div class="hl-row"><div class="hl-say">你的五行算是平衡，沒有特別突出的弱項，整體體質尚穩——維持規律作息即可。</div></div>`;
+  const avoidLine=avoidWx.length?`<div class="hl-avoid">行運走到你的忌神（${avoidWx.join("、")}）年份時，要多留意 ${avoidWx.map(w=>WX_HEALTH[w].organ.split("、").slice(0,2).join("、")).join("；")} 這些部位。</div>`:"";
+  return `<div class="card"><h3><span class="ic" style="background:#dcfce7;color:#15803d">疾</span>健康提醒（八字疾厄）</h3>
+    <div class="cap" style="margin-bottom:10px">八字五行對應身體臟腑（<b>木→肝膽、火→心血管、土→脾胃、金→肺與呼吸道、水→腎與泌尿</b>）。某五行<b>太弱或太旺</b>，對應部位就比較需要照顧。這是體質傾向參考，<b>不是診斷，身體不適請就醫</b>。</div>
+    ${body}${avoidLine}</div>`;
+}
+
 /* ====== 星座（豐富版） ====== */
 function renderSign(a){
   const d=SIGN_DETAIL[a.sign]||{};
@@ -1517,7 +1577,8 @@ function renderSingle(a){
        <div class="cap">命盤中的吉神與凶煞，標示其所在柱位。</div>${renderShensha(a.shensha)}</div>
      <div class="card"><h3><span class="ic">格</span>格局</h3>
        <div class="cap">以月令取格，判斷命局結構與取用方向。</div>${renderPattern(a.pattern)}</div>
-   </div></div>
+   </div>
+   ${renderHealth(a)}</div>
 
    <div class="panel" data-panel="name"><div class="grid g3">
      ${a.nameInfo?renderName(a):`<div class="card"><div class="empty-tip">未輸入姓名。可回上方填入姓名以分析五格三才。</div></div>`}
