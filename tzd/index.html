@@ -272,12 +272,20 @@
   .zw-cell.sfsz.ming{background:#fef2f2}
   .zw-lines{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:visible}
   .pd-sfsz{margin-top:10px;padding-top:9px;border-top:1px dashed #e2e8f0;font-size:11.5px;color:#475569;line-height:1.65}
-  .pd-sfsz b{color:#dc2626}
+  .pd-sf-title{font-weight:700;color:var(--ink);font-size:12px;margin-bottom:4px}
+  .pd-sf-intro{margin-bottom:6px}
+  .pd-sf-intro b{color:#dc2626}
+  .sf-line{display:flex;align-items:baseline;gap:6px;margin:4px 0;line-height:1.55}
+  .sf-line b{color:var(--blue-d)}
+  .sf-tag{flex:none;font-size:10px;font-weight:700;color:#fff;padding:1px 6px;border-radius:5px}
+  .sf-tag.opp{background:#dc2626} .sf-tag.he{background:#0891b2}
+  .pd-sf-eg{margin-top:7px;background:#f8fafc;border-radius:7px;padding:7px 9px;font-size:11px;color:#475569;line-height:1.6}
+  .pd-sf-eg b{color:var(--ink)}
 
   /* 宮位浮動框 */
-  .zw-pop{position:absolute;z-index:30;width:280px;max-width:88vw;background:#fff;
+  .zw-pop{position:absolute;z-index:30;width:300px;max-width:88vw;background:#fff;
     border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.18);
-    padding:14px 16px 15px}
+    padding:14px 16px 15px;max-height:78vh;overflow-y:auto}
   .zw-pop[hidden]{display:none}
   .zw-pop-x{position:absolute;top:8px;right:8px;width:24px;height:24px;border:none;border-radius:50%;
     background:var(--soft);color:#64748b;cursor:pointer;font-size:13px;line-height:1;
@@ -928,8 +936,12 @@ function renderZiwei(a){
         +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
     }).join("")
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
+    // 三方四正的宮名（對宮＋兩三合宮）
+    const b=p.earthlyBranch;
+    const oppName=(cellByBranch[ZW_CHONG[b]]||{}).name||"";
+    const heName=(ZW_SANHE[b]||[]).map(tb=>(cellByBranch[tb]||{}).name||"").filter(Boolean);
     // 浮動框內容（點擊跳出）
-    const detail=palaceDetailHTML(p);
+    const detail=palaceDetailHTML(p,{opp:oppName,he:heName});
     cells+=`<div class="zw-cell clickable ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
       <div class="pn">${p.name}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
       <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
@@ -962,21 +974,33 @@ function renderZiwei(a){
 }
 
 /* 單一宮位的浮動框內容 */
-function palaceDetailHTML(p){
+function palaceDetailHTML(p, rel){
   const stars=p.majorStars.length
     ? p.majorStars.map(s=>`${s.name}${s.brightness?`<span style="color:#b08900;font-size:11px">${s.brightness}</span>`:""}${s.mutagen?`<span class="badge ${s.mutagen==='祿'?'good':s.mutagen==='忌'?'bad':'blue'}" style="padding:0 6px;margin-left:2px">化${s.mutagen}</span>`:""}`).join("、")
-    : '<span style="color:#94a3b8">無主星，借對宮星曜論斷</span>';
+    : '<span style="color:#94a3b8">這格沒有主星，看正對面那一宮的星來借用論斷</span>';
   const starDescs=p.majorStars.map(s=>{
     const g=GLOSSARY[s.name];
     return g?`<div class="pd-star"><b>${s.name}</b>：${g}</div>`:"";
   }).join("");
   const palMeaning=GLOSSARY[p.name]||p.desc||"";
+  // 三方四正白話：把實際連到的宮名帶進來、講清楚關聯
+  const opp=rel&&rel.opp?rel.opp:"";
+  const he=rel&&rel.he&&rel.he.length?rel.he:[];
+  const sfszLines=[
+    opp?`<div class="sf-line"><span class="sf-tag opp">對宮</span><b>${opp}</b>　正對面那一宮，是這件事的「另一面、外在表現或結果」，影響最直接。</div>`:"",
+    he.length?`<div class="sf-line"><span class="sf-tag he">三合</span><b>${he.join("、")}</b>　跟本宮同一組、會互相加分助力的兩宮。</div>`:""
+  ].join("");
   return `<div class="pd-head"><span class="pd-name">${p.name}</span>`
     +`<span class="pd-gz">${p.heavenlyStem||""}${p.earthlyBranch||""}</span></div>`
-    +`<div class="pd-meaning">這一宮看：${palMeaning}</div>`
-    +`<div class="pd-stars-line">主星：${stars}</div>`
+    +`<div class="pd-meaning">這一宮看的是：${palMeaning}</div>`
+    +`<div class="pd-stars-line">坐這宮的主星：${stars}</div>`
     +(starDescs?`<div class="pd-starbox">${starDescs}</div>`:"")
-    +`<div class="pd-sfsz">🔗 <b>三方四正</b>：盤上已用紅線連出與本宮「要合看」的另外三宮——<b>對宮</b>（正對面）＋<b>兩個三合宮</b>。論這一宮時，要連同這三宮的星一起參考，吉凶才完整。</div>`;
+    +`<div class="pd-sfsz">
+        <div class="pd-sf-title">🔗 為什麼盤上拉出紅線？</div>
+        <div class="pd-sf-intro">紫微看任何一宮，<b>不能只看這一格</b>，要把紅線連到的另外三宮「一起合看」，吉凶才準。它們和「${p.name}」是這樣的關係：</div>
+        ${sfszLines}
+        <div class="pd-sf-eg">👉 白話說：想了解「${p.name}」這件事，除了看這格本身，<b>還要把上面那三宮的好壞一起加進來</b>判斷——例如那幾宮有吉星，就算本宮普通也會被拉抬；反之有凶星，本宮再好也會打折。</div>
+      </div>`;
 }
 
 /* 地支三方四正（對宮＝沖、三合＝左右隔四格） */
