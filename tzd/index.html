@@ -360,7 +360,8 @@
   .zw-cell.zwt-ok{border-left:4px solid #2563eb}
   .zw-cell.zwt-mid{border-left:4px solid #cbd5e1}
   .zw-cell.zwt-bad{border-left:4px solid #f59e0b;background:#fffdf5}
-  .zw-dot{position:absolute;top:7px;left:7px;width:8px;height:8px;border-radius:50%}
+  .zw-dot{position:absolute;top:7px;right:7px;width:9px;height:9px;border-radius:50%;
+    box-shadow:0 0 0 2px #fff}
   .zw-badge{display:inline-block;font-size:9px;font-weight:700;color:#fff;border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:middle}
   .zw-badge.ming-b{background:var(--blue-d)} .zw-badge.body-b{background:#7c3aed}
 
@@ -1379,7 +1380,7 @@ function renderZiwei(a){
       <li><b>格子裡的大字＝主星</b>：代表這個面向的「個性／能量」，星名下方已直接寫白話意思（如「紫微＝帝王星，主領導」）。</li>
       <li><b>星旁的小灰字＝這顆星的力量強弱</b>，由強到弱共七級：<span style="color:#b08900"><b>廟</b>(最強)＞<b>旺</b>(很強)＞<b>得</b>(不錯)＞<b>利</b>(尚可)＞<b>平</b>(普通)＞<b>不</b>(偏弱)＞<b>陷</b>(最弱)</span>。</li>
       <li><b>彩色小標＝四化</b>（出生那年天干決定、跟你一輩子的特殊加成）：<span class="sh sh-祿">祿</span>好處財祿、<span class="sh sh-權">權</span>權力能力、<span class="sh sh-科">科</span>名聲貴人、<span class="sh sh-忌">忌</span>牽絆阻礙（功課所在）。</li>
-      <li><b>左上角圓點＝這宮整體強弱</b>（已幫你算好）：<span style="color:#16a34a">●</span>強旺、<span style="color:#2563eb">●</span>不錯、<span style="color:#94a3b8">●</span>中等、<span style="color:#f59e0b">●</span>偏弱。</li>
+      <li><b>右上角圓點＋左邊色條＝這宮整體強弱</b>（已幫你算好）：<span style="color:#16a34a">●</span>強旺、<span style="color:#2563eb">●</span>不錯、<span style="color:#94a3b8">●</span>中等、<span style="color:#f59e0b">●</span>偏弱。</li>
       <li><b>命宮＝你是誰、身宮＝後天會變成的樣子</b>；格內有藍/紫徽章標示。</li>
       <li><b>有些格寫「無主星」＝空宮</b>：不是壞事，代表那面向個性較<b>隨環境而變</b>，要看「對宮」（正對面那宮）的星來借用論斷。</li>
       <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span>＝三方四正</b>：連到要「一起合看」的另三宮——<b>對宮</b>（正對面，看外在結果）＋<b>兩個三合宮</b>（同組互助）。論命要四宮合看才完整。</li>
@@ -1436,7 +1437,7 @@ function ziweiOverview(z,a,cellByBranch,bodyBranch){
       ${jiPalace?`<span>📌 你這輩子的「功課」在 <b>${jiPalace}化忌</b>——這塊最容易卡關、要多用心。</span>`:""}
       ${emptyCnt?`<span>⭕ 你有 <b>${emptyCnt}</b> 個空宮（沒有主星），代表那些面向個性較隨環境、看對宮，不是壞事。</span>`:""}
     </div>
-    <div class="ov-legend">每格左上角圓點＝該宮整體：<span class="ov-dot" style="background:#16a34a"></span>強旺　<span class="ov-dot" style="background:#2563eb"></span>不錯　<span class="ov-dot" style="background:#94a3b8"></span>中等　<span class="ov-dot" style="background:#f59e0b"></span>偏弱</div>
+    <div class="ov-legend">每格右上角圓點＝該宮整體：<span class="ov-dot" style="background:#16a34a"></span>強旺　<span class="ov-dot" style="background:#2563eb"></span>不錯　<span class="ov-dot" style="background:#94a3b8"></span>中等　<span class="ov-dot" style="background:#f59e0b"></span>偏弱</div>
   </div>`;
 }
 
