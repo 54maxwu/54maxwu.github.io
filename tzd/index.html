@@ -43,8 +43,12 @@
   .mode-btn.on{background:var(--blue-sel);color:var(--blue-d);border-color:#bfdbfe;font-weight:600}
 
   /* Form */
-  .form-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+  .person-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:16px}
+  .person-grid.couple{grid-template-columns:1fr 1fr}
+  @media(max-width:820px){ .person-grid.couple{grid-template-columns:1fr} }
+  .form-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px}
   .form-card.person2{display:none}
+  .person-grid.couple .form-card.person2{display:block}
   .form-card .ph{font-size:13px;font-weight:600;color:var(--blue-d);margin-bottom:14px;
     display:flex;align-items:center;gap:6px}
   .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
@@ -436,6 +440,7 @@
     <div class="mode-btn" data-mode="couple">雙人合盤配對</div>
   </div>
 
+  <div class="person-grid" id="personGrid">
   <!-- Person 1 -->
   <div class="form-card" id="card1">
     <div class="ph">◆ <span id="p1label">命主資料</span></div>
@@ -513,6 +518,7 @@
       </div>
     </div>
   </div>
+  </div><!-- /#personGrid -->
 
   <div class="go-row">
     <button class="go" id="go">啟盤推算</button>
@@ -585,7 +591,7 @@ let MODE="single";
 $$(".mode-btn").forEach(b=>b.addEventListener("click",()=>{
   $$(".mode-btn").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   MODE=b.dataset.mode;
-  $("#card2").style.display=MODE==="couple"?"block":"none";
+  $("#personGrid").classList.toggle("couple",MODE==="couple");
   $("#p1label").textContent=MODE==="couple"?"本人資料":"命主資料";
   $("#result").classList.remove("show");
 }));
