@@ -208,6 +208,10 @@
   .cs12-row{display:flex;gap:7px;font-size:11.5px;line-height:1.55;padding:2px 0}
   .cs12-row b{flex:none;width:34px;color:#7c3aed;font-weight:700}
   .cs12-row span{color:#64748b}
+  .cs12-row{border-radius:6px;transition:.2s}
+  .cs12-row.hl{background:#ede9fe;box-shadow:0 0 0 2px #c4b5fd;padding-left:6px;padding-right:6px}
+  .bazi-table .cs.cs-click{cursor:pointer;text-decoration:underline dotted #c4b5fd;text-underline-offset:2px}
+  .bazi-table .cs.cs-click:hover{color:#6d28d9}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -235,6 +239,11 @@
   .kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
   .kv:last-child{border-bottom:none}
   .kv .k{color:var(--sub)} .kv .v{font-weight:600;text-align:right}
+  .ny-row{padding:8px 0;border-bottom:1px solid var(--line)}
+  .ny-row:last-child{border-bottom:none}
+  .ny-top{display:flex;justify-content:space-between;font-size:14px}
+  .ny-top .k{color:var(--sub)} .ny-top .v{font-weight:700;color:var(--blue-d)}
+  .ny-say{font-size:12px;color:#64748b;line-height:1.6;margin-top:3px}
 
   .score-big{display:flex;align-items:center;gap:18px;margin-bottom:6px}
   .ring{position:relative;flex-shrink:0;line-height:0}
@@ -613,6 +622,39 @@ const BRIGHT_NOTE={
   "陷":"落陷－力量最弱，易有缺憾"
 };
 
+/* 三十納音白話一句（傳統意象，趣味參考） */
+const NAYIN_PLAIN={
+  "海中金":"海底之金，深藏不露、大器晚成，韜光養晦終有時。",
+  "爐中火":"爐中之火，熱情有勁、需要舞台，得人助力才旺。",
+  "大林木":"森林之木，氣勢宏大、包容廣，宜往大格局發展。",
+  "路旁土":"路邊之土，任勞任怨、樸實肯做，默默承載眾人。",
+  "劍鋒金":"劍刃之金，鋒利果決、有魄力，宜剛中帶柔。",
+  "山頭火":"山頂之火，光照遠方、有理想，視野高但要落實。",
+  "澗下水":"山澗之水，清澈靈動、聰明，宜順勢而流不硬碰。",
+  "城頭土":"城牆之土，穩重可靠、有原則，是守護型的人。",
+  "白蠟金":"蠟燭之金，溫潤含蓄、重情義，柔中帶韌。",
+  "楊柳木":"楊柳之木，柔軟隨和、有韌性，能屈能伸。",
+  "泉中水":"泉源之水，源源不絕、有福氣，滋養他人。",
+  "屋上土":"屋頂之土，遮風擋雨、顧家，是可靠的依靠。",
+  "霹靂火":"雷電之火，爆發力強、變化快，宜善用衝勁。",
+  "松柏木":"松柏之木，堅毅長青、有骨氣，越冷越挺拔。",
+  "長流水":"長河之水，綿延不絕、有耐性，細水長流型。",
+  "沙中金":"沙裡之金，需淘洗才顯貴，潛力大、宜磨練。",
+  "山下火":"山腳之火，溫和踏實、近人情，照亮身邊的人。",
+  "平地木":"平原之木，平易近人、根基穩，宜穩紮穩打。",
+  "壁上土":"牆上之土，內斂含蓄、護家，外柔內有底。",
+  "金箔金":"金箔之金，外表亮眼、重門面，宜內外兼修。",
+  "覆燈火":"燈火之火，溫暖照人、有人緣，照亮一方天地。",
+  "天河水":"天上之水，氣度恢宏、有福澤，能潤澤眾生。",
+  "大驛土":"大道之土，四通八達、人脈廣，宜走動發展。",
+  "釵釧金":"首飾之金，精緻講究、重美感，宜文雅路線。",
+  "桑柘木":"桑樹之木，務實有用、能養家，腳踏實地有收成。",
+  "大溪水":"溪流之水，活潑奔放、行動快，宜順其自然。",
+  "沙中土":"沙地之土，靈活不拘、適應強，能隨遇而安。",
+  "天上火":"太陽之火，光明博愛、有名聲，照耀且付出。",
+  "石榴木":"石榴之木，多才多藝、晚發，越老越有韻味。",
+  "大海水":"大海之水，包容萬物、格局大，深沉而有容。"
+};
 const WX_COLOR={木:"var(--wood)",火:"var(--fire)",土:"var(--earth)",金:"var(--metal)",水:"var(--water)"};
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -756,7 +798,7 @@ function renderBaziTable(a, showLegend=false){
       <div class="gan wx-${ganWx}">${p.gan}<span class="wx-tag">${ganWx}</span></div>
       <div class="zhi wx-${zhiWx}">${p.zhi}<span class="wx-tag">${zhiWx}</span></div>
       ${godNote}
-      <div class="cs">${p.changSheng||""}</div>
+      <div class="cs${p.changSheng?' cs-click':''}"${p.changSheng?` data-cs="${p.changSheng}" title="點我看「${p.changSheng}」是什麼"`:''}>${p.changSheng||""}</div>
       ${csNote}
       <div class="cangan">${cangan}</div>
       <div class="ny">${p.nayin||""}</div>
@@ -774,7 +816,7 @@ function renderBaziTable(a, showLegend=false){
     <div class="cs12-box">
       <div class="cs12-title">🌱 十二長生 白話對照（能量由生到滅再重生）</div>
       <div class="cs12-grid">
-        ${[["長生","剛出生：生機勃勃、前途看好，能量正要往上"],["沐浴","剛出生要洗澡：不穩定、易迷惘，又叫桃花地"],["冠帶","成年戴冠：開始成熟、嶄露頭角"],["臨官","入朝當官：實力到位、可以擔當，很旺(又叫祿)"],["帝旺","登上巔峰：能量最強，氣勢最盛但要防過剛"],["衰","盛極轉衰：氣勢走下坡，宜守不宜衝"],["病","生病：能量低、易疲累，需要休養"],["死","生命終結：能量最弱，做事易力不從心"],["墓","入庫收藏：能量收斂內守，有積蓄但較封閉"],["絕","氣斷重來：低到極點即將反轉，是變動轉機之地"],["胎","受孕成胎：新的開始正在孕育，有潛力待發"],["養","胎兒養育：休養蓄力、準備再出發"]].map(([k,v])=>`<div class="cs12-row"><b>${k}</b><span>${v}</span></div>`).join("")}
+        ${[["長生","剛出生：生機勃勃、前途看好，能量正要往上"],["沐浴","剛出生要洗澡：不穩定、易迷惘，又叫桃花地"],["冠帶","成年戴冠：開始成熟、嶄露頭角"],["臨官","入朝當官：實力到位、可以擔當，很旺(又叫祿)"],["帝旺","登上巔峰：能量最強，氣勢最盛但要防過剛"],["衰","盛極轉衰：氣勢走下坡，宜守不宜衝"],["病","生病：能量低、易疲累，需要休養"],["死","生命終結：能量最弱，做事易力不從心"],["墓","入庫收藏：能量收斂內守，有積蓄但較封閉"],["絕","氣斷重來：低到極點即將反轉，是變動轉機之地"],["胎","受孕成胎：新的開始正在孕育，有潛力待發"],["養","胎兒養育：休養蓄力、準備再出發"]].map(([k,v])=>`<div class="cs12-row" data-cs12="${k}"><b>${k}</b><span>${v}</span></div>`).join("")}
       </div>
     </div>
   </div>`;
@@ -1441,12 +1483,14 @@ function renderSingle(a){
    <div class="panel" data-panel="bazi"><div class="grid g3">
      <div class="card full"><h3><span class="ic">柱</span>四柱排盤
        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a,true)}</div>
-     <div class="card"><h3><span class="ic">五</span>五行能量</h3>${renderWuxing(a.tally)}</div>
+     <div class="card"><h3><span class="ic">五</span>五行能量</h3>${renderWuxing(a.tally)}
+       <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱。</div>
+       ${renderRemedy(a.yong.primary, a.yong.avoid)}</div>
      <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
-       <div class="kv"><span class="k">年柱</span><span class="v">${a.bz.nayin.year}</span></div>
-       <div class="kv"><span class="k">月柱</span><span class="v">${a.bz.nayin.month}</span></div>
-       <div class="kv"><span class="k">日柱</span><span class="v">${a.bz.nayin.day}</span></div>
-       ${a.bz.nayin.hour?`<div class="kv"><span class="k">時柱</span><span class="v">${a.bz.nayin.hour}</span></div>`:""}</div>
+       <div class="cap" style="margin-bottom:10px">納音＝用六十甲子配出的<b>另一套五行象徵</b>（如海中金、爐中火），是每一柱的「別名／質地」，傳統用來補充看個性與緣分，屬趣味參考。</div>
+       ${[["年柱",a.bz.nayin.year],["月柱",a.bz.nayin.month],["日柱",a.bz.nayin.day],...(a.bz.nayin.hour?[["時柱",a.bz.nayin.hour]]:[])].map(([k,v])=>`
+         <div class="ny-row"><div class="ny-top"><span class="k">${k}</span><span class="v">${v}</span></div>
+           <div class="ny-say">${NAYIN_PLAIN[v]||""}</div></div>`).join("")}</div>
      <div class="card"><h3><span class="ic">神</span>十神能量</h3>${renderGodTally(a.godTally,true)}</div>
    </div></div>
 
@@ -1564,6 +1608,7 @@ function bindTabs(luckCtx){
     window.scrollTo({top:0,behavior:"smooth"});
   }));
   bindZiweiPopover();
+  bindChangSheng();
   const lyBox=$("#liuyueBox");
   if(lyBox && luckCtx){
     lyBox.addEventListener("click",()=>{
@@ -1577,6 +1622,24 @@ function bindTabs(luckCtx){
       det.dataset.open="1";lyBox.innerHTML=lyBox.innerHTML.replace("▸","▾");
     });
   }
+}
+
+/* ====== 點四柱的十二長生 → 上方對照表高亮 ====== */
+function bindChangSheng(){
+  $$(".cs-click").forEach(el=>{
+    el.addEventListener("click",()=>{
+      const cs=el.dataset.cs;
+      const rows=$$(`.cs12-row`);
+      if(!rows.length) return;
+      rows.forEach(r=>r.classList.remove("hl"));
+      const target=$$(`.cs12-row[data-cs12="${cs}"]`)[0];
+      if(target){
+        target.classList.add("hl");
+        target.scrollIntoView({behavior:"smooth",block:"center"});
+        setTimeout(()=>target.classList.remove("hl"),2600);
+      }
+    });
+  });
 }
 
 /* ====== 紫微宮位浮動框＋三方四正連線 ====== */
