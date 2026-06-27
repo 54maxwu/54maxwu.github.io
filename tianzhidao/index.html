@@ -100,12 +100,21 @@
   .dash .bar{height:7px}
   .dash .note{padding:8px 10px;font-size:12px;line-height:1.65}
   .dash .bazi-table{border-spacing:5px}
-  .dash .bazi-table .gan,.dash .bazi-table .zhi{font-size:22px}
-  .dash .bazi-table .gz-cell{padding:8px 3px}
+  .dash .bazi-table .gan,.dash .bazi-table .zhi{font-size:22px;line-height:1.1}
+  .dash .bazi-table .gz-cell{padding:7px 3px}
+  .dash .bazi-table .god{margin:1px 0}
+  .dash .bazi-table .cangan{margin-top:3px;line-height:1.35}
+  .dash .bazi-table .cs{margin-top:2px}
+  .dash .bazi-table .ny{margin-top:1px}
   .dash .timeline{gap:4px}
   .dash .ty{min-width:60px;padding:7px 4px}
   .dash .ty .gz{font-size:16px}
   .dash .ln-row{padding:5px 0;font-size:13px}
+  /* 清單在寬卡內自動多欄填滿 */
+  .flow2{column-count:3;column-gap:24px}
+  .flow2 .ln-row{break-inside:avoid;border-bottom:1px solid var(--line)}
+  @media(max-width:1100px){ .flow2{column-count:2} }
+  @media(max-width:680px){ .flow2{column-count:1} }
   .mini-h{font-size:12px;color:var(--blue-d);font-weight:600;margin:12px 0 6px;
     padding-top:10px;border-top:1px solid var(--line)}
   .mini-h:first-child{border-top:none;padding-top:0;margin-top:0}
@@ -507,21 +516,22 @@ function renderLuck(a){
     <div class="age">${p.startYear}</div>
     <div class="tier tier-${p.tier}">${p.tier}</div>
   </div>`).join("");
-  const ln=calcLiuNian(a.bz.solar.y,nowY,8,a.yong.primary,a.bz.dGan);
+  const ln=calcLiuNian(a.bz.solar.y,nowY,10,a.yong.primary,a.bz.dGan);
   const lnRows=ln.map((L,i)=>{const th=LUCK_THEME[L.tier];return `<div class="ln-row">
     <span class="yr">${L.year} (${L.age}歲)</span>
     <span class="gz">${wxSpan(L.gz[0])}${L.gz[1]}</span>
     <span class="badge ${L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid'}">${L.tier}</span>
     <span class="g">${L.ganGod}・${th.theme.split("，")[0]}</span></div>`;}).join("");
-  return {dy,html:`
-    <div class="card"><h3><span class="ic">運</span>大運（每十年一柱）</h3>
-      <div class="cap">${dy.dir}・${dy.startDesc}。旺衰依喜用神（${a.yong.primary.join("")}）與大運五行生剋判定。</div>
+  return {dy,html:`<div class="dash">
+    <div class="card span-all"><h3><span class="ic">運</span>大運（每十年一柱）
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">${dy.dir}・${dy.startDesc}・旺衰依喜用神（${a.yong.primary.join("")}）判定</span></h3>
       <div class="timeline">${tl}</div></div>
-    <div class="card"><h3><span class="ic">年</span>流年（近八年）</h3>
-      <div class="cap">流年干支對命局喜用之旺衰，僅供趨吉避凶。</div>
-      ${lnRows}
-      <div class="note" id="liuyueBox" style="cursor:pointer">▸ 點此展開 <b>${nowY} 年流月</b>細解</div>
-      <div id="liuyueDetail"></div></div>`,nowY};
+    <div class="card span-all"><h3><span class="ic">年</span>流年（近十年）
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">流年干支對命局喜用之旺衰</span></h3>
+      <div class="flow2">${lnRows}</div>
+      <div class="note" id="liuyueBox" style="cursor:pointer;margin-top:10px">▸ 點此展開 <b>${nowY} 年流月</b>細解</div>
+      <div id="liuyueDetail" class="flow2"></div></div>
+    </div>`,nowY};
 }
 
 /* ====== 紫微方格盤 ====== */
@@ -585,9 +595,9 @@ function renderDaYunMini(a){
 /* ====== Dashboard 總覽（寬版多欄，一頁看完） ====== */
 function renderDashboard(a,overall,luck){
   const nowY=new Date().getFullYear();
-  const ln=calcLiuNian(a.bz.solar.y,nowY,6,a.yong.primary,a.bz.dGan);
-  const lnRows=ln.map(L=>`<div class="ln-row" style="padding:6px 0">
-    <span class="yr" style="width:74px">${L.year}</span>
+  const ln=calcLiuNian(a.bz.solar.y,nowY,9,a.yong.primary,a.bz.dGan);
+  const lnRows=ln.map(L=>`<div class="ln-row" style="padding:5px 0">
+    <span class="yr" style="width:60px">${L.year}</span>
     <span class="gz">${wxSpan(L.gz[0])}${L.gz[1]}</span>
     <span class="badge ${L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid'}">${L.tier}</span>
     <span class="g">${L.ganGod}</span></div>`).join("");
@@ -667,16 +677,16 @@ function renderDashboard(a,overall,luck){
       ${zwBlock}
     </div>
 
-    <!-- 近年流年 -->
-    <div class="card">
-      <h3><span class="ic">年</span>近年流年</h3>
-      ${lnRows}
-    </div>
-
     <!-- 大運（橫跨全寬） -->
     <div class="card span-all">
       <h3><span class="ic">運</span>大運走勢</h3>
       ${renderDaYunMini(a)}
+    </div>
+
+    <!-- 近年流年（橫跨全寬，多欄） -->
+    <div class="card span-all">
+      <h3><span class="ic">年</span>近年流年</h3>
+      <div class="flow2">${lnRows}</div>
     </div>
   </div>`;
 }
@@ -696,50 +706,51 @@ function renderSingle(a){
      ${renderDashboard(a,overall,luck)}
    </div>
 
-   <div class="panel" data-panel="bazi">
-     <div class="card"><h3><span class="ic">柱</span>四柱排盤</h3>
-       <div class="cap">每柱含天干十神、地支藏干及其十神、十二長生、納音。</div>${renderBaziTable(a)}</div>
+   <div class="panel" data-panel="bazi"><div class="dash">
+     <div class="card span-all"><h3><span class="ic">柱</span>四柱排盤
+       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a)}</div>
      <div class="card"><h3><span class="ic">五</span>五行能量</h3>${renderWuxing(a.tally)}</div>
      <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
        <div class="kv"><span class="k">年柱</span><span class="v">${a.bz.nayin.year}</span></div>
        <div class="kv"><span class="k">月柱</span><span class="v">${a.bz.nayin.month}</span></div>
        <div class="kv"><span class="k">日柱</span><span class="v">${a.bz.nayin.day}</span></div>
        ${a.bz.nayin.hour?`<div class="kv"><span class="k">時柱</span><span class="v">${a.bz.nayin.hour}</span></div>`:""}</div>
-   </div>
+     <div class="card"><h3><span class="ic">神</span>十神能量</h3>${renderGodTally(a.godTally)}</div>
+   </div></div>
 
-   <div class="panel" data-panel="god">
-     <div class="card"><h3><span class="ic">身</span>身強弱判定</h3>${renderStrength(a.strength)}</div>
+   <div class="panel" data-panel="god"><div class="dash">
+     <div class="card span-all"><h3><span class="ic">身</span>身強弱判定</h3>${renderStrength(a.strength)}</div>
      <div class="card"><h3><span class="ic">用</span>用神・喜忌</h3>${renderYong(a.yong)}</div>
      <div class="card"><h3><span class="ic">神</span>十神能量分布</h3>
-       <div class="cap">五大十神類別的力量比重，反映性格與人生課題傾向。</div>${renderGodTally(a.godTally)}</div>
-   </div>
+       <div class="cap">五大十神類別的力量比重，反映性格傾向。</div>${renderGodTally(a.godTally)}</div>
+   </div></div>
 
    <div class="panel" data-panel="ziwei">${renderZiwei(a)}</div>
 
    <div class="panel" data-panel="luck">${luck.html}</div>
 
-   <div class="panel" data-panel="shensha">
+   <div class="panel" data-panel="shensha"><div class="dash">
      <div class="card"><h3><span class="ic">煞</span>神煞</h3>
        <div class="cap">命盤中的吉神與凶煞，標示其所在柱位。</div>${renderShensha(a.shensha)}</div>
      <div class="card"><h3><span class="ic">格</span>格局</h3>
        <div class="cap">以月令取格，判斷命局結構與取用方向。</div>${renderPattern(a.pattern)}</div>
-   </div>
+   </div></div>
 
-   <div class="panel" data-panel="name">
+   <div class="panel" data-panel="name"><div class="dash">
      ${a.nameInfo?renderName(a):`<div class="card"><div class="empty-tip">未輸入姓名。可回上方填入姓名以分析五格三才。</div></div>`}
      <div class="card"><h3><span class="ic">星</span>星座</h3>
        <div class="kv"><span class="k">太陽星座</span><span class="v">${a.sign}座</span></div>
        ${a.rising?`<div class="kv"><span class="k">上升星座（近似）</span><span class="v">${a.rising}座</span></div>`:""}
        <div class="note">${SIGN_TRAIT[a.sign]||""}</div></div>
      <div class="card"><h3><span class="ic">肖</span>生肖</h3>
-       <div style="font-size:20px;font-weight:700;margin-bottom:6px">屬${a.sx.sx}</div>
+       <div style="font-size:18px;font-weight:700;margin-bottom:6px">屬${a.sx.sx}</div>
        <div class="note">${a.sx.trait}</div>
-       <div style="margin-top:10px;font-size:13px;line-height:2">
+       <div style="margin-top:10px;font-size:12.5px;line-height:1.9">
          <div>三合（最佳助力）：<b>${a.sx.sanhe.join("、")}</b></div>
          <div>六合（貴人）：<b>${a.sx.liuhe}</b></div>
          <div>六沖（最不合）：<b style="color:var(--bad)">${a.sx.chong}</b></div>
          <div>相害：<b>${a.sx.hai}</b>　相刑：<b>${a.sx.xing.join("、")}</b></div></div></div>
-   </div>`;
+   </div></div>`;
   return {html, luck};
 }
 
