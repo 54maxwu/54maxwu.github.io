@@ -87,21 +87,25 @@
     display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
   .card .cap{font-size:12.5px;color:var(--sub);margin-bottom:14px}
 
-  /* Dashboard 多欄網格 */
-  .dash{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;align-items:start}
-  .dash .card{margin-bottom:0;height:100%}
-  .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-5{grid-column:span 5}
-  .col-6{grid-column:span 6}.col-7{grid-column:span 7}.col-8{grid-column:span 8}
-  .col-9{grid-column:span 9}.col-12{grid-column:span 12}
-  @media(max-width:1100px){
-    .col-3,.col-4,.col-5{grid-column:span 6}
-    .col-6,.col-7,.col-8,.col-9{grid-column:span 12}
-  }
-  @media(max-width:680px){ .dash{grid-template-columns:1fr}
-    .col-3,.col-4,.col-5,.col-6,.col-7,.col-8,.col-9{grid-column:span 1} }
-  /* 卡內小標題（dashboard 緊湊版） */
-  .card.tight{padding:14px}
-  .card.tight h3{font-size:13.5px;margin-bottom:10px}
+  /* Dashboard：CSS multi-column 瀑布流，依內容高度填滿、不留空白 */
+  .dash{column-count:3;column-gap:12px}
+  .dash .card{break-inside:avoid;margin:0 0 12px;padding:13px 15px;display:inline-block;width:100%}
+  .dash .card h3{font-size:13.5px;margin-bottom:8px}
+  .dash .card.span-all{column-span:all;display:block;width:100%}
+  @media(max-width:1200px){ .dash{column-count:2} }
+  @media(max-width:680px){ .dash{column-count:1} }
+  /* dashboard 內元素緊湊化 */
+  .dash .kv{padding:5px 0;font-size:13px}
+  .dash .wx-bars div{margin:4px 0}
+  .dash .bar{height:7px}
+  .dash .note{padding:8px 10px;font-size:12px;line-height:1.65}
+  .dash .bazi-table{border-spacing:5px}
+  .dash .bazi-table .gan,.dash .bazi-table .zhi{font-size:22px}
+  .dash .bazi-table .gz-cell{padding:8px 3px}
+  .dash .timeline{gap:4px}
+  .dash .ty{min-width:60px;padding:7px 4px}
+  .dash .ty .gz{font-size:16px}
+  .dash .ln-row{padding:5px 0;font-size:13px}
   .mini-h{font-size:12px;color:var(--blue-d);font-weight:600;margin:12px 0 6px;
     padding-top:10px;border-top:1px solid var(--line)}
   .mini-h:first-child{border-top:none;padding-top:0;margin-top:0}
@@ -607,73 +611,72 @@ function renderDashboard(a,overall,luck){
   })() : `<div class="empty-tip" style="padding:14px">紫微排盤需準確出生時辰</div>`;
 
   return `<div class="dash">
-    <!-- 命主大卡 -->
-    <div class="card col-4">
-      <div class="score-big">
-        <div class="ring"><svg width="96" height="96" style="transform:rotate(-90deg)">
-          <circle cx="48" cy="48" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
-          <circle cx="48" cy="48" r="42" fill="none" stroke="#3b82f6" stroke-width="7" stroke-linecap="round"
-            stroke-dasharray="${2*Math.PI*42}" stroke-dashoffset="${2*Math.PI*42*(1-overall/100)}"/></svg>
-          <div class="num"><b>${overall}</b><small>命局綜評</small></div></div>
+    <!-- 八字四柱（橫跨全寬，最重要） -->
+    <div class="card span-all">
+      <h3><span class="ic">柱</span>八字四柱
+        <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--sub)">${a.name||"命主"}・${a.sex}・屬${a.sx.sx}・${a.sign}座${a.rising?`・${a.rising}升`:""}・日主 <b class="wx-${a.strength.dayWx}">${a.bz.dGan}（${a.strength.dayWx}）</b>・${a.strength.strength}・${a.pattern.patterns[0].name}</span>
+      </h3>
+      ${renderBaziTable(a)}
+    </div>
+
+    <!-- 命局綜評 -->
+    <div class="card">
+      <div class="score-big" style="margin-bottom:4px">
+        <div class="ring"><svg width="80" height="80" style="transform:rotate(-90deg)">
+          <circle cx="40" cy="40" r="35" fill="none" stroke="#e2e8f0" stroke-width="6"/>
+          <circle cx="40" cy="40" r="35" fill="none" stroke="#3b82f6" stroke-width="6" stroke-linecap="round"
+            stroke-dasharray="${2*Math.PI*35}" stroke-dashoffset="${2*Math.PI*35*(1-overall/100)}"/></svg>
+          <div class="num"><b style="font-size:24px">${overall}</b><small>綜評</small></div></div>
         <div style="flex:1">
-          <div style="font-size:18px;font-weight:700">${a.name||"命主"}</div>
-          <div style="font-size:12.5px;color:var(--sub);margin-top:3px">${a.sex}・屬${a.sx.sx}・${a.sign}座${a.rising?`・${a.rising}升`:""}</div>
+          <div class="kv" style="padding:3px 0"><span class="k">身強弱</span><span class="v">${a.strength.strength}（${a.strength.score}）</span></div>
+          <div class="kv" style="padding:3px 0"><span class="k">格局</span><span class="v">${a.pattern.patterns[0].name}</span></div>
         </div>
       </div>
-      <div class="kv"><span class="k">日主</span><span class="v"><b class="wx-${a.strength.dayWx}">${a.bz.dGan}（${a.strength.dayWx}）</b></span></div>
-      <div class="kv"><span class="k">身強弱</span><span class="v">${a.strength.strength}（${a.strength.score}）</span></div>
-      <div class="kv"><span class="k">格局</span><span class="v">${a.pattern.patterns[0].name}</span></div>
       <div class="kv"><span class="k">喜用神</span><span class="v">${a.yong.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7">${w}</span>`).join("")}</span></div>
       <div class="kv"><span class="k">忌神</span><span class="v">${a.yong.avoid.length?a.yong.avoid.map(w=>`<span class="badge bad">${w}</span>`).join(""):'—'}</span></div>
     </div>
 
-    <!-- 八字四柱 -->
-    <div class="card col-8">
-      <h3><span class="ic">柱</span>八字四柱</h3>
-      ${renderBaziTable(a)}
-    </div>
-
     <!-- 五行能量 -->
-    <div class="card col-4">
+    <div class="card">
       <h3><span class="ic">五</span>五行能量</h3>
       ${renderWuxing(a.tally)}
-      <div class="note" style="margin-top:10px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱，後天可由色彩方位調補。</div>
+      <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱，可由色彩方位調補。</div>
     </div>
 
     <!-- 十神分布 -->
-    <div class="card col-4">
+    <div class="card">
       <h3><span class="ic">神</span>十神能量</h3>
       ${renderGodTally(a.godTally)}
     </div>
 
+    <!-- 神煞 -->
+    <div class="card">
+      <h3><span class="ic">煞</span>神煞</h3>
+      <div style="line-height:2">${ssShort}</div>
+    </div>
+
     <!-- 用神說明 -->
-    <div class="card col-4">
+    <div class="card">
       <h3><span class="ic">用</span>用神喜忌</h3>
-      <div style="font-size:13px;line-height:1.85;color:#475569">${a.yong.note}</div>
+      <div style="font-size:12.5px;line-height:1.75;color:#475569">${a.yong.note}</div>
     </div>
 
     <!-- 紫微重點 -->
-    <div class="card col-6">
-      <h3><span class="ic">紫</span>紫微斗數（重點宮位）</h3>
+    <div class="card">
+      <h3><span class="ic">紫</span>紫微（重點宮位）</h3>
       ${zwBlock}
     </div>
 
-    <!-- 神煞 -->
-    <div class="card col-6">
-      <h3><span class="ic">煞</span>神煞</h3>
-      <div style="line-height:2.2">${ssShort}</div>
-    </div>
-
-    <!-- 大運 -->
-    <div class="card col-8">
-      <h3><span class="ic">運</span>大運走勢</h3>
-      ${renderDaYunMini(a)}
-    </div>
-
     <!-- 近年流年 -->
-    <div class="card col-4">
+    <div class="card">
       <h3><span class="ic">年</span>近年流年</h3>
       ${lnRows}
+    </div>
+
+    <!-- 大運（橫跨全寬） -->
+    <div class="card span-all">
+      <h3><span class="ic">運</span>大運走勢</h3>
+      ${renderDaYunMini(a)}
     </div>
   </div>`;
 }
