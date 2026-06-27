@@ -31,7 +31,8 @@
   .app-header h1{font-size:16px;font-weight:600;color:var(--ink);letter-spacing:.02em;margin:0}
   .app-header .tag{font-size:12px;color:var(--sub);margin-left:auto}
 
-  .page-content{padding:16px 20px 60px;max-width:920px;margin:0 auto}
+  .page-content{padding:16px 24px 60px;max-width:980px;margin:0 auto;transition:max-width .2s}
+  .page-content.wide{max-width:1560px}
   .sub{color:var(--sub);font-size:13px;margin-bottom:16px}
 
   /* Mode tabs */
@@ -85,6 +86,38 @@
   .card h3 .ic{width:22px;height:22px;border-radius:6px;background:var(--blue-l);color:var(--blue-d);
     display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
   .card .cap{font-size:12.5px;color:var(--sub);margin-bottom:14px}
+
+  /* Dashboard 多欄網格 */
+  .dash{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;align-items:start}
+  .dash .card{margin-bottom:0;height:100%}
+  .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-5{grid-column:span 5}
+  .col-6{grid-column:span 6}.col-7{grid-column:span 7}.col-8{grid-column:span 8}
+  .col-9{grid-column:span 9}.col-12{grid-column:span 12}
+  @media(max-width:1100px){
+    .col-3,.col-4,.col-5{grid-column:span 6}
+    .col-6,.col-7,.col-8,.col-9{grid-column:span 12}
+  }
+  @media(max-width:680px){ .dash{grid-template-columns:1fr}
+    .col-3,.col-4,.col-5,.col-6,.col-7,.col-8,.col-9{grid-column:span 1} }
+  /* 卡內小標題（dashboard 緊湊版） */
+  .card.tight{padding:14px}
+  .card.tight h3{font-size:13.5px;margin-bottom:10px}
+  .mini-h{font-size:12px;color:var(--blue-d);font-weight:600;margin:12px 0 6px;
+    padding-top:10px;border-top:1px solid var(--line)}
+  .mini-h:first-child{border-top:none;padding-top:0;margin-top:0}
+
+  /* 表單收合 */
+  #formZone.collapsed{display:none}
+  /* 已收合時，Header 右側顯示重算膠囊 */
+  .recap{display:none;align-items:center;gap:8px;margin-left:auto;background:var(--blue-l);
+    border:1px solid #bfdbfe;border-radius:20px;padding:5px 8px 5px 14px;cursor:pointer;
+    font-size:13px;color:var(--blue-d);transition:.15s;max-width:46vw}
+  .recap:hover{background:var(--blue-sel)}
+  .recap .rinfo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+  .recap .redit{background:var(--blue);color:#fff;border-radius:14px;padding:3px 11px;font-size:12px;
+    font-weight:600;flex-shrink:0}
+  .recap.show{display:flex}
+  .app-header .tag.hide{display:none}
 
   /* 四柱排盤表 */
   .bazi-table{width:100%;border-collapse:separate;border-spacing:6px;text-align:center}
@@ -176,9 +209,14 @@
   <div class="logo">知</div>
   <h1>天知道</h1>
   <span class="tag">深度命理命盤 · 八字 / 紫微 / 大運 / 合盤</span>
+  <div class="recap" id="recap" title="點此修改生辰、重新推算">
+    <span class="rinfo" id="recapInfo"></span>
+    <span class="redit">✎ 改</span>
+  </div>
 </header>
 
 <div class="page-content">
+ <div id="formZone">
   <p class="sub">輸入生辰，一站式排出八字四柱、十神身強弱、用神喜忌、紫微十二宮、大運流年、神煞格局。命理為趨吉避凶之參考，路在自己腳下。</p>
 
   <div class="modes">
@@ -265,6 +303,7 @@
   </div>
 
   <button class="go" id="go">啟盤推算</button>
+ </div><!-- /#formZone -->
 
   <div id="result"></div>
 
@@ -529,6 +568,116 @@ function renderZiwei(a){
     <div class="card"><h3><span class="ic">宮</span>十二宮詳解</h3>${palaceCards}</div>`;
 }
 
+/* ====== 緊湊大運時間軸（dashboard 用） ====== */
+function renderDaYunMini(a){
+  const dy=calcDaYun(a.bz,a.sex);const nowY=new Date().getFullYear();
+  annotateDaYun(dy,a.yong.primary,nowY,a.bz.solar.y);
+  const tl=dy.list.map(p=>`<div class="ty ${p.active?'active':''}">
+    <div class="gz">${wxSpan(p.gz[0])}${p.gz[1]}</div><div class="g">${p.ganGod}</div>
+    <div class="age">${p.startAge}-${p.endAge}</div><div class="tier tier-${p.tier}">${p.tier}</div></div>`).join("");
+  return `<div class="cap" style="margin-bottom:8px">${dy.dir}・${dy.startDesc}（喜用 ${a.yong.primary.join("")}）</div><div class="timeline">${tl}</div>`;
+}
+
+/* ====== Dashboard 總覽（寬版多欄，一頁看完） ====== */
+function renderDashboard(a,overall,luck){
+  const nowY=new Date().getFullYear();
+  const ln=calcLiuNian(a.bz.solar.y,nowY,6,a.yong.primary,a.bz.dGan);
+  const lnRows=ln.map(L=>`<div class="ln-row" style="padding:6px 0">
+    <span class="yr" style="width:74px">${L.year}</span>
+    <span class="gz">${wxSpan(L.gz[0])}${L.gz[1]}</span>
+    <span class="badge ${L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid'}">${L.tier}</span>
+    <span class="g">${L.ganGod}</span></div>`).join("");
+  // 神煞精簡
+  const ssShort=a.shensha.length
+    ? a.shensha.map(s=>`<span class="badge ${/貴人|文昌|將星|天德|月德|祿/.test(s.name)?'good':/羊刃|劫煞|空亡|亡神/.test(s.name)?'bad':'gray'}" title="${s.desc}">${s.name}</span>`).join(" ")
+    : '<span style="color:#94a3b8">命中無明顯神煞</span>';
+  // 紫微命宮+三方（總覽只放重點）
+  const zwBlock = a.ziwei ? (()=>{
+    const ming=a.ziwei.palaces.find(p=>p.name==="命宮");
+    const guan=a.ziwei.palaces.find(p=>p.name==="官祿");
+    const cai=a.ziwei.palaces.find(p=>p.name==="財帛");
+    const fu=a.ziwei.palaces.find(p=>p.name==="夫妻");
+    const starsOf=p=>p&&p.majorStars.length?p.majorStars.map(s=>s.name+(s.mutagen?`<span class="badge ${s.mutagen==='祿'?'good':s.mutagen==='忌'?'bad':'blue'}" style="padding:0 5px">化${s.mutagen}</span>`:"")).join("、"):'<span style="color:#94a3b8">借對宮</span>';
+    return `<div style="font-size:12.5px;color:var(--sub);margin-bottom:8px">命主 ${a.ziwei.soul}・身主 ${a.ziwei.body}・${a.ziwei.fiveElementsClass}</div>
+      <div class="kv"><span class="k">命宮</span><span class="v">${starsOf(ming)}</span></div>
+      <div class="kv"><span class="k">官祿(事業)</span><span class="v">${starsOf(guan)}</span></div>
+      <div class="kv"><span class="k">財帛(財運)</span><span class="v">${starsOf(cai)}</span></div>
+      <div class="kv"><span class="k">夫妻(感情)</span><span class="v">${starsOf(fu)}</span></div>
+      <div style="text-align:right;margin-top:8px"><span class="rtab" style="font-size:12px;color:var(--blue-d);cursor:pointer;background:var(--blue-l);padding:4px 10px;border-radius:6px" data-p="ziwei">看完整十二宮 →</span></div>`;
+  })() : `<div class="empty-tip" style="padding:14px">紫微排盤需準確出生時辰</div>`;
+
+  return `<div class="dash">
+    <!-- 命主大卡 -->
+    <div class="card col-4">
+      <div class="score-big">
+        <div class="ring"><svg width="96" height="96" style="transform:rotate(-90deg)">
+          <circle cx="48" cy="48" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+          <circle cx="48" cy="48" r="42" fill="none" stroke="#3b82f6" stroke-width="7" stroke-linecap="round"
+            stroke-dasharray="${2*Math.PI*42}" stroke-dashoffset="${2*Math.PI*42*(1-overall/100)}"/></svg>
+          <div class="num"><b>${overall}</b><small>命局綜評</small></div></div>
+        <div style="flex:1">
+          <div style="font-size:18px;font-weight:700">${a.name||"命主"}</div>
+          <div style="font-size:12.5px;color:var(--sub);margin-top:3px">${a.sex}・屬${a.sx.sx}・${a.sign}座${a.rising?`・${a.rising}升`:""}</div>
+        </div>
+      </div>
+      <div class="kv"><span class="k">日主</span><span class="v"><b class="wx-${a.strength.dayWx}">${a.bz.dGan}（${a.strength.dayWx}）</b></span></div>
+      <div class="kv"><span class="k">身強弱</span><span class="v">${a.strength.strength}（${a.strength.score}）</span></div>
+      <div class="kv"><span class="k">格局</span><span class="v">${a.pattern.patterns[0].name}</span></div>
+      <div class="kv"><span class="k">喜用神</span><span class="v">${a.yong.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7">${w}</span>`).join("")}</span></div>
+      <div class="kv"><span class="k">忌神</span><span class="v">${a.yong.avoid.length?a.yong.avoid.map(w=>`<span class="badge bad">${w}</span>`).join(""):'—'}</span></div>
+    </div>
+
+    <!-- 八字四柱 -->
+    <div class="card col-8">
+      <h3><span class="ic">柱</span>八字四柱</h3>
+      ${renderBaziTable(a)}
+    </div>
+
+    <!-- 五行能量 -->
+    <div class="card col-4">
+      <h3><span class="ic">五</span>五行能量</h3>
+      ${renderWuxing(a.tally)}
+      <div class="note" style="margin-top:10px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱，後天可由色彩方位調補。</div>
+    </div>
+
+    <!-- 十神分布 -->
+    <div class="card col-4">
+      <h3><span class="ic">神</span>十神能量</h3>
+      ${renderGodTally(a.godTally)}
+    </div>
+
+    <!-- 用神說明 -->
+    <div class="card col-4">
+      <h3><span class="ic">用</span>用神喜忌</h3>
+      <div style="font-size:13px;line-height:1.85;color:#475569">${a.yong.note}</div>
+    </div>
+
+    <!-- 紫微重點 -->
+    <div class="card col-6">
+      <h3><span class="ic">紫</span>紫微斗數（重點宮位）</h3>
+      ${zwBlock}
+    </div>
+
+    <!-- 神煞 -->
+    <div class="card col-6">
+      <h3><span class="ic">煞</span>神煞</h3>
+      <div style="line-height:2.2">${ssShort}</div>
+    </div>
+
+    <!-- 大運 -->
+    <div class="card col-8">
+      <h3><span class="ic">運</span>大運走勢</h3>
+      ${renderDaYunMini(a)}
+    </div>
+
+    <!-- 近年流年 -->
+    <div class="card col-4">
+      <h3><span class="ic">年</span>近年流年</h3>
+      ${lnRows}
+    </div>
+  </div>`;
+}
+
 /* ====== 主渲染（單人） ====== */
 function renderSingle(a){
   const luck=renderLuck(a);
@@ -541,23 +690,7 @@ function renderSingle(a){
    <div class="result-tabs">${tabs.map((t,i)=>`<button class="rtab ${i===0?'on':''}" data-p="${t[1]}">${t[0]}</button>`).join("")}</div>
 
    <div class="panel on" data-panel="overview">
-     <div class="card">
-       <div class="score-big">
-         <div class="ring"><svg width="96" height="96" style="transform:rotate(-90deg)">
-           <circle cx="48" cy="48" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
-           <circle cx="48" cy="48" r="42" fill="none" stroke="#3b82f6" stroke-width="7" stroke-linecap="round"
-             stroke-dasharray="${2*Math.PI*42}" stroke-dashoffset="${2*Math.PI*42*(1-overall/100)}"/></svg>
-           <div class="num"><b>${overall}</b><small>命局綜評</small></div></div>
-         <div style="flex:1">
-           <div style="font-size:18px;font-weight:700">${a.name||"命主"} <span style="font-size:13px;color:var(--sub);font-weight:400">${a.sex}・屬${a.sx.sx}・${a.sign}座</span></div>
-           <div style="font-size:14px;color:var(--sub);margin-top:6px">日主 <b class="wx-${a.strength.dayWx}">${a.bz.dGan}（${a.strength.dayWx}）</b>・${a.strength.strength}・${a.pattern.patterns[0].name}</div>
-           <div style="margin-top:8px">喜用 ${a.yong.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7">${w}</span>`).join("")}</div>
-         </div>
-       </div>
-     </div>
-     <div class="card"><h3><span class="ic">柱</span>八字四柱</h3>${renderBaziTable(a)}</div>
-     <div class="card"><h3><span class="ic">五</span>五行能量分布</h3>${renderWuxing(a.tally)}
-       <div class="note">命局以 <b class="wx-${a.strong}">${a.strong}</b> 為旺、<b class="wx-${a.weak}">${a.weak}</b> 偏弱（後天可由顏色、方位、習慣調補）。</div></div>
+     ${renderDashboard(a,overall,luck)}
    </div>
 
    <div class="panel" data-panel="bazi">
@@ -691,7 +824,7 @@ function bindTabs(luckCtx){
   $$(".rtab").forEach(t=>t.addEventListener("click",()=>{
     $$(".rtab").forEach(x=>x.classList.remove("on"));t.classList.add("on");
     $$(".panel").forEach(p=>p.classList.toggle("on",p.dataset.panel===t.dataset.p));
-    window.scrollTo({top:200,behavior:"smooth"});
+    window.scrollTo({top:0,behavior:"smooth"});
   }));
   const lyBox=$("#liuyueBox");
   if(lyBox && luckCtx){
@@ -707,6 +840,34 @@ function bindTabs(luckCtx){
     });
   }
 }
+
+/* ====== 收合 / 展開表單 ====== */
+function calLabel(n){return segVal["cal"+n]==="lunar"?"農":"國";}
+function personLabel(n){
+  const name=$("#name"+n).value.trim()||"未命名";
+  const y=$("#y"+n).value,m=$("#m"+n).value,d=$("#d"+n).value;
+  const known=segVal["hknown"+n]==="1";
+  const t=known?` ${String($("#h"+n).value).padStart(2,"0")}:${String($("#min"+n).value).padStart(2,"0")}`:" 時辰不詳";
+  return `${name}・${calLabel(n)}${y}/${m}/${d}${t}`;
+}
+function collapseForm(){
+  $("#formZone").classList.add("collapsed");
+  $(".page-content").classList.add("wide");
+  const info = MODE==="couple"
+    ? `${personLabel(1)} ✕ ${personLabel(2)}`
+    : personLabel(1);
+  $("#recapInfo").textContent = info;
+  $("#recap").classList.add("show");
+  $(".app-header .tag").classList.add("hide");
+}
+function expandForm(){
+  $("#formZone").classList.remove("collapsed");
+  $(".page-content").classList.remove("wide");
+  $("#recap").classList.remove("show");
+  $(".app-header .tag").classList.remove("hide");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$("#recap").addEventListener("click",expandForm);
 
 /* ====== 啟動 ====== */
 $("#go").addEventListener("click",()=>{
@@ -725,7 +886,8 @@ $("#go").addEventListener("click",()=>{
           res.innerHTML=renderCouple(A,B);
           bindTabs(null);
         }
-        res.scrollIntoView({behavior:"smooth"});
+        collapseForm();
+        window.scrollTo({top:0,behavior:"smooth"});
       }catch(e){res.innerHTML=`<div class="card"><div class="empty-tip" style="color:var(--bad)">⚠ ${e}</div></div>`;}
     },60);
   }catch(e){res.innerHTML=`<div class="card"><div class="empty-tip" style="color:var(--bad)">⚠ ${e}</div></div>`;}
