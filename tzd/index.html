@@ -224,7 +224,9 @@
   .ty{flex:0 0 auto;min-width:70px;text-align:center;padding:10px 6px;border:1px solid var(--line);
     border-radius:9px;background:var(--soft)}
   .ty.active{border-color:var(--blue);background:var(--blue-l);box-shadow:0 0 0 2px rgba(59,130,246,.15)}
-  .ty .gz{font-size:18px;font-weight:700} .ty .g{font-size:11px;color:var(--blue-d);margin-top:2px}
+  .ty{min-width:84px}
+  .ty .gz{font-size:18px;font-weight:700} .ty .g{font-size:11px;color:var(--blue-d);margin-top:2px;font-weight:600}
+  .ty .gnote{font-size:9.5px;color:#94a3b8;line-height:1.3;margin:2px 0 1px;min-height:24px}
   .ty .age{font-size:10.5px;color:var(--sub);margin-top:3px}
   .ty .tier{font-size:11px;font-weight:600;margin-top:3px}
   .tier-旺{color:var(--good)} .tier-平{color:var(--mid)} .tier-弱{color:var(--bad)}
@@ -700,14 +702,37 @@ function renderPattern(p){
     <div class="pdesc">${pt.desc}</div></div>`).join("");
 }
 
+/* 十神一句白話（用於大運/流年的小註解） */
+const GOD_SHORT={
+  比肩:"同儕競爭、合夥、講義氣",劫財:"破費、爭奪、敢冒險",
+  食神:"才華、口福、享受、輕鬆",傷官:"表現、聰明、叛逆、創意",
+  正財:"正財、務實、節儉、（男）正緣",偏財:"機會財、業外財、人緣、慷慨",
+  正官:"名譽地位、規矩責任、（女）正緣",七殺:"壓力挑戰、魄力、競爭、貴人或小人",
+  正印:"學識、貴人、靠山、被照顧",偏印:"偏門才學、直覺、孤剋"
+};
+function godShort(g){ return g&&g!=="日主"?(GOD_SHORT[g]||""):""; }
+
+/* 大運流年共用：頂部白話說明 */
+function luckLegend(yong){
+  return `<div class="zw-legend" style="margin-bottom:14px">
+    <div class="lg-title">📖 這頁怎麼看</div>
+    <ul class="lg-list">
+      <li><b>大運＝每十年一個階段</b>，流年＝每一年。藍框那柱／當年是<b>現在所在</b>。</li>
+      <li><b>名稱下方的「十神」</b>（正官、七殺、正印…）＝這段時間「主導你的能量類型」，下方已附白話（如「正官＝名譽責任」「七殺＝壓力挑戰」）。</li>
+      <li><b><span style="color:#15803d">旺／得力之運</span></b>＝這段時間的五行<b>幫到你的喜用神（${yong.join("")}）</b>，較順；<b><span style="color:#b91c1c">弱／忌神當道</span></b>＝踩到忌神，較費力、宜守。</li>
+    </ul>
+  </div>`;
+}
+
 /* ====== 大運流年 ====== */
 function renderLuck(a){
   const dy=calcDaYun(a.bz,a.sex);
   const nowY=new Date().getFullYear();
   annotateDaYun(dy,a.yong.primary,nowY,a.bz.solar.y);
-  const tl=dy.list.map(p=>`<div class="ty ${p.active?'active':''}">
+  const tl=dy.list.map(p=>`<div class="ty ${p.active?'active':''}" title="${p.ganGod}：${godShort(p.ganGod)}">
     <div class="gz">${wxSpan(p.gz[0])}${p.gz[1]}</div>
     <div class="g">${p.ganGod}</div>
+    <div class="gnote">${godShort(p.ganGod)}</div>
     <div class="age">${p.startAge}-${p.endAge}歲</div>
     <div class="age">${p.startYear}</div>
     <div class="tier tier-${p.tier}">${p.tier}</div>
@@ -717,8 +742,9 @@ function renderLuck(a){
     <span class="yr">${L.year} (${L.age}歲)</span>
     <span class="gz">${wxSpan(L.gz[0])}${L.gz[1]}</span>
     <span class="badge ${L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid'}">${L.tier}</span>
-    <span class="g">${L.ganGod}・${th.theme.split("，")[0]}</span></div>`;}).join("");
+    <span class="g"><b>${L.ganGod}</b>（${godShort(L.ganGod)}）・${th.theme.split("，")[0]}</span></div>`;}).join("");
   return {dy,html:`<div class="dash">
+    ${luckLegend(a.yong.primary)}
     <div class="card span-all"><h3><span class="ic">運</span>大運（每十年一柱）
       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">${dy.dir}・${dy.startDesc}・旺衰依喜用神（${a.yong.primary.join("")}）判定</span></h3>
       <div class="timeline">${tl}</div></div>
