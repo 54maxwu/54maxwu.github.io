@@ -476,7 +476,9 @@
   .ss-tip{font-size:12px;color:#b45309;background:#fffbeb;border-radius:7px;padding:6px 10px;margin-top:5px;line-height:1.6}
 
   .zw-cell.center{grid-column:2/4;grid-row:2/4;background:#fff;justify-content:center;align-items:center;text-align:center}
-  .zw-cell.ming{background:var(--blue-l);border-color:#bfdbfe}
+  .zw-cell.ming{background:var(--blue-l);border-color:#93c5fd;box-shadow:inset 0 0 0 1px #bfdbfe}
+  .zw-cell.bodyp{background:#f5f3ff;border-color:#c4b5fd;box-shadow:inset 0 0 0 1px #ddd6fe}
+  .zw-cell.ming.bodyp{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-color:#a78bfa;box-shadow:inset 0 0 0 2px #c4b5fd}
   .zw-cell .pn{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:5px;line-height:1.3}
   .zw-cell .pn .pn-note{display:block;font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px}
   .zw-cell .star{font-size:15px;font-weight:700;line-height:1.45;margin-top:3px}
@@ -500,6 +502,10 @@
   .star-dict .sd-row:first-of-type{border-top:none}
   .star-dict .sd-row b{flex:none;width:34px;color:var(--ink);font-weight:700}
   .star-dict .sd-row span{color:#64748b}
+  .star-dict .sd-row{border-radius:6px;transition:.2s}
+  .star-dict .sd-row.hl{background:#dbeafe;box-shadow:0 0 0 2px #93c5fd;padding-left:6px;padding-right:6px}
+  .zw-cell .star .star-nm.star-click{cursor:pointer;text-decoration:underline dotted #bfdbfe;text-underline-offset:2px}
+  .zw-cell .star .star-nm.star-click:hover{color:var(--blue-d)}
 
   /* 紫微命盤白話總結 */
   .zw-summary{margin-top:18px;padding-top:16px;border-top:2px dashed #e2e8f0}
@@ -1354,7 +1360,10 @@ function renderZiwei(a){
     const stars=p.majorStars.map(s=>{
       const meaning=GLOSSARY[s.name]?GLOSSARY[s.name].split("：")[0]:"";
       const brNote=s.brightness?(BRIGHT_NOTE[s.brightness]||s.brightness):"";
-      return `<div class="star wx-default">${s.name}${s.mutagen?`<span class="sh sh-${s.mutagen}">${s.mutagen}</span>`:""}${s.brightness?`<span class="br">${s.brightness}</span>`:""}</div>`
+      const nm=GLOSSARY[s.name]
+        ? `<span class="star-nm star-click" data-star="${s.name}" title="點我看「${s.name}」白話">${s.name}</span>`
+        : `<span class="star-nm">${s.name}</span>`;
+      return `<div class="star wx-default">${nm}${s.mutagen?`<span class="sh sh-${s.mutagen}">${s.mutagen}</span>`:""}${s.brightness?`<span class="br">${s.brightness}</span>`:""}</div>`
         +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
     }).join("")
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
@@ -1364,11 +1373,12 @@ function renderZiwei(a){
     const hePals=(ZW_SANHE[b]||[]).map(tb=>cellByBranch[tb]||null).filter(Boolean);
     // 該宮吉凶評分（含三方四正）
     const sc=palaceScore(p, cellByBranch);
+    const isMing=p.name==='命宮';
     const isBody=bodyBranch&&b===bodyBranch;
-    const badge=(p.name==='命宮'?'<span class="zw-badge ming-b">命宮</span>':'')+(isBody?'<span class="zw-badge body-b">身宮</span>':'');
+    const badge=(isMing?'<span class="zw-badge ming-b" title="命宮＝你是誰、先天個性">命宮</span>':'')+(isBody?'<span class="zw-badge body-b" title="身宮＝後天會變成的樣子">身宮</span>':'');
     // 浮動框內容（點擊跳出）
     const detail=palaceDetailHTML(p,{opp:(oppPal||{}).name||"",he:hePals.map(x=>x.name),oppPal,hePals});
-    cells+=`<div class="zw-cell clickable zwt-${sc.tone} ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
+    cells+=`<div class="zw-cell clickable zwt-${sc.tone}${isMing?' ming':''}${isBody?' bodyp':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
       <span class="zw-dot" style="background:${TONE_DOT[sc.tone]}" title="這宮整體：${sc.word}"></span>
       <div class="pn">${p.name}${badge}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
       <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
@@ -1392,7 +1402,7 @@ function renderZiwei(a){
   const ZW_STARS=["紫微","天機","太陽","武曲","天同","廉貞","天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"];
   const starDict=`<div class="star-dict">
     <div class="sd-title">🔆 十四主星 白話速查</div>
-    ${ZW_STARS.map(n=>`<div class="sd-row"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
+    ${ZW_STARS.map(n=>`<div class="sd-row" data-stardict="${n}"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
   </div>`;
   return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
         <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解＋三方四正連線</span></h3>
@@ -1433,7 +1443,11 @@ function ziweiOverview(z,a,cellByBranch,bodyBranch){
       <div class="ov-col"><div class="ov-col-t">⚠ 最該用心的兩塊</div><div class="ov-chips">${weak.map(chip).join("")}</div></div>
     </div>
     <div class="ov-extra">
-      <span>🏠 命宮＝你是誰；身宮＝後天會變成的樣子${bodyName?`（你的身宮在 <b>${bodyName}</b>）`:""}。</span>
+      <span>🏠 <b style="color:var(--blue-d)">命宮</b>＝你「先天的個性、你是誰」；<b style="color:#7c3aed">身宮</b>＝你「後天會慢慢變成的樣子、中年後越明顯」。${
+        bodyName==="命宮"
+          ? `你的<b>命宮和身宮在同一格</b>——代表你<b>先天個性與後天發展方向一致、表裡如一</b>，人生主軸清楚、不太會中途大轉變。`
+          : (bodyName?`你的身宮落在 <b>${bodyName}宮</b>——代表你後天會越來越重視、投入「${PALACE_SHORT[bodyName]||bodyName}」這一塊。`:"")
+      }</span>
       ${jiPalace?`<span>📌 你這輩子的「功課」在 <b>${jiPalace}化忌</b>——這塊最容易卡關、要多用心。</span>`:""}
       ${emptyCnt?`<span>⭕ 你有 <b>${emptyCnt}</b> 個空宮（沒有主星），代表那些面向個性較隨環境、看對宮，不是壞事。</span>`:""}
     </div>
@@ -2076,6 +2090,7 @@ function bindChangSheng(){
   $$(".cs-click").forEach(el=>el.addEventListener("click",()=>flash(`.cs12-row[data-cs12="${el.dataset.cs}"]`)));
   $$(".god-click").forEach(el=>el.addEventListener("click",()=>flash(`.god12-row[data-god12="${el.dataset.god}"]`)));
   $$(".ny-click").forEach(el=>el.addEventListener("click",()=>flash(`.ny-row[data-nayin="${el.dataset.nayin}"]`)));
+  $$(".star-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();flash(`.sd-row[data-stardict="${el.dataset.star}"]`);}));
 }
 
 /* ====== 紫微宮位浮動框＋三方四正連線 ====== */
