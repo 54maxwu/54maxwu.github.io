@@ -71,16 +71,23 @@
   /* Result */
   #result{display:none}
   #result.show{display:block}
+  /* tab 列＋命主摘要同一排，把右側空白填滿、省一行高度 */
+  .tabbar-row{display:flex;align-items:stretch;gap:10px;margin-bottom:12px;
+    position:sticky;top:8px;z-index:11}
   .result-tabs{display:flex;gap:4px;overflow-x:auto;background:#fff;border:1px solid var(--line);
-    border-radius:10px;padding:4px;margin-bottom:10px;position:sticky;top:8px;z-index:11}
+    border-radius:10px;padding:4px;flex:0 1 auto}
   .rtab{flex:0 0 auto;padding:7px 13px;border-radius:7px;font-size:13.5px;color:#475569;
     cursor:pointer;white-space:nowrap;transition:.15s;border:none;background:transparent;font-family:inherit}
   .rtab:hover{background:var(--blue-l);color:var(--blue-d)}
   .rtab.on{background:var(--blue-sel);color:var(--blue-d);font-weight:600}
-  /* 命主摘要常駐列（切 tab 都看得到） */
+  /* 命主摘要常駐列（切 tab 都看得到，現移到 tab 列右側） */
   .summary-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;
-    border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin-bottom:12px;
-    position:sticky;top:58px;z-index:10;font-size:13px}
+    border:1px solid var(--line);border-radius:10px;padding:8px 14px;
+    font-size:13px;flex:1 1 auto;min-width:0}
+  @media(max-width:760px){
+    .tabbar-row{flex-direction:column;gap:8px}
+    .summary-bar{flex:1 1 auto}
+  }
   .summary-bar .sb-name{font-weight:700;font-size:15px}
   .summary-bar .sb-sep{color:var(--sub);font-size:12.5px}
   .summary-bar .sb-pill{background:var(--soft);border:1px solid var(--line);border-radius:14px;
@@ -158,6 +165,19 @@
   .bazi-table .cangan{font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.5}
   .bazi-table .cs{font-size:10.5px;color:#a78bfa;margin-top:3px}
   .bazi-table .ny{font-size:10px;color:#94a3b8;margin-top:2px}
+  .bazi-table th .th-sub{display:block;font-size:10px;color:#b6c0cf;font-weight:400;margin-top:2px;line-height:1.3}
+  .bazi-table .gan .wx-tag,.bazi-table .zhi .wx-tag{font-size:10px;font-weight:400;color:#cbd5e1;margin-left:3px;vertical-align:middle}
+  .bazi-table .cell-note{font-size:10.5px;color:#64748b;line-height:1.4;margin:3px 2px 0}
+  .bazi-table .cell-note.sub{color:#a78bfa;margin-top:1px}
+  .dash .bazi-table .cell-note{display:none}
+  .dash .bazi-table th .th-sub{display:none}
+  .dash .bazi-table .gan .wx-tag,.dash .bazi-table .zhi .wx-tag{display:none}
+
+  .bz-legend{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:14px}
+  .bz-legend .lg-title{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:8px}
+  .bz-legend .lg-list{margin:0;padding-left:18px;font-size:12px;color:#475569;line-height:1.85}
+  .bz-legend .lg-list li{margin-bottom:4px}
+  .bz-legend .lg-list b{color:var(--ink)}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -488,25 +508,55 @@ function readPerson(n){
 
 /* ====== 渲染：四柱排盤表 ====== */
 function wxSpan(ch){const wx=GAN_WX[ch]; return `<span class="wx-${wx}">${ch}</span>`;}
-function renderBaziTable(a){
+/* 四柱代表的人生範圍（白話） */
+const PILLAR_LIFE={
+  年柱:"祖上、童年（約 0–16 歲）",
+  月柱:"父母、青年與事業（約 17–32 歲）",
+  日柱:"自己與配偶（約 33–48 歲，日干就是你本人）",
+  時柱:"子女、晚年（約 48 歲後）"
+};
+/* 取十神白話（GLOSSARY 第一句） */
+function godPlain(g){
+  if(!g||g==="日主") return "";
+  const t=GLOSSARY[g]; return t?t.split("：")[0]:"";
+}
+function renderBaziTable(a, showLegend=false){
   const c=a.chart, bz=a.bz;
   const cols=[["年柱",c.year],["月柱",c.month],["日柱",c.day]];
   if(c.hour) cols.push(["時柱",c.hour]); else cols.push(["時柱",null]);
-  const ths=cols.map(([t])=>`<th>${t}</th>`).join("");
-  const cell=(p)=>{
-    if(!p) return `<td><div class="gz-cell"><div style="color:#cbd5e1;font-size:13px;padding:20px 0">時辰不詳</div></div></td>`;
-    const ganWx=GAN_WX[p.gan];
+  const ths=cols.map(([t])=>`<th>${t}<span class="th-sub">${PILLAR_LIFE[t]||""}</span></th>`).join("");
+  const ZHI_WX_MAP={子:"水",丑:"土",寅:"木",卯:"木",辰:"土",巳:"火",午:"火",未:"土",申:"金",酉:"金",戌:"土",亥:"水"};
+  const cell=(p,title)=>{
+    if(!p) return `<td><div class="gz-cell"><div style="color:#cbd5e1;font-size:13px;padding:20px 0">時辰不詳<br><span style="font-size:11px">（補上出生時間更準）</span></div></div></td>`;
+    const ganWx=GAN_WX[p.gan], zhiWx=ZHI_WX_MAP[p.zhi];
     const cangan=p.cangan.map(cg=>`<span class="wx-${GAN_WX[cg.gan]}">${cg.gan}</span><span style="color:#cbd5e1">${cg.god||""}</span>`).join("　");
+    const godNote = p.ganGod==="日主"
+      ? `<div class="cell-note">這就是「你自己」，整張命盤的主角</div>`
+      : (godPlain(p.ganGod)?`<div class="cell-note">${p.ganGod}＝${godPlain(p.ganGod)}</div>`:"");
+    const csNote = p.changSheng&&GLOSSARY[p.changSheng]
+      ? `<div class="cell-note sub">${p.changSheng}：${GLOSSARY[p.changSheng].split("：")[0].replace(/^像/,"")}</div>`:"";
     return `<td><div class="gz-cell">
       <div class="god">${p.ganGod}</div>
-      <div class="gan wx-${ganWx}">${p.gan}</div>
-      <div class="zhi wx-${{子:"水",丑:"土",寅:"木",卯:"木",辰:"土",巳:"火",午:"火",未:"土",申:"金",酉:"金",戌:"土",亥:"水"}[p.zhi]}">${p.zhi}</div>
+      <div class="gan wx-${ganWx}">${p.gan}<span class="wx-tag">${ganWx}</span></div>
+      <div class="zhi wx-${zhiWx}">${p.zhi}<span class="wx-tag">${zhiWx}</span></div>
+      ${godNote}
       <div class="cs">${p.changSheng||""}</div>
+      ${csNote}
       <div class="cangan">${cangan}</div>
       <div class="ny">${p.nayin||""}</div>
     </div></td>`;
   };
-  return `<table class="bazi-table"><tr>${ths}</tr><tr>${cols.map(([,p])=>cell(p)).join("")}</tr></table>`;
+  const legend=`<div class="bz-legend">
+    <div class="lg-title">📖 看不懂？這張表一格一格這樣讀</div>
+    <ul class="lg-list">
+      <li><b>四個直行＝四柱</b>：年、月、日、時，分別代表人生不同階段（標題下方已寫）。<b>「日柱」的上面那個大字就是「你自己」</b>。</li>
+      <li><b>最上面藍字＝十神</b>：那個字（天干）對「你」來說扮演什麼角色，例如「正印＝靠山貴人」「正官＝規矩責任」，下方已附白話。</li>
+      <li><b>中間兩個大字＝天干＋地支</b>：每字旁的小灰字是它的<b>五行</b>（木火土金水）。顏色也按五行區分。</li>
+      <li><b>紫色字＝十二長生</b>：這個天干在這個位置的「能量強弱階段」，像人的一生（長生＝旺、帝旺＝最強、死絕＝最弱）。</li>
+      <li><b>灰色小字＝藏干＋納音</b>：地支裡暗藏的天干與其十神、以及這柱的納音五行，屬進階參考，看不懂可略過。</li>
+    </ul>
+  </div>`;
+  return `${showLegend?legend:""}<table class="bazi-table"><tr>${ths}</tr><tr>${cols.map(([t,p])=>cell(p,t)).join("")}</tr></table>`;
 }
 
 /* ====== 五行條 ====== */
@@ -808,6 +858,7 @@ function renderSingle(a){
     ["紫微斗數","ziwei"],["大運流年","luck"],["神煞格局","shensha"],["姓名星座","name"]
   ];
   const html=`
+   <div class="tabbar-row">
    <div class="result-tabs">${tabs.map((t,i)=>`<button class="rtab ${i===0?'on':''}" data-p="${t[1]}">${t[0]}</button>`).join("")}</div>
 
    <div class="summary-bar">
@@ -819,6 +870,7 @@ function renderSingle(a){
      <span class="sb-pill">喜用 ${a.yong.primary.map(w=>`<b class="wx-${w}">${w}</b>`).join("")}</span>
      <span class="sb-pill">忌 ${a.yong.avoid.length?a.yong.avoid.map(w=>`<b class="wx-${w}">${w}</b>`).join(""):"—"}</span>
    </div>
+   </div>
 
    <div class="panel on" data-panel="overview">
      ${renderDashboard(a,overall,luck)}
@@ -826,7 +878,7 @@ function renderSingle(a){
 
    <div class="panel" data-panel="bazi"><div class="grid g3">
      <div class="card full"><h3><span class="ic">柱</span>四柱排盤
-       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a)}</div>
+       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a,true)}</div>
      <div class="card"><h3><span class="ic">五</span>五行能量</h3>${renderWuxing(a.tally)}</div>
      <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
        <div class="kv"><span class="k">年柱</span><span class="v">${a.bz.nayin.year}</span></div>
