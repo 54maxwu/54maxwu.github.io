@@ -431,6 +431,28 @@
 
   .empty-tip{text-align:center;color:var(--sub);font-size:13px;padding:30px}
   .loading{text-align:center;padding:30px;color:var(--sub)}
+
+  /* 自製確認浮層 */
+  .tzd-modal-ov{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;
+    justify-content:center;z-index:1000;padding:20px;animation:tzdFade .15s ease}
+  @keyframes tzdFade{from{opacity:0}to{opacity:1}}
+  .tzd-modal{background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(15,23,42,.3);
+    max-width:360px;width:100%;padding:22px 24px 18px;animation:tzdPop .18s ease}
+  @keyframes tzdPop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+  .tzd-modal-msg{font-size:14.5px;color:var(--ink);line-height:1.7;margin-bottom:18px}
+  .tzd-modal-msg b{color:var(--blue-d)}
+  .tzd-modal-btns{display:flex;gap:10px;justify-content:flex-end}
+  .tzd-modal-btns button{padding:9px 18px;border-radius:8px;font-size:14px;font-weight:600;
+    cursor:pointer;font-family:inherit;border:1px solid var(--line);transition:.12s}
+  .tzd-btn-cancel{background:#fff;color:var(--sub)}
+  .tzd-btn-cancel:hover{background:var(--soft)}
+  .tzd-btn-ok{background:#dc2626;color:#fff;border-color:#dc2626}
+  .tzd-btn-ok:hover{background:#b91c1c}
+  /* 輕提示 */
+  .tzd-toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(12px);
+    background:rgba(15,23,42,.92);color:#fff;font-size:14px;padding:11px 20px;border-radius:24px;
+    z-index:1001;opacity:0;transition:.25s;box-shadow:0 8px 24px rgba(15,23,42,.25)}
+  .tzd-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   @media(max-width:560px){
     .bazi-table .gan,.bazi-table .zhi{font-size:21px}
     .ziwei-grid{gap:5px}
@@ -1654,8 +1676,29 @@ function savedSub(rec){
   const t=p.hknown==="1"?` ${String(p.h).padStart(2,"0")}:${String(p.min).padStart(2,"0")}`:" 時辰不詳";
   return `${rec.mode==="couple"?"合盤・":""}${p.sex}・${cal}${p.y}/${p.m}/${p.d}${t}`;
 }
+/* ---- 自製浮層：確認框 + 輕提示 ---- */
+function showConfirm(msg,onYes){
+  const ov=document.createElement("div"); ov.className="tzd-modal-ov";
+  ov.innerHTML=`<div class="tzd-modal">
+    <div class="tzd-modal-msg">${msg}</div>
+    <div class="tzd-modal-btns">
+      <button class="tzd-btn-cancel">取消</button>
+      <button class="tzd-btn-ok">確定刪除</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector(".tzd-btn-cancel").onclick=close;
+  ov.querySelector(".tzd-btn-ok").onclick=()=>{ close(); onYes&&onYes(); };
+  ov.onclick=e=>{ if(e.target===ov) close(); };
+}
+function showToast(msg){
+  const t=document.createElement("div"); t.className="tzd-toast"; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.classList.add("show"),10);
+  setTimeout(()=>{ t.classList.remove("show"); setTimeout(()=>t.remove(),250); },1800);
+}
 function saveCurrent(){
-  if(!$("#y1").value){ alert("請先填入出生年份再存檔"); return; }
+  if(!$("#y1").value){ showToast("請先填入出生年份再存檔"); return; }
   const rec={ id:String(Date.now())+Math.floor(performance.now()), mode:MODE, p1:snapshotPerson(1) };
   if(MODE==="couple") rec.p2=snapshotPerson(2);
   const arr=loadSaves(); arr.unshift(rec); writeSaves(arr); renderSaves();
@@ -1688,7 +1731,8 @@ $("#saveBtn").addEventListener("click",saveCurrent);
 $("#savedList").addEventListener("click",e=>{
   const t=e.target.closest("[data-act]"); if(!t) return;
   if(t.dataset.act==="del"){ e.stopPropagation();
-    if(confirm("確定刪除這筆存檔？")) deleteSave(t.dataset.id);
+    const rec=loadSaves().find(r=>r.id===t.dataset.id);
+    showConfirm(`確定刪除存檔「<b>${rec?savedLabel(rec):"這筆"}</b>」嗎？刪除後無法復原。`,()=>deleteSave(t.dataset.id));
   } else applySave(t.dataset.id);
 });
 renderSaves();
