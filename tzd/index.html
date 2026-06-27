@@ -216,6 +216,10 @@
   .bazi-table .god.god-click:hover{color:var(--blue)}
   .bazi-table .cg-god{color:#94a3b8;cursor:pointer;text-decoration:underline dotted #cbd5e1;text-underline-offset:2px}
   .bazi-table .cg-god:hover{color:var(--blue)}
+  .bazi-table .ny.ny-click{cursor:pointer;text-decoration:underline dotted #cbd5e1;text-underline-offset:2px}
+  .bazi-table .ny.ny-click:hover{color:var(--blue-d)}
+  .ny-row{border-radius:7px;transition:.2s}
+  .ny-row.hl{background:#e0f2fe;box-shadow:0 0 0 2px #7dd3fc;padding-left:8px;padding-right:8px}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -825,7 +829,7 @@ function renderBaziTable(a, showLegend=false){
       <div class="cs${p.changSheng?' cs-click':''}"${p.changSheng?` data-cs="${p.changSheng}" title="點我看「${p.changSheng}」是什麼"`:''}>${p.changSheng||""}</div>
       ${csNote}
       <div class="cangan">${cangan}</div>
-      <div class="ny">${p.nayin||""}</div>
+      <div class="ny${p.nayin?' ny-click':''}"${p.nayin?` data-nayin="${p.nayin}" title="點我看「${p.nayin}」的白話"`:''}>${p.nayin||""}</div>
     </div></td>`;
   };
   const legend=`<div class="bz-legend">
@@ -1570,7 +1574,7 @@ function renderSingle(a){
      <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
        <div class="cap" style="margin-bottom:10px">納音＝用六十甲子配出的<b>另一套五行象徵</b>（如海中金、爐中火），是每一柱的「別名／質地」，傳統用來補充看個性與緣分，屬趣味參考。</div>
        ${[["年柱",a.bz.nayin.year],["月柱",a.bz.nayin.month],["日柱",a.bz.nayin.day],...(a.bz.nayin.hour?[["時柱",a.bz.nayin.hour]]:[])].map(([k,v])=>`
-         <div class="ny-row"><div class="ny-top"><span class="k">${k}</span><span class="v">${v}</span></div>
+         <div class="ny-row" data-nayin="${v}"><div class="ny-top"><span class="k">${k}</span><span class="v">${v}</span></div>
            <div class="ny-say">${NAYIN_PLAIN[v]||""}</div></div>`).join("")}</div>
      <div class="card"><h3><span class="ic">神</span>十神能量</h3>${renderGodTally(a.godTally,true)}</div>
    </div></div>
@@ -1711,13 +1715,14 @@ function bindTabs(luckCtx){
 function bindChangSheng(){
   const flash=(sel)=>{
     const target=$$(sel)[0]; if(!target) return;
-    $$(".cs12-row.hl").forEach(r=>r.classList.remove("hl"));
+    $$(".hl").forEach(r=>r.classList.remove("hl"));
     target.classList.add("hl");
     target.scrollIntoView({behavior:"smooth",block:"center"});
     setTimeout(()=>target.classList.remove("hl"),2600);
   };
   $$(".cs-click").forEach(el=>el.addEventListener("click",()=>flash(`.cs12-row[data-cs12="${el.dataset.cs}"]`)));
   $$(".god-click").forEach(el=>el.addEventListener("click",()=>flash(`.god12-row[data-god12="${el.dataset.god}"]`)));
+  $$(".ny-click").forEach(el=>el.addEventListener("click",()=>flash(`.ny-row[data-nayin="${el.dataset.nayin}"]`)));
 }
 
 /* ====== 紫微宮位浮動框＋三方四正連線 ====== */
