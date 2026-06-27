@@ -356,10 +356,11 @@
   .zw-cell.clickable{cursor:pointer;transition:.12s;position:relative}
   .zw-cell.clickable:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(59,130,246,.12)}
   /* 宮位吉凶底色（左邊框條） */
-  .zw-cell.zwt-good{border-left:4px solid #16a34a}
-  .zw-cell.zwt-ok{border-left:4px solid #2563eb}
-  .zw-cell.zwt-mid{border-left:4px solid #cbd5e1}
-  .zw-cell.zwt-bad{border-left:4px solid #f59e0b;background:#fffdf5}
+  /* 宮位吉凶＝右下角柔和陰影暈染（帶透明度） */
+  .zw-cell.zwt-good{box-shadow:inset -22px -22px 26px -18px rgba(22,163,74,.38)}
+  .zw-cell.zwt-ok{box-shadow:inset -22px -22px 26px -18px rgba(37,99,235,.32)}
+  .zw-cell.zwt-mid{box-shadow:inset -20px -20px 24px -18px rgba(148,163,184,.28)}
+  .zw-cell.zwt-bad{box-shadow:inset -22px -22px 26px -16px rgba(245,158,11,.42)}
   .zw-dot{position:absolute;top:7px;right:7px;width:9px;height:9px;border-radius:50%;
     box-shadow:0 0 0 2px #fff}
   .zw-badge{display:inline-block;font-size:9px;font-weight:700;color:#fff;border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:middle}
@@ -476,14 +477,16 @@
   .ss-tip{font-size:12px;color:#b45309;background:#fffbeb;border-radius:7px;padding:6px 10px;margin-top:5px;line-height:1.6}
 
   .zw-cell.center{grid-column:2/4;grid-row:2/4;background:#fff;justify-content:center;align-items:center;text-align:center}
-  .zw-cell.ming{background:var(--blue-l);border-color:#93c5fd;box-shadow:inset 0 0 0 1px #bfdbfe}
-  .zw-cell.bodyp{background:#f5f3ff;border-color:#c4b5fd;box-shadow:inset 0 0 0 1px #ddd6fe}
-  .zw-cell.ming.bodyp{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-color:#a78bfa;box-shadow:inset 0 0 0 2px #c4b5fd}
+  .zw-cell.ming{background:var(--blue-l);border-color:#93c5fd;border-width:2px}
+  .zw-cell.bodyp{background:#f5f3ff;border-color:#c4b5fd;border-width:2px}
+  .zw-cell.ming.bodyp{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-color:#a78bfa;border-width:2px}
   .zw-cell .pn{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:5px;line-height:1.3}
   .zw-cell .pn .pn-note{display:block;font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px}
   .zw-cell .star{font-size:15px;font-weight:700;line-height:1.45;margin-top:3px}
   .zw-cell .star .sh{font-size:10px;color:#fff;padding:0 4px;border-radius:3px;margin-left:3px}
   .zw-cell .star .br{font-size:10px;color:#b08900;margin-left:3px;font-weight:600}
+  .br-sig{display:inline-flex;align-items:flex-end;gap:1.5px;margin-left:4px;height:16px;vertical-align:middle}
+  .br-sig i{display:inline-block;width:2.5px;border-radius:1px}
   .zw-cell .star-note{font-size:11px;color:#64748b;line-height:1.4;margin:2px 0 4px}
   .sh-祿{background:#16a34a}.sh-權{background:#dc2626}.sh-科{background:#2563eb}.sh-忌{background:#64748b}
   .zw-cell .mn{font-size:10.5px;color:#b6c0cf;margin-top:auto;padding-top:4px;text-align:right}
@@ -791,6 +794,18 @@ const BRIGHT_NOTE={
   "不":"不得地－力量偏弱，較難施展",
   "陷":"落陷－力量最弱，易有缺憾"
 };
+/* 亮度→七級訊號條（廟7…陷1），像手機訊號強弱 */
+const BR_LEVEL={廟:7,旺:6,得:5,利:4,平:3,不:2,陷:1};
+function brBars(brightness){
+  const lv=BR_LEVEL[brightness]; if(!lv) return "";
+  const col=lv>=6?"#16a34a":lv>=4?"#2563eb":lv>=3?"#94a3b8":"#f59e0b";
+  let bars="";
+  for(let i=1;i<=7;i++){
+    const h=4+i*1.5; // 由矮到高
+    bars+=`<i style="height:${h.toFixed(1)}px;background:${i<=lv?col:'#e2e8f0'}"></i>`;
+  }
+  return `<span class="br-sig" title="力量強弱 ${lv}/7">${bars}</span>`;
+}
 
 /* 三十納音白話一句（傳統意象，趣味參考） */
 const NAYIN_PLAIN={
@@ -1363,7 +1378,7 @@ function renderZiwei(a){
       const nm=GLOSSARY[s.name]
         ? `<span class="star-nm star-click" data-star="${s.name}" title="點我看「${s.name}」白話">${s.name}</span>`
         : `<span class="star-nm">${s.name}</span>`;
-      return `<div class="star wx-default">${nm}${s.mutagen?`<span class="sh sh-${s.mutagen}">${s.mutagen}</span>`:""}${s.brightness?`<span class="br">${s.brightness}</span>`:""}</div>`
+      return `<div class="star wx-default">${nm}${s.mutagen?`<span class="sh sh-${s.mutagen}">${s.mutagen}</span>`:""}${s.brightness?`<span class="br">${s.brightness}</span>${brBars(s.brightness)}`:""}</div>`
         +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
     }).join("")
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
@@ -1390,7 +1405,7 @@ function renderZiwei(a){
       <li><b>格子裡的大字＝主星</b>：代表這個面向的「個性／能量」，星名下方已直接寫白話意思（如「紫微＝帝王星，主領導」）。</li>
       <li><b>星旁的小灰字＝這顆星的力量強弱</b>，由強到弱共七級：<span style="color:#b08900"><b>廟</b>(最強)＞<b>旺</b>(很強)＞<b>得</b>(不錯)＞<b>利</b>(尚可)＞<b>平</b>(普通)＞<b>不</b>(偏弱)＞<b>陷</b>(最弱)</span>。</li>
       <li><b>彩色小標＝四化</b>（出生那年天干決定、跟你一輩子的特殊加成）：<span class="sh sh-祿">祿</span>好處財祿、<span class="sh sh-權">權</span>權力能力、<span class="sh sh-科">科</span>名聲貴人、<span class="sh sh-忌">忌</span>牽絆阻礙（功課所在）。</li>
-      <li><b>右上角圓點＋左邊色條＝這宮整體強弱</b>（已幫你算好）：<span style="color:#16a34a">●</span>強旺、<span style="color:#2563eb">●</span>不錯、<span style="color:#94a3b8">●</span>中等、<span style="color:#f59e0b">●</span>偏弱。</li>
+      <li><b>右上角圓點＋格子右下角的淡淡光暈＝這宮整體強弱</b>（已幫你算好）：<span style="color:#16a34a">●</span>強旺、<span style="color:#2563eb">●</span>不錯、<span style="color:#94a3b8">●</span>中等、<span style="color:#f59e0b">●</span>偏弱。</li>
       <li><b>命宮＝你是誰、身宮＝後天會變成的樣子</b>；格內有藍/紫徽章標示。</li>
       <li><b>有些格寫「無主星」＝空宮</b>：不是壞事，代表那面向個性較<b>隨環境而變</b>，要看「對宮」（正對面那宮）的星來借用論斷。</li>
       <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span>＝三方四正</b>：連到要「一起合看」的另三宮——<b>對宮</b>（正對面，看外在結果）＋<b>兩個三合宮</b>（同組互助）。論命要四宮合看才完整。</li>
