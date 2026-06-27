@@ -1606,13 +1606,15 @@ function renderSingle(a){
 
    <div class="panel" data-panel="shensha">
      ${renderChengGu(a.chenggu)}
-     <div class="grid g2">
+     <div class="grid g2" style="align-items:start">
      <div class="card"><h3><span class="ic">煞</span>神煞</h3>
        <div class="cap">命盤中的吉神與凶煞，標示其所在柱位。</div>${renderShensha(a.shensha)}</div>
-     <div class="card"><h3><span class="ic">格</span>格局</h3>
-       <div class="cap">以月令取格，判斷命局結構與取用方向。</div>${renderPattern(a.pattern)}</div>
-   </div>
-   ${renderHealth(a)}</div>
+     <div class="colstack">
+       <div class="card"><h3><span class="ic">格</span>格局</h3>
+         <div class="cap">以月令取格，判斷命局結構與取用方向。</div>${renderPattern(a.pattern)}</div>
+       ${renderHealth(a)}
+     </div>
+   </div></div>
 
    <div class="panel" data-panel="name"><div class="grid g3">
      ${a.nameInfo?renderName(a):`<div class="card"><div class="empty-tip">未輸入姓名。可回上方填入姓名以分析五格三才。</div></div>`}
