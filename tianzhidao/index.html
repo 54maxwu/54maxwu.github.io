@@ -205,16 +205,28 @@
   .ln-row .yr{font-weight:600;width:88px} .ln-row .gz{width:50px} .ln-row .g{color:var(--sub);font-size:12.5px;flex:1}
 
   /* 紫微方格盤 */
-  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;aspect-ratio:1/1;max-width:560px;margin:0 auto}
-  .zw-cell{border:1px solid var(--line);border-radius:8px;padding:7px 6px;background:var(--soft);
-    font-size:11px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:680px;margin:0 auto;align-items:stretch}
+  .zw-cell{border:1px solid var(--line);border-radius:8px;padding:8px 7px;background:var(--soft);
+    font-size:11px;display:flex;flex-direction:column;min-height:96px}
   .zw-cell.center{grid-column:2/4;grid-row:2/4;background:#fff;justify-content:center;align-items:center;text-align:center}
   .zw-cell.ming{background:var(--blue-l);border-color:#bfdbfe}
-  .zw-cell .pn{font-size:11px;font-weight:600;color:var(--blue-d);margin-bottom:3px}
-  .zw-cell .star{font-size:12px;font-weight:600;line-height:1.45}
+  .zw-cell .pn{font-size:11px;font-weight:600;color:var(--blue-d);margin-bottom:4px;line-height:1.3}
+  .zw-cell .pn .pn-note{display:block;font-size:9px;font-weight:400;color:#94a3b8;margin-top:1px}
+  .zw-cell .star{font-size:13px;font-weight:600;line-height:1.4;margin-top:2px}
   .zw-cell .star .sh{font-size:9px;color:#fff;padding:0 3px;border-radius:3px;margin-left:2px}
+  .zw-cell .star .br{font-size:9px;color:#b08900;margin-left:2px;font-weight:600}
+  .zw-cell .star-note{font-size:9.5px;color:#64748b;line-height:1.35;margin:1px 0 3px}
   .sh-祿{background:#16a34a}.sh-權{background:#dc2626}.sh-科{background:#2563eb}.sh-忌{background:#64748b}
-  .zw-cell .mn{font-size:9.5px;color:#94a3b8;margin-top:auto}
+  .zw-cell .mn{font-size:9.5px;color:#b6c0cf;margin-top:auto;padding-top:3px;text-align:right}
+
+  .zw-legend{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:12px;max-width:680px;margin-left:auto;margin-right:auto}
+  .zw-legend .lg-title{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:8px}
+  .zw-legend .lg-list{margin:0;padding-left:18px;font-size:12px;color:#475569;line-height:1.85}
+  .zw-legend .lg-list li{margin-bottom:4px}
+  .zw-legend .lg-list b{color:var(--ink)}
+  .zw-legend .lg-list .sh{font-size:10px;color:#fff;padding:1px 5px;border-radius:4px;margin:0 1px}
+  .zw-legend .lg-foot{margin-top:9px;padding-top:9px;border-top:1px dashed #e2e8f0;font-size:11.5px;color:var(--sub);line-height:1.7}
+  .zw-legend .lg-foot b{color:var(--blue-d)}
 
   .note{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:11px 13px;
     font-size:13px;color:#475569;line-height:1.8;margin-top:10px}
@@ -231,8 +243,11 @@
   .loading{text-align:center;padding:30px;color:var(--sub)}
   @media(max-width:560px){
     .bazi-table .gan,.bazi-table .zhi{font-size:21px}
-    .ziwei-grid{gap:3px}
-    .zw-cell{padding:4px 3px;font-size:10px}
+    .ziwei-grid{gap:4px}
+    .zw-cell{padding:5px 4px;font-size:10px;min-height:84px}
+    .zw-cell .star{font-size:11.5px}
+    .zw-cell .star-note{font-size:8.5px}
+    .zw-cell .pn .pn-note{font-size:8px}
   }
 </style>
 </head>
@@ -353,6 +368,18 @@ import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from ".
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, nameAnalysis, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, PALACE_ORDER, SIHUA_DESC } from "./engine-ziwei.js";
+import { GLOSSARY } from "./glossary.js";
+
+/* 廟旺得利平不陷：星曜在該宮的「亮度／力量」，白話一句 */
+const BRIGHT_NOTE={
+  "廟":"廟－力量最強，發揮到極致",
+  "旺":"旺－力量很強，表現亮眼",
+  "得":"得地－力量不錯，穩定發揮",
+  "利":"利益－尚可，有一定力量",
+  "平":"平和－中規中矩，普通發揮",
+  "不":"不得地－力量偏弱，較難施展",
+  "陷":"落陷－力量最弱，易有缺憾"
+};
 
 const WX_COLOR={木:"var(--wood)",火:"var(--fire)",土:"var(--earth)",金:"var(--metal)",水:"var(--water)"};
 const $=s=>document.querySelector(s);
@@ -580,10 +607,15 @@ function renderZiwei(a){
     const branch=Object.keys(GRID_POS).find(b=>GRID_POS[b][0]===r&&GRID_POS[b][1]===c);
     const p=branch?cellByBranch[branch]:null;
     if(!p){cells+=`<div class="zw-cell"></div>`;continue;}
-    const stars=p.majorStars.map(s=>`<div class="star wx-default">${s.name}${s.mutagen?`<span class="sh sh-${s.mutagen}">${s.mutagen}</span>`:""}<span style="color:#94a3b8;font-size:9px">${s.brightness||""}</span></div>`).join("")
-      || `<div style="color:#cbd5e1;font-size:10px">（無主星）</div>`;
+    const stars=p.majorStars.map(s=>{
+      const meaning=GLOSSARY[s.name]?GLOSSARY[s.name].split("：")[0]:"";
+      const brNote=s.brightness?(BRIGHT_NOTE[s.brightness]||s.brightness):"";
+      return `<div class="star wx-default">${s.name}${s.mutagen?`<span class="sh sh-${s.mutagen}">${s.mutagen}</span>`:""}${s.brightness?`<span class="br">${s.brightness}</span>`:""}</div>`
+        +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
+    }).join("")
+      || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
     cells+=`<div class="zw-cell ${p.name==='命宮'?'ming':''}">
-      <div class="pn">${p.name}</div>${stars}
+      <div class="pn">${p.name}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
       <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
   }
   // 十二宮逐宮解
@@ -595,8 +627,19 @@ function renderZiwei(a){
       <div class="pstars">${stars}</div>
       <div class="pdesc">${p.desc}${main&&main.desc?`　·　${main.name}：${main.desc}`:""}</div></div>`;
   }).join("");
+  const legend=`<div class="zw-legend">
+    <div class="lg-title">📖 看不懂？這張盤這樣讀</div>
+    <ul class="lg-list">
+      <li><b>十二個格子＝人生十二個面向</b>：每格上面藍字是宮名（如「命宮＝核心性格」「夫妻＝感情婚姻」），下面灰字是它管什麼。<b>藍底那格是「命宮」，最重要</b>。</li>
+      <li><b>格子裡的大字＝主星</b>：代表這個面向的「個性／能量」，星名下方已直接寫白話意思（如「紫微＝帝王星，主領導」）。</li>
+      <li><b>星旁的小灰字（廟旺得利平不陷）＝這顆星的力量強弱</b>：<span style="color:#b08900">廟旺＝很強、平＝普通、不陷＝偏弱</span>。</li>
+      <li><b>彩色小標＝四化</b>：<span class="sh sh-祿">祿</span>好處財祿、<span class="sh sh-權">權</span>權力能力、<span class="sh sh-科">科</span>名聲貴人、<span class="sh sh-忌">忌</span>牽絆阻礙。</li>
+      <li><b>格子角落兩字（如壬午）＝干支座標</b>，排盤用的，不懂可以略過。</li>
+    </ul>
+    <div class="lg-foot">命主 <b>${z.soul}</b>＝先天主導你的星、身主 <b>${z.body}</b>＝後天養成你的星；<b>${z.fiveElementsClass}</b>＝決定大運幾歲起運的五行局。</div>
+  </div>`;
   return `<div class="card"><h3><span class="ic">紫</span>紫微斗數 · 命盤</h3>
-      <div class="cap">命主 ${z.soul}、身主 ${z.body}、${z.fiveElementsClass}。化祿權科忌標於星曜旁。</div>
+      ${legend}
       <div class="ziwei-grid">${cells}</div></div>
     <div class="card"><h3><span class="ic">宮</span>十二宮詳解</h3>${palaceCards}</div>`;
 }
