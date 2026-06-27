@@ -201,6 +201,13 @@
   .bz-legend .lg-list{margin:0;padding-left:18px;font-size:12px;color:#475569;line-height:1.85}
   .bz-legend .lg-list li{margin-bottom:4px}
   .bz-legend .lg-list b{color:var(--ink)}
+  .cs12-box{margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0}
+  .cs12-title{font-size:12.5px;font-weight:700;color:#7c3aed;margin-bottom:8px}
+  .cs12-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 16px}
+  @media(max-width:680px){ .cs12-grid{grid-template-columns:1fr} }
+  .cs12-row{display:flex;gap:7px;font-size:11.5px;line-height:1.55;padding:2px 0}
+  .cs12-row b{flex:none;width:34px;color:#7c3aed;font-weight:700}
+  .cs12-row span{color:#64748b}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -706,9 +713,15 @@ function renderBaziTable(a, showLegend=false){
       <li><b>四個直行＝四柱</b>：年、月、日、時，分別代表人生不同階段（標題下方已寫）。<b>「日柱」的上面那個大字就是「你自己」</b>。</li>
       <li><b>最上面藍字＝十神</b>：那個字（天干）對「你」來說扮演什麼角色，例如「正印＝靠山貴人」「正官＝規矩責任」，下方已附白話。</li>
       <li><b>中間兩個大字＝天干＋地支</b>：每字旁的小灰字是它的<b>五行</b>（木火土金水）。顏色也按五行區分。</li>
-      <li><b>紫色字＝十二長生</b>：這個天干在這個位置的「能量強弱階段」，像人的一生（長生＝旺、帝旺＝最強、死絕＝最弱）。</li>
-      <li><b>灰色小字＝藏干＋納音</b>：地支裡暗藏的天干與其十神、以及這柱的納音五行，屬進階參考，看不懂可略過。</li>
+      <li><b>紫色字＝十二長生</b>：這個天干在這格的「能量階段」，像人的一生十二步（見下方對照表）。</li>
+      <li><b>灰色小字＝藏干＋納音</b>：藏干＝地支裡「暗藏」的天干（地支表面一個字，裡面其實藏著幾股五行力量）；納音＝用六十甲子配出的另一套五行象徵（如海中金、爐中火），算是這一柱的「別名／質地」。</li>
     </ul>
+    <div class="cs12-box">
+      <div class="cs12-title">🌱 十二長生 白話對照（能量由生到滅再重生）</div>
+      <div class="cs12-grid">
+        ${[["長生","剛出生：生機勃勃、前途看好，能量正要往上"],["沐浴","剛出生要洗澡：不穩定、易迷惘，又叫桃花地"],["冠帶","成年戴冠：開始成熟、嶄露頭角"],["臨官","入朝當官：實力到位、可以擔當，很旺(又叫祿)"],["帝旺","登上巔峰：能量最強，氣勢最盛但要防過剛"],["衰","盛極轉衰：氣勢走下坡，宜守不宜衝"],["病","生病：能量低、易疲累，需要休養"],["死","生命終結：能量最弱，做事易力不從心"],["墓","入庫收藏：能量收斂內守，有積蓄但較封閉"],["絕","氣斷重來：低到極點即將反轉，是變動轉機之地"],["胎","受孕成胎：新的開始正在孕育，有潛力待發"],["養","胎兒養育：休養蓄力、準備再出發"]].map(([k,v])=>`<div class="cs12-row"><b>${k}</b><span>${v}</span></div>`).join("")}
+      </div>
+    </div>
   </div>`;
   return `${showLegend?legend:""}<table class="bazi-table"><tr>${ths}</tr><tr>${cols.map(([t,p])=>cell(p,t)).join("")}</tr></table>`;
 }
@@ -752,9 +765,24 @@ function renderRemedy(yong, avoid){
 }
 
 /* ====== 身強弱明細 ====== */
+/* 身強弱白話 */
+const STRENGTH_PLAIN={
+  極強:"你「本身的力量」極強——很有主見、能量滿到溢出，需要找地方發洩、宣洩(做事、輸出、付出)，最忌再被加強。",
+  身強:"你「本身的力量」偏強——有衝勁、扛得住事、不容易被影響；適合主動出擊，但別太衝、要懂得分享與付出。",
+  中和:"你「本身的力量」剛剛好——是最平衡的狀態，進退有據、適應力好，順勢微調即可。",
+  身弱:"你「本身的力量」偏弱——不是不好，而是比較需要貴人、靠山與支援；適合借力使力、團隊合作，別硬撐獨幹。",
+  極弱:"你「本身的力量」很弱——硬拚反而吃力，最適合「順勢」：順著環境、強者、潮流走，借力反而能成事。"
+};
+/* 把身強弱那句文言翻成白話 */
+function strengthPlainLine(s){
+  const dayName={金:"金（像金屬、刀劍、果決）",木:"木（像樹木、向上、有生機）",水:"水（像流水、聰明、靈活）",火:"火（像火焰、熱情、爆發）",土:"土（像土地、穩重、包容）"}[s.dayWx]||s.dayWx;
+  const lingPlain={旺:"正逢你的旺季、力量最足",相:"季節在幫你、力量不錯",休:"力量被洩掉一些、平平",囚:"力量被壓制、較不利",死:"完全不合季節、力量最弱",平:"季節影響中性"}[s.ling.state]||"";
+  return `你出生那天的「我」是 <b class="wx-${s.dayWx}">${s.dayGan}日主＝${dayName}</b>。出生的月份對你來說「<b>${s.ling.state}</b>」——${lingPlain}。綜合整張八字算下來，你屬於「<b>${s.strength}</b>」。`;
+}
 function renderStrength(s){
   const pct=Math.max(5,Math.min(95,(s.score+16)/32*100));
-  return `<div class="score-big">
+  return `<div class="cap" style="margin-bottom:10px">「身強弱」講的是<b>你本人(日主)的能量強不強</b>——不是好壞，而是決定你「該主動衝、還是該借力守」。分數越往右越強。</div>
+    <div class="score-big">
     <div style="flex:1">
       <div style="font-size:24px;font-weight:700;margin-bottom:4px">${s.strength}
         <span style="font-size:14px;color:var(--sub);font-weight:400">（分數 ${s.score}）</span></div>
@@ -762,8 +790,10 @@ function renderStrength(s){
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:3px">
         <span>極弱</span><span>身弱</span><span>中和</span><span>身強</span><span>極強</span></div>
     </div></div>
-    <div class="note">日主 <b class="wx-${s.dayWx}">${s.dayGan}（${s.dayWx}）</b>，月令${s.ling.state}。${s.ling.note}。</div>
-    <details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--blue-d)">▸ 展開身強弱計分明細</summary>
+    <div class="note"><b>「${s.strength}」是什麼意思？</b>${STRENGTH_PLAIN[s.strength]||""}</div>
+    <div class="note" style="margin-top:8px">${strengthPlainLine(s)}</div>
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--blue-d)">▸ 展開命理術語版與計分明細</summary>
+      <div style="font-size:12px;color:#94a3b8;margin:6px 0">日主 ${s.dayGan}（${s.dayWx}），月令${s.ling.state}。${s.ling.note}。</div>
       <div class="detail-list" style="margin-top:8px">${s.detail.map(d=>
         `<div class="di"><span>${d.item} <span style="color:#94a3b8">${d.note}</span></span>
          <span class="${d.val>=0?'pos':'neg'}">${d.val>=0?'+':''}${d.val}</span></div>`).join("")}</div>
@@ -772,11 +802,13 @@ function renderStrength(s){
 
 /* ====== 用神 ====== */
 function renderYong(y){
-  return `<div style="margin-bottom:10px">
-    <span style="font-size:13px;color:var(--sub)">取用方法：</span><b>${y.method}</b></div>
-    <div style="margin-bottom:8px">喜用神：${y.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7">${w}</span>`).join("")}</div>
-    <div style="margin-bottom:8px">忌神：${y.avoid.length?y.avoid.map(w=>`<span class="badge bad">${w}</span>`).join(""):'<span style="color:#94a3b8">—</span>'}</div>
-    <div class="note">${y.note}</div>`;
+  const r0=WX_REMEDY[y.primary[0]]||{};
+  return `<div class="cap" style="margin-bottom:10px">「<b>喜用神</b>」＝對你最有幫助的五行，平常多<b>親近它</b>(顏色、方位、行業)會更順；「<b>忌神</b>」＝對你較不利、要盡量避開的五行。這是全盤<b>趨吉避凶的核心</b>。</div>
+    <div style="margin-bottom:8px">喜用神（多親近）：${y.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7">${w}</span>`).join("")}</div>
+    <div style="margin-bottom:10px">忌神（盡量避）：${y.avoid.length?y.avoid.map(w=>`<span class="badge bad">${w}</span>`).join(""):'<span style="color:#94a3b8">—</span>'}</div>
+    <div class="note" style="margin-top:0">👉 白話建議：多穿 <b>${r0.colors||""}</b>、往 <b>${r0.dir||""}</b> 發展、選 ${r0.ind?r0.ind.split("、").slice(0,3).join("、"):""} 這類方向，運勢會更順。完整調補方式見「八字四柱」頁的五行能量卡。</div>
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--blue-d)">▸ 看命理術語版</summary>
+      <div style="font-size:12px;color:#94a3b8;margin-top:6px">取用方法：${y.method}。${y.note}</div></details>`;
 }
 
 /* ====== 十神分布 ====== */
@@ -1186,6 +1218,7 @@ function renderDashboard(a,overall,luck){
             <div class="kv" style="padding:3px 0"><span class="k">格局</span><span class="v">${a.pattern.patterns[0].name}</span></div>
           </div>
         </div>
+        <div class="note" style="margin-top:0;font-size:12px">「<b>${a.strength.strength}</b>」＝${STRENGTH_PLAIN[a.strength.strength]||""}</div>
         <div class="kv"><span class="k">喜用神</span><span class="v">${a.yong.primary.map(w=>`<span class="badge good wx-${w}" style="background:#dcfce7">${w}</span>`).join("")}</span></div>
         <div class="kv"><span class="k">忌神</span><span class="v">${a.yong.avoid.length?a.yong.avoid.map(w=>`<span class="badge bad">${w}</span>`).join(""):'—'}</span></div>
       </div>
