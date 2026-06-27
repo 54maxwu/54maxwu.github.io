@@ -389,6 +389,17 @@
   .star-dict .sd-row b{flex:none;width:34px;color:var(--ink);font-weight:700}
   .star-dict .sd-row span{color:#64748b}
 
+  /* 紫微命盤白話總結 */
+  .zw-summary{margin-top:18px;padding-top:16px;border-top:2px dashed #e2e8f0}
+  .zw-summary .zs-title{font-size:15px;font-weight:700;color:var(--blue-d);margin-bottom:10px}
+  .zw-summary .zs-lead{font-size:14px;line-height:1.9;color:#334155;margin:0 0 12px}
+  .zw-summary .zs-lead b{color:var(--ink)}
+  .zw-summary .zs-rows{display:flex;flex-direction:column;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px 15px}
+  .zw-summary .zs-row{display:flex;gap:10px;font-size:13px;line-height:1.75;color:#475569}
+  .zw-summary .zs-row .zs-k{flex:none;width:46px;font-weight:700;color:var(--blue-d)}
+  .zw-summary .zs-row b{color:var(--ink)}
+  .zw-summary .zs-foot{font-size:12.5px;color:#94a3b8;line-height:1.7;margin:12px 0 0}
+
   .note{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:11px 13px;
     font-size:13px;color:#475569;line-height:1.8;margin-top:10px}
   .note b{color:var(--ink)}
@@ -1117,7 +1128,49 @@ function renderZiwei(a){
         <div class="zw-side">${legend}${starDict}</div>
         <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
-      </div></div>`;
+      </div>
+      ${ziweiSummary(z,a)}</div>`;
+}
+
+/* 紫微命盤白話總結 */
+function ziweiSummary(z,a){
+  const name=a.name||"這個人";
+  const pget=n=>z.palaces.find(p=>p.name===n);
+  const starList=p=>p&&p.majorStars.length?p.majorStars.map(s=>s.name):[];
+  const starPlain=names=>names.map(n=>(GLOSSARY[n]||"").split("：").slice(-1)[0]).filter(Boolean);
+  // 命宮
+  const ming=pget("命宮"); const mingStars=starList(ming);
+  let mingSay;
+  if(mingStars.length){
+    mingSay=`命宮坐 <b>${mingStars.join("、")}</b>——${starPlain(mingStars).join("；")}。這是${name}的核心性格與一生主軸。`;
+  }else{
+    const oppName={命宮:"遷移"}; const opp=pget("遷移"); const os=starList(opp);
+    mingSay=`命宮無主星，個性較隨環境而變、可塑性高，要看對宮<b>遷移宮（${os.join("、")||"—"}）</b>來借用論斷——代表${name}在外、與人互動時更能展現自己。`;
+  }
+  // 事業 / 財帛 / 夫妻 三大重點宮
+  const blocks=[
+    ["官祿","事業","你的事業舞台與工作表現"],
+    ["財帛","財運","你賺錢的方式與財運來源"],
+    ["夫妻","感情","你的婚姻、另一半與相處模式"]
+  ].map(([pn,label,desc])=>{
+    const p=pget(pn); const st=starList(p);
+    if(!st.length) return `<div class="zs-row"><span class="zs-k">${label}</span><span>此宮無主星，須參考對宮；${desc}較隨緣、起伏看大運。</span></div>`;
+    const mut=p.majorStars.filter(s=>s.mutagen).map(s=>`${s.name}化${s.mutagen}`);
+    const mutSay=mut.length?`（帶${mut.join("、")}，${p.majorStars.some(s=>s.mutagen==='祿'||s.mutagen==='權'||s.mutagen==='科')?'多為加分助力':'要多留意'}）`:"";
+    return `<div class="zs-row"><span class="zs-k">${label}</span><span>坐 <b>${st.join("、")}</b>${mutSay}——${starPlain(st).join("；")}。</span></div>`;
+  }).join("");
+  // 四化整體
+  let sihua="";
+  const allMut=[];
+  z.palaces.forEach(p=>p.majorStars.forEach(s=>{ if(s.mutagen) allMut.push(`${p.name}的${s.name}化${s.mutagen}`); }));
+  if(allMut.length) sihua=`<div class="zs-row"><span class="zs-k">四化</span><span>你這張盤的四化落在：${allMut.join("、")}。化祿/權/科是機會與助力所在，化忌是要多用心、易卡關之處。</span></div>`;
+
+  return `<div class="zw-summary">
+    <div class="zs-title">🔮 一段話總結${name}的紫微命盤</div>
+    <p class="zs-lead">${mingSay} 命主星 <b>${z.soul}</b>、身主星 <b>${z.body}</b>，五行屬 <b>${z.fiveElementsClass}</b>。</p>
+    <div class="zs-rows">${blocks}${sihua}</div>
+    <p class="zs-foot">綜合來看，${name}適合往「命宮＋事業宮」星曜的特質發展最順；想細看任何一宮，點上方該宮格會跳出詳解與三方四正連線。紫微為性格與運勢的參考，最終仍由自己掌握。</p>
+  </div>`;
 }
 
 /* 單一宮位的浮動框內容 */
