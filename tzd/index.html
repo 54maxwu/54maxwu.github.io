@@ -267,7 +267,12 @@
     font-size:12px;display:flex;flex-direction:column;min-height:118px}
   .zw-cell.clickable{cursor:pointer;transition:.12s}
   .zw-cell.clickable:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(59,130,246,.12)}
-  .zw-cell.active{border-color:var(--blue-d);box-shadow:0 0 0 2px var(--blue-sel)}
+  .zw-cell.active{border-color:var(--blue-d);box-shadow:0 0 0 2px var(--blue-sel);position:relative;z-index:2}
+  .zw-cell.sfsz{border-color:#fca5a5;background:#fef2f2;box-shadow:0 0 0 1px #fecaca;position:relative;z-index:2}
+  .zw-cell.sfsz.ming{background:#fef2f2}
+  .zw-lines{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:visible}
+  .pd-sfsz{margin-top:10px;padding-top:9px;border-top:1px dashed #e2e8f0;font-size:11.5px;color:#475569;line-height:1.65}
+  .pd-sfsz b{color:#dc2626}
 
   /* 宮位浮動框 */
   .zw-pop{position:absolute;z-index:30;width:280px;max-width:88vw;background:#fff;
@@ -890,7 +895,7 @@ function renderZiwei(a){
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
     // 浮動框內容（點擊跳出）
     const detail=palaceDetailHTML(p);
-    cells+=`<div class="zw-cell clickable ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" title="點我看「${p.name}」詳解">
+    cells+=`<div class="zw-cell clickable ${p.name==='命宮'?'ming':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
       <div class="pn">${p.name}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
       <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
   }
@@ -902,6 +907,7 @@ function renderZiwei(a){
       <li><b>星旁的小灰字（廟旺得利平不陷）＝這顆星的力量強弱</b>：<span style="color:#b08900">廟旺＝很強、平＝普通、不陷＝偏弱</span>。</li>
       <li><b>彩色小標＝四化</b>：<span class="sh sh-祿">祿</span>好處財祿、<span class="sh sh-權">權</span>權力能力、<span class="sh sh-科">科</span>名聲貴人、<span class="sh sh-忌">忌</span>牽絆阻礙。</li>
       <li><b>格子角落兩字（如壬午）＝干支座標</b>，排盤用的，不懂可以略過。</li>
+      <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span></b>：連到要「合看」的另三宮（對宮＋兩三合宮），這四宮合稱<b>三方四正</b>，論命要一起看才完整。</li>
     </ul>
     <div class="lg-foot">命主 <b>${z.soul}</b>＝先天主導你的星、身主 <b>${z.body}</b>＝後天養成你的星；<b>${z.fiveElementsClass}</b>＝決定大運幾歲起運的五行局。</div>
   </div>`;
@@ -912,10 +918,10 @@ function renderZiwei(a){
     ${ZW_STARS.map(n=>`<div class="sd-row"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
   </div>`;
   return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
-        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解</span></h3>
+        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解＋三方四正連線</span></h3>
       <div class="zw-layout">
         <div class="zw-side">${legend}${starDict}</div>
-        <div class="ziwei-wrap"><div class="ziwei-grid">${cells}</div>
+        <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
       </div></div>`;
 }
@@ -934,8 +940,14 @@ function palaceDetailHTML(p){
     +`<span class="pd-gz">${p.heavenlyStem||""}${p.earthlyBranch||""}</span></div>`
     +`<div class="pd-meaning">這一宮看：${palMeaning}</div>`
     +`<div class="pd-stars-line">主星：${stars}</div>`
-    +(starDescs?`<div class="pd-starbox">${starDescs}</div>`:"");
+    +(starDescs?`<div class="pd-starbox">${starDescs}</div>`:"")
+    +`<div class="pd-sfsz">🔗 <b>三方四正</b>：盤上已用紅線連出與本宮「要合看」的另外三宮——<b>對宮</b>（正對面）＋<b>兩個三合宮</b>。論這一宮時，要連同這三宮的星一起參考，吉凶才完整。</div>`;
 }
+
+/* 地支三方四正（對宮＝沖、三合＝左右隔四格） */
+const ZW_CHONG={子:"午",午:"子",丑:"未",未:"丑",寅:"申",申:"寅",卯:"酉",酉:"卯",辰:"戌",戌:"辰",巳:"亥",亥:"巳"};
+const ZW_SANHE={申:["子","辰"],子:["申","辰"],辰:["申","子"], 寅:["午","戌"],午:["寅","戌"],戌:["寅","午"],
+  亥:["卯","未"],卯:["亥","未"],未:["亥","卯"], 巳:["酉","丑"],酉:["巳","丑"],丑:["巳","酉"]};
 
 /* ====== 緊湊大運時間軸（dashboard 用） ====== */
 function renderDaYunMini(a){
@@ -1260,24 +1272,47 @@ function bindTabs(luckCtx){
   }
 }
 
-/* ====== 紫微宮位浮動框 ====== */
+/* ====== 紫微宮位浮動框＋三方四正連線 ====== */
 function bindZiweiPopover(){
-  const grid=$(".ziwei-grid"); const pop=$("#zwPop");
+  const grid=$(".ziwei-grid"); const pop=$("#zwPop"); const svg=$("#zwLines");
   if(!grid||!pop) return;
   const wrap=$(".ziwei-wrap");
-  const close=()=>{ pop.hidden=true; grid.querySelectorAll(".zw-cell.active").forEach(c=>c.classList.remove("active")); };
+  const cellOf=b=>grid.querySelector(`.zw-cell[data-branch="${b}"]`);
+  const centerOf=(cell,wr)=>{const cr=cell.getBoundingClientRect();
+    return {x:cr.left-wr.left+cr.width/2, y:cr.top-wr.top+cr.height/2};};
+  const clearLines=()=>{ if(svg) svg.innerHTML=""; };
+  const clearHi=()=>grid.querySelectorAll(".zw-cell.active,.zw-cell.sfsz").forEach(c=>c.classList.remove("active","sfsz"));
+  const close=()=>{ pop.hidden=true; clearHi(); clearLines(); };
+  // 畫三方四正連線
+  const drawLines=(srcCell)=>{
+    if(!svg) return;
+    const b=srcCell.dataset.branch; if(!b) return;
+    const wr=wrap.getBoundingClientRect();
+    svg.setAttribute("width",wr.width); svg.setAttribute("height",wr.height);
+    svg.setAttribute("viewBox",`0 0 ${wr.width} ${wr.height}`);
+    const targets=[ZW_CHONG[b],...(ZW_SANHE[b]||[])].filter(Boolean);
+    const src=centerOf(srcCell,wr);
+    let html="";
+    targets.forEach(tb=>{
+      const tc=cellOf(tb); if(!tc) return;
+      tc.classList.add("sfsz");
+      const tp=centerOf(tc,wr);
+      html+=`<line x1="${src.x}" y1="${src.y}" x2="${tp.x}" y2="${tp.y}" stroke="#dc2626" stroke-width="1.6" stroke-opacity="0.7" stroke-dasharray="5 4"/>`;
+    });
+    svg.innerHTML=html;
+  };
   grid.addEventListener("click",e=>{
     const cell=e.target.closest(".zw-cell.clickable");
     if(!cell) return;
     if(cell.classList.contains("active")){ close(); return; }
-    grid.querySelectorAll(".zw-cell.active").forEach(c=>c.classList.remove("active"));
+    clearHi(); clearLines();
     cell.classList.add("active");
+    drawLines(cell);
     pop.innerHTML=`<button class="zw-pop-x" aria-label="關閉">✕</button><div class="zw-pop-body">${decodeURIComponent(cell.dataset.detail||"")}</div>`;
     pop.hidden=false;
     // 定位：在格子右側；若超出容器右緣則改放左側
     const wr=wrap.getBoundingClientRect(), cr=cell.getBoundingClientRect();
-    const top=cr.top-wr.top;
-    pop.style.top=top+"px";
+    pop.style.top=(cr.top-wr.top)+"px";
     const popW=pop.offsetWidth, gap=10;
     let left=cr.right-wr.left+gap;
     if(left+popW>wr.width){ left=cr.left-wr.left-popW-gap; }
