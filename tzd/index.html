@@ -220,6 +220,21 @@
   .bazi-table .ny.ny-click:hover{color:var(--blue-d)}
   .ny-row{border-radius:7px;transition:.2s}
   .ny-row.hl{background:#e0f2fe;box-shadow:0 0 0 2px #7dd3fc;padding-left:8px;padding-right:8px}
+
+  /* 改名建議 */
+  .na-ok{margin-top:12px;font-size:12.5px;color:#15803d;background:#f0fdf4;border-radius:8px;padding:9px 12px}
+  .na-box{margin-top:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px}
+  .na-title{font-size:13px;font-weight:700;color:#b45309;margin-bottom:6px}
+  .na-intro{font-size:11.5px;color:#475569;line-height:1.75;margin-bottom:10px}
+  .na-intro b{color:var(--ink)}
+  .na-row{padding:9px 0;border-top:1px dashed #fde68a}
+  .na-row:first-of-type{border-top:none}
+  .na-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .na-who{font-size:12.5px;color:var(--ink);font-weight:600}
+  .na-say{font-size:12px;color:#475569;line-height:1.6}
+  .na-cand{font-size:12px;color:#475569;line-height:1.7;margin:2px 0}
+  .na-cand b{color:var(--blue-d)}
+  .na-egs{color:#7c3aed;font-weight:600}
   .wx-木{color:var(--wood)} .wx-火{color:var(--fire)} .wx-土{color:var(--earth)}
   .wx-金{color:var(--metal)} .wx-水{color:var(--water)}
 
@@ -633,7 +648,7 @@ import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX } from "./engine
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
-import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, nameAnalysis, luckText } from "./engine-aux.js";
+import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, PALACE_ORDER, SIHUA_DESC } from "./engine-ziwei.js";
 import { GLOSSARY } from "./glossary.js";
@@ -1616,7 +1631,33 @@ function renderName(a){
       <span class="v">${g.num}（${g.wx}）<span class="badge ${g.luck===3?'good':g.luck===1?'bad':'mid'}">${luckText(g.luck)}</span></span></div>`).join("")}
     <div class="note" style="margin-top:12px">三才配置 <b>${n.sancai.wx.join("－")}</b>
       <span class="badge ${n.sancai.luck==='吉'?'good':n.sancai.luck==='凶'?'bad':'mid'}">${n.sancai.luck}</span>
-      <span style="font-size:11px;color:#94a3b8">（三才＝天格‧人格‧地格三者的五行生剋，看名字的基礎吉凶）</span><br>${n.sancai.desc}</div></div>`;
+      <span style="font-size:11px;color:#94a3b8">（三才＝天格‧人格‧地格三者的五行生剋，看名字的基礎吉凶）</span><br>${n.sancai.desc}</div>
+    ${renderNameAdvice(n)}</div>`;
+}
+
+/* 改名建議：凶格 → 要改哪個字、改成幾畫、有哪些字可選 */
+function renderNameAdvice(n){
+  let adv=[];
+  try{ adv=nameSuggest(n.chars,n.grids); }catch(e){ adv=[]; }
+  if(!adv.length) return `<div class="na-ok">✓ 五格沒有明顯凶數，姓名整體穩定，不需特別改名。</div>`;
+  const rows=adv.map(g=>{
+    if(g.fixable===false){
+      return `<div class="na-row"><div class="na-head"><span class="badge bad">${g.grid} 凶</span></div>
+        <div class="na-say">${g.note}</div></div>`;
+    }
+    const cands=g.cands.map(c=>{
+      const egs=charsByStroke(c.stroke).slice(0,6);
+      return `<div class="na-cand">改成 <b>${c.stroke} 畫</b>（${g.grid}→${c.grid}，吉）${egs.length?`：例如 <span class="na-egs">${egs.join("、")}</span>`:"（此筆畫無範例字，可請命名老師選）"}</div>`;
+    }).join("");
+    return `<div class="na-row"><div class="na-head"><span class="badge bad">${g.grid} 凶</span>
+        <span class="na-who">建議改「${g.who}」（目前 ${g.curStroke} 畫）</span></div>
+      ${cands}</div>`;
+  }).join("");
+  return `<div class="na-box">
+    <div class="na-title">✍ 改名建議（針對凶數）</div>
+    <div class="na-intro">姓名五格中，<b>天格＝姓</b>（不能改），<b>人格／地格／外格／總格</b>都跟「名字的字」有關。某格是<b style="color:#b91c1c">凶</b>時，把對應的字換成下面建議的筆畫，那一格就會轉吉。筆畫以康熙字典為準，<b>實際取名請再確認字義與讀音</b>。</div>
+    ${rows}
+  </div>`;
 }
 
 /* 命局綜評（自家公式，透明可解釋） */

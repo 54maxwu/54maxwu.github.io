@@ -284,6 +284,61 @@ function sancaiLuck(t,r,d){
   return {luck:"平",desc:"三才生剋參半，運勢平穩中帶起伏"};
 }
 
+/* 某筆畫有哪些常用名字字（從 STROKES 表反查，取常見的） */
+export function charsByStroke(n){
+  const skip=new Set(["王","李","張","陳","林","黃","劉","吳","蔡","楊","許","鄭","謝","郭","洪","曾","廖","賴","徐","周","葉","蘇","莊","江","呂","何","羅","高","潘","簡","朱","鍾","游","彭","詹","胡","施","沈","余","盧","梁","趙","顏","柯","翁","魏","孫","戴","范","方","宋","鄧","杜","侯","曹","溫","薛","丁","馬","董","袁","鄒","傅","馮","卓","藍","古"]); // 排除純姓氏
+  const out=[];
+  for(const ch in STROKES){ if(STROKES[ch]===n && !skip.has(ch)) out.push(ch); }
+  return out;
+}
+
+/* 81 數理「吉數」清單（luck===3），給改名建議用 */
+function luckyNumbers(){
+  const arr=[];
+  for(let n=1;n<=81;n++){ if(luck81(n)===3) arr.push(n); }
+  return arr;
+}
+/* 某字若改成 x 畫，重算該格數→是否吉。回傳建議的候選筆畫(就近 2-3 個) */
+function suggestStrokes(targetFn, curStroke){
+  // targetFn(x) = 該格在「這個字改成 x 畫」時的格數
+  const goods=luckyNumbers();
+  const cand=[];
+  for(let x=1;x<=24;x++){            // 名字單字常見 1~24 畫
+    if(x===curStroke) continue;
+    if(goods.includes(targetFn(x))) cand.push({stroke:x, grid:targetFn(x)});
+  }
+  // 依與原筆畫的接近程度排序（改動越小越好寫）
+  cand.sort((a,b)=>Math.abs(a.stroke-curStroke)-Math.abs(b.stroke-curStroke));
+  return cand.slice(0,3);
+}
+
+/* 改名建議：針對「凶」的格，指出要改名字的哪個字、改成幾畫
+ * 五格公式(單姓雙名)：天=姓+1、人=姓+名1、地=名1+名2、外=名2+1、總=姓+名1+名2
+ */
+export function nameSuggest(info, grids){
+  const n=info.length;
+  if(n<2) return [];
+  const s=info[0].n, m1=info[1].n, m2=(n>=3?info[2].n:null);
+  const adv=[];
+  grids.forEach(g=>{
+    if(g.luck!==1) return;
+    if(g.name==="天格"){
+      adv.push({grid:"天格",fixable:false,note:"天格由「姓氏」筆畫決定，姓不能改；可改名字讓人格、地格、三才轉吉來補強。"});
+      return;
+    }
+    let who="",cur=0,fn=null;
+    if(g.name==="人格"){ who="名的第一個字"; cur=m1; fn=x=>s+x; }
+    else if(g.name==="地格"){ if(m2==null){ who="名（單名）"; cur=m1; fn=x=>x+1; } else { who="名的第一個字"; cur=m1; fn=x=>x+m2; } }
+    else if(g.name==="外格"){ if(m2==null){ adv.push({grid:"外格",fixable:false,note:"單名的外格較固定，建議改用雙名來調整外格。"}); return; } who="名的第二個字"; cur=m2; fn=x=>x+1; }
+    else if(g.name==="總格"){ who=(m2!=null?"名的任一個字":"名字"); cur=(m2!=null?m2:m1); fn=(m2!=null?(x=>s+m1+x):(x=>s+x)); }
+    if(fn){
+      const cands=suggestStrokes(fn,cur);
+      adv.push({grid:g.name, fixable:cands.length>0, who, curStroke:cur, cands});
+    }
+  });
+  return adv;
+}
+
 export function nameAnalysis(name){
   const chars=[...(name||"")].filter(c=>c.trim());
   if(chars.length===0) return null;
