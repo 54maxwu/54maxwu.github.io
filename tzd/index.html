@@ -270,6 +270,31 @@
   .pd-star{font-size:12px;color:#475569;line-height:1.6}
   .pd-star b{color:var(--ink)}
   @media(max-width:560px){ .zw-pop{width:240px} }
+
+  /* 五行調補卡 */
+  .rmd{margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px}
+  .rmd-intro{font-size:12px;color:#475569;line-height:1.8;margin-bottom:10px}
+  .rmd-intro b{color:var(--ink)}
+  .rmd-row{display:flex;gap:10px;padding:8px 0;border-top:1px dashed #e2e8f0}
+  .rmd-row:first-of-type{border-top:none}
+  .rmd-wx{flex:none;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:16px;background:#fff;border:1px solid var(--line)}
+  .rmd-detail{font-size:11.5px;color:#475569;line-height:1.75}
+  .rmd-detail b{color:var(--blue-d);font-weight:600;margin-right:3px}
+
+  /* 星座/生肖 豐富卡 */
+  .sign-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .sign-head .sign-name{font-size:19px;font-weight:700;color:var(--ink)}
+  .sign-head .sign-date{font-size:12px;color:#94a3b8}
+  .sign-head .kv2{margin-left:auto;font-size:12.5px;color:var(--sub)}
+  .sign-head .kv2 .k2{margin-right:4px}
+  .detail-block{display:flex;flex-direction:column;gap:8px}
+  .db-row{display:flex;gap:8px;font-size:12.5px;color:#475569;line-height:1.65}
+  .db-row .db-k{flex:none;width:74px;font-weight:600;color:var(--ink)}
+  .db-foot{margin-top:10px;font-size:11px;color:#b6c0cf;line-height:1.5}
+  .sx-rel{margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0;font-size:12.5px;line-height:1.95;color:#475569}
+  .sx-rel .srt{font-weight:700;color:var(--blue-d);margin-bottom:3px}
+
   .zw-cell.center{grid-column:2/4;grid-row:2/4;background:#fff;justify-content:center;align-items:center;text-align:center}
   .zw-cell.ming{background:var(--blue-l);border-color:#bfdbfe}
   .zw-cell .pn{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:5px;line-height:1.3}
@@ -289,6 +314,12 @@
   .zw-legend .lg-list .sh{font-size:10px;color:#fff;padding:1px 5px;border-radius:4px;margin:0 1px}
   .zw-legend .lg-foot{margin-top:9px;padding-top:9px;border-top:1px dashed #e2e8f0;font-size:11.5px;color:var(--sub);line-height:1.7}
   .zw-legend .lg-foot b{color:var(--blue-d)}
+  .star-dict{margin-top:12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px}
+  .star-dict .sd-title{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:8px}
+  .star-dict .sd-row{display:flex;gap:8px;padding:4px 0;font-size:11.5px;line-height:1.5;border-top:1px dashed #f1f5f9}
+  .star-dict .sd-row:first-of-type{border-top:none}
+  .star-dict .sd-row b{flex:none;width:34px;color:var(--ink);font-weight:700}
+  .star-dict .sd-row span{color:#64748b}
 
   .note{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:11px 13px;
     font-size:13px;color:#475569;line-height:1.8;margin-top:10px}
@@ -437,7 +468,7 @@ import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX } from "./engine
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
-import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, nameAnalysis, luckText } from "./engine-aux.js";
+import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, nameAnalysis, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, PALACE_ORDER, SIHUA_DESC } from "./engine-ziwei.js";
 import { GLOSSARY } from "./glossary.js";
@@ -603,6 +634,35 @@ function renderWuxing(tally){
     <div><span class="wxn wx-${k}">${k}</span>
       <div class="bar"><i style="width:${Math.max(4,tally[k]/max*100)}%;background:${WX_COLOR[k]}"></i></div>
       <span class="val">${tally[k].toFixed(1)}</span></div>`).join("")}</div>`;
+}
+
+/* 五行調補對照：每個五行對應的顏色/方位/季節時段/行業/生活面向 */
+const WX_REMEDY={
+  木:{colors:"綠色、青色",dir:"東方",num:"3、8",ind:"教育、文化、出版、林木、紡織、醫療、植栽",act:"多接觸大自然、種植物、晨間早起、穿綠色衣物"},
+  火:{colors:"紅色、紫色、橙色",dir:"南方",num:"2、7",ind:"餐飲、能源、電子、美容、燈光、傳媒、行銷",act:"多曬太陽、保持熱情、運動發汗、用暖色系"},
+  土:{colors:"黃色、咖啡色、米色",dir:"中央、西南、東北",num:"5、0",ind:"房地產、營造、農業、陶瓷、保險、顧問",act:"接地氣、登山踏實、佩戴玉石陶瓷、穿大地色"},
+  金:{colors:"白色、銀色、金色",dir:"西方、西北",num:"4、9",ind:"金融、機械、科技、五金、軍警、珠寶",act:"佩戴金屬飾品、聽金屬樂音、環境保持整潔明亮"},
+  水:{colors:"黑色、藍色、灰色",dir:"北方",num:"1、6",ind:"貿易、運輸、水產、旅遊、流通、自由業",act:"多喝水、近水而居、養魚、穿深藍黑色"}
+};
+/* 五行調補說明卡 */
+function renderRemedy(yong, avoid){
+  const need=[...new Set(yong)].filter(Boolean);
+  const av=[...new Set(avoid)].filter(Boolean);
+  if(!need.length) return "";
+  const rows=need.map(w=>{const r=WX_REMEDY[w];if(!r)return "";
+    return `<div class="rmd-row">
+      <span class="rmd-wx wx-${w}">${w}</span>
+      <div class="rmd-detail">
+        <div><b>顏色</b>${r.colors}　<b>方位</b>${r.dir}　<b>幸運數</b>${r.num}</div>
+        <div><b>適合領域</b>${r.ind}</div>
+        <div><b>生活上</b>${r.act}</div>
+      </div></div>`;}).join("");
+  return `<div class="rmd">
+    <div class="rmd-intro">所謂「<b>調補</b>」，就是日常多<b>親近你的喜用五行（${need.join("、")}）</b>來補運：
+      從<b>穿著顏色、住家／座位方位、選擇行業、生活習慣</b>等面向，盡量靠近下面這些選項；
+      ${av.length?`並盡量<b>避開忌神（${av.join("、")}）</b>的顏色與方位。`:""}這不是迷信靈藥，而是用環境暗示讓自己更順、更有狀態。</div>
+    ${rows}
+  </div>`;
 }
 
 /* ====== 身強弱明細 ====== */
@@ -801,10 +861,16 @@ function renderZiwei(a){
     </ul>
     <div class="lg-foot">命主 <b>${z.soul}</b>＝先天主導你的星、身主 <b>${z.body}</b>＝後天養成你的星；<b>${z.fiveElementsClass}</b>＝決定大運幾歲起運的五行局。</div>
   </div>`;
+  // 14 主星白話小辭典（填左欄、幫助讀盤）
+  const ZW_STARS=["紫微","天機","太陽","武曲","天同","廉貞","天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"];
+  const starDict=`<div class="star-dict">
+    <div class="sd-title">🔆 十四主星 白話速查</div>
+    ${ZW_STARS.map(n=>`<div class="sd-row"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
+  </div>`;
   return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
         <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">👆 點任一宮格看詳解</span></h3>
       <div class="zw-layout">
-        <div class="zw-side">${legend}</div>
+        <div class="zw-side">${legend}${starDict}</div>
         <div class="ziwei-wrap"><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
       </div></div>`;
@@ -893,7 +959,8 @@ function renderDashboard(a,overall,luck){
       <div class="card">
         <h3><span class="ic">五</span>五行能量</h3>
         ${renderWuxing(a.tally)}
-        <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱，可由色彩方位調補。</div>
+        <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱。</div>
+        ${renderRemedy(a.yong.primary, a.yong.avoid)}
       </div>
     </div>
 
@@ -934,6 +1001,51 @@ function renderDashboard(a,overall,luck){
       ${renderDaYunMini(a)}
     </div>
   </div>`;
+}
+
+/* ====== 星座（豐富版） ====== */
+function renderSign(a){
+  const d=SIGN_DETAIL[a.sign]||{};
+  const rising=a.rising?`<span class="kv2"><span class="k2">上升（近似）</span><b>${a.rising}座</b></span>`:"";
+  const tags=[d.element,d.mode&&d.mode+"星座",d.ruler&&"守護星 "+d.ruler].filter(Boolean)
+    .map(t=>`<span class="badge gray" style="font-size:11px">${t}</span>`).join("");
+  return `<div class="card"><h3><span class="ic">星</span>星座</h3>
+    <div class="sign-head">
+      <span class="sign-name">${a.sign}座</span>
+      <span class="sign-date">${d.date||""}</span>${rising}
+    </div>
+    <div style="margin:6px 0 10px">${tags}</div>
+    <div class="note" style="margin-bottom:10px">${SIGN_TRAIT[a.sign]||""}</div>
+    <div class="detail-block">
+      ${d.love?`<div class="db-row"><span class="db-k">💗 感情</span><span>${d.love}</span></div>`:""}
+      ${d.career?`<div class="db-row"><span class="db-k">💼 事業</span><span>${d.career}</span></div>`:""}
+      ${d.match?`<div class="db-row"><span class="db-k">🤝 速配</span><span>${d.match}</span></div>`:""}
+      ${d.color?`<div class="db-row"><span class="db-k">🎨 幸運色</span><span>${d.color}</span></div>`:""}
+      ${d.advice?`<div class="db-row"><span class="db-k">💡 提醒</span><span>${d.advice}</span></div>`:""}
+    </div>
+    <div class="db-foot">上升星座為近似推算，需精確出生時間與經緯度才準。</div></div>`;
+}
+
+/* ====== 生肖（豐富版） ====== */
+function renderShengXiao(a){
+  const sx=a.sx, d=SX_DETAIL[sx.sx]||{};
+  return `<div class="card"><h3><span class="ic">肖</span>生肖</h3>
+    <div class="sign-head"><span class="sign-name">屬${sx.sx}</span></div>
+    <div class="note" style="margin:8px 0 10px">${sx.trait}</div>
+    <div class="detail-block">
+      ${d.career?`<div class="db-row"><span class="db-k">💼 事業財運</span><span>${d.career}</span></div>`:""}
+      ${d.love?`<div class="db-row"><span class="db-k">💗 感情</span><span>${d.love}</span></div>`:""}
+      ${d.health?`<div class="db-row"><span class="db-k">🩺 健康</span><span>${d.health}</span></div>`:""}
+      ${d.luck?`<div class="db-row"><span class="db-k">🍀 開運</span><span>${d.luck}</span></div>`:""}
+      ${d.remind?`<div class="db-row"><span class="db-k">📌 提醒</span><span>${d.remind}</span></div>`:""}
+    </div>
+    <div class="sx-rel">
+      <div class="srt">生肖配對</div>
+      <div>三合（最速配・貴助）：<b class="wx-木">${sx.sanhe.join("、")}</b></div>
+      <div>六合（貼心貴人）：<b class="wx-木">${sx.liuhe}</b></div>
+      <div>六沖（最不合，多包容）：<b style="color:var(--bad)">${sx.chong}</b></div>
+      <div>相害／相刑（易暗耗摩擦）：<b style="color:#b45309">${sx.hai}</b>／<b style="color:#b45309">${sx.xing.join("、")}</b></div>
+    </div></div>`;
 }
 
 /* ====== 主渲染（單人） ====== */
@@ -996,18 +1108,8 @@ function renderSingle(a){
 
    <div class="panel" data-panel="name"><div class="grid g3">
      ${a.nameInfo?renderName(a):`<div class="card"><div class="empty-tip">未輸入姓名。可回上方填入姓名以分析五格三才。</div></div>`}
-     <div class="card"><h3><span class="ic">星</span>星座</h3>
-       <div class="kv"><span class="k">太陽星座</span><span class="v">${a.sign}座</span></div>
-       ${a.rising?`<div class="kv"><span class="k">上升星座（近似）</span><span class="v">${a.rising}座</span></div>`:""}
-       <div class="note">${SIGN_TRAIT[a.sign]||""}</div></div>
-     <div class="card"><h3><span class="ic">肖</span>生肖</h3>
-       <div style="font-size:18px;font-weight:700;margin-bottom:6px">屬${a.sx.sx}</div>
-       <div class="note">${a.sx.trait}</div>
-       <div style="margin-top:10px;font-size:12.5px;line-height:1.9">
-         <div>三合（最佳助力）：<b>${a.sx.sanhe.join("、")}</b></div>
-         <div>六合（貴人）：<b>${a.sx.liuhe}</b></div>
-         <div>六沖（最不合）：<b style="color:var(--bad)">${a.sx.chong}</b></div>
-         <div>相害：<b>${a.sx.hai}</b>　相刑：<b>${a.sx.xing.join("、")}</b></div></div></div>
+     ${renderSign(a)}
+     ${renderShengXiao(a)}
    </div></div>`;
   return {html, luck};
 }
