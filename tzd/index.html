@@ -235,6 +235,23 @@
   .ln-row:last-child{border-bottom:none}
   .ln-row .yr{font-weight:600;width:88px} .ln-row .gz{width:50px} .ln-row .g{color:var(--sub);font-size:12.5px;flex:1}
 
+  /* 流年詳細卡（每年一張） */
+  .ly-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(max-width:760px){ .ly-grid{grid-template-columns:1fr} }
+  .ly-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fff}
+  .ly-card.now{border-color:var(--blue);background:var(--blue-l);box-shadow:0 0 0 2px rgba(59,130,246,.12)}
+  .ly-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .ly-head .ly-yr{font-size:16px;font-weight:700;color:var(--ink)}
+  .ly-head .ly-age{font-size:12px;color:var(--sub);font-weight:400;margin-left:5px}
+  .ly-head .ly-tag{font-size:10px;background:var(--blue);color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px;vertical-align:middle}
+  .ly-head .ly-gz{font-size:17px;font-weight:700;margin-left:auto}
+  .ly-god{font-size:13px;color:var(--blue-d);margin-bottom:4px}
+  .ly-god b{font-size:14px}
+  .ly-desc{font-size:12.5px;color:#475569;line-height:1.75;margin-bottom:8px}
+  .ly-yiji{font-size:12px;color:#475569;line-height:1.85;border-top:1px dashed #e2e8f0;padding-top:7px}
+  .ly-yiji .yj-y{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:5px;background:#dcfce7;color:#15803d;font-weight:700;margin-right:6px;font-size:11px}
+  .ly-yiji .yj-j{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:5px;background:#fee2e2;color:#b91c1c;font-weight:700;margin-right:6px;font-size:11px}
+
   /* 紫微方格盤 */
   /* 紫微頁左右分欄：左說明、右命盤 */
   .zw-layout{display:flex;gap:18px;align-items:flex-start}
@@ -765,6 +782,20 @@ const GOD_SHORT={
   正印:"學識、貴人、靠山、被照顧",偏印:"偏門才學、直覺、孤剋"
 };
 function godShort(g){ return g&&g!=="日主"?(GOD_SHORT[g]||""):""; }
+/* 十神流年「主題」：這一年容易遇到的事（白話、不深） */
+const GOD_YEAR={
+  比肩:"人際與合夥之年。兄弟朋友、同行往來變多，適合團隊合作；但也易有競爭、被分財，合夥、借貸要拿捏。",
+  劫財:"破耗與衝勁之年。敢拚敢花，機會也多；錢財進出大，要守好荷包、別衝動投資或為朋友破費。",
+  食神:"才華與享受之年。靈感口才好、心情輕鬆，適合表現、創作、生養子女；別只顧享樂而鬆懈。",
+  傷官:"表現與變動之年。聰明點子多、想突破現狀，利創意與技術；但易心高氣傲、犯上頂撞，說話要收斂。",
+  正財:"務實理財之年。正職收入穩、適合存錢置產；男性也主感情正緣。腳踏實地最有收穫。",
+  偏財:"機會財之年。業外財、投資、人脈財運活絡，適合抓機會做生意；但財來財去，別貪心過頭。",
+  正官:"事業與責任之年。利升遷、考公職、扛責任、結婚（女性主正緣）；守規矩、走正途會被看見。",
+  七殺:"壓力與挑戰之年。事情多、節奏快、競爭強，能磨出魄力與成就；但也防意外、過勞與小人，量力而為。",
+  正印:"學習與貴人之年。利讀書考試、文書合約、長輩貴人相助；適合進修、調養、接受照顧。",
+  偏印:"鑽研與內省之年。對偏門學問、宗教玄學、第六感特別有感；適合專精冷門領域，但易孤獨、想太多。"
+};
+function godYear(g){ return g&&g!=="日主"?(GOD_YEAR[g]||""):""; }
 
 /* 大運流年共用：頂部白話說明 */
 function luckLegend(yong){
@@ -792,20 +823,33 @@ function renderLuck(a){
     <div class="tier tier-${p.tier}">${p.tier}</div>
   </div>`).join("");
   const ln=calcLiuNian(a.bz.solar.y,nowY,10,a.yong.primary,a.bz.dGan);
-  const lnRows=ln.map((L,i)=>{const th=LUCK_THEME[L.tier];return `<div class="ln-row">
-    <span class="yr">${L.year} (${L.age}歲)</span>
-    <span class="gz">${wxSpan(L.gz[0])}${L.gz[1]}</span>
-    <span class="badge ${L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid'}">${L.tier}</span>
-    <span class="g"><b>${L.ganGod}</b>（${godShort(L.ganGod)}）・${th.theme.split("，")[0]}</span></div>`;}).join("");
+  const lnRows=ln.map((L,i)=>{const th=LUCK_THEME[L.tier];
+    const tierCls=L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid';
+    const tierWord=L.tier==='旺'?'順遂、得力':L.tier==='弱'?'費力、宜守':'平穩、待時';
+    const isNow=L.year===nowY;
+    return `<div class="ly-card ${isNow?'now':''}">
+      <div class="ly-head">
+        <span class="ly-yr">${L.year}<span class="ly-age">${L.age}歲</span>${isNow?'<span class="ly-tag">今年</span>':''}</span>
+        <span class="ly-gz">${wxSpan(L.gz[0])}${L.gz[1]}</span>
+        <span class="badge ${tierCls}">${L.tier}・${tierWord}</span>
+      </div>
+      <div class="ly-god"><b>${L.ganGod}年</b>（${godShort(L.ganGod)}）</div>
+      <div class="ly-desc">${godYear(L.ganGod)}</div>
+      <div class="ly-yiji">
+        <div><span class="yj-y">宜</span>${th.yi.join("、")}</div>
+        <div><span class="yj-j">忌</span>${th.ji.join("、")}</div>
+      </div>
+    </div>`;}).join("");
   return {dy,html:`<div class="dash">
     ${luckLegend(a.yong.primary)}
     <div class="card span-all"><h3><span class="ic">運</span>大運（每十年一柱）
       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">${dy.dir}・${dy.startDesc}・旺衰依喜用神（${a.yong.primary.join("")}）判定</span></h3>
       <div class="timeline">${tl}</div></div>
     <div class="card span-all"><h3><span class="ic">年</span>流年（近十年）
-      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">流年干支對命局喜用之旺衰</span></h3>
-      <div class="flow2">${lnRows}</div>
-      <div class="note" id="liuyueBox" style="cursor:pointer;margin-top:10px">▸ 點此展開 <b>${nowY} 年流月</b>細解</div>
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每年干支對你喜用神（${a.yong.primary.join("")}）的旺衰＋當年主題</span></h3>
+      <div class="cap" style="margin-bottom:10px">「<b>宜</b>」是這類年份較有利、可主動去做的事；「<b>忌</b>」是較不利、宜避開或謹慎的事。旺弱看的是當年五行幫不幫你的喜用神，主題看的是流年十神。</div>
+      <div class="ly-grid">${lnRows}</div>
+      <div class="note" id="liuyueBox" style="cursor:pointer;margin-top:12px">▸ 點此展開 <b>${nowY} 年流月</b>細解（看今年逐月吉凶）</div>
       <div id="liuyueDetail" class="flow2"></div></div>
     </div>`,nowY};
 }
