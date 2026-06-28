@@ -293,11 +293,14 @@ export function analyzeShenSha(bz){
   checkByDayGan(YANGREN[bz.dGan],"羊刃","剛烈之刃，主魄力與衝勁，過則傷災刑剋");
   checkByDayGan(LUSHEN[bz.dGan],"祿神","主衣祿、實力，日主臨官得地之氣");
 
-  // 天月德（查天干）
+  // 天月德（天德表有 4 個月支對應地支：卯→申、午→亥、酉→寅、子→巳，其餘對應天干；故天干、地支都要查）
   const allGan=[bz.yGan,bz.mGan,bz.dGan]; if(bz.hourKnown) allGan.push(bz.hGan);
-  if(TIANDE[bz.mZhi] && allGan.includes(TIANDE[bz.mZhi]))
-    list.push({name:"天德貴人",positions:["天干"],desc:"逢凶化吉、行善得福之吉神"});
-  if(YUEDE[bz.mZhi] && allGan.includes(YUEDE[bz.mZhi]))
+  const td=TIANDE[bz.mZhi];
+  if(td){
+    const inGan=allGan.includes(td), inZhi=allZhi.includes(td);
+    if(inGan||inZhi) list.push({name:"天德貴人",positions:[inGan?"天干":"地支"],desc:"逢凶化吉、行善得福之吉神"});
+  }
+  if(YUEDE[bz.mZhi] && allGan.includes(YUEDE[bz.mZhi]))  // 月德表全為天干，僅查天干即可
     list.push({name:"月德貴人",positions:["天干"],desc:"主慈祥、福德、化解災厄"});
 
   // 魁罡（日柱）

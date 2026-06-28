@@ -68,8 +68,18 @@ const SANHE = {申:["子","辰"],子:["申","辰"],辰:["申","子"], 寅:["午"
 const LIUHE = {子:"丑",丑:"子",寅:"亥",亥:"寅",卯:"戌",戌:"卯",辰:"酉",酉:"辰",巳:"申",申:"巳",午:"未",未:"午"};
 const LIUCHONG = {子:"午",午:"子",丑:"未",未:"丑",寅:"申",申:"寅",卯:"酉",酉:"卯",辰:"戌",戌:"辰",巳:"亥",亥:"巳"};
 const LIUHAI = {子:"未",未:"子",丑:"午",午:"丑",寅:"巳",巳:"寅",卯:"辰",辰:"卯",申:"亥",亥:"申",酉:"戌",戌:"酉"};
-const XIANG_XING = {子:["卯"],卯:["子"], 寅:["巳"],巳:["申"],申:["寅"], 丑:["戌"],戌:["未"],未:["丑"],
-  辰:["辰"],午:["午"],酉:["酉"],亥:["亥"]}; // 含自刑
+// 相刑為「相互」關係：三刑成組（寅巳申、丑戌未），組內任兩支互刑；子卯互刑；辰午酉亥自刑。
+// 故每支列出該支所有相刑對象（雙向對稱），避免依參數順序而判斷不一致。
+const XING_SETS = [["寅","巳","申"],["丑","戌","未"],["子","卯"]];  // 互刑組
+const XING_SELF = ["辰","午","酉","亥"];                          // 自刑
+const XIANG_XING = (()=>{
+  const m={};
+  XING_SETS.forEach(set=>set.forEach(a=>{ m[a]=(m[a]||[]).concat(set.filter(b=>b!==a)); }));
+  XING_SELF.forEach(a=>{ m[a]=(m[a]||[]).concat(a); });  // 自刑：自己刑自己
+  return m;
+})();
+// 兩支是否相刑（對稱、與順序無關）
+const isXing = (a,b)=> a===b ? XING_SELF.includes(a) : ((XIANG_XING[a]||[]).includes(b) || (XIANG_XING[b]||[]).includes(a));
 
 export function shengXiaoInfo(yearZhi){
   const sx=ZHI2SX(yearZhi);
@@ -91,7 +101,7 @@ export function shengXiaoInfo(yearZhi){
 /* 兩生肖關係（合盤用） */
 export function sxRelation(zhiA, zhiB){
   if(LIUCHONG[zhiA]===zhiB) return {type:"六沖",level:-2,desc:"生肖相沖，個性、節奏差異大，需多包容磨合"};
-  if((XIANG_XING[zhiA]||[]).includes(zhiB) && zhiA!==zhiB) return {type:"相刑",level:-1,desc:"生肖相刑，易因小事生摩擦，宜就事論事"};
+  if(isXing(zhiA,zhiB) && zhiA!==zhiB) return {type:"相刑",level:-1,desc:"生肖相刑，易因小事生摩擦，宜就事論事"};
   if(LIUHAI[zhiA]===zhiB) return {type:"相害",level:-1,desc:"生肖相害，相處易有暗耗，需坦誠溝通"};
   if(LIUHE[zhiA]===zhiB) return {type:"六合",level:2,desc:"生肖六合，天生投緣、互為貴人，相處融洽"};
   if((SANHE[zhiA]||[]).includes(zhiB)) return {type:"三合",level:2,desc:"生肖三合，志趣相投、彼此助力，是極佳組合"};

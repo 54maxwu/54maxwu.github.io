@@ -148,18 +148,22 @@ export function buildBazi(y,m,d,hour=-1,minute=0,opts={}){
 
   // 3) 定時辰索引（每2小時一柱，23:00起為子時）
   let effY=y, effM=m, effD=d;
+  let ziweiY=y, ziweiM=m, ziweiD=d;  // 給紫微用的「校正後日曆日」（不套早子時規則）
   let hourIdx = -1; // 時支索引 0=子..11=亥
+  const shiftDays=(n)=>{ if(!n) return; const t=new Date(Date.UTC(effY,effM-1,effD)+n*86400000);
+    effY=t.getUTCFullYear(); effM=t.getUTCMonth()+1; effD=t.getUTCDate(); };
   if(known){
+    // 真太陽時校正可能把出生瞬間推過子夜：先讓日柱跟著校正後的「真太陽時civil日」走，
+    // 否則日柱(用raw日)會與時辰(用校正後時刻)不一致，子夜前後出生會錯一天 → 連帶時干(五鼠遁)也錯。
+    shiftDays(Math.floor(solarHourFloat / 24));
     let sh = ((solarHourFloat % 24) + 24) % 24;
     // 23:00-01:00 子時
     hourIdx = Math.floor(((sh + 1) % 24) / 2); // +1使23時→0(子)
+    // 此時的 effY/effM/effD = 校正後真太陽時的「日曆日」，尚未套早子時規則 → 給紫微用（iztro 內部會依時辰自行換日，不可重複套子時）。
+    ziweiY=effY; ziweiM=effM; ziweiD=effD;
     // 早晚子時換日處理：23-24點出生
     if(sh >= 23){
-      if(ziSchool === 'early'){
-        // 早子時派：23點後即算次日
-        const t=new Date(Date.UTC(effY,effM-1,effD)+86400000);
-        effY=t.getUTCFullYear(); effM=t.getUTCMonth()+1; effD=t.getUTCDate();
-      }
+      if(ziSchool === 'early') shiftDays(1); // 早子時派：23點後即算次日（在已校正日上再進一天）
       // late(晚子時/夜子時)派：日柱仍歸當日，時柱用子
     }
   }
@@ -215,6 +219,7 @@ export function buildBazi(y,m,d,hour=-1,minute=0,opts={}){
     longitude, useTrueSolar, ziSchool,
     solar:{y,m,d,hour:known?hour:null,minute:known?minute:null},
     effective:{y:effY,m:effM,d:effD},
+    ziweiDate:{y:ziweiY,m:ziweiM,d:ziweiD},  // 紫微排盤用的校正後日曆日（隨真太陽時跨日，但不套早子時）
     nayin:{
       year:NAYIN[yGan+yZhi], month:NAYIN[mGan+monthZhi],
       day:NAYIN[dGan+dZhi], hour:known?NAYIN[hGan+hZhi]:null

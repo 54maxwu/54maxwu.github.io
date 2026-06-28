@@ -95,7 +95,9 @@ function readPerson(n){
   if(typeof iztro!=="undefined" && known){
     try{
       const g=sex==="女"?"女":"男";
-      const ds=bz.solar.y+"-"+bz.solar.m+"-"+bz.solar.d;
+      // 用校正後的日曆日（真太陽時跨子夜時，命宮/身宮才不會錯一天）；iztro 內部依時辰自行換日，故不可再套早子時
+      const zd=bz.ziweiDate||bz.solar;
+      const ds=zd.y+"-"+zd.m+"-"+zd.d;
       const hi=bz.hourIdx>=0?bz.hourIdx:0;
       const astro=iztro.astro.bySolar(ds,hi,g,true,"zh-TW");
       analysis.ziwei=extractZiwei(astro);
