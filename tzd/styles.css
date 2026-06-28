@@ -587,6 +587,10 @@
   .sx-rel .srt{font-weight:700;color:var(--blue-d);margin-bottom:3px}
 
   /* 神煞白話卡 */
+  .ss-poslegend{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:11.5px;color:#64748b}
+  .ss-poslegend .ss-pl-t{font-weight:700;color:var(--blue-d);width:100%}
+  .ss-poslegend b{color:var(--ink)}
+  .ss-poslegend .ss-pl-n{width:100%;color:#94a3b8;border-top:1px dashed var(--line);padding-top:6px;margin-top:2px}
   .ss-item{padding:10px 0;border-bottom:1px solid var(--line)}
   .ss-item:last-child{border-bottom:none}
   .ss-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px}

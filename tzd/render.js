@@ -343,7 +343,16 @@ export function renderGodWealth(a){
 
 export function renderShensha(list){
   if(!list.length) return `<div class="empty-tip">命中無明顯神煞（不是壞事，代表命局較平穩）</div>`;
+  const posLegend=`<div class="ss-poslegend">
+    <span class="ss-pl-t">📍 神煞落在哪一柱，影響人生哪個階段：</span>
+    <span><b>年柱</b>早年・家族長輩</span>
+    <span><b>月柱</b>青年・事業人際</span>
+    <span><b>日柱</b>自身・終身・配偶（最貼近你）</span>
+    <span><b>時柱</b>晚年・子女子孫</span>
+    <span class="ss-pl-n">吉星落該柱＝那階段／那方面受惠；凶煞落該柱＝那階段／那方面要多留意。</span>
+  </div>`;
   return `<div class="cap" style="margin-bottom:6px">「神煞」是八字裡的吉星與凶星，<b><span style="color:#15803d">綠色＝吉星(加分)</span>、<span style="color:#b91c1c">紅色＝凶星(要注意)</span></b>。後面標的是它落在哪一柱（影響人生哪個階段）。</div>`
+    +posLegend
     +list.map(s=>{
     const pl=SHENSHA_PLAIN[s.name]||{kind:"中",say:s.desc,tip:""};
     const kc=pl.kind==="吉"?"good":pl.kind==="凶"?"bad":"mid";
