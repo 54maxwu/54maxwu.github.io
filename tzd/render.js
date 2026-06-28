@@ -9,7 +9,10 @@ import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from ".
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, SX_NAMING, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, buildHoroscope, PALACE_ORDER, SIHUA_DESC, BOSHI12_DESC } from "./engine-ziwei.js";
-import { $, $$, BRIGHT_NOTE, GAN_IMG, ZHI_SX, ZHI_HR, BR_LEVEL, NAYIN_PLAIN, WX_COLOR, PILLAR_LIFE, WX_REMEDY, COLOR_HEX, STRENGTH_PLAIN, SHENSHA_PLAIN, POS_PLAIN, PATTERN_PLAIN, GOD_SHORT, GOD_YEAR, GRID_POS, ZW_IDX_BRANCH, PALACE_TOPIC, PALACE_SHORT, ZW_CHONG, ZW_SANHE, WX_HEALTH } from "./ui-data.js";
+import { detectGeju, GEJU, GEJU_CAT_COLOR } from "./ziwei-geju.js";
+import { STAR_DEEP, SIHUA_DEEP } from "./ziwei-stars.js";
+import { BEN_VS_LIU, LIUNIAN_SKILLS, LIUNIAN_APPLY, LIUNIAN_TIPS, detectDieGong, DOMAINS, analyzeDomainYear } from "./ziwei-liunian.js";
+import { $, $$, BRIGHT_NOTE, GAN_IMG, ZHI_SX, ZHI_HR, BR_LEVEL, NAYIN_PLAIN, WX_COLOR, PILLAR_LIFE, WX_REMEDY, COLOR_HEX, STRENGTH_PLAIN, SHENSHA_PLAIN, POS_PLAIN, PATTERN_PLAIN, GOD_SHORT, GOD_YEAR, GRID_POS, ZW_IDX_BRANCH, PALACE_TOPIC, PALACE_SHORT, palaceLabel, SANFANG_TYPE, ZW_CHONG, ZW_SANHE, WX_HEALTH, LAIYIN_SAY, GOD_YEAR_DOMAINS } from "./ui-data.js";
 import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND,
   HAI_DESC, HAI_GENERAL, CHONG_DESC, CHONG_GENERAL, HE_GENERAL, TIANLUO_DESC, XING_GENERAL } from "./glossary.js";
 
@@ -428,11 +431,15 @@ export function renderLuck(a){
     <div class="age">${p.startYear}</div>
     <div class="tier tier-${p.tier}">${p.tier}</div>
   </div>`).join("");
-  const ln=calcLiuNian(a.bz.solar.y,nowY,10,a.yong.primary,a.bz.dGan);
+  const ln=calcLiuNian(a.bz.solar.y,nowY,10,a.yong.primary,a.bz.dGan,a.bz.dZhi);
+  const DOM_META=[["career","💼事業"],["money","💰財運"],["love","💕感情"],["people","🤝人際"],["health","🩺健康"]];
   const lnRows=ln.map((L,i)=>{const th=LUCK_THEME[L.tier];
     const tierCls=L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid';
     const tierWord=L.tier==='旺'?'順遂、得力':L.tier==='弱'?'費力、宜守':'平穩、待時';
     const isNow=L.year===nowY;
+    const dom=GOD_YEAR_DOMAINS[L.ganGod]||{};
+    const domHTML=DOM_META.map(([k,lbl])=>dom[k]?`<div class="lyd-row"><span class="lyd-k">${lbl}</span><span class="lyd-v">${dom[k]}</span></div>`:"").join("");
+    const relHTML=L.rel?`<div class="ly-rel ly-rel-${L.rel.kind==='合'?'good':L.rel.kind==='沖'?'bad':'mid'}"><b>日支${L.rel.kind}</b>${L.rel.say}</div>`:"";
     return `<div class="ly-card ${isNow?'now':''}">
       <div class="ly-head">
         <span class="ly-yr">${L.year}<span class="ly-age">${L.age}歲</span>${isNow?'<span class="ly-tag">今年</span>':''}</span>
@@ -441,6 +448,8 @@ export function renderLuck(a){
       </div>
       <div class="ly-god"><b>${L.ganGod}年</b>（${godShort(L.ganGod)}）</div>
       <div class="ly-desc">${godYear(L.ganGod)}</div>
+      ${relHTML}
+      ${domHTML?`<div class="ly-domains">${domHTML}</div>`:""}
       <div class="ly-yiji">
         <div><span class="yj-y">宜</span>${th.yi.join("、")}</div>
         <div><span class="yj-j">忌</span>${th.ji.join("、")}</div>
@@ -503,10 +512,11 @@ export function renderZiwei(a){
     const minorLine=(minorHTML||adjHTML)?`<div class="zw-minor">${minorHTML}${adjHTML}</div>`:"";
     // 排盤明細：長生/博士/將前/歲前十二神 + 大限歲數
     const s12=[];
-    if(p.changsheng12) s12.push(`<span class="zw-12 cs12" title="長生十二神：能量階段">${p.changsheng12}</span>`);
-    if(p.boshi12) s12.push(`<span class="zw-12 bo12" title="博士十二神：${BOSHI12_DESC[p.boshi12]||''}">${p.boshi12}</span>`);
-    if(p.jiangqian12) s12.push(`<span class="zw-12 jq12" title="將前十二神">${p.jiangqian12}</span>`);
-    if(p.suiqian12) s12.push(`<span class="zw-12 sq12" title="歲前十二神（太歲方位）">${p.suiqian12}</span>`);
+    const s12chip=(val,cls,fallback)=>{const g=GLOSSARY[val];const clk=g?" mstar-click":"";return `<span class="zw-12 ${cls}${clk}" data-mstar="${val}" title="${g?g.split("：").slice(-1)[0]:fallback}">${val}</span>`;};
+    if(p.changsheng12) s12.push(s12chip(p.changsheng12,"cs12","長生十二神：能量階段"));
+    if(p.boshi12) s12.push(s12chip(p.boshi12,"bo12","博士十二神"));
+    if(p.jiangqian12) s12.push(s12chip(p.jiangqian12,"jq12","將前十二神"));
+    if(p.suiqian12) s12.push(s12chip(p.suiqian12,"sq12","歲前十二神（太歲方位）"));
     const s12Line=s12.length?`<div class="zw-12row">${s12.join("")}</div>`:"";
     const decadalLine=p.decadal&&Array.isArray(p.decadal.range)?`<span class="zw-dec" title="大限：這十年走這一宮（虛歲 ${p.decadal.range[0]}–${p.decadal.range[1]}）">大限 ${p.decadal.range[0]}–${p.decadal.range[1]}</span>`:"";
     const laiyin=p.isOriginalPalace?'<span class="zw-laiyin" title="來因宮＝生年天干所落之宮，是你這輩子福分與因果的源頭">來因</span>':'';
@@ -537,7 +547,7 @@ export function renderZiwei(a){
       <li><b>右上角圓點＋格子右下角的淡淡光暈＝這宮整體強弱</b>（已幫你算好）：<span style="color:#16a34a">●</span>強旺、<span style="color:#2563eb">●</span>不錯、<span style="color:#94a3b8">●</span>中等、<span style="color:#f59e0b">●</span>偏弱。</li>
       <li><b>命宮＝你是誰、身宮＝後天會變成的樣子</b>；格內有藍/紫徽章標示。</li>
       <li><b>有些格寫「無主星」＝空宮</b>：不是壞事，代表那面向個性較<b>隨環境而變</b>，要看「對宮」（正對面那宮）的星來借用論斷。</li>
-      <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span>＝三方四正</b>：連到要「一起合看」的另三宮——<b>對宮</b>（正對面，看外在結果）＋<b>兩個三合宮</b>（同組互助）。論命要四宮合看才完整。</li>
+      <li><b>點任一宮會拉出<span style="color:#dc2626">紅色虛線</span>＝三方四正</b>：連到要「一起合看」的另三宮——<b>對宮</b>（正對面，看外在結果）＋<b>兩個三合宮</b>（同組互助）。論命要四宮合看才完整。<br><span style="color:#64748b">命宮＋財帛＋事業合看叫<b>三方</b>，再加對面的遷移就是<b>四正</b>，這往往決定大格局：三方是<b>殺破狼廉</b>→開創型、<b>機巨陽</b>→支援型、<b>同陰梁</b>→合作型、<b>紫府武相</b>→領導型。</span></li>
       <li><b>格子角落兩字（如壬午）＝干支座標</b>，排盤用的，不懂可略過。</li>
     </ul>
     <div class="lg-foot">命主 <b>${z.soul}</b>＝先天主導你的星、身主 <b>${z.body}</b>＝後天養成你的星；<b>${z.fiveElementsClass}</b>＝決定大運幾歲起運的五行局。</div>
@@ -545,8 +555,9 @@ export function renderZiwei(a){
   // 14 主星白話小辭典（填左欄、幫助讀盤）
   const ZW_STARS=["紫微","天機","太陽","武曲","天同","廉貞","天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"];
   const starDict=`<div class="star-dict">
-    <div class="sd-title">🔆 十四主星 白話速查</div>
-    ${ZW_STARS.map(n=>`<div class="sd-row" data-stardict="${n}"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
+    <div class="sd-title">🔆 十四主星 白話速查<span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:4px">點任一顆看完整優缺點</span></div>
+    ${ZW_STARS.map(n=>{const d=STAR_DEEP[n]||{};const desc=d.title?`<b style="color:var(--ink)">${d.title}</b>　${d.kw||""}`:((GLOSSARY[n]||"").split("：").slice(-1)[0]);
+      return `<div class="sd-row sd-star-row" data-stardict="${n}" style="cursor:pointer"><b>${n}</b><span>${desc}</span></div>`;}).join("")}
   </div>`;
   // 輔星雜曜 白話速查（六吉/六煞/常見雜曜）
   const AUX_GROUPS=[
@@ -561,11 +572,11 @@ export function renderZiwei(a){
   </div>`;
   const sihuaCard=`<div class="star-dict sihua-dict">
     <div class="sd-title">✨ 四化是什麼？（化祿/權/科/忌）</div>
-    <div class="sh-intro">「四化」是你<b>出生那一年的天干</b>，讓四顆星各自「變化」出一種特殊力量，<b>跟你一輩子</b>。就像幫某顆星「加裝備」——星名後面有彩色小標的，就是被化到的星。</div>
-    <div class="sh-row"><span class="sh sh-祿">祿</span><div><b>化祿＝財祿、好處、順遂</b>。這顆星帶來機會、收入、貴人緣，是你<b>最容易得到甜頭</b>的地方。</div></div>
-    <div class="sh-row"><span class="sh sh-權">權</span><div><b>化權＝權力、能力、掌控</b>。這顆星讓你在那塊特別<b>強勢、有主導力、做得起來</b>，適合掌權扛責。</div></div>
-    <div class="sh-row"><span class="sh sh-科">科</span><div><b>化科＝名聲、貴人、文書</b>。這顆星帶來<b>好名聲、考運、貴人相助</b>，遇難也較能化解。</div></div>
-    <div class="sh-row"><span class="sh sh-忌">忌</span><div><b>化忌＝執著、牽絆、功課</b>。這顆星是你<b>最在意、最容易卡關</b>的地方，不是壞事，而是這輩子要學會放下、用心經營的課題。</div></div>
+    <div class="sh-intro">「四化」是你<b>出生那一年的天干</b>，讓四顆星各自「變化」出一種特殊力量，<b>跟你一輩子</b>。就像幫某顆星「加裝備」——星名後面有彩色小標的，就是被化到的星。<b>點下面任一列</b>可看更深入的判讀規則。</div>
+    <div class="sh-row" data-sihua="祿" style="cursor:pointer"><span class="sh sh-祿">祿</span><div><b>化祿＝財祿、好處、順遂</b>。其實是「多出來的東西」——多不一定有利，要看落在哪一宮。</div></div>
+    <div class="sh-row" data-sihua="權" style="cursor:pointer"><span class="sh sh-權">權</span><div><b>化權＝權力、能力、掌控</b>。在那塊特別<b>強勢、有主導力</b>，但庇蔭星化權易變碎念。</div></div>
+    <div class="sh-row" data-sihua="科" style="cursor:pointer"><span class="sh sh-科">科</span><div><b>化科＝名聲、被看見</b>。像聚光燈、把那顆星<b>彰顯出來</b>——好狀態是升官、壞狀態是醜聞曝光。</div></div>
+    <div class="sh-row" data-sihua="忌" style="cursor:pointer"><span class="sh sh-忌">忌</span><div><b>化忌＝執著、空缺感</b>。是你<b>覺得還不夠</b>的地方，不是壞事，反而常是進步的動力。</div></div>
     <div class="sh-foot">舉例：「天梁化權」＝天梁這顆星被加上「權」的力量，在它管的事上你會更有主導力；「太陰化忌」＝太陰那塊是你較放不下、要多用心的功課。</div>
   </div>`;
   return `<div class="card zw-card"><h3><span class="ic">紫</span>紫微斗數 · 命盤
@@ -579,8 +590,46 @@ export function renderZiwei(a){
         <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
       </div>
+      ${renderGejuCard(z)}
       <div class="zw-dicts">${sihuaCard}${starDict}${auxDict}</div>
       ${renderZiweiHoro(a)}</div>`;
+}
+
+/* 命盤格局：自動偵測你命中哪些經典格局 + 全格局速查 */
+export function renderGejuCard(z){
+  const hit = detectGeju(z);
+  const card = g=>{
+    const c = GEJU_CAT_COLOR[g.cat]||"#64748b";
+    const pros = (g.pros||[]).length?`<div class="gj-line gj-pro"><b>優勢</b>${g.pros.join("、")}</div>`:"";
+    const cons = (g.cons||[]).length?`<div class="gj-line gj-con"><b>留意</b>${g.cons.join("、")}</div>`:"";
+    return `<div class="gj-card" style="--gj:${c}">
+      <div class="gj-head"><b class="gj-name">${g.name}</b>${g.alias?`<span class="gj-alias">又稱 ${g.alias}</span>`:""}<span class="gj-cat">${g.cat}</span></div>
+      <div class="gj-meaning">${g.meaning}</div>
+      <div class="gj-cond"><b>怎麼形成</b>${g.cond}</div>
+      ${pros}${cons}
+    </div>`;
+  };
+  const hitHtml = hit.length
+    ? `<div class="gj-grid">${hit.map(card).join("")}</div>`
+    : `<div class="empty-tip" style="padding:14px">你的命盤沒有命中下方這些「特別突出的經典格局」——這很正常，代表人生較平穩、靠後天經營與大運發揮即可。可往下看全部格局了解概念。</div>`;
+  // 全部格局速查（依類別摺疊）
+  const cats = [...new Set(GEJU.map(g=>g.cat))];
+  const allHtml = cats.map(cat=>{
+    const list = GEJU.filter(g=>g.cat===cat);
+    const c = GEJU_CAT_COLOR[cat]||"#64748b";
+    return `<div class="gj-catgrp"><div class="gj-cat-t" style="--gj:${c}">${cat}型</div>
+      ${list.map(g=>`<div class="gj-row" data-gejudict="${g.name}"><b>${g.name}</b><span>${g.meaning}</span></div>`).join("")}</div>`;
+  }).join("");
+  return `<div class="card gj-block">
+    <h3><span class="ic">格</span>命盤格局
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">紫微裡的「特殊命格」，命中代表某方面特別突出</span></h3>
+    <div class="cap" style="margin-bottom:12px">「<b>格局</b>」是紫微斗數中由特定星曜＋宮位＋地支組合出的<b>經典命格</b>，命中某格代表你在那個面向有先天的優勢或要注意的課題。系統已依你的實際命盤自動比對，<b>命中 ${hit.length} 個</b>：</div>
+    ${hitHtml}
+    <details class="gj-all"><summary>📚 看全部 ${GEJU.length} 個格局速查（點開）</summary>
+      <div class="cap" style="margin:8px 0 10px">這是紫微常見格局的白話總表，方便對照學習。底色＝類別。</div>
+      <div class="gj-allgrid">${allHtml}</div>
+    </details>
+  </div>`;
 }
 
 export function renderZiweiHoro(a){
@@ -620,9 +669,19 @@ export function renderZiweiHoro(a){
     }
     return "";
   };
+  // 找出流年四化星各自落在「哪個地支(格子)」，好直接畫在那一格上
+  const starBranch=(starName)=>{
+    for(const p of z.palaces){
+      if((p.majorStars||[]).some(s=>s.name===starName) || (p.minorStars||[]).some(s=>s.name===starName)) return p.earthlyBranch;
+    }
+    return "";
+  };
   const sihuaLand=(ho.yearly.mutagen||[]).map((star,i)=>({
-    label:labels[i], star, pal:starPalace(star), ...SIHUA_MEAN[labels[i]]
+    label:labels[i], star, pal:starPalace(star), branch:starBranch(star), ...SIHUA_MEAN[labels[i]]
   }));
+  // 地支 → 落在這格的流年四化（一格可能不只一個）
+  const branchSihua={};
+  sihuaLand.forEach(s=>{ if(s.branch){ (branchSihua[s.branch]=branchSihua[s.branch]||[]).push(s); } });
   // 流年盤：在本命格局上疊「流年宮名 + 流年四化星 + 流曜」
   let hcells="";
   for(let r=0;r<4;r++)for(let c=0;c<4;c++){
@@ -650,11 +709,23 @@ export function renderZiweiHoro(a){
     // 流曜（流年飛入的星，如流昌流曲流陀等）—附白話 tooltip
     const FLOW_NOTE={流祿:"今年的財祿、好處",流羊:"今年的衝動、血光、是非（小心）",流陀:"今年的拖延、暗耗（小心）",流昌:"今年的考運、文書、聰明",流曲:"今年的才藝、口才、桃花",流魁:"今年的男貴人",流鉞:"今年的女貴人",流馬:"今年的走動、變遷",流喜:"今年的喜慶、桃花",流鸞:"今年的姻緣、桃花"};
     const flow=(yInfo.stars||[]).map(s=>{const note=FLOW_NOTE[s.name]||"今年飛入的流曜";return `<span class="hs-flow" title="${s.name}＝${note}">${s.name}</span>`;}).join("");
+    // 落在這格的流年四化：直接畫成彩色badge＋一句白話，讓人在盤上就看得到
+    const cellSh=branchSihua[branch]||[];
+    const shBadges=cellSh.map(s=>`<span class="hs-cell-sh sh-${s.label}" title="${s.star} 今年化${s.label}：${s.word}">${s.star}<i>化${s.label}</i></span>`).join("");
+    // 這格今年的一句話（流年命宮最重要；其次有四化落入的格）
+    let cellHint="";
+    if(isYMing){
+      cellHint=`今年運勢重心在這——主管「${PALACE_SHORT[yInfo.name]||yInfo.name}」，全年感受最明顯。`;
+    }else if(cellSh.length){
+      cellHint=cellSh.map(s=>`${s.good?"✅":"⚠"}今年「${PALACE_SHORT[yInfo.name]||yInfo.name}」這塊${s.say}。`).join("");
+    }
     hcells+=`<div class="hs-cell${isYMing?' y-ming':''}">
       <div class="hs-pnames">
-        <span class="hs-yname" title="流年${yInfo.name}：今年這宮主管「${PALACE_SHORT[yInfo.name]||yInfo.name}」">流年·${yInfo.name||"—"}</span>
-        <span class="hs-dname" title="大限${dInfo.name}：這十年這宮主管「${PALACE_SHORT[dInfo.name]||dInfo.name}」">限·${dInfo.name||"—"}</span>
+        <span class="hs-yname" title="流年${yInfo.name}：今年這格變成「${yInfo.name}宮」，主管「${PALACE_SHORT[yInfo.name]||yInfo.name}」">流年·${palaceLabel(yInfo.name)}</span>
+        <span class="hs-dname" title="大限${dInfo.name}：這十年(大限)這格是「${dInfo.name}宮」，主管「${PALACE_SHORT[dInfo.name]||dInfo.name}」">這十年·${palaceLabel(dInfo.name)}</span>
       </div>
+      ${shBadges?`<div class="hs-cell-shrow">${shBadges}</div>`:""}
+      ${cellHint?`<div class="hs-cell-hint${isYMing?' ming':cellSh.some(s=>!s.good)?' bad':' good'}">${cellHint}</div>`:""}
       <div class="hs-nat">本命 ${nat.name}：${natStars}</div>
       ${flow?`<div class="hs-flows">${flow}</div>`:""}
       <div class="hs-gz">${branch}</div>
@@ -662,16 +733,33 @@ export function renderZiweiHoro(a){
     </div>`;
   }
   const yMingName=(yl.map[yl.mingBranch]||{}).name||"";
+  // 流年命宮坐的本命主星 → 該星的「年度代言」白話（取第一顆有 yearly 資料的）
+  const yMingNat=cellByBranch[yl.mingBranch]||null;
+  const yMingStar=(yMingNat&&yMingNat.majorStars||[]).map(s=>s.name).find(n=>STAR_DEEP[n]&&STAR_DEEP[n].yearly);
+  const yearlyStarRow=yMingStar
+    ? `<div class="hs-v-row"><b>年度代言星</b>今年「流年命宮」坐 <b class="star-nm star-click" data-star="${yMingStar}">${yMingStar}</b>——${STAR_DEEP[yMingStar].yearly}</div>`
+    : "";
   // —— 白話總結：今年對你來說是什麼樣的一年（一般人直接讀這段就懂）——
   const mingTopic=PALACE_TOPIC[yMingName]||PALACE_SHORT[yMingName]||yMingName;
   const luItem=sihuaLand.find(s=>s.label==="祿");
   const jiItem=sihuaLand.find(s=>s.label==="忌");
+  // 疊宮：流年重點宮疊在本命哪一宮
+  const dieGong=detectDieGong(yl, z);
+  const dieRows=dieGong.slice(0,3).map(d=>`<div class="hs-v-row"><b>疊宮提醒</b>${d.say}</div>`).join("");
   const verdict=`<div class="hs-verdict">
     <div class="hs-v-title">🔮 ${nowY} 年，這一年對你來說（白話總結）</div>
-    <div class="hs-v-row"><b>整體主軸</b>今年的「流年命宮」落在 <b style="color:#dc2626">${yMingName}</b> 的位置——代表 <b>${nowY} 這一年的重心會放在「${mingTopic}」</b>這一塊，是今年最該用心、感受也最明顯的領域。</div>
-    ${luItem&&luItem.pal?`<div class="hs-v-row good"><b>今年的甜頭</b>化祿（機遇、財富、人緣）落在 <b>${luItem.pal}宮</b>——今年在「${PALACE_SHORT[luItem.pal]||luItem.pal}」這方面較容易有機會、進財或遇貴人，可主動把握。</div>`:""}
-    ${jiItem&&jiItem.pal?`<div class="hs-v-row bad"><b>今年要留意</b>化忌（阻礙、損失、執念）落在 <b>${jiItem.pal}宮</b>——今年在「${PALACE_SHORT[jiItem.pal]||jiItem.pal}」這方面較容易卡關、糾結或破耗，凡事多留一手、別鑽牛角尖。</div>`:""}
+    <div class="hs-v-row"><b>整體主軸</b>今年的「流年命宮」落在 <b style="color:#dc2626">${palaceLabel(yMingName)}</b> 的位置——代表 <b>${nowY} 這一年的重心會放在「${mingTopic}」</b>這一塊，是今年最該用心、感受也最明顯的領域。</div>
+    ${yearlyStarRow}
+    ${luItem&&luItem.pal?`<div class="hs-v-row good"><b>今年的甜頭</b>化祿（機遇、財富、人緣）落在 <b>${palaceLabel(luItem.pal)}</b>——今年在「${PALACE_SHORT[luItem.pal]||luItem.pal}」這方面較容易有機會、進財或遇貴人，可主動把握。</div>`:""}
+    ${jiItem&&jiItem.pal?`<div class="hs-v-row bad"><b>今年要留意</b>化忌（阻礙、損失、執念）落在 <b>${palaceLabel(jiItem.pal)}</b>——今年在「${PALACE_SHORT[jiItem.pal]||jiItem.pal}」這方面較容易卡關、糾結或破耗，凡事多留一手、別鑽牛角尖。</div>`:""}
+    ${dieRows}
     <div class="hs-v-note">※ 這是依「流年命宮」與「流年四化落宮」推出的方向性參考，實際吉凶還要看本命格局與整體配合。</div>
+  </div>`;
+  // 本命盤 vs 流年盤 觀念提醒（放最上方）
+  const benVsLiu=`<div class="hs-bvl">
+    <div class="hs-bvl-t">💡 ${BEN_VS_LIU.title}</div>
+    ${BEN_VS_LIU.rows.map(r=>`<div class="hs-bvl-row"><b>${r.k}</b><span>${r.v}</span></div>`).join("")}
+    <div class="hs-bvl-meta">${BEN_VS_LIU.metaphor}</div>
   </div>`;
   // 四化白話速查卡
   const sihuaCard=`<div class="hs-sihua-card">
@@ -686,12 +774,25 @@ export function renderZiweiHoro(a){
   const guide=`<div class="hs-guide">
     <div class="hs-g-title">📖 流年盤怎麼看</div>
     <ul>
-      <li>這張是 <b>${nowY} 這一年</b>的運勢盤（會疊在你<b>一輩子的本命盤</b>上看）。每格上面：<span style="color:#dc2626"><b>流年·宮名</b></span>＝今年這個位置變成什麼宮、<span style="color:#7c3aed"><b>限·宮名</b></span>＝這十年大限這格是什麼宮。</li>
-      <li><b>「流年命宮」那格最關鍵</b>——今年的整體運勢主軸就看它（今年落在 <b style="color:#dc2626">${yMingName||"—"}</b> 的位置）。</li>
-      <li><b>中間的流年四化</b>（${(ho.yearly.mutagen||[]).join("、")}）＝今年被加成的四顆星：<span class="sh sh-祿">祿</span>今年的財路機會、<span class="sh sh-權">權</span>今年能掌權發揮、<span class="sh sh-科">科</span>今年的貴人名聲、<span class="sh sh-忌">忌</span>今年較卡關、要留意的事。看它們<b>落在哪一宮</b>，就知道今年哪方面有好處／要小心。</li>
+      <li>這張是 <b>${nowY} 這一年</b>的運勢盤（會疊在你<b>一輩子的本命盤</b>上看）。每格上面：<span style="color:#dc2626"><b>流年·宮名</b></span>＝今年這個位置變成什麼宮、<span style="color:#7c3aed"><b>這十年·宮名</b></span>＝這十年大限這格是什麼宮。</li>
+      <li><b>「流年命宮」那格最關鍵</b>（紅框那格）——今年的整體運勢主軸就看它。今年落在 <b style="color:#dc2626">${palaceLabel(yMingName)||"—"}</b> 的位置，該格會直接寫一句「今年運勢重心在這」。</li>
+      <li><b>流年四化會直接畫在它落入的那一格上</b>——找有彩色 <span class="sh sh-祿">化祿</span>／<span class="sh sh-權">化權</span>／<span class="sh sh-科">化科</span>／<span class="sh sh-忌">化忌</span> 標記的格子，下面有一句白話告訴你「今年這塊會怎樣」：祿＝有好處可把握、忌＝要留意別卡關。</li>
       <li>格子裡灰字「本命…」是這格<b>本來</b>坐什麼星，藍框小字是今年飛進來的<b>流曜</b>（如流昌、流陀）。</li>
     </ul>
   </div>`;
+  // 進階：流年四化/兩煞/疊宮技巧 + 3大應用 + 4大技巧（摺疊，想深入再看）
+  const skillsHtml=LIUNIAN_SKILLS.map(g=>`<div class="hs-sk-grp"><div class="hs-sk-h" style="--c:${g.color}">${g.h}</div>
+    ${g.items.map(it=>`<div class="hs-sk-row"><span class="hs-sk-tag" style="--c:${it.c}">${it.tag}</span><span>${it.t}</span></div>`).join("")}</div>`).join("");
+  const applyHtml=LIUNIAN_APPLY.map(ap=>`<div class="hs-ap"><div class="hs-ap-h">${ap.title}</div>
+    <div class="hs-ap-say">${ap.say}</div>
+    <div class="hs-ap-eg good">👍 例：${ap.eg_good}</div>
+    <div class="hs-ap-eg bad">⚠ 例：${ap.eg_bad}</div></div>`).join("");
+  const tipsHtml=LIUNIAN_TIPS.map(t=>`<div class="hs-tip"><b>${t.h}</b>${t.t}</div>`).join("");
+  const advanced=`<details class="hs-adv"><summary>🎓 想更深入？流年四化・兩煞・疊宮技巧＋實用判讀（點開）</summary>
+    <div class="hs-adv-sec"><div class="hs-adv-t">流年四化、兩煞、疊宮技巧</div>${skillsHtml}</div>
+    <div class="hs-adv-sec"><div class="hs-adv-t">流年命盤在生活中的 3 大應用</div>${applyHtml}</div>
+    <div class="hs-adv-sec"><div class="hs-adv-t">提升流年準度的 4 大技巧</div>${tipsHtml}</div>
+  </details>`;
   // 年份切換器（提供前後幾年快速跳）
   const baseY=parseInt(nowY,10)||new Date().getFullYear();
   const yrs=[]; for(let d=-2;d<=4;d++) yrs.push(baseY+d);
@@ -702,10 +803,71 @@ export function renderZiweiHoro(a){
   return `<div class="zw-horo" id="zwHoro">
     <div class="zw-horo-head"><span class="ic">運</span>紫微流年盤<small>大限／流年／小限 運限疊算</small></div>
     ${switcher}
+    ${benVsLiu}
     <div class="hs-layout">
-      <div class="hs-explain">${verdict}${sihuaCard}${guide}</div>
+      <div class="hs-explain">${verdict}${sihuaCard}${guide}${advanced}</div>
       <div class="hs-wrap"><div class="hs-grid">${hcells}</div></div>
     </div>
+    ${renderLifeYears(a)}
+  </div>`;
+}
+
+/* 逐年運勢時間軸：感情/財運/健康/家庭/事業，未來 ~8 年「哪一年會怎樣」 */
+export function renderLifeYears(a){
+  const z=a.ziwei, astro=a._ziweiAstro;
+  if(!z||!astro) return "";
+  // 本命：地支 -> 該宮（含主星）
+  const cellByBranch={}; z.palaces.forEach(p=>{ if(p.earthlyBranch) cellByBranch[p.earthlyBranch]=p; });
+  const labels=["祿","權","科","忌"];
+  const nowY=new Date().getFullYear();
+  const N=8; // 看未來 8 年
+  // 先把每一年的運限算好（以該年 7/1 起盤）
+  const years=[];
+  for(let i=0;i<N;i++){
+    const y=nowY+i;
+    let ho;
+    try{ ho=buildHoroscope(astro, y+"-7-1", 6); }catch(e){ ho=null; }
+    if(!ho||!ho.yearly) continue;
+    const yl={}; (ho.yearly.palaceNames||[]).forEach((nm,idx)=>{ const br=ZW_IDX_BRANCH[idx]; yl[br]={name:nm, stars:((ho.yearly.stars&&ho.yearly.stars[idx])||[]).map(s=>s.name)}; });
+    // 四化落宮：該年四化星 → 落在哪個本命地支
+    const mut=ho.yearly.mutagen||[];
+    const branchSihua={}; // branch -> [label...]
+    mut.forEach((star,idx)=>{
+      for(const p of z.palaces){
+        if((p.majorStars||[]).some(s=>s.name===star)||(p.minorStars||[]).some(s=>s.name===star)){ (branchSihua[p.earthlyBranch]=branchSihua[p.earthlyBranch]||[]).push(labels[idx]); break; }
+      }
+    });
+    years.push({y, age:ho.age&&ho.age.nominalAge, yl, branchSihua});
+  }
+  if(!years.length) return "";
+  // 對每個領域、每一年算 verdict（12 宮全領域）
+  const domainKeys=["self","love","money","career","health","home","friend","travel","study","sibling","child","fortune"];
+  const data={};
+  domainKeys.forEach(dk=>{
+    const D=DOMAINS[dk];
+    data[dk]=years.map(yr=>{
+      // 找該年「流年D.palace宮」落在哪個地支
+      const branch=Object.keys(yr.yl).find(b=>yr.yl[b].name===D.palace);
+      const stars=branch?(yr.yl[branch].stars||[]):[];
+      const sihuaOnPalace=branch?(yr.branchSihua[branch]||[]):[];
+      const majorStars=branch&&cellByBranch[branch]?(cellByBranch[branch].majorStars||[]).map(s=>s.name):[];
+      return analyzeDomainYear(dk,{year:yr.y, age:yr.age, stars, sihuaOnPalace, majorStars});
+    }).filter(Boolean);
+  });
+  const tone2cls={good:"good",ok:"ok",mid:"mid",bad:"bad"};
+  const rowsHtml=dk=>data[dk].map((r,i)=>`<div class="ly2-row ly2-${tone2cls[r.tone]}${i===0?' now':''}">
+      <div class="ly2-yr">${r.year}${r.age?`<small>虛歲${r.age}</small>`:""}${i===0?'<span class="ly2-now">今年</span>':''}</div>
+      <div class="ly2-body"><div class="ly2-hd">${r.headline}</div><div class="ly2-tx">${r.text}</div></div>
+    </div>`).join("");
+  const tabs=domainKeys.map((dk,i)=>`<button class="ly2-tab${i===0?' on':''}" data-ld="${dk}">${DOMAINS[dk].icon} ${DOMAINS[dk].label}</button>`).join("");
+  const panels=domainKeys.map((dk,i)=>`<div class="ly2-panel${i===0?' on':''}" data-ldp="${dk}">
+      <div class="ly2-cap">看「流年${palaceLabel(DOMAINS[dk].palace)}」每年坐的星＋飛入流曜＋四化，推估未來 ${years.length} 年的${DOMAINS[dk].label}走勢。<b>方向性參考</b>，實際仍要配合本命格局與整體運。</div>
+      ${rowsHtml(dk)}
+    </div>`).join("");
+  return `<div class="ly2-block" id="lifeYears">
+    <div class="zw-horo-head" style="margin-top:22px;border-top:2px dashed #e2e8f0;padding-top:18px"><span class="ic">年</span>逐年運勢・哪一年會怎樣<small>紫微 12 宮全領域・整體／感情／財運／事業／健康／家庭／人際／出外／學業／手足／子女／心境</small></div>
+    <div class="ly2-tabs">${tabs}</div>
+    ${panels}
   </div>`;
 }
 
@@ -753,11 +915,14 @@ export function ziweiSummary(z,a){
   const pget=n=>z.palaces.find(p=>p.name===n);
   const starList=p=>p&&p.majorStars.length?p.majorStars.map(s=>s.name):[];
   const starPlain=names=>names.map(n=>stripDot((GLOSSARY[n]||"").split("：").slice(-1)[0])).filter(Boolean);
+  // 把星名包成可點擊（彈出白話）；用於 命主/身主/各宮坐星
+  const sc=n=>`<b class="star-nm star-click" data-star="${n}">${n}</b>`;
+  const scList=arr=>arr.map(sc).join("、");
   // 命宮
   const ming=pget("命宮"); const mingStars=starList(ming);
   let mingSay;
   if(mingStars.length){
-    mingSay=`命宮坐 <b>${mingStars.join("、")}</b>——${starPlain(mingStars).join("；")}。這是${name}的核心性格與一生主軸。`;
+    mingSay=`命宮坐 ${scList(mingStars)}——${starPlain(mingStars).join("；")}。這是${name}的核心性格與一生主軸。`;
   }else{
     const oppName={命宮:"遷移"}; const opp=pget("遷移"); const os=starList(opp);
     mingSay=`命宮無主星，個性較隨環境而變、可塑性高，要看對宮<b>遷移宮（${os.join("、")||"—"}）</b>來借用論斷——代表${name}在外、與人互動時更能展現自己。`;
@@ -772,20 +937,60 @@ export function ziweiSummary(z,a){
     if(!st.length) return `<div class="zs-row"><span class="zs-k">${label}</span><span>此宮無主星，須參考對宮；${desc}較隨緣、起伏看大運。</span></div>`;
     const mut=p.majorStars.filter(s=>s.mutagen).map(s=>`${s.name}化${s.mutagen}`);
     const mutSay=mut.length?`（帶${mut.join("、")}，${p.majorStars.some(s=>s.mutagen==='祿'||s.mutagen==='權'||s.mutagen==='科')?'多為加分助力':'要多留意'}）`:"";
-    return `<div class="zs-row"><span class="zs-k">${label}</span><span>坐 <b>${st.join("、")}</b>${mutSay}——${starPlain(st).join("；")}。</span></div>`;
+    return `<div class="zs-row"><span class="zs-k">${label}</span><span>坐 ${scList(st)}${mutSay}——${starPlain(st).join("；")}。</span></div>`;
   }).join("");
-  // 四化：拆成「甜蜜點(祿權科)」與「功課(忌)」
+  // 來因宮：生年天干所落之宮＝這輩子福分／根基的源頭
+  let laiyinRow="";
+  if(z.originPalace && LAIYIN_SAY[z.originPalace]){
+    laiyinRow=`<div class="zs-row"><span class="zs-k">來因</span><span>你的「來因宮」（一生福分與根基的源頭）${LAIYIN_SAY[z.originPalace]}</span></div>`;
+  }
+
+  // 身宮：後天會越來越重視、中年後漸明顯的人生重心
+  let bodyRow="";
+  const bodyPal=z.palaces.find(p=>p.isBodyPalace);
+  if(bodyPal){
+    bodyRow = bodyPal.name==="命宮"
+      ? `<div class="zs-row"><span class="zs-k">身宮</span><span>身宮與<b>命宮同宮</b>——代表${name}<b>先天個性與後天發展方向一致、表裡如一</b>，人生主軸清楚、較不會中途大轉向。</span></div>`
+      : `<div class="zs-row"><span class="zs-k">身宮</span><span>身宮落在<b>${bodyPal.name}宮</b>——命宮是先天的你，身宮是後天養成的你；代表${name}<b>中年後會越來越重視、投入「${PALACE_SHORT[bodyPal.name]||bodyPal.name}」</b>這一塊。</span></div>`;
+  }
+
+  // 四化串接：祿入哪宮＝哪方面有助力；忌入哪宮＝哪方面是課題；並標出祿忌同宮的拉扯
   let sihua="";
-  const sweet=[], task=[];
+  const luPals=[], jiPals=[], otherSweet=[];
   z.palaces.forEach(p=>p.majorStars.forEach(s=>{
-    if(s.mutagen==="祿"||s.mutagen==="權"||s.mutagen==="科") sweet.push(`${p.name}的${s.name}化${s.mutagen}`);
-    if(s.mutagen==="忌") task.push(`${p.name}的${s.name}化忌`);
+    if(s.mutagen==="祿") luPals.push({pal:p.name,star:s.name});
+    else if(s.mutagen==="權"||s.mutagen==="科") otherSweet.push(`${p.name}的${s.name}化${s.mutagen}`);
+    else if(s.mutagen==="忌") jiPals.push({pal:p.name,star:s.name});
   }));
-  if(sweet.length||task.length){
-    sihua=`<div class="zs-row"><span class="zs-k">四化</span><span>`
-      +(sweet.length?`<b style="color:#15803d">甜蜜點</b>（機會與助力所在）：${sweet.join("、")}。`:"")
-      +(task.length?`<b style="color:#b91c1c">人生功課</b>（最該用心、易卡關）：${task.join("、")}。`:"")
-      +`</span></div>`;
+  const sihuaParts=[];
+  luPals.forEach(l=>sihuaParts.push(`<b style="color:#15803d">化祿落${l.pal}宮</b>（${l.star}）——你在「${PALACE_SHORT[l.pal]||l.pal}」這方面先天較容易有<b>機會、進財與貴人</b>，是甜蜜點。`));
+  if(otherSweet.length) sihuaParts.push(`另有 ${otherSweet.join("、")}（能力與聲名加分）。`);
+  jiPals.forEach(j=>{
+    const both=luPals.find(l=>l.pal===j.pal);
+    sihuaParts.push(`<b style="color:#b91c1c">化忌落${j.pal}宮</b>（${j.star}）——「${PALACE_SHORT[j.pal]||j.pal}」是你這輩子最該用心、也最容易卡關糾結的<b>人生功課</b>${both?`；此宮<b>祿忌同宮</b>，同一塊地方又愛又恨、機會與執念並存，起伏會比較大`:""}。`);
+  });
+  if(sihuaParts.length){
+    sihua=`<div class="zs-row"><span class="zs-k">四化</span><span>${sihuaParts.join("")}</span></div>`;
+  }
+
+  // 三方四正格局類型：看「命宮＋財帛＋官祿（三方）」的主星落在哪一型最多
+  const sanfangStars=[...mingStars,...starList(pget("財帛")),...starList(pget("官祿"))];
+  const typeHit=SANFANG_TYPE.map(t=>({...t,n:sanfangStars.filter(s=>t.stars.includes(s)).length}))
+    .filter(t=>t.n>0).sort((x,y)=>y.n-x.n);
+  let sanfangRow="";
+  if(typeHit.length){
+    const main=typeHit[0];
+    const others=typeHit.slice(1).map(t=>t.key).filter(Boolean);
+    sanfangRow=`<div class="zs-row"><span class="zs-k">類型</span><span>你的「三方」（命宮＋財帛＋事業）主星偏 <b style="color:var(--blue-d)">${main.key}</b>——${main.say}${others.length?`（也帶一點${others.join("、")}）`:""}</span></div>`;
+  }
+
+  // 命中的經典格局：把 detectGeju 的結果拉進總結（與下方格局卡片同源）
+  let gejuRow="";
+  const gjHit=(typeof detectGeju==="function")?detectGeju(z):[];
+  if(gjHit.length){
+    const names=gjHit.map(g=>`<b style="color:var(--blue-d)">${g.name}</b>`).join("、");
+    const first=gjHit[0];
+    gejuRow=`<div class="zs-row"><span class="zs-k">格局</span><span>你的命盤命中 <b>${gjHit.length}</b> 個經典格局：${names}。其中<b>${first.name}</b>——${first.meaning}${gjHit.length>1?`（其餘格局詳見下方「命盤格局」卡片）`:""}</span></div>`;
   }
 
   // 一句人物速寫：用命宮主星的關鍵特質拼一句
@@ -795,9 +1000,9 @@ export function ziweiSummary(z,a){
   return `<div class="zw-summary">
     <div class="zs-title">🔮 一段話總結${name}的紫微命盤</div>
     ${speed}
-    <p class="zs-lead">${mingSay} 命主星 <b>${z.soul}</b>、身主星 <b>${z.body}</b>，五行屬 <b>${z.fiveElementsClass}</b>。</p>
-    <div class="zs-rows">${blocks}${sihua}</div>
-    <p class="zs-foot">綜合來看，${name}適合往「命宮＋事業宮」星曜的特質發展最順；想細看任何一宮，點上方該宮格會跳出詳解與三方四正連線。紫微為性格與運勢的參考，最終仍由自己掌握。</p>
+    <p class="zs-lead">${mingSay} 命主星 ${GLOSSARY[z.soul]?sc(z.soul):`<b>${z.soul}</b>`}（先天主導你的星）、身主星 ${GLOSSARY[z.body]?sc(z.body):`<b>${z.body}</b>`}（後天養成你的星），五行屬 <b>${z.fiveElementsClass}</b>（決定大運幾歲起運）。</p>
+    <div class="zs-rows">${laiyinRow}${bodyRow}${sanfangRow}${gejuRow}${blocks}${sihua}</div>
+    <p class="zs-foot">綜合來看，${name}的人生根基${z.originPalace&&PALACE_SHORT[z.originPalace]?`與「${PALACE_SHORT[z.originPalace]}」最相關`:"靠後天經營"}，性格與舞台則看上面三方與命中的格局；想細看任何一宮，點上方該宮格會跳出詳解與三方四正連線。紫微為性格與運勢的參考，最終仍由自己掌握。</p>
   </div>`;
 }
 
@@ -1433,6 +1638,15 @@ export function bindTabs(luckCtx){
   bindZiweiPopover();
   bindChangSheng();
   bindZiweiHoroYears();
+  // 逐年運勢領域切換（感情/財運/健康/家庭/事業）
+  const lyBlock=$("#lifeYears");
+  if(lyBlock){
+    lyBlock.addEventListener("click",e=>{
+      const t=e.target.closest(".ly2-tab"); if(!t) return;
+      lyBlock.querySelectorAll(".ly2-tab").forEach(x=>x.classList.toggle("on",x===t));
+      lyBlock.querySelectorAll(".ly2-panel").forEach(p=>p.classList.toggle("on",p.dataset.ldp===t.dataset.ld));
+    });
+  }
   const lyBox=$("#liuyueBox");
   if(lyBox && luckCtx){
     lyBox.addEventListener("click",()=>{
@@ -1471,23 +1685,80 @@ export function bindChangSheng(){
   if(!pop){ pop=document.createElement("div"); pop.id="termPop"; pop.className="term-pop"; pop.hidden=true; document.body.appendChild(pop); }
   const show=(el,term,text)=>{
     if(!text){ return; }
+    pop.classList.remove("below");
     pop.innerHTML=`<b>${term}</b>${text}`;
     pop.hidden=false;
+    // position:fixed → 直接用 viewport 座標，不需 scroll 位移（修正彈窗對不上的問題）
     const r=el.getBoundingClientRect();
-    const pw=Math.min(280, window.innerWidth-24);
+    const vw=window.innerWidth, vh=window.innerHeight, M=10;
+    const pw=Math.min(280, vw-2*M);
     pop.style.width=pw+"px";
-    let left=r.left+window.scrollX; if(left+pw>window.scrollX+window.innerWidth-12) left=window.scrollX+window.innerWidth-pw-12;
-    pop.style.left=Math.max(12,left)+"px";
-    pop.style.top=(r.bottom+window.scrollY+6)+"px";
+    // 量出實際高度後再決定上下
+    const ph=pop.offsetHeight||80;
+    // 水平：對齊元素左緣，超出右界則往左收
+    let left=r.left;
+    if(left+pw>vw-M) left=vw-pw-M;
+    left=Math.max(M,left);
+    pop.style.left=left+"px";
+    // 箭頭指向元素中心
+    const arrow=Math.max(8,Math.min(pw-16, r.left+r.width/2-left));
+    pop.style.setProperty("--arrow",arrow+"px");
+    // 垂直：預設在下方；下方放不下則翻到上方
+    if(r.bottom+6+ph>vh-M && r.top-6-ph>M){
+      pop.style.top=(r.top-6-ph)+"px";
+      pop.classList.add("below"); // 箭頭朝下
+    }else{
+      pop.style.top=(r.bottom+6)+"px";
+    }
   };
   const close=()=>{ pop.hidden=true; };
-  document.addEventListener("click",e=>{ if(!e.target.closest(".cs-click,.god-click,.ny-click,.star-click,.mstar-click,#termPop")) close(); });
+  if(!window.__tzdCloseBound){
+    window.__tzdCloseBound=true;
+    document.addEventListener("click",e=>{ if(!e.target.closest(".cs-click,.god-click,.ny-click,.star-click,.mstar-click,[data-stardict],[data-gejudict],[data-sihua],#termPop")) close(); });
+  }
   const plain=t=>(t||"").replace(/^像/,"");
-  $$(".cs-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.cs,plain(GLOSSARY[el.dataset.cs]||""));}));
-  $$(".god-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.god,GLOSSARY[el.dataset.god]||"");}));
-  $$(".ny-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.nayin,(NAYIN_PLAIN[el.dataset.nayin]||"")+(NAYIN_TREND[el.dataset.nayin]?"　傾向："+NAYIN_TREND[el.dataset.nayin]:""));}));
-  $$(".star-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.star,GLOSSARY[el.dataset.star]||"");}));
-  $$(".mstar-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.mstar,GLOSSARY[el.dataset.mstar]||"");}));
+  // 星曜深度白話（優點/要注意/進階）→ 拼成彈窗內文
+  const starDeepText=(name)=>{
+    const d=STAR_DEEP[name]; const base=GLOSSARY[name]||"";
+    if(!d) return base;
+    let h=base?`${base}<br>`:"";
+    if(d.good&&d.good.length) h+=`<br><span style="color:#86efac">✔ 優點：</span>${d.good.join("、")}`;
+    if(d.watch&&d.watch.length) h+=`<br><span style="color:#fdba74">⚠ 要注意：</span>${d.watch.join("、")}`;
+    if(d.note) h+=`<br><span style="color:#93c5fd">💡 進階：</span>${d.note}`;
+    return h;
+  };
+  // 四化深度 → 彈窗內文
+  const sihuaDeepText=(label)=>{
+    const d=SIHUA_DEEP[label]; const base=GLOSSARY["化"+label]||"";
+    if(!d) return base;
+    let h=`${d.essence}`;
+    if(d.rules&&d.rules.length) h+=`<br><br>${d.rules.map(r=>`・${r}`).join("<br>")}`;
+    return h;
+  };
+  // 用「事件委派」綁在 document 上：流年盤切年重繪後仍然有效，且只綁一次
+  if(!window.__tzdTermBound){
+    window.__tzdTermBound=true;
+    document.addEventListener("click",ev=>{
+      const el=ev.target.closest(".cs-click,.god-click,.ny-click,.star-click,.mstar-click,[data-stardict],[data-gejudict],[data-sihua]");
+      if(!el) return;
+      ev.stopPropagation();
+      const d=el.dataset;
+      if(el.matches(".cs-click")) return show(el,d.cs,plain(GLOSSARY[d.cs]||""));
+      if(el.matches(".god-click")) return show(el,d.god,GLOSSARY[d.god]||"");
+      if(el.matches(".ny-click")) return show(el,d.nayin,(NAYIN_PLAIN[d.nayin]||"")+(NAYIN_TREND[d.nayin]?"　傾向："+NAYIN_TREND[d.nayin]:""));
+      if(d.star!=null) return show(el,d.star,starDeepText(d.star));
+      if(d.mstar!=null) return show(el,d.mstar,starDeepText(d.mstar));
+      if(d.stardict!=null) return show(el,d.stardict,starDeepText(d.stardict));
+      if(d.sihua!=null) return show(el,"化"+d.sihua,sihuaDeepText(d.sihua));
+      if(d.gejudict!=null){
+        const g=GEJU.find(x=>x.name===d.gejudict); if(!g) return;
+        let h=`${g.meaning}<br><br><span style="color:#93c5fd">怎麼形成：</span>${g.cond}`;
+        if(g.pros&&g.pros.length) h+=`<br><span style="color:#86efac">優勢：</span>${g.pros.join("、")}`;
+        if(g.cons&&g.cons.length) h+=`<br><span style="color:#fdba74">留意：</span>${g.cons.join("、")}`;
+        return show(el,g.name+(g.alias?`（${g.alias}）`:""),h);
+      }
+    });
+  }
 }
 
 export function bindZiweiPopover(){
@@ -1504,7 +1775,9 @@ export function bindZiweiPopover(){
   const drawLines=(srcCell)=>{
     if(!svg) return;
     const b=srcCell.dataset.branch; if(!b) return;
-    const wr=wrap.getBoundingClientRect();
+    // 以 grid（捲動內容本身）為座標基準，手機橫向捲動時連線仍對齊
+    const wr=grid.getBoundingClientRect();
+    svg.style.left=grid.offsetLeft+"px"; svg.style.top=grid.offsetTop+"px";
     svg.setAttribute("width",wr.width); svg.setAttribute("height",wr.height);
     svg.setAttribute("viewBox",`0 0 ${wr.width} ${wr.height}`);
     const targets=[ZW_CHONG[b],...(ZW_SANHE[b]||[])].filter(Boolean);

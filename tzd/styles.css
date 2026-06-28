@@ -6,6 +6,7 @@
     --wood:#16a34a; --fire:#dc2626; --earth:#d97706; --metal:#64748b; --water:#0891b2;
     --good:#16a34a; --bad:#dc2626; --mid:#d97706;
   }
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;
     background:var(--bg);color:var(--ink);min-height:100vh;font-size:15px;line-height:1.6;
@@ -206,9 +207,10 @@
   .cs12-row{border-radius:6px;transition:.2s}
   .cs12-row.hl{background:#ede9fe;box-shadow:0 0 0 2px #c4b5fd;padding-left:6px;padding-right:6px}
   /* 術語原地小框（點詞就近彈出，不滾動） */
-  .term-pop{position:absolute;z-index:200;background:#1e293b;color:#fff;border-radius:9px;padding:9px 12px;font-size:12.5px;line-height:1.6;box-shadow:0 8px 24px rgba(15,23,42,.28);max-width:280px}
+  .term-pop{position:fixed;z-index:200;background:#1e293b;color:#fff;border-radius:9px;padding:9px 12px;font-size:12.5px;line-height:1.6;box-shadow:0 8px 24px rgba(15,23,42,.28);max-width:280px}
   .term-pop b{display:block;color:#93c5fd;font-size:13px;margin-bottom:3px}
-  .term-pop::before{content:"";position:absolute;top:-6px;left:16px;border:6px solid transparent;border-top:none;border-bottom-color:#1e293b}
+  .term-pop::before{content:"";position:absolute;top:-6px;left:var(--arrow,16px);border:6px solid transparent;border-top:none;border-bottom-color:#1e293b}
+  .term-pop.below::before{top:auto;bottom:-6px;border-bottom:none;border-top-color:#1e293b}
   .bazi-table .cs.cs-click{cursor:pointer;text-decoration:underline dotted #c4b5fd;text-underline-offset:2px}
   .bazi-table .cs.cs-click:hover{color:#6d28d9}
   .bazi-table .god.god-click{cursor:pointer;text-decoration:underline dotted #93c5fd;text-underline-offset:2px}
@@ -460,6 +462,13 @@
     .zw-layout{grid-template-columns:1fr}
     .zw-side,.ziwei-wrap{width:100%}
   }
+  /* 紫微方格盤在窄螢幕：橫向捲動 + 維持可讀的最小寬，避免 4 欄擠成一團 */
+  @media(max-width:560px){
+    .ziwei-wrap,.hs-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;
+      margin:0 -12px;padding:0 12px 4px;
+      scrollbar-width:thin}
+    .ziwei-grid,.hs-grid{min-width:440px}
+  }
   /* 速查辭典：移到命盤下方、橫向多欄填滿寬度（不再卡在左側長條） */
   .zw-dicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:16px;align-items:start}
   .zw-dicts>.star-dict{margin-top:0}
@@ -487,7 +496,6 @@
   .ov-note{font-size:12.5px;color:#475569;line-height:1.7;margin-bottom:12px}
   .ov-note b{color:var(--ink)}
   .ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
-  @media(max-width:640px){ .ov-grid{grid-template-columns:1fr} }
   .ov-col-t{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:6px}
   .ov-chips{display:flex;flex-wrap:wrap;gap:6px}
   .ov-chip{display:inline-flex;flex-direction:column;font-size:13px;font-weight:700;color:#fff;
@@ -503,7 +511,7 @@
   .zw-cell.active{border-color:var(--blue-d);box-shadow:0 0 0 2px var(--blue-sel);position:relative;z-index:2}
   .zw-cell.sfsz{border-color:#fca5a5;background:#fef2f2;box-shadow:0 0 0 1px #fecaca;position:relative;z-index:2}
   .zw-cell.sfsz.ming{background:#fef2f2}
-  .zw-lines{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:visible}
+  .zw-lines{position:absolute;left:0;top:0;pointer-events:none;z-index:1;overflow:visible}
   .pd-sfsz{margin-top:10px;padding-top:9px;border-top:1px dashed #e2e8f0;font-size:11.5px;color:#475569;line-height:1.65}
   .pd-sf-title{font-weight:700;color:var(--ink);font-size:12px;margin-bottom:4px}
   .pd-sf-intro{margin-bottom:6px}
@@ -659,6 +667,60 @@
   .hs-guide ul{margin:0;padding-left:18px;font-size:12px;color:#7c2d12;line-height:1.85}
   .hs-guide li{margin-bottom:3px}
   .hs-guide b{color:#9a3412}
+  /* 本命盤 vs 流年盤 觀念提醒 */
+  .hs-bvl{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:13px 16px;margin-bottom:14px}
+  .hs-bvl-t{font-size:14px;font-weight:800;color:#b45309;margin-bottom:9px}
+  .hs-bvl-row{display:flex;gap:10px;font-size:12.5px;line-height:1.7;color:#475569;padding:4px 0}
+  .hs-bvl-row b{flex:none;width:54px;font-weight:700;color:#b45309}
+  .hs-bvl-row b::after{content:""}
+  .hs-bvl-meta{font-size:12px;color:#78350f;line-height:1.75;margin-top:8px;border-top:1px dashed #fde68a;padding-top:8px}
+  /* 進階技巧摺疊 */
+  .hs-adv{margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 15px}
+  .hs-adv>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--blue-d);user-select:none}
+  .hs-adv-sec{margin-top:12px}
+  .hs-adv-t{font-size:13.5px;font-weight:800;color:#c2410c;margin-bottom:8px;border-bottom:2px solid #fed7aa;padding-bottom:4px}
+  .hs-sk-grp{margin-bottom:10px}
+  .hs-sk-h{font-size:12.5px;font-weight:700;color:var(--c,#475569);margin-bottom:5px}
+  .hs-sk-row{display:flex;gap:8px;font-size:12px;line-height:1.65;color:#475569;padding:4px 0;align-items:flex-start}
+  .hs-sk-tag{flex:none;font-size:11px;font-weight:700;color:#fff;background:var(--c,#64748b);border-radius:5px;padding:1px 8px;margin-top:1px;white-space:nowrap}
+  .hs-ap{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px;background:#f8fafc}
+  .hs-ap-h{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px}
+  .hs-ap-say{font-size:12px;color:#64748b;line-height:1.65;margin-bottom:6px}
+  .hs-ap-eg{font-size:11.5px;line-height:1.6;border-radius:6px;padding:5px 8px;margin-top:4px}
+  .hs-ap-eg.good{background:#f0fdf4;color:#15803d}.hs-ap-eg.bad{background:#fffbeb;color:#b45309}
+  .hs-tip{font-size:12px;color:#475569;line-height:1.7;padding:7px 0;border-top:1px dashed var(--line)}
+  .hs-tip:first-of-type{border-top:none}
+  .hs-tip b{display:block;color:var(--blue-d);font-weight:700;margin-bottom:2px}
+  /* 逐年運勢時間軸（感情/財運/健康/家庭/事業） */
+  .ly2-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .ly2-tab{padding:7px 13px;border:1px solid var(--line);background:#fff;border-radius:20px;cursor:pointer;
+    font-size:13px;color:#475569;transition:.15s;font-family:inherit}
+  .ly2-tab:hover{border-color:#93c5fd;color:var(--blue-d)}
+  .ly2-tab.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+  .ly2-panel{display:none}
+  .ly2-panel.on{display:block}
+  .ly2-cap{font-size:12px;color:#64748b;line-height:1.7;background:#f8fafc;border:1px solid var(--line);
+    border-radius:9px;padding:9px 12px;margin-bottom:12px}
+  .ly2-cap b{color:var(--ink)}
+  .ly2-row{display:flex;gap:12px;align-items:stretch;border-left:4px solid #cbd5e1;border-radius:0 10px 10px 0;
+    background:#fff;border:1px solid var(--line);border-left-width:4px;padding:10px 14px;margin-bottom:8px}
+  .ly2-row.now{box-shadow:0 0 0 2px var(--blue-sel)}
+  .ly2-row.good{border-left-color:#16a34a;background:#f0fdf4}
+  .ly2-row.ok{border-left-color:#2563eb;background:#eff6ff}
+  .ly2-row.mid{border-left-color:#94a3b8;background:#f8fafc}
+  .ly2-row.bad{border-left-color:#f59e0b;background:#fffbeb}
+  .ly2-yr{flex:none;width:74px;font-size:16px;font-weight:800;color:var(--ink);display:flex;flex-direction:column;line-height:1.25}
+  .ly2-yr small{font-size:10.5px;font-weight:400;color:#94a3b8}
+  .ly2-yr .ly2-now{font-size:10px;font-weight:700;color:#fff;background:var(--blue);border-radius:8px;padding:0 6px;margin-top:3px;width:fit-content}
+  .ly2-hd{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:3px}
+  .ly2-row.good .ly2-hd{color:#15803d}.ly2-row.ok .ly2-hd{color:#1d4ed8}.ly2-row.bad .ly2-hd{color:#b45309}
+  .ly2-tx{font-size:12.5px;color:#475569;line-height:1.7}
+  .ly2-tx b{color:var(--ink)}
+  @media(max-width:640px){
+    .ly2-row{flex-direction:column;gap:5px;padding:10px 12px}
+    .ly2-yr{flex-direction:row;align-items:baseline;gap:7px;width:auto;font-size:15px}
+    .ly2-yr .ly2-now{margin-top:0}
+  }
   /* 流年盤左右分欄：左說明、右九宮 */
   .hs-layout{display:grid;grid-template-columns:minmax(340px,1fr) minmax(420px,1.15fr);gap:16px;align-items:start}
   .hs-explain>*{margin-bottom:12px}
@@ -679,6 +741,17 @@
   .hs-yname{font-size:12.5px;font-weight:700;color:#dc2626;line-height:1.25}
   .hs-dname{font-size:10.5px;color:#7c3aed;line-height:1.2}
   .hs-nat{font-size:10px;color:#94a3b8;line-height:1.35;margin-top:2px}
+  /* 流年四化：直接畫在它落入的那一格上 */
+  .hs-cell-shrow{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 4px}
+  .hs-cell-sh{font-size:11px;font-weight:700;color:#334155;background:#f1f5f9;border-radius:6px;padding:1px 6px;line-height:1.6}
+  .hs-cell-sh i{font-style:normal;color:#fff;font-size:9px;padding:0 4px;border-radius:3px;margin-left:3px}
+  .hs-cell-sh.sh-祿 i{background:#16a34a}.hs-cell-sh.sh-權 i{background:#dc2626}.hs-cell-sh.sh-科 i{background:#2563eb}.hs-cell-sh.sh-忌 i{background:#64748b}
+  .hs-cell-sh.sh-祿{background:#dcfce7}.hs-cell-sh.sh-權{background:#fee2e2}.hs-cell-sh.sh-科{background:#dbeafe}.hs-cell-sh.sh-忌{background:#e2e8f0}
+  /* 該格今年的一句白話 */
+  .hs-cell-hint{font-size:11px;line-height:1.55;border-radius:6px;padding:5px 7px;margin:0 0 4px}
+  .hs-cell-hint.ming{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;font-weight:600}
+  .hs-cell-hint.good{background:#f0fdf4;color:#15803d}
+  .hs-cell-hint.bad{background:#fffbeb;color:#b45309}
   .hs-flows{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
   .hs-flow{font-size:9.5px;color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:3px;padding:0 3px}
   .hs-gz{font-size:10px;color:#cbd5e1;margin-top:auto;padding-top:3px;text-align:right}
@@ -700,6 +773,7 @@
   .aux-dict .aux-grp{margin-bottom:9px}
   .aux-dict .aux-grp-t{font-size:11.5px;font-weight:700;color:#475569;background:#f1f5f9;border-radius:5px;padding:2px 7px;margin-bottom:3px}
   .zw-cell .zw-mstar.mstar-click{cursor:pointer;text-decoration:underline dotted currentColor;text-underline-offset:1px}
+  .zw-cell .zw-12.mstar-click{cursor:pointer;text-decoration:underline dotted rgba(255,255,255,.7);text-underline-offset:1px}
   .star-dict .sd-row{display:flex;gap:8px;padding:4px 0;font-size:11.5px;line-height:1.5;border-top:1px dashed #f1f5f9}
   .star-dict .sd-row:first-of-type{border-top:none}
   .star-dict .sd-row b{flex:none;width:34px;color:var(--ink);font-weight:700}
@@ -715,6 +789,33 @@
   .star-dict .sd-row.hl{background:#dbeafe;box-shadow:0 0 0 2px #93c5fd;padding-left:6px;padding-right:6px}
   .zw-cell .star .star-nm.star-click{cursor:pointer;text-decoration:underline dotted #bfdbfe;text-underline-offset:2px}
   .zw-cell .star .star-nm.star-click:hover{color:var(--blue-d)}
+
+  /* 命盤格局卡 */
+  .gj-block .gj-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .gj-card{border:1px solid var(--line);border-left:4px solid var(--gj,#64748b);border-radius:11px;padding:12px 14px;background:#fff}
+  .gj-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .gj-head .gj-name{font-size:16px;font-weight:800;color:var(--gj,#1e293b)}
+  .gj-head .gj-alias{font-size:11px;color:#94a3b8}
+  .gj-head .gj-cat{margin-left:auto;font-size:10.5px;font-weight:700;color:#fff;background:var(--gj,#64748b);padding:1px 8px;border-radius:10px}
+  .gj-meaning{font-size:13px;color:#334155;line-height:1.7;margin-bottom:8px;font-weight:500}
+  .gj-cond{font-size:11.5px;color:#64748b;line-height:1.6;background:#f8fafc;border-radius:7px;padding:6px 9px;margin-bottom:7px}
+  .gj-cond b,.gj-line b{display:inline-block;color:var(--gj,#475569);font-weight:700;margin-right:5px}
+  .gj-line{font-size:11.5px;line-height:1.65;margin:3px 0}
+  .gj-pro b{color:#15803d}.gj-con b{color:#b45309}
+  .gj-pro{color:#475569}.gj-con{color:#475569}
+  .gj-all{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+  .gj-all>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--blue-d);user-select:none}
+  .gj-allgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .gj-catgrp{break-inside:avoid}
+  .gj-cat-t{font-size:12px;font-weight:700;color:#fff;background:var(--gj,#64748b);border-radius:6px;padding:2px 9px;margin-bottom:5px;display:inline-block}
+  .gj-row{display:flex;gap:8px;padding:4px 0;font-size:11.5px;line-height:1.5;border-top:1px dashed #f1f5f9}
+  .gj-row:first-of-type{border-top:none}
+  .gj-row b{flex:none;width:78px;color:var(--ink);font-weight:700}
+  .gj-row span{color:#64748b}
+  @media(max-width:640px){
+    .gj-block .gj-grid,.gj-allgrid{grid-template-columns:1fr}
+    .gj-head .gj-name{font-size:15px}
+  }
 
   /* 紫微命盤白話總結 */
   .zw-summary{margin-top:18px;padding-top:16px;border-top:2px dashed #e2e8f0}
@@ -844,6 +945,13 @@
     .bazi-table .cell-note{font-size:10px}
     /* 紫微左欄說明在手機收窄、字夠大 */
     .zw-side{font-size:13px}
+    /* 命盤總評：兩組並排不收成單欄，chip 撐滿欄寬→消除右側大片空白 */
+    .zw-overview{padding:13px 14px}
+    .ov-grid{gap:9px}
+    .ov-chips{gap:5px}
+    .ov-chip{flex:1 1 auto;align-items:center;text-align:center;padding:5px 6px;font-size:12.5px}
+    .ov-note,.ov-extra{font-size:13px;line-height:1.85}
+    .ov-extra span{line-height:1.85}
     /* 大運時間軸可橫滑 */
     .timeline{padding-bottom:10px}
     /* 健康/神煞/調補等卡內距縮 */

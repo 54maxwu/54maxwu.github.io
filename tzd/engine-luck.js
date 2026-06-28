@@ -104,7 +104,20 @@ export function annotateDaYun(daYun, yongWxList, currentYear, birthYear){
 /* ============================================================
  * 流年（逐年）
  * ============================================================ */
-export function calcLiuNian(birthYear, fromYear, count, yongWxList, dGan){
+/* 年支 vs 日支的關係（沖／合／害／刑），影響感情與變動 */
+const LN_CHONG={子:"午",午:"子",丑:"未",未:"丑",寅:"申",申:"寅",卯:"酉",酉:"卯",辰:"戌",戌:"辰",巳:"亥",亥:"巳"};
+const LN_HE={子:"丑",丑:"子",寅:"亥",亥:"寅",卯:"戌",戌:"卯",辰:"酉",酉:"辰",巳:"申",申:"巳",午:"未",未:"午"};
+const LN_HAI={子:"未",未:"子",丑:"午",午:"丑",寅:"巳",巳:"寅",卯:"辰",辰:"卯",申:"亥",亥:"申",酉:"戌",戌:"酉"};
+export function dayBranchRel(yearZhi, dayZhi){
+  if(!yearZhi||!dayZhi) return null;
+  if(LN_CHONG[yearZhi]===dayZhi) return {kind:"沖",say:"今年年支沖你的日支——主動盪、變化、易有搬遷、轉職、感情或健康的轉折，宜順勢調整、別硬抗。"};
+  if(LN_HE[yearZhi]===dayZhi) return {kind:"合",say:"今年年支合你的日支——主和諧、貴人、感情升溫或有合作機緣，是適合談合作、論婚嫁的一年。"};
+  if(LN_HAI[yearZhi]===dayZhi) return {kind:"害",say:"今年年支與日支相害——易有暗耗、小摩擦、親近的人之間的心結，凡事多溝通、別積怨。"};
+  if(yearZhi===dayZhi) return {kind:"伏吟",say:"今年年支與日支相同（伏吟）——舊事重演、原地打轉的感覺，內心較悶，宜沉澱、別急於求變。"};
+  return null;
+}
+
+export function calcLiuNian(birthYear, fromYear, count, yongWxList, dGan, dZhi){
   const list=[];
   for(let k=0;k<count;k++){
     const yr=fromYear+k;
@@ -114,7 +127,8 @@ export function calcLiuNian(birthYear, fromYear, count, yongWxList, dGan){
     list.push({
       year:yr, age:yr-birthYear+1, gz,
       ganGod: tenGod(dGan, GAN[g]),
-      tier:t.tier, tierScore:t.score
+      tier:t.tier, tierScore:t.score,
+      rel: dZhi?dayBranchRel(ZHI[z], dZhi):null
     });
   }
   return list;
