@@ -404,7 +404,7 @@ export function fullBaziAnalysis(bz){
   });
   for(const k in godTally) godTally[k]=Math.round(godTally[k]*100)/100;
 
-  const branchRel = analyzeBranchRel(bz);
+  const branchRel = analyzeBranchRel(bz, tally);
 
   return { bz, chart, tally, strength, yong, shensha, pattern, godTally, branchRel };
 }
@@ -443,7 +443,10 @@ function isAdjacent(posA,posB){
   return Math.abs(order.indexOf(posA)-order.indexOf(posB))===1;
 }
 
-export function analyzeBranchRel(bz){
+/* 天干本氣祿（臨官）地支：用於判斷祿/比劫是否入網 */
+const LU_BRANCH = {甲:"寅",乙:"卯",丙:"巳",戊:"巳",丁:"午",己:"午",庚:"申",辛:"酉",壬:"亥",癸:"子"};
+
+export function analyzeBranchRel(bz, tally){
   const pills=pillarPairs(bz);
   const out={ liuhe:[], sanhe:[], chong:[], xing:[], hai:[], tianluo:null };
 
@@ -487,9 +490,44 @@ export function analyzeBranchRel(bz){
   const diWang=(has("辰")&&has("巳"));   // 地網
   const tianLuo=(has("戌")&&has("亥"));  // 天羅
   if(diWang||tianLuo){
+    const factors=[];   // 加重凶性的要素（四要素）
+    // 要素1：五行失衡（土水火的剋制）。地網辰巳=土晦火、天羅戌亥=土剋水。
+    let imbalance=null;
+    if(tally){
+      const vals=Object.values(tally); const avg=vals.reduce((x,y)=>x+y,0)/5;
+      if(tianLuo && tally["土"]>avg*1.6 && tally["水"]<avg*0.7) imbalance="土旺剋水（天羅戌亥，水被困）";
+      else if(diWang && tally["水"]>avg*1.6 && tally["火"]<avg*0.7) imbalance="水旺剋火（地網辰巳，火被晦）";
+      else if(diWang && tally["土"]>avg*1.6 && tally["火"]<avg*0.7) imbalance="土旺晦火（地網辰巳，火氣受困）";
+      if(imbalance) factors.push({k:"五行失衡",v:imbalance});
+    }
+    // 要素2：位置緊貼（束縛之支需相鄰，網才鋪得開）
+    const netSet=tianLuo?["戌","亥"]:["辰","巳"];
+    let adjNet=false;
+    for(let i=0;i<pills.length-1;i++){
+      const a=pills[i][1], b=pills[i+1][1];
+      if(netSet.includes(a)&&netSet.includes(b)&&a!==b){adjNet=true;break;}
+    }
+    if(adjNet) factors.push({k:"位置緊貼",v:`${netSet[0]}${netSet[1]}相鄰成網，束縛力較強`});
+    // 要素3：日主祿/比劫入網（壬癸見亥、丙丁見巳等，本體被困）
+    let luIn=null;
+    if(bz.dGan){
+      const dWx=GAN_WX[bz.dGan];
+      const lu=LU_BRANCH[bz.dGan];           // 日主之祿
+      if(lu && netSet.includes(lu) && zhiList.includes(lu)) luIn=`日主 ${bz.dGan} 之祿「${lu}」落在網中（本體受困）`;
+      else {
+        // 比劫：同五行的地支祿位也算
+        const sameLu=Object.keys(LU_BRANCH).filter(g=>GAN_WX[g]===dWx).map(g=>LU_BRANCH[g]);
+        const hit=netSet.find(z=>sameLu.includes(z)&&zhiList.includes(z));
+        if(hit) luIn=`日主同類（比劫）祿位「${hit}」入網`;
+      }
+      if(luIn) factors.push({k:"日主祿比入網",v:luIn});
+    }
+    // 凶性等級：要素越多越凶（0=純束縛/修行緣、1-2=中、3+=高）
+    const level = factors.length>=3?"高":factors.length>=1?"中":"低";
     out.tianluo={ diWang, tianLuo,
       both:diWang&&tianLuo,
-      have:zhiList.filter(z=>["辰","巳","戌","亥"].includes(z)) };
+      have:zhiList.filter(z=>["辰","巳","戌","亥"].includes(z)),
+      factors, level, imbalance, adjNet, luIn };
   }
 
   return out;

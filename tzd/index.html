@@ -349,6 +349,19 @@
   .brx-d-row.cure{background:rgba(255,255,255,.6);border-radius:7px;padding:5px 8px}
   .brx-d-row.cure b{color:#15803d}
   .brx-note{font-size:11px;color:#94a3b8;line-height:1.6;margin-top:8px;border-top:1px dashed rgba(148,163,184,.4);padding-top:7px}
+  /* 天羅地網進階 */
+  .brx-h .tl-level{margin-left:auto;font-size:11px;font-weight:700;color:#fff;padding:1px 9px;border-radius:11px}
+  .tl-verdict{font-size:12.5px;line-height:1.7;color:#334155;background:rgba(255,255,255,.65);border-left:3px solid #7c3aed;border-radius:0 8px 8px 0;padding:8px 11px;margin:7px 0}
+  .tl-verdict b{color:#581c87}
+  .tl-factors-title{font-size:12.5px;font-weight:700;color:#6b21a8;margin:10px 0 7px}
+  .tl-factors{display:flex;flex-direction:column;gap:6px}
+  .tl-factor{border:1px solid #e9d5ff;border-radius:8px;padding:7px 10px;background:rgba(255,255,255,.5);opacity:.6}
+  .tl-factor.on{opacity:1;background:#fff;border-color:#c084fc;box-shadow:0 1px 5px rgba(124,58,237,.12)}
+  .tl-f-h{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink)}
+  .tl-f-dot{color:#a855f7;font-size:11px}
+  .tl-f-hit{font-size:11px;color:#7c3aed;background:#f3e8ff;border-radius:5px;padding:0 6px;margin-left:4px}
+  .tl-f-no{font-size:11px;color:#cbd5e1;margin-left:4px}
+  .tl-f-d{font-size:11.5px;color:#64748b;line-height:1.6;margin-top:3px}
   /* 日主人格速寫 */
   .dg-grid{display:flex;flex-direction:column;gap:8px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .dg-row{display:flex;gap:10px;font-size:13px;line-height:1.7;color:#475569}
@@ -2245,16 +2258,33 @@ function renderBranchRel(a){
         </div>`:`<div class="brx-sub">${HAI_GENERAL}</div>`}</div>`;}).join("")}
       <div class="brx-note">${HAI_GENERAL}</div></div>`);
   }
-  // 天羅地網
+  // 天羅地網（含進階危險等級＋四要素）
   if(br.tianluo){
     const tl=br.tianluo;
     const which=tl.both?"天羅＋地網皆見":tl.tianLuo?"天羅（戌亥·天門）":"地網（辰巳·地戶）";
-    sections.push(`<div class="brx brx-tl"><div class="brx-h">🕸 天羅地網（束縛／戒律）</div>
-      <div class="brx-item"><div class="brx-pair">${tl.have.map(z=>zb(z)).join("")}<span class="brx-tag">${which}</span></div>
+    const lv=tl.level||"低";
+    const lvColor={高:"#dc2626",中:"#d97706",低:"#16a34a"}[lv];
+    const hitKeys=new Set((tl.factors||[]).map(f=>f.k));
+    // 四要素逐條：命中的亮起、未中的淡顯
+    const factorRows=(TIANLUO_DESC.factors||[]).map(f=>{
+      const on=hitKeys.has(f.k);
+      const myHit=(tl.factors||[]).find(x=>x.k===f.k);
+      return `<div class="tl-factor${on?' on':''}">
+        <div class="tl-f-h"><span class="tl-f-dot">${on?'●':'○'}</span><b>${f.k}</b>${on&&myHit?`<span class="tl-f-hit">${myHit.v}</span>`:'<span class="tl-f-no">未觸發</span>'}</div>
+        <div class="tl-f-d">${f.d}</div></div>`;
+    }).join("");
+    sections.push(`<div class="brx brx-tl"><div class="brx-h">🕸 天羅地網（束縛／戒律）
+        <span class="tl-level" style="background:${lvColor}">凶性 ${lv}</span></div>
+      <div class="brx-item"><div class="brx-pair">${tl.have.map(z=>zb(z)).join("")}<span class="brx-tag">${which}</span>${tl.adjNet?'<span class="brx-pos">緊貼成網</span>':'<span class="brx-pos">隔位·網較鬆</span>'}</div>
+      <div class="tl-verdict" style="border-color:${lvColor}">${(TIANLUO_DESC.levelSay||{})[lv]||""}</div>
       <div class="brx-detail">
         <div class="brx-d-row">${TIANLUO_DESC.intro}</div>
         <div class="brx-d-row"><b>常人</b>${TIANLUO_DESC.common}</div>
         <div class="brx-d-row"><b>修行</b>${TIANLUO_DESC.spirit}</div>
+      </div>
+      <div class="tl-factors-title">📐 應驗核心四要素（命中越多越凶 — 你中了 <b style="color:${lvColor}">${(tl.factors||[]).length}</b> 項）</div>
+      <div class="tl-factors">${factorRows}</div>
+      <div class="brx-detail" style="margin-top:9px">
         <div class="brx-d-row"><b>關鍵</b>${TIANLUO_DESC.key}</div>
         <div class="brx-d-row cure"><b>化解</b>${TIANLUO_DESC.cure}</div>
       </div></div></div>`);
