@@ -450,7 +450,7 @@
 
   /* 紫微方格盤 */
   /* 紫微頁左右分欄：左說明、右命盤 */
-  .zw-layout{display:flex;gap:18px;align-items:flex-start}
+  .zw-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(420px,1.3fr);gap:16px;align-items:start}
   /* 頂部：命盤總評 ｜ 一段話總結 左右並排 */
   .zw-top2{display:flex;gap:16px;align-items:stretch;margin-bottom:14px}
   .zw-top2>div{flex:1 1 0;min-width:0}
@@ -458,12 +458,11 @@
   .zw-top2 .zw-summary{margin-top:0;border-top:none;padding-top:0;height:100%;
     background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
   @media(max-width:900px){ .zw-top2{flex-direction:column} }
-  .zw-side{flex:0 0 290px;max-width:290px}
-  .ziwei-wrap{position:relative;flex:1 1 auto;min-width:0}
+  .zw-side{min-width:0}
+  .ziwei-wrap{position:relative;min-width:0}
   @media(max-width:920px){
-    .zw-layout{flex-direction:column}
-    .zw-side{flex:1 1 auto;max-width:none;width:100%}
-    .ziwei-wrap{width:100%}
+    .zw-layout{grid-template-columns:1fr}
+    .zw-side,.ziwei-wrap{width:100%}
   }
   /* 速查辭典：移到命盤下方、橫向多欄填滿寬度（不再卡在左側長條） */
   .zw-dicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:16px;align-items:start}
