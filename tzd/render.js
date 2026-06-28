@@ -1792,6 +1792,8 @@ export function bindZiweiPopover(){
     svg.innerHTML=html;
   };
   grid.addEventListener("click",e=>{
+    // 點格子內的「術語連結」（星名/輔星/四化等）只彈術語說明，不要連動關閉宮位框
+    if(e.target.closest(".star-click,.mstar-click,.cs-click,.god-click,.ny-click,[data-stardict],[data-gejudict],[data-sihua]")) return;
     const cell=e.target.closest(".zw-cell.clickable");
     if(!cell) return;
     if(cell.classList.contains("active")){ close(); return; }
