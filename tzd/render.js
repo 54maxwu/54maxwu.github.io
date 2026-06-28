@@ -460,12 +460,14 @@ export function renderZiwei(a){
         +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
     }).join("")
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
-    // 輔星（六吉/六煞）＋雜曜：小字一排，吉藍煞紅雜灰
+    // 輔星（六吉/六煞）＋雜曜：小字一排，吉藍煞紅雜灰；附白話 tooltip
+    const starNote=nm=>{ const g=GLOSSARY[nm]; return g?` title="${nm}＝${g.split("：")[0]}"`:` title="${nm}"`; };
     const minorHTML=(p.minorStars||[]).map(s=>{
       const cls=s.type==="soft"?"zw-soft":s.type==="tough"?"zw-tough":(s.type==="lucun"||s.type==="tianma")?"zw-lucun":"zw-adj";
-      return `<span class="zw-mstar ${cls}">${s.name}${s.mutagen?`<i class="sh sh-${s.mutagen}">${s.mutagen}</i>`:""}${s.brightness?`<small>${s.brightness}</small>`:""}</span>`;
+      const clickable=GLOSSARY[s.name]?" mstar-click":"";
+      return `<span class="zw-mstar ${cls}${clickable}" data-mstar="${s.name}"${starNote(s.name)}>${s.name}${s.mutagen?`<i class="sh sh-${s.mutagen}">${s.mutagen}</i>`:""}${s.brightness?`<small>${s.brightness}</small>`:""}</span>`;
     }).join("");
-    const adjHTML=(p.adjStars||[]).map(s=>`<span class="zw-mstar zw-adj">${s.name||s}</span>`).join("");
+    const adjHTML=(p.adjStars||[]).map(s=>{const nm=s.name||s;const clickable=GLOSSARY[nm]?" mstar-click":"";return `<span class="zw-mstar zw-adj${clickable}" data-mstar="${nm}"${starNote(nm)}>${nm}</span>`;}).join("");
     const minorLine=(minorHTML||adjHTML)?`<div class="zw-minor">${minorHTML}${adjHTML}</div>`:"";
     // 排盤明細：長生/博士/將前/歲前十二神 + 大限歲數
     const s12=[];
@@ -514,6 +516,17 @@ export function renderZiwei(a){
     <div class="sd-title">🔆 十四主星 白話速查</div>
     ${ZW_STARS.map(n=>`<div class="sd-row" data-stardict="${n}"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}
   </div>`;
+  // 輔星雜曜 白話速查（六吉/六煞/常見雜曜）
+  const AUX_GROUPS=[
+    ["六吉星（助力／貴人）",["左輔","右弼","文昌","文曲","天魁","天鉞","祿存"]],
+    ["六煞星（阻力／要注意）",["擎羊","陀羅","火星","鈴星","地空","地劫"]],
+    ["常見雜曜",["天馬","紅鸞","天喜","天姚","孤辰","寡宿","天刑","陰煞"]]
+  ];
+  const auxDict=`<div class="star-dict aux-dict">
+    <div class="sd-title">⭐ 輔星・雜曜 白話速查</div>
+    <div class="sd-intro">主星之外，盤上還有這些<b>輔星與雜曜</b>，會替主星「加分或扣分」。格子裡的小字星名就是它們，<b>點一下可在這裡查白話</b>。</div>
+    ${AUX_GROUPS.map(([t,arr])=>`<div class="aux-grp"><div class="aux-grp-t">${t}</div>${arr.filter(n=>GLOSSARY[n]).map(n=>`<div class="sd-row" data-stardict="${n}"><b>${n}</b><span>${(GLOSSARY[n]||"").split("：").slice(-1)[0]}</span></div>`).join("")}</div>`).join("")}
+  </div>`;
   const sihuaCard=`<div class="star-dict sihua-dict">
     <div class="sd-title">✨ 四化是什麼？（化祿/權/科/忌）</div>
     <div class="sh-intro">「四化」是你<b>出生那一年的天干</b>，讓四顆星各自「變化」出一種特殊力量，<b>跟你一輩子</b>。就像幫某顆星「加裝備」——星名後面有彩色小標的，就是被化到的星。</div>
@@ -530,7 +543,7 @@ export function renderZiwei(a){
         <div class="zw-top-r">${ziweiSummary(z,a)}</div>
       </div>
       <div class="zw-layout">
-        <div class="zw-side">${legend}${sihuaCard}${starDict}</div>
+        <div class="zw-side">${legend}${sihuaCard}${starDict}${auxDict}</div>
         <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
       </div>
@@ -556,6 +569,27 @@ export function renderZiweiHoro(a){
     const labels=["祿","權","科","忌"];
     return arr.map((star,i)=>`<span class="hs-sihua sh-${labels[i]}" title="${scopeName}化${labels[i]}：${star} 被化${labels[i]}">${star}<i>${labels[i]}</i></span>`).join("");
   };
+  // —— 四化白話＋落宮（找出流年四化星各自飛到流年盤的哪個宮）——
+  const SIHUA_MEAN={
+    祿:{word:"機遇、財富、人緣",good:true,say:"今年帶來機會、財路與好人緣的地方"},
+    權:{word:"權力、掌控、競爭",good:true,say:"今年你能掌權、強勢發揮、扛得起來的地方"},
+    科:{word:"名聲、貴人、化解",good:true,say:"今年有好名聲、考運、貴人相助的地方"},
+    忌:{word:"阻礙、損失、執念",good:false,say:"今年最容易卡關、糾結、要特別留意的地方"}
+  };
+  const labels=["祿","權","科","忌"];
+  // 流年四化星 → 該星落在流年盤哪一宮（用本命宮位星曜定位 → 對應流年宮名）
+  const starPalace=(starName)=>{
+    for(const p of z.palaces){
+      if((p.majorStars||[]).some(s=>s.name===starName) || (p.minorStars||[]).some(s=>s.name===starName)){
+        const yname=(yl.map[p.earthlyBranch]||{}).name;
+        return yname||p.name;
+      }
+    }
+    return "";
+  };
+  const sihuaLand=(ho.yearly.mutagen||[]).map((star,i)=>({
+    label:labels[i], star, pal:starPalace(star), ...SIHUA_MEAN[labels[i]]
+  }));
   // 流年盤：在本命格局上疊「流年宮名 + 流年四化星 + 流曜」
   let hcells="";
   for(let r=0;r<4;r++)for(let c=0;c<4;c++){
@@ -580,8 +614,9 @@ export function renderZiweiHoro(a){
     const isDMing=branch===dec.mingBranch;
     // 本命主星（小灰字墊底，知道這格本來坐什麼星）
     const natStars=(nat.majorStars||[]).map(s=>s.name).join("·")||"（空宮借對宮）";
-    // 流曜（流年飛入的星，如流昌流曲流陀等）
-    const flow=(yInfo.stars||[]).map(s=>`<span class="hs-flow">${s.name}</span>`).join("");
+    // 流曜（流年飛入的星，如流昌流曲流陀等）—附白話 tooltip
+    const FLOW_NOTE={流祿:"今年的財祿、好處",流羊:"今年的衝動、血光、是非（小心）",流陀:"今年的拖延、暗耗（小心）",流昌:"今年的考運、文書、聰明",流曲:"今年的才藝、口才、桃花",流魁:"今年的男貴人",流鉞:"今年的女貴人",流馬:"今年的走動、變遷",流喜:"今年的喜慶、桃花",流鸞:"今年的姻緣、桃花"};
+    const flow=(yInfo.stars||[]).map(s=>{const note=FLOW_NOTE[s.name]||"今年飛入的流曜";return `<span class="hs-flow" title="${s.name}＝${note}">${s.name}</span>`;}).join("");
     hcells+=`<div class="hs-cell${isYMing?' y-ming':''}">
       <div class="hs-pnames">
         <span class="hs-yname" title="流年${yInfo.name}：今年這宮主管「${PALACE_SHORT[yInfo.name]||yInfo.name}」">流年·${yInfo.name||"—"}</span>
@@ -594,6 +629,27 @@ export function renderZiweiHoro(a){
     </div>`;
   }
   const yMingName=(yl.map[yl.mingBranch]||{}).name||"";
+  // —— 白話總結：今年對你來說是什麼樣的一年（一般人直接讀這段就懂）——
+  const mingTopic=PALACE_TOPIC[yMingName]||PALACE_SHORT[yMingName]||yMingName;
+  const luItem=sihuaLand.find(s=>s.label==="祿");
+  const jiItem=sihuaLand.find(s=>s.label==="忌");
+  const verdict=`<div class="hs-verdict">
+    <div class="hs-v-title">🔮 ${nowY} 年，這一年對你來說（白話總結）</div>
+    <div class="hs-v-row"><b>整體主軸</b>今年的「流年命宮」落在 <b style="color:#dc2626">${yMingName}</b> 的位置——代表 <b>${nowY} 這一年的重心會放在「${mingTopic}」</b>這一塊，是今年最該用心、感受也最明顯的領域。</div>
+    ${luItem&&luItem.pal?`<div class="hs-v-row good"><b>今年的甜頭</b>化祿（機遇、財富、人緣）落在 <b>${luItem.pal}宮</b>——今年在「${PALACE_SHORT[luItem.pal]||luItem.pal}」這方面較容易有機會、進財或遇貴人，可主動把握。</div>`:""}
+    ${jiItem&&jiItem.pal?`<div class="hs-v-row bad"><b>今年要留意</b>化忌（阻礙、損失、執念）落在 <b>${jiItem.pal}宮</b>——今年在「${PALACE_SHORT[jiItem.pal]||jiItem.pal}」這方面較容易卡關、糾結或破耗，凡事多留一手、別鑽牛角尖。</div>`:""}
+    <div class="hs-v-note">※ 這是依「流年命宮」與「流年四化落宮」推出的方向性參考，實際吉凶還要看本命格局與整體配合。</div>
+  </div>`;
+  // 四化白話速查卡
+  const sihuaCard=`<div class="hs-sihua-card">
+    <div class="hs-sc-title">✨ 流年四化在說什麼（${nowY} 年版）</div>
+    <div class="hs-sc-grid">
+      ${sihuaLand.map(s=>`<div class="hs-sc-row sh-row-${s.label}">
+        <span class="sh sh-${s.label}">${s.label}</span>
+        <div class="hs-sc-txt"><b>${s.star} 化${s.label}</b>＝${s.word}${s.pal?`，今年落在 <b>${s.pal}宮</b>` :""}。<span class="hs-sc-say">${s.say}。</span></div>
+      </div>`).join("")}
+    </div>
+  </div>`;
   const guide=`<div class="hs-guide">
     <div class="hs-g-title">📖 流年盤怎麼看</div>
     <ul>
@@ -613,6 +669,8 @@ export function renderZiweiHoro(a){
   return `<div class="zw-horo" id="zwHoro">
     <div class="zw-horo-head"><span class="ic">運</span>紫微流年盤<small>大限／流年／小限 運限疊算</small></div>
     ${switcher}
+    ${verdict}
+    ${sihuaCard}
     ${guide}
     <div class="hs-wrap"><div class="hs-grid">${hcells}</div></div>
   </div>`;
@@ -1375,6 +1433,7 @@ export function bindChangSheng(){
   $$(".god-click").forEach(el=>el.addEventListener("click",()=>flash(`.god12-row[data-god12="${el.dataset.god}"]`)));
   $$(".ny-click").forEach(el=>el.addEventListener("click",()=>flash(`.ny-row[data-nayin="${el.dataset.nayin}"]`)));
   $$(".star-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();flash(`.sd-row[data-stardict="${el.dataset.star}"]`);}));
+  $$(".mstar-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();flash(`.sd-row[data-stardict="${el.dataset.mstar}"]`);}));
 }
 
 export function bindZiweiPopover(){
