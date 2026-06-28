@@ -291,6 +291,64 @@
   .ny-top .k{color:var(--sub)} .ny-top .v{font-weight:700;color:var(--blue-d)}
   .ny-say{font-size:12px;color:#64748b;line-height:1.6;margin-top:3px}
   .ny-trend{font-size:11.5px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:4px 8px;margin-top:5px;line-height:1.55}
+  /* 五行性格×行業 */
+  .wx-profile{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+  .wx-profile .wxp-title{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.6;margin-bottom:9px}
+  .wxp-row{padding:8px 10px;border-radius:9px;margin-bottom:6px;background:#f8fafc;border:1px solid var(--line)}
+  .wxp-row.on{background:#f0fdf4;border-color:#86efac}
+  .wxp-h{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+  .wx-bullet{font-size:13px;font-weight:800;width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:#fff}
+  .wx-bullet.wx-木{background:#16a34a}.wx-bullet.wx-火{background:#dc2626}.wx-bullet.wx-土{background:#b45309}.wx-bullet.wx-金{background:#a16207}.wx-bullet.wx-水{background:#2563eb}
+  .wx-mark{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px}
+  .wx-mark.top{background:#dcfce7;color:#15803d}.wx-mark.low{background:#fee2e2;color:#b91c1c}
+  .wxp-trait{font-size:12px;color:#475569;line-height:1.6;margin:2px 0 5px}
+  .wxp-jobs{display:flex;flex-wrap:wrap;gap:4px}
+  .wx-job{font-size:11px;color:#475569;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+  /* 五行生剋對照 */
+  .wxr-chains{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  @media(max-width:680px){.wxr-chains{grid-template-columns:1fr}}
+  .wxr-chain{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .wxr-c-lbl{font-size:13px;font-weight:700;margin-bottom:9px}
+  .wxr-c-lbl.sheng{color:#15803d}.wxr-c-lbl.ke{color:#b91c1c}
+  .wxr-flow{display:flex;align-items:center;flex-wrap:wrap;gap:3px;margin-bottom:8px}
+  .wx-arrow{font-size:11px;color:#94a3b8;margin:0 1px}
+  .wxr-note{font-size:11.5px;color:#64748b;line-height:1.6}.wxr-note b{color:var(--ink)}
+  .wxr-special{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:14px}
+  .wxr-sp-title{font-size:13px;font-weight:700;color:#b45309;margin-bottom:9px}
+  .wxr-sp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  @media(max-width:680px){.wxr-sp-grid{grid-template-columns:1fr}}
+  .wxr-sp{font-size:11.5px;line-height:1.55;color:#78350f}
+  .wxr-sp b{display:block;color:#9a3412;font-size:12.5px;margin-bottom:3px}
+  .wxr-sp i{display:block;font-style:normal;color:#a16207;margin-top:3px}
+  .wxr-dynamic{background:var(--blue-l);border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px}
+  .wxr-dyn-title{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:8px}
+  .wxr-dyn-row{font-size:12.5px;color:#334155;line-height:1.7;margin-bottom:6px}
+  .wxr-dyn-row:last-child{margin-bottom:0}.wxr-dyn-row b{font-weight:700}
+  /* 地支互動 */
+  .brx-grid{display:flex;flex-direction:column;gap:12px}
+  .brx{border:1px solid var(--line);border-radius:11px;padding:13px 15px;border-left:4px solid #cbd5e1}
+  .brx-he{border-left-color:#16a34a;background:#f0fdf4}
+  .brx-chong{border-left-color:#dc2626;background:#fef2f2}
+  .brx-xing{border-left-color:#d97706;background:#fffbeb}
+  .brx-hai{border-left-color:#b45309;background:#fff7ed}
+  .brx-tl{border-left-color:#7c3aed;background:#faf5ff}
+  .brx-h{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:9px}
+  .brx-item{padding:7px 0;border-top:1px dashed rgba(148,163,184,.4)}
+  .brx-item:first-of-type{border-top:none}
+  .brx-pair{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+  .br-zhi.faint{opacity:.3}
+  .brx-op{font-size:12px;font-weight:700;color:#64748b}
+  .brx-op.bad{color:#dc2626}.brx-op.warn{color:#d97706}
+  .brx-wx{font-size:11px;color:#fff;padding:1px 7px;border-radius:10px;font-weight:600}
+  .brx-tag{font-size:12px;font-weight:700;color:var(--ink);background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:6px;padding:0 7px}
+  .brx-pos{font-size:10.5px;color:#94a3b8;margin-left:auto}
+  .brx-sub{font-size:12px;color:#475569;line-height:1.6;margin-top:4px}
+  .brx-detail{margin-top:7px;display:flex;flex-direction:column;gap:5px}
+  .brx-d-row{font-size:12px;color:#475569;line-height:1.65}
+  .brx-d-row b{display:inline-block;min-width:34px;color:#9a3412;font-weight:700;margin-right:5px}
+  .brx-d-row.cure{background:rgba(255,255,255,.6);border-radius:7px;padding:5px 8px}
+  .brx-d-row.cure b{color:#15803d}
+  .brx-note{font-size:11px;color:#94a3b8;line-height:1.6;margin-top:8px;border-top:1px dashed rgba(148,163,184,.4);padding-top:7px}
   /* 日主人格速寫 */
   .dg-grid{display:flex;flex-direction:column;gap:8px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .dg-row{display:flex;gap:10px;font-size:13px;line-height:1.7;color:#475569}
@@ -873,7 +931,8 @@ import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from ".
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, SX_NAMING, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, buildHoroscope, PALACE_ORDER, SIHUA_DESC, BOSHI12_DESC } from "./engine-ziwei.js";
-import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND } from "./glossary.js";
+import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND,
+  HAI_DESC, HAI_GENERAL, CHONG_DESC, CHONG_GENERAL, HE_GENERAL, TIANLUO_DESC, XING_GENERAL } from "./glossary.js";
 
 /* 廟旺得利平不陷：星曜在該宮的「亮度／力量」，白話一句 */
 const BRIGHT_NOTE={
@@ -1163,7 +1222,77 @@ function radarChart(items, opt={}){
 }
 function renderWuxing(tally){
   const items=["木","火","土","金","水"].map(k=>({label:k,value:tally[k],color:WX_COLOR[k]}));
-  return radarChart(items,{fill:"rgba(22,163,74,.14)",stroke:"#16a34a"});
+  const radar=radarChart(items,{fill:"rgba(22,163,74,.14)",stroke:"#16a34a"});
+  // 五行性格＋適配行業對照（最強的標「你」）
+  const sorted=["木","火","土","金","水"].slice().sort((a,b)=>tally[b]-tally[a]);
+  const topWx=sorted[0], lowWx=sorted[4];
+  const rows=["木","火","土","金","水"].map(w=>{
+    const h=WX_HEALTH[w]; if(!h) return "";
+    const mark=w===topWx?'<span class="wx-mark top">最強</span>':(w===lowWx?'<span class="wx-mark low">最弱</span>':"");
+    const jobs=(h.jobs||[]).slice(0,4).map(j=>`<span class="wx-job">${j}</span>`).join("");
+    return `<div class="wxp-row${w===topWx?' on':''}">
+      <div class="wxp-h"><span class="wx-bullet wx-${w}">${w}</span>${mark}</div>
+      <div class="wxp-trait">${h.trait}</div>
+      <div class="wxp-jobs">${jobs}</div>
+    </div>`;
+  }).join("");
+  const profile=`<div class="wx-profile">
+    <div class="wxp-title">🧭 五行性格 × 適配行業（你最強的是 <b class="wx-${topWx}">${topWx}</b>，個性與適合領域會偏這邊）</div>
+    ${rows}
+    <div class="cap" style="margin-top:8px;color:#94a3b8">※ 看「最強」那行最貼近你；但真正論「適合什麼」要以<b>用神喜忌</b>為準（見下方），五行多寡只是參考底色。</div>
+  </div>`;
+  return radar+profile;
+}
+
+/* ====== 五行生剋對照（相生/相剋/特殊作用/通關）======
+ * 依使用者命局五行多寡，動態點出可能的「過旺乘剋」與建議的「通關」五行。*/
+function renderWuxingRelation(a){
+  const t=a.tally;
+  const SHENG_={木:"火",火:"土",土:"金",金:"水",水:"木"};   // 生
+  const KE_={木:"土",土:"水",水:"火",火:"金",金:"木"};       // 剋
+  const shengByOf=w=>Object.keys(SHENG_).find(k=>SHENG_[k]===w); // 生我者(母)
+  const dot=w=>`<span class="wx-bullet wx-${w}" style="width:20px;height:20px;font-size:11px">${w}</span>`;
+  // 相生鏈 / 相剋鏈
+  const shengChain=["木","火","土","金","水"].map(dot).join('<span class="wx-arrow">→</span>')+'<span class="wx-arrow">→</span>'+dot("木");
+  const keChain=["木","土","水","火","金"].map(dot).join('<span class="wx-arrow">剋</span>')+'<span class="wx-arrow">剋</span>'+dot("木");
+  // 動態：找出過旺(>平均*1.7)五行，提示它可能「過度剋」誰、「通關」用誰
+  const vals=Object.values(t); const avg=vals.reduce((x,y)=>x+y,0)/5;
+  const overs=["木","火","土","金","水"].filter(w=>t[w]>avg*1.7 && t[w]>0).sort((x,y)=>t[y]-t[x]);
+  let dynamic="";
+  if(overs.length){
+    dynamic=overs.slice(0,2).map(w=>{
+      const victim=KE_[w];                 // 被它剋的
+      const bridge=SHENG_[w];              // 它生的＝通關星（洩它去生被害者的母）
+      const tongguan=shengByOf(victim);     // 真正能「通關」的：被害者的母（生被害者者）
+      const weakVictim=t[victim]<avg*0.7;
+      return `<div class="wxr-dyn-row">
+        <b class="wx-${w}">${w}</b> 在你命中偏旺${weakVictim?`，而它所剋的 <b class="wx-${victim}">${victim}</b> 偏弱`:""}——容易形成「<b>${w}乘${victim}</b>」（過度剋制）。
+        化解之道：補 <b class="wx-${tongguan}">${tongguan}</b> 來<b>通關</b>（讓 ${w} 的力量先去生 ${tongguan}、${tongguan} 再生 ${victim}），把「相剋」轉成「相生」一路流通。</div>`;
+    }).join("");
+  }else{
+    dynamic=`<div class="wxr-dyn-row" style="color:#15803d">你的五行分布沒有明顯一方獨大去硬剋另一方，<b>相對均衡流通</b>，這是好事——能量比較順、不容易卡關。</div>`;
+  }
+  return `<div class="card full"><h3><span class="ic">剋</span>五行生剋關係（你的能量怎麼流動）</h3>
+    <div class="cap" style="margin-bottom:12px">五行不是各自獨立，而是彼此<b>相生</b>（滋養）與<b>相剋</b>（制衡）。懂得能量怎麼流，就懂得命局為什麼要「補某一行」或「通關」。</div>
+    <div class="wxr-chains">
+      <div class="wxr-chain"><div class="wxr-c-lbl sheng">相生鏈 · 一路滋養</div><div class="wxr-flow">${shengChain}</div>
+        <div class="wxr-note">木生火、火生土、土生金、金生水、水又生木，循環不息。<b>補弱勢五行</b>時，優先沿這條鏈用「它的母」來生它最自然。</div></div>
+      <div class="wxr-chain"><div class="wxr-c-lbl ke">相剋鏈 · 彼此制衡</div><div class="wxr-flow">${keChain}</div>
+        <div class="wxr-note">木剋土、土剋水、水剋火、火剋金、金剋木。剋不是壞事，是<b>制約與平衡</b>；但一方過強去硬剋弱方，就會出問題（見下）。</div></div>
+    </div>
+    <div class="wxr-special">
+      <div class="wxr-sp-title">⚠ 三種「失衡」狀況（命理進階）</div>
+      <div class="wxr-sp-grid">
+        <div class="wxr-sp"><b>反剋（相侮）</b><span>被剋的一方太強，反過來欺負原本該剋它的。例：水太多，火不但剋不了水，反被水澆熄。<i>解法：增強主剋方，或削弱過強的被剋方。</i></span></div>
+        <div class="wxr-sp"><b>乘襲（過剋）</b><span>主剋方太強、被剋方太弱，剋得過頭。例：木太旺猛剋土，像肝氣犯脾。<i>解法：用「通關」五行轉化（如木乘土，補火讓木去生火、火再生土）。</i></span></div>
+        <div class="wxr-sp"><b>母子同病</b><span>相生鏈斷掉，生的一方與被生的一方一起受損。例：火太衰，連帶它生的土也虛。<i>解法：母子一起補，或先找出斷鏈的源頭。</i></span></div>
+      </div>
+    </div>
+    <div class="wxr-dynamic">
+      <div class="wxr-dyn-title">🔎 套到你的命局</div>
+      ${dynamic}
+    </div>
+  </div>`;
 }
 
 /* 五行調補對照：每個五行對應的顏色/方位/季節時段/行業/生活面向 */
@@ -2028,23 +2157,33 @@ const WX_HEALTH={
   木:{organ:"肝、膽、筋骨、神經、眼睛、頭部",
     weak:"木弱：易疲倦、筋骨痠軟、視力或情緒低落，肝膽機能偏弱。",
     over:"木過旺：易肝火大、頭痛、抽筋、情緒緊繃易怒，要疏壓。",
-    tip:"少熬夜養肝、多伸展筋骨、保持心情舒暢、護眼。"},
+    tip:"少熬夜養肝、多伸展筋骨、保持心情舒暢、護眼。",
+    trait:"仁慈、正直、有上進心，像樹木一樣向上生長、講原則；有規劃力與成長動能，但偏旺易固執衝動、偏弱則優柔少主見。",
+    jobs:["教育文化","出版傳媒","園藝林木","醫藥保健","設計企劃"]},
   火:{organ:"心、小腸、血液循環、血壓、精神",
     weak:"火弱：易手腳冰冷、循環差、心悸、精神不振。",
     over:"火過旺：易上火、失眠、心煩、血壓偏高、口乾舌燥。",
-    tip:"作息規律、別過度操勞與熬夜、注意血壓與情緒平穩。"},
+    tip:"作息規律、別過度操勞與熬夜、注意血壓與情緒平穩。",
+    trait:"熱情、開朗、有禮有感染力，像火一樣明亮外放、行動快；表達與帶動力強，但偏旺易急躁衝動、偏弱則信心與熱度不足。",
+    jobs:["業務行銷","餐飲娛樂","能源照明","美容時尚","公眾表演"]},
   土:{organ:"脾、胃、腸道、肌肉、消化系統",
     weak:"土弱：腸胃較弱、易消化不良、食慾差、容易疲累。",
     over:"土過旺：易脹氣、濕氣重、體重或血糖問題、思慮過多傷脾。",
-    tip:"飲食定時定量、少生冷油膩、別暴飲暴食、別想太多。"},
+    tip:"飲食定時定量、少生冷油膩、別暴飲暴食、別想太多。",
+    trait:"誠信、穩重、重承諾，像大地一樣包容厚實、可靠耐勞；務實守成，但偏旺易保守頑固、偏弱則缺安全感、做事虎頭蛇尾。",
+    jobs:["房地產","營建工程","農業畜牧","金融保管","管理後勤"]},
   金:{organ:"肺、大腸、氣管、呼吸道、皮膚、鼻",
     weak:"金弱：呼吸道與皮膚較敏感、易感冒咳嗽、過敏、便秘。",
     over:"金過旺：易乾燥、皮膚或呼吸道發炎、大腸躁動。",
-    tip:"注意保暖與空氣品質、多補水潤肺、顧好呼吸道與皮膚。"},
+    tip:"注意保暖與空氣品質、多補水潤肺、顧好呼吸道與皮膚。",
+    trait:"果決、講義氣、重原則，像金屬一樣剛毅銳利、執行力強；有魄力與紀律，但偏旺易剛硬好爭、偏弱則欠決斷、易猶豫。",
+    jobs:["軍警司法","機械製造","金融財會","精密科技","體育競技"]},
   水:{organ:"腎、膀胱、泌尿、生殖、骨髓、耳、內分泌",
     weak:"水弱：易腰痠、頻尿或泌尿問題、精力不足、怕冷、耳鳴。",
     over:"水過旺：易水腫、腎與膀胱負擔重、生殖泌尿系統易失調。",
-    tip:"別憋尿、適度補水但別過量、保暖腰腎、節制房勞、顧內分泌。"}
+    tip:"別憋尿、適度補水但別過量、保暖腰腎、節制房勞、顧內分泌。",
+    trait:"聰明、靈活、善應變，像水一樣機智流動、點子多；智慧與交際力強，但偏旺易浮動善變、偏弱則保守、想得多動得少。",
+    jobs:["貿易物流","資訊網路","水利航運","學術研究","旅遊外勤"]}
 };
 /* ====== 日主天干人格速寫（你是哪種人）====== */
 function renderDayGan(a){
@@ -2059,6 +2198,74 @@ function renderDayGan(a){
       <div class="dg-row"><span class="dg-k">合拍方向</span><span class="dg-v">${pf.jobs.map(j=>`<span class="dg-job">${j}</span>`).join("")}</span></div>
     </div>
     <div class="cap" style="margin-top:9px;color:#94a3b8">※ 這是日主天干的「通性」，實際還要看整張命盤的強弱、調候與大運，不是單看一個字定終身。</div>
+  </div>`;
+}
+
+/* ====== 地支互動（六合/三合/六沖/相刑/六害/天羅地網）====== */
+function renderBranchRel(a){
+  const br=a.branchRel; if(!br) return "";
+  const wxC={木:"#16a34a",火:"#dc2626",土:"#b45309",金:"#a16207",水:"#2563eb"};
+  const zb=(z,w)=>`<span class="br-zhi wx-bullet wx-${w||ZHI_WX[z]||''}" style="width:22px;height:22px;font-size:12px">${z}</span>`;
+  const sections=[];
+  // 六合
+  if(br.liuhe.length){
+    sections.push(`<div class="brx brx-he"><div class="brx-h">🤝 六合（和諧相吸）</div>
+      ${br.liuhe.map(h=>`<div class="brx-item"><div class="brx-pair">${zb(h.a)}<span class="brx-op">合</span>${zb(h.b)}${h.wx?`<span class="brx-wx" style="background:${wxC[h.wx]}">化${h.wx}</span>`:""}<span class="brx-pos">${h.posA}·${h.posB}${h.adj?" 緊貼":""}</span></div></div>`).join("")}
+      <div class="brx-note">${HE_GENERAL["六合"]}</div></div>`);
+  }
+  // 三合
+  if(br.sanhe.length){
+    sections.push(`<div class="brx brx-he"><div class="brx-h">🔺 三合局（強力結合）</div>
+      ${br.sanhe.map(s=>`<div class="brx-item"><div class="brx-pair">${s.zhi.map(z=>`<span class="br-zhi wx-bullet wx-${ZHI_WX[z]||''}${s.have.includes(z)?'':' faint'}" style="width:22px;height:22px;font-size:12px">${z}</span>`).join("")}<span class="brx-wx" style="background:${wxC[s.wx]}">${s.full?"合":"半合"}化${s.wx}</span></div></div>`).join("")}
+      <div class="brx-note">${HE_GENERAL["三合"]}</div></div>`);
+  }
+  // 六沖
+  if(br.chong.length){
+    sections.push(`<div class="brx brx-chong"><div class="brx-h">💥 六沖（衝擊變動）</div>
+      ${br.chong.map(c=>{const key=CHONG_DESC[c.a+c.b]?c.a+c.b:c.b+c.a;return `<div class="brx-item"><div class="brx-pair">${zb(c.a)}<span class="brx-op bad">沖</span>${zb(c.b)}<span class="brx-pos">${c.posA}·${c.posB}${c.adj?" 緊貼":""}</span></div><div class="brx-sub">${CHONG_DESC[key]||""}</div></div>`;}).join("")}
+      <div class="brx-note">${CHONG_GENERAL}</div></div>`);
+  }
+  // 相刑
+  if(br.xing.length){
+    sections.push(`<div class="brx brx-xing"><div class="brx-h">⚔ 相刑（磨合損耗）</div>
+      ${br.xing.map(x=>`<div class="brx-item"><div class="brx-pair">${x.have.map(z=>zb(z)).join('<span class="brx-op warn">刑</span>')}<span class="brx-tag">${x.name}${x.type==="三刑全"?"（全）":""}</span></div><div class="brx-sub">${x.note||""}</div></div>`).join("")}
+      <div class="brx-note">${XING_GENERAL}</div></div>`);
+  }
+  // 六害
+  if(br.hai.length){
+    sections.push(`<div class="brx brx-hai"><div class="brx-h">🩹 六害（暗中損耗）</div>
+      ${br.hai.map(h=>{const d=HAI_DESC[h.a+h.b]||HAI_DESC[h.b+h.a];return `<div class="brx-item">
+        <div class="brx-pair">${zb(h.a)}<span class="brx-op warn">害</span>${zb(h.b)}<span class="brx-tag">${d?d.title:"相害"}</span><span class="brx-pos">${h.posA}·${h.posB}${h.adj?" 緊貼":""}</span></div>
+        ${d?`<div class="brx-detail">
+          <div class="brx-d-row"><b>原理</b>${d.why}</div>
+          <div class="brx-d-row"><b>健康</b>${d.health}</div>
+          <div class="brx-d-row"><b>性情</b>${d.mind}</div>
+          <div class="brx-d-row"><b>事業</b>${d.career}</div>
+          <div class="brx-d-row cure"><b>化解</b>${d.cure}</div>
+        </div>`:`<div class="brx-sub">${HAI_GENERAL}</div>`}</div>`;}).join("")}
+      <div class="brx-note">${HAI_GENERAL}</div></div>`);
+  }
+  // 天羅地網
+  if(br.tianluo){
+    const tl=br.tianluo;
+    const which=tl.both?"天羅＋地網皆見":tl.tianLuo?"天羅（戌亥·天門）":"地網（辰巳·地戶）";
+    sections.push(`<div class="brx brx-tl"><div class="brx-h">🕸 天羅地網（束縛／戒律）</div>
+      <div class="brx-item"><div class="brx-pair">${tl.have.map(z=>zb(z)).join("")}<span class="brx-tag">${which}</span></div>
+      <div class="brx-detail">
+        <div class="brx-d-row">${TIANLUO_DESC.intro}</div>
+        <div class="brx-d-row"><b>常人</b>${TIANLUO_DESC.common}</div>
+        <div class="brx-d-row"><b>修行</b>${TIANLUO_DESC.spirit}</div>
+        <div class="brx-d-row"><b>關鍵</b>${TIANLUO_DESC.key}</div>
+        <div class="brx-d-row cure"><b>化解</b>${TIANLUO_DESC.cure}</div>
+      </div></div></div>`);
+  }
+  if(!sections.length){
+    return `<div class="card full"><h3><span class="ic">支</span>地支互動</h3>
+      <div class="empty-tip">你的四柱地支之間沒有明顯的合、沖、刑、害——代表地支結構較<b>單純安定</b>，不是壞事。</div></div>`;
+  }
+  return `<div class="card full"><h3><span class="ic">支</span>地支互動（合・沖・刑・害）</h3>
+    <div class="cap" style="margin-bottom:12px">地支之間會彼此「<b>合</b>（結合）、<b>沖</b>（衝擊）、<b>刑</b>（磨合）、<b>害</b>（暗耗）」，這些是八字裡很重要、卻常被簡化帶過的環節。下面列出你命中<b>實際出現</b>的地支關係——吉凶仍要配合喜用神與整體格局看，這裡先讓你讀懂原理。</div>
+    <div class="brx-grid">${sections.join("")}</div>
   </div>`;
 }
 
@@ -2192,6 +2399,8 @@ function renderSingle(a){
      <div class="card"><h3><span class="ic">五</span>五行能量</h3>${renderWuxing(a.tally)}
        <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱。</div>
        ${renderRemedy(a.yong.primary, a.yong.avoid)}</div>
+     ${renderWuxingRelation(a)}
+     ${renderBranchRel(a)}
      <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
        <div class="cap" style="margin-bottom:10px">納音＝用六十甲子配出的<b>另一套五行象徵</b>（如海中金、爐中火），是每一柱的「別名／質地」，傳統用來補充看個性與緣分，屬趣味參考。</div>
        ${[["年柱",a.bz.nayin.year],["月柱",a.bz.nayin.month],["日柱",a.bz.nayin.day],...(a.bz.nayin.hour?[["時柱",a.bz.nayin.hour]]:[])].map(([k,v])=>`

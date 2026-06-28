@@ -404,5 +404,93 @@ export function fullBaziAnalysis(bz){
   });
   for(const k in godTally) godTally[k]=Math.round(godTally[k]*100)/100;
 
-  return { bz, chart, tally, strength, yong, shensha, pattern, godTally };
+  const branchRel = analyzeBranchRel(bz);
+
+  return { bz, chart, tally, strength, yong, shensha, pattern, godTally, branchRel };
+}
+
+/* ============================================================
+ * 地支互動：六合 / 三合(局) / 六沖 / 相刑 / 六害 / 天羅地網
+ *   逐一比對四柱地支兩兩關係，回傳命中清單（含柱位）。
+ * ============================================================ */
+const LIUHE = {子:"丑",丑:"子",寅:"亥",亥:"寅",卯:"戌",戌:"卯",辰:"酉",酉:"辰",巳:"申",申:"巳",午:"未",未:"午"};
+const LIUHE_WX = {"子丑":"土","寅亥":"木","卯戌":"火","辰酉":"金","巳申":"水","午未":"土"}; // 合化五行
+const LIUCHONG = {子:"午",午:"子",丑:"未",未:"丑",寅:"申",申:"寅",卯:"酉",酉:"卯",辰:"戌",戌:"辰",巳:"亥",亥:"巳"};
+const LIUHAI_B = {子:"未",未:"子",丑:"午",午:"丑",寅:"巳",巳:"寅",卯:"辰",辰:"卯",申:"亥",亥:"申",酉:"戌",戌:"酉"};
+/* 三合局：每組三支 → 合化五行 */
+const SANHE_SETS = [
+  {zhi:["申","子","辰"],wx:"水"},
+  {zhi:["亥","卯","未"],wx:"木"},
+  {zhi:["寅","午","戌"],wx:"火"},
+  {zhi:["巳","酉","丑"],wx:"金"}
+];
+/* 相刑：三刑(無恩之刑/恃勢之刑/無禮之刑) + 自刑 */
+const XING_GROUPS = [
+  {set:["寅","巳","申"],name:"無恩之刑",note:"寅巳申三刑，主恩中招怨、易因熱心反惹麻煩，常見人事是非與健康勞損。"},
+  {set:["丑","戌","未"],name:"恃勢之刑",note:"丑戌未三刑，主仗勢欺人或被勢所壓，多與爭產、官非、固執起衝突有關。"}
+];
+const XING_PAIR = {子:"卯",卯:"子"}; // 子卯相刑（無禮之刑）
+const ZIXING = ["辰","午","酉","亥"]; // 自刑（同字相見）
+
+function pillarPairs(bz){
+  const arr=[["年",bz.yZhi],["月",bz.mZhi],["日",bz.dZhi]];
+  if(bz.hourKnown) arr.push(["時",bz.hZhi]);
+  return arr;
+}
+/* 兩柱是否相鄰（年月、月日、日時為緊貼） */
+function isAdjacent(posA,posB){
+  const order=["年","月","日","時"];
+  return Math.abs(order.indexOf(posA)-order.indexOf(posB))===1;
+}
+
+export function analyzeBranchRel(bz){
+  const pills=pillarPairs(bz);
+  const out={ liuhe:[], sanhe:[], chong:[], xing:[], hai:[], tianluo:null };
+
+  // —— 兩兩比對：六合/六沖/六害 ——
+  for(let i=0;i<pills.length;i++)for(let j=i+1;j<pills.length;j++){
+    const [pa,za]=pills[i], [pb,zb]=pills[j];
+    const adj=isAdjacent(pa,pb);
+    if(LIUHE[za]===zb){
+      const wx=LIUHE_WX[za+zb]||LIUHE_WX[zb+za]||"";
+      out.liuhe.push({a:za,b:zb,posA:pa,posB:pb,wx,adj});
+    }
+    if(LIUCHONG[za]===zb) out.chong.push({a:za,b:zb,posA:pa,posB:pb,adj});
+    if(LIUHAI_B[za]===zb) out.hai.push({a:za,b:zb,posA:pa,posB:pb,adj});
+  }
+
+  // —— 三合局：四支中是否齊三 / 半合(齊二且含子午卯酉旺神) ——
+  const zhiList=pills.map(p=>p[1]);
+  SANHE_SETS.forEach(s=>{
+    const hit=s.zhi.filter(z=>zhiList.includes(z));
+    if(hit.length===3) out.sanhe.push({zhi:s.zhi.slice(),wx:s.wx,full:true,have:hit});
+    else if(hit.length===2){
+      // 半合：含「子午卯酉」旺神之一者較有力
+      const wang=["子","午","卯","酉"].find(w=>hit.includes(w));
+      if(wang) out.sanhe.push({zhi:s.zhi.slice(),wx:s.wx,full:false,have:hit});
+    }
+  });
+
+  // —— 相刑：三刑 / 子卯刑 / 自刑 ——
+  XING_GROUPS.forEach(g=>{
+    const hit=g.set.filter(z=>zhiList.includes(z));
+    if(hit.length>=2) out.xing.push({type:hit.length===3?"三刑全":"半刑",name:g.name,have:hit,note:g.note});
+  });
+  for(let i=0;i<pills.length;i++)for(let j=i+1;j<pills.length;j++){
+    const za=pills[i][1], zb=pills[j][1];
+    if(XING_PAIR[za]===zb) out.xing.push({type:"子卯刑",name:"無禮之刑",have:[za,zb],note:"子卯相刑，主禮數欠周、易因情緒或言語失和，常見家庭或感情上的摩擦。"});
+  }
+  ZIXING.forEach(z=>{ if(zhiList.filter(x=>x===z).length>=2) out.xing.push({type:"自刑",name:z+"自刑",have:[z,z],note:z+"自刑，主自我內耗、鑽牛角尖，易自尋煩惱、自己跟自己過不去。"}); });
+
+  // —— 天羅地網：辰巳(地網) / 戌亥(天門·天羅) 同見 ——
+  const has=z=>zhiList.includes(z);
+  const diWang=(has("辰")&&has("巳"));   // 地網
+  const tianLuo=(has("戌")&&has("亥"));  // 天羅
+  if(diWang||tianLuo){
+    out.tianluo={ diWang, tianLuo,
+      both:diWang&&tianLuo,
+      have:zhiList.filter(z=>["辰","巳","戌","亥"].includes(z)) };
+  }
+
+  return out;
 }
