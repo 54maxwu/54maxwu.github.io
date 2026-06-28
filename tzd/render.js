@@ -142,7 +142,7 @@ export function renderWuxing(tally){
   }).join("");
   const profile=`<div class="wx-profile">
     <div class="wxp-title">🧭 五行性格 × 適配行業（你最強的是 <b class="wx-${topWx}">${topWx}</b>，個性與適合領域會偏這邊）</div>
-    ${rows}
+    <div class="wxp-grid">${rows}</div>
     <div class="cap" style="margin-top:8px;color:#94a3b8">※ 看「最強」那行最貼近你；但真正論「適合什麼」要以<b>用神喜忌</b>為準（見下方），五行多寡只是參考底色。</div>
   </div>`;
   return radar+profile;
@@ -669,10 +669,10 @@ export function renderZiweiHoro(a){
   return `<div class="zw-horo" id="zwHoro">
     <div class="zw-horo-head"><span class="ic">運</span>紫微流年盤<small>大限／流年／小限 運限疊算</small></div>
     ${switcher}
-    ${verdict}
-    ${sihuaCard}
-    ${guide}
-    <div class="hs-wrap"><div class="hs-grid">${hcells}</div></div>
+    <div class="hs-layout">
+      <div class="hs-explain">${verdict}${sihuaCard}${guide}</div>
+      <div class="hs-wrap"><div class="hs-grid">${hcells}</div></div>
+    </div>
   </div>`;
 }
 
@@ -1220,9 +1220,12 @@ export function renderSingle(a){
      <div class="card full"><h3><span class="ic">柱</span>四柱排盤
        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a,true)}</div>
      ${renderDayGan(a)}
-     <div class="card"><h3><span class="ic">五</span>五行能量</h3>${renderWuxing(a.tally)}
-       <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱。</div>
-       ${renderRemedy(a.yong.primary, a.yong.avoid)}</div>
+     <div class="card full"><h3><span class="ic">五</span>五行能量</h3>
+       <div class="wx-energy-layout">
+         <div class="wx-energy-left">${renderWuxing(a.tally,true)}
+           <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱。</div></div>
+         <div class="wx-energy-right">${renderRemedy(a.yong.primary, a.yong.avoid)}</div>
+       </div></div>
      ${renderWuxingRelation(a)}
      ${renderBranchRel(a)}
      <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
