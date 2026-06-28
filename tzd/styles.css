@@ -265,6 +265,13 @@
   .dash .god-bar .gb-note{display:none}
 
   /* 十神 × 賺錢方式 卡片 */
+  /* 十神組合看富貴 */
+  .gw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+  .gw-card{border:1px solid var(--line);border-left:4px solid var(--gw);border-radius:10px;padding:11px 13px;background:#fff}
+  .gw-head{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .gw-head b{font-size:14px;color:var(--ink)}
+  .gw-grp{color:#fff;font-size:12px;font-weight:800;width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center}
+  .gw-say{font-size:12.5px;color:#475569;line-height:1.6}
   .gm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
   .gm-card{border:1px solid var(--line);border-left:4px solid var(--gm);border-radius:12px;padding:13px 14px;background:#fff}
   .gm-card.mine{border:1.5px solid var(--blue);border-left:4px solid var(--gm);box-shadow:0 2px 10px rgba(59,130,246,.12);background:linear-gradient(180deg,var(--blue-sel) 0%,#fff 38%)}
@@ -451,13 +458,16 @@
   .zw-top2 .zw-summary{margin-top:0;border-top:none;padding-top:0;height:100%;
     background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
   @media(max-width:900px){ .zw-top2{flex-direction:column} }
-  .zw-side{flex:0 0 320px;max-width:320px}
+  .zw-side{flex:0 0 290px;max-width:290px}
   .ziwei-wrap{position:relative;flex:1 1 auto;min-width:0}
   @media(max-width:920px){
     .zw-layout{flex-direction:column}
     .zw-side{flex:1 1 auto;max-width:none;width:100%}
     .ziwei-wrap{width:100%}
   }
+  /* 速查辭典：移到命盤下方、橫向多欄填滿寬度（不再卡在左側長條） */
+  .zw-dicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:16px;align-items:start}
+  .zw-dicts>.star-dict{margin-top:0}
   .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:stretch}
   .zw-cell{border:1px solid var(--line);border-radius:9px;padding:10px 9px;background:var(--soft);
     font-size:12px;display:flex;flex-direction:column;min-height:118px}

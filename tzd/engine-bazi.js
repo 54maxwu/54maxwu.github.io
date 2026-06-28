@@ -309,7 +309,28 @@ export function analyzeShenSha(bz){
   const kongHits=branches.filter(([,z])=>kong.includes(z)).map(([p])=>p);
   if(kongHits.length) list.push({name:"空亡(旬空)",positions:kongHits,desc:"該柱之氣落空，吉減力、凶亦減，逢沖反實"});
 
+  // 童子命（依季節月支＋日/時支查法，另含年命納音五行版）
+  if(isTongZi(bz)) list.push({name:"童子命",positions:["日支/時支"],desc:"民俗稱前世帶仙佛之緣的命，多主聰慧靈秀、宗教緣深、感情與健康易有波折，宜以修德行善看待，不必恐慌"});
+
   return list;
+}
+
+/* 童子命判定：兩套查法命中其一即算（民俗神煞，僅供參考） */
+function isTongZi(bz){
+  const dz=bz.dZhi, hz=bz.hourKnown?bz.hZhi:null;
+  const hit=(arr)=>arr.includes(dz)||(hz&&arr.includes(hz));
+  // 季節版（以月支判春夏秋冬）
+  const m=bz.mZhi;
+  const springAutumn=["寅","卯","辰","申","酉","戌"].includes(m); // 春＋秋
+  const winterSummer=["亥","子","丑","巳","午","未"].includes(m);  // 冬＋夏
+  if(springAutumn && hit(["寅","子"])) return true;
+  if(winterSummer && hit(["卯","未","辰"])) return true;
+  // 年命納音五行版（金木午卯、水火酉戌、土辰巳）
+  const wx=(bz.nayin&&bz.nayin.year||"").slice(-1); // 納音末字＝五行
+  if((wx==="金"||wx==="木") && hit(["午","卯"])) return true;
+  if((wx==="水"||wx==="火") && hit(["酉","戌"])) return true;
+  if(wx==="土" && hit(["辰","巳"])) return true;
+  return false;
 }
 
 /* ============================================================

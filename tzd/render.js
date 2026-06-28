@@ -317,6 +317,30 @@ export function renderGodMoney(a){
   return `${cap}<div class="gm-grid">${cards}</div>`;
 }
 
+/* 十神組合看富貴：依命盤實有的十神類別，點出可能成立的「富/貴/才能」組合 */
+export function renderGodWealth(a){
+  const gt=a.godTally||{};
+  const has=k=>(gt[k]||0)>=0.8;  // 該類十神有一定力量才算「有」
+  // 依五大類組合判斷（食傷=才華、財星=財、官殺=權貴、印星=靠山、比劫=自我）
+  const combos=[
+    {on:has("食傷")&&has("財星"), grp:"富", name:"食傷生財", say:"你有「把才華變成錢」的組合——靠創意、技術、口才產出再換成收入，是會賺的命，適合創作、技術、生意。"},
+    {on:has("財星")&&has("官殺"), grp:"貴", name:"財官相生", say:"你有「財生官」的組合——財力能撐起地位、事業，名利容易兼得，適合在組織或事業上往上走。"},
+    {on:has("官殺")&&has("印星"), grp:"貴", name:"官印相生", say:"你有「官印相生」的組合——權力與學識互相加分，主穩定升遷、職場精英，適合體制內、管理、專業職。"},
+    {on:has("印星")&&has("比劫"), grp:"助", name:"印比相隨", say:"你有「印比相隨」的組合——有靠山又有同儕助力，樂於出謀劃策、人緣與後援不錯。"},
+    {on:has("食傷")&&has("印星"), grp:"才", name:"傷官佩印", say:"你有「才華＋修養」的組合——聰明又有內涵，名氣與貴氣兼具，最忌恃才傲物，收斂則名利雙收。"},
+    {on:has("食傷")&&has("官殺"), grp:"才", name:"食神制殺", say:"你有「以智慧化解壓力」的組合——能在難局中靠才智與行動力脫穎而出，適合需要決斷與創造的領域。"}
+  ].filter(c=>c.on);
+  const tone={富:"#d97706",貴:"#dc2626",才:"#16a34a",助:"#2563eb"};
+  const body = combos.length
+    ? `<div class="gw-grid">${combos.map(c=>`<div class="gw-card" style="--gw:${tone[c.grp]}">
+        <div class="gw-head"><span class="gw-grp" style="background:${tone[c.grp]}">${c.grp}</span><b>${c.name}</b></div>
+        <div class="gw-say">${c.say}</div></div>`).join("")}</div>`
+    : `<div class="empty-tip">你命中沒有特別突出的富貴組合——不代表不好，代表人生較平穩、靠後天經營與喜用神方向去發揮即可。</div>`;
+  return `<div class="card full"><h3><span class="ic">貴</span>十神組合看富貴</h3>
+    <div class="cap" style="margin-bottom:12px">命理看「富」與「貴」，重點不是某個十神多，而是<b>十神之間有沒有「相生流通」的好組合</b>。下面是你命盤中<b>可能成立</b>的組合（依十神能量判斷）：<br><span style="color:var(--sub);font-size:12px">※ 這是方向性參考，真正高低還要看格局純不純、有沒有被沖剋破壞，以及大運配合。</span></div>
+    ${body}</div>`;
+}
+
 export function renderShensha(list){
   if(!list.length) return `<div class="empty-tip">命中無明顯神煞（不是壞事，代表命局較平穩）</div>`;
   return `<div class="cap" style="margin-bottom:6px">「神煞」是八字裡的吉星與凶星，<b><span style="color:#15803d">綠色＝吉星(加分)</span>、<span style="color:#b91c1c">紅色＝凶星(要注意)</span></b>。後面標的是它落在哪一柱（影響人生哪個階段）。</div>`
@@ -542,10 +566,11 @@ export function renderZiwei(a){
         <div class="zw-top-r">${ziweiSummary(z,a)}</div>
       </div>
       <div class="zw-layout">
-        <div class="zw-side">${legend}${sihuaCard}${starDict}${auxDict}</div>
+        <div class="zw-side">${legend}</div>
         <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
       </div>
+      <div class="zw-dicts">${sihuaCard}${starDict}${auxDict}</div>
       ${renderZiweiHoro(a)}</div>`;
 }
 
@@ -1243,6 +1268,7 @@ export function renderSingle(a){
      <div class="card"><h3><span class="ic">用</span>用神・喜忌</h3>${renderYong(a.yong)}</div>
      <div class="card"><h3><span class="ic">神</span>十神能量分布</h3>${renderGodTally(a.godTally,true)}</div>
      <div class="card full"><h3><span class="ic">財</span>十神 × 賺錢方式</h3>${renderGodMoney(a)}</div>
+     ${renderGodWealth(a)}
    </div></div>
 
    <div class="panel" data-panel="ziwei">${renderZiwei(a)}</div>
