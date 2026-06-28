@@ -5,7 +5,7 @@ import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from ".
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, SX_NAMING, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, buildHoroscope, PALACE_ORDER, SIHUA_DESC, BOSHI12_DESC } from "./engine-ziwei.js";
-import { BRIGHT_NOTE, GAN_IMG, ZHI_SX, ZHI_HR, BR_LEVEL, NAYIN_PLAIN, WX_COLOR, SHICHEN, TW_CITY, PILLAR_LIFE, WX_REMEDY, COLOR_HEX, STRENGTH_PLAIN, SHENSHA_PLAIN, POS_PLAIN, PATTERN_PLAIN, GOD_SHORT, GOD_YEAR, GRID_POS, ZW_IDX_BRANCH, PALACE_TOPIC, PALACE_SHORT, ZW_CHONG, ZW_SANHE, WX_HEALTH, SAVE_KEY } from "./ui-data.js";
+import { $, $$, BRIGHT_NOTE, GAN_IMG, ZHI_SX, ZHI_HR, BR_LEVEL, NAYIN_PLAIN, WX_COLOR, SHICHEN, TW_CITY, PILLAR_LIFE, WX_REMEDY, COLOR_HEX, STRENGTH_PLAIN, SHENSHA_PLAIN, POS_PLAIN, PATTERN_PLAIN, GOD_SHORT, GOD_YEAR, GRID_POS, ZW_IDX_BRANCH, PALACE_TOPIC, PALACE_SHORT, ZW_CHONG, ZW_SANHE, WX_HEALTH, SAVE_KEY } from "./ui-data.js";
 import { renderSingle, renderCouple, bindTabs } from "./render.js";
 import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND,
   HAI_DESC, HAI_GENERAL, CHONG_DESC, CHONG_GENERAL, HE_GENERAL, TIANLUO_DESC, XING_GENERAL } from "./glossary.js";
@@ -14,9 +14,6 @@ import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND,
 /* 天干、地支白話意象（給四柱大字 tooltip） */
 /* 亮度→七級訊號條（廟7…陷1），像手機訊號強弱 */
 
-/* 三十納音白話一句（傳統意象，趣味參考） */
-const $=s=>document.querySelector(s);
-const $$=s=>[...document.querySelectorAll(s)];
 
 /* ---- 表單初始化 ---- */
 function fillSelect(sel,from,to,suffix,fn){

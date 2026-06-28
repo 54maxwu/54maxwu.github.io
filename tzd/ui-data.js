@@ -3,6 +3,10 @@
  * 由 app.js 拆出，全部 export 供 render.js / app.js 共用
  * ============================================================ */
 
+/* DOM 查詢小幫手（app.js / render.js 共用） */
+export const $=s=>document.querySelector(s);
+export const $$=s=>[...document.querySelectorAll(s)];
+
 export const BRIGHT_NOTE={
   "廟":"廟－力量最強，發揮到極致",
   "旺":"旺－力量很強，表現亮眼",
