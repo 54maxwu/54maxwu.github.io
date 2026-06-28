@@ -439,6 +439,16 @@
   .ly-head .ly-age{font-size:12px;color:var(--sub);font-weight:400;margin-left:5px}
   .ly-head .ly-tag{font-size:10px;background:var(--blue);color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px;vertical-align:middle}
   .ly-head .ly-gz{font-size:17px;font-weight:700;margin-left:auto}
+  /* 流年逐年・日支關係 + 多面向 */
+  .ly-rel{font-size:11.5px;line-height:1.6;border-radius:7px;padding:6px 9px;margin:6px 0}
+  .ly-rel b{margin-right:5px}
+  .ly-rel-good{background:#f0fdf4;color:#15803d}.ly-rel-good b{color:#15803d}
+  .ly-rel-bad{background:#fffbeb;color:#b45309}.ly-rel-bad b{color:#b45309}
+  .ly-rel-mid{background:#f8fafc;color:#64748b}.ly-rel-mid b{color:#475569}
+  .ly-domains{display:flex;flex-direction:column;gap:4px;margin:7px 0;border-top:1px dashed var(--line);padding-top:8px}
+  .lyd-row{display:flex;gap:8px;font-size:11.5px;line-height:1.6}
+  .lyd-k{flex:none;width:54px;font-weight:700;color:var(--blue-d)}
+  .lyd-v{color:#475569}
   .ly-god{font-size:13px;color:var(--blue-d);margin-bottom:4px}
   .ly-god b{font-size:14px}
   .ly-desc{font-size:12.5px;color:#475569;line-height:1.75;margin-bottom:8px}
