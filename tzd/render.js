@@ -148,7 +148,7 @@ export function renderWuxing(tally){
   return radar+profile;
 }
 
-export function renderWuxingRelation(a){
+export function renderWuxingRelation(a, embed=false){
   const t=a.tally;
   const SHENG_={木:"火",火:"土",土:"金",金:"水",水:"木"};   // 生
   const KE_={木:"土",土:"水",水:"火",火:"金",金:"木"};       // 剋
@@ -174,8 +174,7 @@ export function renderWuxingRelation(a){
   }else{
     dynamic=`<div class="wxr-dyn-row" style="color:#15803d">你的五行分布沒有明顯一方獨大去硬剋另一方，<b>相對均衡流通</b>，這是好事——能量比較順、不容易卡關。</div>`;
   }
-  return `<div class="card full"><h3><span class="ic">剋</span>五行生剋關係（你的能量怎麼流動）</h3>
-    <div class="cap" style="margin-bottom:12px">五行不是各自獨立，而是彼此<b>相生</b>（滋養）與<b>相剋</b>（制衡）。懂得能量怎麼流，就懂得命局為什麼要「補某一行」或「通關」。</div>
+  const inner=`<div class="cap" style="margin:14px 0 12px;border-top:1px dashed var(--line);padding-top:12px"><b style="color:var(--blue-d)">🔄 五行生剋關係（你的能量怎麼流動）</b>　五行不是各自獨立，而是彼此<b>相生</b>（滋養）與<b>相剋</b>（制衡）。懂得能量怎麼流，就懂得命局為什麼要「補某一行」或「通關」。</div>
     <div class="wxr-chains">
       <div class="wxr-chain"><div class="wxr-c-lbl sheng">相生鏈 · 一路滋養</div><div class="wxr-flow">${shengChain}</div>
         <div class="wxr-note">木生火、火生土、土生金、金生水、水又生木，循環不息。<b>補弱勢五行</b>時，優先沿這條鏈用「它的母」來生它最自然。</div></div>
@@ -193,8 +192,8 @@ export function renderWuxingRelation(a){
     <div class="wxr-dynamic">
       <div class="wxr-dyn-title">🔎 套到你的命局</div>
       ${dynamic}
-    </div>
-  </div>`;
+    </div>`;
+  return embed ? inner : `<div class="card full"><h3><span class="ic">剋</span>五行生剋關係（你的能量怎麼流動）</h3>${inner}</div>`;
 }
 
 export function colorize(str){
@@ -1216,25 +1215,27 @@ export function renderSingle(a){
      ${renderDashboard(a,overall,luck)}
    </div>
 
-   <div class="panel" data-panel="bazi"><div class="grid g3">
-     <div class="card full"><h3><span class="ic">柱</span>四柱排盤
+   <div class="panel" data-panel="bazi"><div class="stack">
+     <div class="card"><h3><span class="ic">柱</span>四柱排盤
        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a,true)}</div>
      ${renderDayGan(a)}
-     <div class="card full"><h3><span class="ic">五</span>五行能量</h3>
+     <div class="card"><h3><span class="ic">五</span>五行能量・性格・調補</h3>
        <div class="wx-energy-layout">
          <div class="wx-energy-left">${renderWuxing(a.tally,true)}
            <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱。</div></div>
          <div class="wx-energy-right">${renderRemedy(a.yong.primary, a.yong.avoid)}</div>
-       </div></div>
-     ${renderWuxingRelation(a)}
+       </div>
+       ${renderWuxingRelation(a,true)}
+     </div>
      ${renderBranchRel(a)}
-     <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
-       <div class="cap" style="margin-bottom:10px">納音＝用六十甲子配出的<b>另一套五行象徵</b>（如海中金、爐中火），是每一柱的「別名／質地」，傳統用來補充看個性與緣分，屬趣味參考。</div>
-       ${[["年柱",a.bz.nayin.year],["月柱",a.bz.nayin.month],["日柱",a.bz.nayin.day],...(a.bz.nayin.hour?[["時柱",a.bz.nayin.hour]]:[])].map(([k,v])=>`
-         <div class="ny-row" data-nayin="${v}"><div class="ny-top"><span class="k">${k}</span><span class="v">${v}</span></div>
-           <div class="ny-say">${NAYIN_PLAIN[v]||""}</div>${NAYIN_TREND[v]?`<div class="ny-trend">📌 傾向：${NAYIN_TREND[v]}</div>`:""}</div>`).join("")}
-       <div style="text-align:right;margin-top:10px"><span class="rtab guide-link" data-p="god">看十神能量分布 →</span></div></div>
-     ${renderHealth(a)}
+     <div class="sec-2col">
+       <div class="card"><h3><span class="ic">納</span>四柱納音</h3>
+         <div class="cap" style="margin-bottom:10px">納音＝用六十甲子配出的<b>另一套五行象徵</b>（如海中金、爐中火），是每一柱的「別名／質地」，傳統用來補充看個性與緣分，屬趣味參考。</div>
+         ${[["年柱",a.bz.nayin.year],["月柱",a.bz.nayin.month],["日柱",a.bz.nayin.day],...(a.bz.nayin.hour?[["時柱",a.bz.nayin.hour]]:[])].map(([k,v])=>`
+           <div class="ny-row" data-nayin="${v}"><div class="ny-top"><span class="k">${k}</span><span class="v">${v}</span></div>
+             <div class="ny-say">${NAYIN_PLAIN[v]||""}</div>${NAYIN_TREND[v]?`<div class="ny-trend">📌 傾向：${NAYIN_TREND[v]}</div>`:""}</div>`).join("")}</div>
+       ${renderHealth(a)}
+     </div>
    </div></div>
 
    <div class="panel" data-panel="god"><div class="grid g2">
@@ -1425,18 +1426,28 @@ export function bindZiweiHoroYears(){
 }
 
 export function bindChangSheng(){
-  const flash=(sel)=>{
-    const target=$$(sel)[0]; if(!target) return;
-    $$(".hl").forEach(r=>r.classList.remove("hl"));
-    target.classList.add("hl");
-    target.scrollIntoView({behavior:"smooth",block:"center"});
-    setTimeout(()=>target.classList.remove("hl"),2600);
+  // 點術語 → 在「原地」彈出小框解釋，不再滾動到別處（避免跑上跑下）
+  let pop=$("#termPop");
+  if(!pop){ pop=document.createElement("div"); pop.id="termPop"; pop.className="term-pop"; pop.hidden=true; document.body.appendChild(pop); }
+  const show=(el,term,text)=>{
+    if(!text){ return; }
+    pop.innerHTML=`<b>${term}</b>${text}`;
+    pop.hidden=false;
+    const r=el.getBoundingClientRect();
+    const pw=Math.min(280, window.innerWidth-24);
+    pop.style.width=pw+"px";
+    let left=r.left+window.scrollX; if(left+pw>window.scrollX+window.innerWidth-12) left=window.scrollX+window.innerWidth-pw-12;
+    pop.style.left=Math.max(12,left)+"px";
+    pop.style.top=(r.bottom+window.scrollY+6)+"px";
   };
-  $$(".cs-click").forEach(el=>el.addEventListener("click",()=>flash(`.cs12-row[data-cs12="${el.dataset.cs}"]`)));
-  $$(".god-click").forEach(el=>el.addEventListener("click",()=>flash(`.god12-row[data-god12="${el.dataset.god}"]`)));
-  $$(".ny-click").forEach(el=>el.addEventListener("click",()=>flash(`.ny-row[data-nayin="${el.dataset.nayin}"]`)));
-  $$(".star-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();flash(`.sd-row[data-stardict="${el.dataset.star}"]`);}));
-  $$(".mstar-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();flash(`.sd-row[data-stardict="${el.dataset.mstar}"]`);}));
+  const close=()=>{ pop.hidden=true; };
+  document.addEventListener("click",e=>{ if(!e.target.closest(".cs-click,.god-click,.ny-click,.star-click,.mstar-click,#termPop")) close(); });
+  const plain=t=>(t||"").replace(/^像/,"");
+  $$(".cs-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.cs,plain(GLOSSARY[el.dataset.cs]||""));}));
+  $$(".god-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.god,GLOSSARY[el.dataset.god]||"");}));
+  $$(".ny-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.nayin,(NAYIN_PLAIN[el.dataset.nayin]||"")+(NAYIN_TREND[el.dataset.nayin]?"　傾向："+NAYIN_TREND[el.dataset.nayin]:""));}));
+  $$(".star-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.star,GLOSSARY[el.dataset.star]||"");}));
+  $$(".mstar-click").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();show(el,el.dataset.mstar,GLOSSARY[el.dataset.mstar]||"");}));
 }
 
 export function bindZiweiPopover(){

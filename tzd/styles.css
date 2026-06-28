@@ -130,6 +130,13 @@
   .grid .full{grid-column:1/-1}
   .colstack{display:flex;flex-direction:column;gap:12px}
   .colstack .card{margin:0}
+  /* 單欄垂直流（閱讀順序清楚、不留破洞）*/
+  .stack{display:flex;flex-direction:column;gap:14px}
+  .stack>.card,.stack>.sec-2col{margin:0}
+  /* 兩欄並排（如 納音｜健康）*/
+  .sec-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .sec-2col>.card{margin:0;height:100%}
+  @media(max-width:820px){ .sec-2col{grid-template-columns:1fr} }
   @media(max-width:900px){ .grid.g2,.grid.g3{grid-template-columns:1fr} }
   /* dashboard 內元素緊湊化 */
   .dash .kv{padding:5px 0;font-size:13px}
@@ -202,6 +209,10 @@
   .cs12-row span{color:#64748b}
   .cs12-row{border-radius:6px;transition:.2s}
   .cs12-row.hl{background:#ede9fe;box-shadow:0 0 0 2px #c4b5fd;padding-left:6px;padding-right:6px}
+  /* 術語原地小框（點詞就近彈出，不滾動） */
+  .term-pop{position:absolute;z-index:200;background:#1e293b;color:#fff;border-radius:9px;padding:9px 12px;font-size:12.5px;line-height:1.6;box-shadow:0 8px 24px rgba(15,23,42,.28);max-width:280px}
+  .term-pop b{display:block;color:#93c5fd;font-size:13px;margin-bottom:3px}
+  .term-pop::before{content:"";position:absolute;top:-6px;left:16px;border:6px solid transparent;border-top:none;border-bottom-color:#1e293b}
   .bazi-table .cs.cs-click{cursor:pointer;text-decoration:underline dotted #c4b5fd;text-underline-offset:2px}
   .bazi-table .cs.cs-click:hover{color:#6d28d9}
   .bazi-table .god.god-click{cursor:pointer;text-decoration:underline dotted #93c5fd;text-underline-offset:2px}
