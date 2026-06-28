@@ -22,7 +22,7 @@ export function brBars(brightness){
   const col=lv>=6?"#16a34a":lv>=4?"#2563eb":lv>=3?"#94a3b8":"#f59e0b";
   let bars="";
   for(let i=1;i<=7;i++){
-    const h=4+i*1.5; // 由矮到高
+    const h=3+i*1.1; // 由矮到高（壓縮以配合較小的命盤格）
     bars+=`<i style="height:${h.toFixed(1)}px;background:${i<=lv?col:'#e2e8f0'}"></i>`;
   }
   return `<span class="br-sig" title="力量強弱 ${lv}/7">${bars}</span>`;

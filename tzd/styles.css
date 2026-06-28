@@ -468,9 +468,9 @@
   /* 速查辭典：移到命盤下方、橫向多欄填滿寬度（不再卡在左側長條） */
   .zw-dicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:16px;align-items:start}
   .zw-dicts>.star-dict{margin-top:0}
-  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:stretch}
-  .zw-cell{border:1px solid var(--line);border-radius:9px;padding:10px 9px;background:var(--soft);
-    font-size:12px;display:flex;flex-direction:column;min-height:118px}
+  .ziwei-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;align-items:stretch}
+  .zw-cell{border:1px solid var(--line);border-radius:9px;padding:7px 8px;background:var(--soft);
+    font-size:11.5px;display:flex;flex-direction:column;min-height:104px}
   .zw-cell.clickable{cursor:pointer;transition:.12s;position:relative}
   .zw-cell.clickable:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(59,130,246,.12)}
   /* 宮位吉凶底色（左邊框條） */
@@ -602,14 +602,14 @@
   .zw-cell.ming{background:var(--blue-l);border-color:#93c5fd;border-width:2px}
   .zw-cell.bodyp{background:#f5f3ff;border-color:#c4b5fd;border-width:2px}
   .zw-cell.ming.bodyp{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border-color:#a78bfa;border-width:2px}
-  .zw-cell .pn{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:5px;line-height:1.3}
-  .zw-cell .pn .pn-note{display:block;font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px}
-  .zw-cell .star{font-size:15px;font-weight:700;line-height:1.45;margin-top:3px}
-  .zw-cell .star .sh{font-size:10px;color:#fff;padding:0 4px;border-radius:3px;margin-left:3px}
-  .zw-cell .star .br{font-size:10px;color:#b08900;margin-left:3px;font-weight:600}
-  .br-sig{display:inline-flex;align-items:flex-end;gap:1.5px;margin-left:4px;height:16px;vertical-align:middle}
-  .br-sig i{display:inline-block;width:2.5px;border-radius:1px}
-  .zw-cell .star-note{font-size:11px;color:#64748b;line-height:1.4;margin:2px 0 4px}
+  .zw-cell .pn{font-size:12.5px;font-weight:700;color:var(--blue-d);margin-bottom:3px;line-height:1.25}
+  .zw-cell .pn .pn-note{display:block;font-size:9.5px;font-weight:400;color:#94a3b8;margin-top:1px}
+  .zw-cell .star{font-size:13.5px;font-weight:700;line-height:1.35;margin-top:2px}
+  .zw-cell .star .sh{font-size:9.5px;color:#fff;padding:0 3px;border-radius:3px;margin-left:3px}
+  .zw-cell .star .br{font-size:9.5px;color:#b08900;margin-left:3px;font-weight:600}
+  .br-sig{display:inline-flex;align-items:flex-end;gap:1.2px;margin-left:3px;height:12px;vertical-align:middle}
+  .br-sig i{display:inline-block;width:2px;border-radius:1px}
+  .zw-cell .star-note{font-size:10px;color:#64748b;line-height:1.35;margin:1px 0 3px}
   .sh-祿{background:#16a34a}.sh-權{background:#dc2626}.sh-科{background:#2563eb}.sh-忌{background:#64748b}
   .zw-cell .mn{font-size:10.5px;color:#b6c0cf;margin-top:auto;padding-top:4px;display:flex;align-items:flex-end;justify-content:space-between;gap:4px}
   .zw-cell .mn .zw-gz{margin-left:auto}
