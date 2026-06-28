@@ -446,12 +446,12 @@ export function renderLuck(a){
         <div><span class="yj-j">忌</span>${th.ji.join("、")}</div>
       </div>
     </div>`;}).join("");
-  return {dy,html:`<div class="dash">
+  return {dy,html:`<div class="stack">
     ${luckLegend(a.yong.primary)}
-    <div class="card span-all"><h3><span class="ic">運</span>大運（每十年一柱）
+    <div class="card"><h3><span class="ic">運</span>大運（每十年一柱）
       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">${dy.dir}・${dy.startDesc}・旺衰依喜用神（${a.yong.primary.join("")}）判定</span></h3>
       <div class="timeline">${tl}</div></div>
-    <div class="card span-all"><h3><span class="ic">年</span>流年（近十年）
+    <div class="card"><h3><span class="ic">年</span>流年（近十年）
       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每年干支對你喜用神（${a.yong.primary.join("")}）的旺衰＋當年主題</span></h3>
       <div class="cap" style="margin-bottom:10px">「<b>宜</b>」是這類年份較有利、可主動去做的事；「<b>忌</b>」是較不利、宜避開或謹慎的事。旺弱看的是當年五行幫不幫你的喜用神，主題看的是流年十神。</div>
       <div class="ly-grid">${lnRows}</div>
@@ -1272,11 +1272,13 @@ export function renderSingle(a){
      </div>
    </div></div>
 
-   <div class="panel" data-panel="god"><div class="grid g2">
-     <div class="card full"><h3><span class="ic">身</span>身強弱判定</h3>${renderStrength(a.strength)}</div>
-     <div class="card"><h3><span class="ic">用</span>用神・喜忌</h3>${renderYong(a.yong)}</div>
-     <div class="card"><h3><span class="ic">神</span>十神能量分布</h3>${renderGodTally(a.godTally,true)}</div>
-     <div class="card full"><h3><span class="ic">財</span>十神 × 賺錢方式</h3>${renderGodMoney(a)}</div>
+   <div class="panel" data-panel="god"><div class="stack">
+     <div class="card"><h3><span class="ic">身</span>身強弱判定</h3>${renderStrength(a.strength)}</div>
+     <div class="sec-2col">
+       <div class="card"><h3><span class="ic">用</span>用神・喜忌</h3>${renderYong(a.yong)}</div>
+       <div class="card"><h3><span class="ic">神</span>十神能量分布</h3>${renderGodTally(a.godTally,true)}</div>
+     </div>
+     <div class="card"><h3><span class="ic">財</span>十神 × 賺錢方式</h3>${renderGodMoney(a)}</div>
      ${renderGodWealth(a)}
    </div></div>
 
@@ -1284,17 +1286,18 @@ export function renderSingle(a){
 
    <div class="panel" data-panel="luck">${luck.html}</div>
 
-   <div class="panel" data-panel="shensha">
+   <div class="panel" data-panel="shensha"><div class="stack">
      ${renderChengGu(a.chenggu)}
-     <div class="grid g2" style="align-items:start">
-     <div class="card"><h3><span class="ic">煞</span>神煞</h3>
-       <div class="cap">命盤中的吉神與凶煞，標示其所在柱位。</div>${renderShensha(a.shensha)}</div>
-     <div class="card"><h3><span class="ic">格</span>格局</h3>
-       <div class="cap">以月令取格，判斷命局結構與取用方向。</div>${renderPattern(a.pattern)}</div>
+     <div class="sec-2col">
+       <div class="card"><h3><span class="ic">煞</span>神煞</h3>
+         <div class="cap">命盤中的吉神與凶煞，標示其所在柱位。</div>${renderShensha(a.shensha)}</div>
+       <div class="card"><h3><span class="ic">格</span>格局</h3>
+         <div class="cap">以月令取格，判斷命局結構與取用方向。</div>${renderPattern(a.pattern)}</div>
+     </div>
    </div></div>
 
    <div class="panel" data-panel="name"><div class="grid g3">
-     ${a.nameInfo?renderName(a):`<div class="card"><div class="empty-tip">未輸入姓名。可回上方填入姓名以分析五格三才。</div></div>`}
+     ${a.nameInfo?renderName(a):`<div class="card full"><div class="empty-tip">未輸入姓名。可回上方填入姓名以分析五格三才。</div></div>`}
      ${renderSign(a)}
      ${renderShengXiao(a)}
    </div></div>`;
@@ -1387,7 +1390,7 @@ export function renderCouple(A,B){
   const nameA=A.name||"本人",nameB=B.name||"對方";
   return `<div class="result-tabs"><button class="rtab on" data-p="cp">合盤總覽</button>
     <button class="rtab" data-p="cpA">${nameA}命盤</button><button class="rtab" data-p="cpB">${nameB}命盤</button></div>
-    <div class="panel on" data-panel="cp">
+    <div class="panel on" data-panel="cp"><div class="stack">
       <div class="card">
         <div class="score-big">
           <div class="ring"><svg width="96" height="96" style="transform:rotate(-90deg)">
@@ -1400,23 +1403,25 @@ export function renderCouple(A,B){
             <div style="font-size:13px;color:var(--sub);margin-top:4px">${c.grade.hint}</div>
             <div style="margin-top:8px;font-size:13px">${nameA}（${A.bz.dGan}日・屬${A.sx.sx}） × ${nameB}（${B.bz.dGan}日・屬${B.sx.sx}）</div>
           </div></div></div>
-      <div class="card"><h3><span class="ic">析</span>契合分項</h3>
-        ${[["日主關係",c.breakdown.day],["生肖合沖",c.breakdown.sx],["五行互補",c.breakdown.complement],["用神互助",c.breakdown.yong]].map(([k,v])=>
-          `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span>${k}</span><span style="font-weight:600">${v}</span></div>
-           <div class="bar"><i style="width:${v}%;background:#ec4899"></i></div></div>`).join("")}</div>
-      <div class="card"><h3><span class="ic">緣</span>關係解讀</h3>
-        <div class="kv"><span class="k">日主關係</span><span class="v">${c.dayRel.type}</span></div>
-        <div class="note" style="margin:6px 0 12px">${c.dayRel.desc}</div>
-        <div class="kv"><span class="k">生肖關係</span><span class="v">${c.sxRel.type}</span></div>
-        <div class="note" style="margin:6px 0 12px">${c.sxRel.desc}</div>
-        <div style="font-size:13.5px;line-height:1.9;margin-top:8px">
-          <div>◆ 在你眼中，${c.shishen.aDesc}</div>
-          <div style="margin-top:6px">◆ 在對方眼中，${c.shishen.bDesc}</div></div></div>
+      <div class="sec-2col">
+        <div class="card"><h3><span class="ic">析</span>契合分項</h3>
+          ${[["日主關係",c.breakdown.day],["生肖合沖",c.breakdown.sx],["五行互補",c.breakdown.complement],["用神互助",c.breakdown.yong]].map(([k,v])=>
+            `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span>${k}</span><span style="font-weight:600">${v}</span></div>
+             <div class="bar"><i style="width:${v}%;background:#ec4899"></i></div></div>`).join("")}</div>
+        <div class="card"><h3><span class="ic">緣</span>關係解讀</h3>
+          <div class="kv"><span class="k">日主關係</span><span class="v">${c.dayRel.type}</span></div>
+          <div class="note" style="margin:6px 0 12px">${c.dayRel.desc}</div>
+          <div class="kv"><span class="k">生肖關係</span><span class="v">${c.sxRel.type}</span></div>
+          <div class="note" style="margin:6px 0 12px">${c.sxRel.desc}</div>
+          <div style="font-size:13.5px;line-height:1.9;margin-top:8px">
+            <div>◆ 在你眼中，${c.shishen.aDesc}</div>
+            <div style="margin-top:6px">◆ 在對方眼中，${c.shishen.bDesc}</div></div></div>
+      </div>
       <div class="card"><h3><span class="ic">議</span>相處建議</h3>
         <div class="note">${c.comp.desc}<br><br>${c.yong.desc}<br><br><b>重點提醒：</b>${c.advice.join("；")}。</div></div>
-    </div>
-    <div class="panel" data-panel="cpA">${renderPersonDigest(A)}</div>
-    <div class="panel" data-panel="cpB">${renderPersonDigest(B)}</div>`;
+    </div></div>
+    <div class="panel" data-panel="cpA"><div class="grid g2">${renderPersonDigest(A)}</div></div>
+    <div class="panel" data-panel="cpB"><div class="grid g2">${renderPersonDigest(B)}</div></div>`;
 }
 
 export function bindTabs(luckCtx){
