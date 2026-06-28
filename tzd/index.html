@@ -262,6 +262,21 @@
   .dash .god-bars{gap:5px}
   .dash .god-bar .gb-note{display:none}
 
+  /* 十神 × 賺錢方式 卡片 */
+  .gm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .gm-card{border:1px solid var(--line);border-left:4px solid var(--gm);border-radius:12px;padding:13px 14px;background:#fff}
+  .gm-card.mine{border:1.5px solid var(--blue);border-left:4px solid var(--gm);box-shadow:0 2px 10px rgba(59,130,246,.12);background:linear-gradient(180deg,var(--blue-sel) 0%,#fff 38%)}
+  .gm-head{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .gm-name{font-size:17px;font-weight:800;color:var(--gm)}
+  .gm-cls{color:#fff;font-size:11px;font-weight:600;padding:1px 8px;border-radius:20px}
+  .gm-mine-tag{margin-left:auto;font-size:11px;font-weight:700;color:var(--blue-d);background:var(--blue-sel);border:1px solid var(--blue);padding:1px 8px;border-radius:20px}
+  .gm-special{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:5px}
+  .gm-how{font-size:12.5px;color:#475569;line-height:1.55;margin-bottom:8px}
+  .gm-jobs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .gm-job{font-size:11.5px;color:#475569;background:#f1f5f9;border-radius:6px;padding:2px 8px}
+  .gm-watch{font-size:11.5px;color:#94a3b8;line-height:1.5;border-top:1px dashed var(--line);padding-top:7px}
+  .gm-watch b{color:#b45309;margin-right:5px}
+
   .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;margin:2px}
   .badge.good{background:#dcfce7;color:#15803d} .badge.bad{background:#fee2e2;color:#b91c1c}
   .badge.mid{background:#fef3c7;color:#b45309} .badge.blue{background:var(--blue-sel);color:var(--blue-d)}
@@ -275,6 +290,13 @@
   .ny-top{display:flex;justify-content:space-between;font-size:14px}
   .ny-top .k{color:var(--sub)} .ny-top .v{font-weight:700;color:var(--blue-d)}
   .ny-say{font-size:12px;color:#64748b;line-height:1.6;margin-top:3px}
+  .ny-trend{font-size:11.5px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:4px 8px;margin-top:5px;line-height:1.55}
+  /* 日主人格速寫 */
+  .dg-grid{display:flex;flex-direction:column;gap:8px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .dg-row{display:flex;gap:10px;font-size:13px;line-height:1.7;color:#475569}
+  .dg-row .dg-k{flex:none;width:62px;font-weight:700;color:var(--blue-d)}
+  .dg-row .dg-v{flex:1}
+  .dg-job{display:inline-block;font-size:11.5px;color:#475569;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;padding:1px 8px;margin:2px 4px 2px 0}
   .guide-link{font-size:11.5px;font-weight:400;color:var(--blue-d);cursor:pointer;
     background:var(--blue-l);padding:3px 9px;border-radius:6px;white-space:nowrap}
   .guide-link:hover{background:var(--blue-sel)}
@@ -497,7 +519,61 @@
   .br-sig i{display:inline-block;width:2.5px;border-radius:1px}
   .zw-cell .star-note{font-size:11px;color:#64748b;line-height:1.4;margin:2px 0 4px}
   .sh-祿{background:#16a34a}.sh-權{background:#dc2626}.sh-科{background:#2563eb}.sh-忌{background:#64748b}
-  .zw-cell .mn{font-size:10.5px;color:#b6c0cf;margin-top:auto;padding-top:4px;text-align:right}
+  .zw-cell .mn{font-size:10.5px;color:#b6c0cf;margin-top:auto;padding-top:4px;display:flex;align-items:flex-end;justify-content:space-between;gap:4px}
+  .zw-cell .mn .zw-gz{margin-left:auto}
+  /* 輔星／雜曜 */
+  .zw-cell .zw-minor{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0 1px}
+  .zw-cell .zw-mstar{font-size:10px;font-weight:600;padding:0 4px;border-radius:4px;line-height:1.5;position:relative}
+  .zw-cell .zw-mstar small{font-size:8.5px;font-weight:400;margin-left:1px;opacity:.8}
+  .zw-cell .zw-mstar .sh{font-size:8px;color:#fff;padding:0 2px;border-radius:2px;margin-left:2px;font-style:normal}
+  .zw-soft{background:#e0f2fe;color:#0369a1}      /* 六吉 */
+  .zw-tough{background:#fee2e2;color:#b91c1c}     /* 六煞 */
+  .zw-lucun{background:#fef9c3;color:#a16207}     /* 祿存天馬 */
+  .zw-adj{background:#f1f5f9;color:#94a3b8}       /* 雜曜 */
+  /* 長生/博士/將前/歲前十二神 */
+  .zw-cell .zw-12row{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0 1px}
+  .zw-cell .zw-12{font-size:9px;color:#fff;padding:0 4px;border-radius:3px;line-height:1.6;opacity:.92}
+  .zw-12.cs12{background:#8b5cf6}.zw-12.bo12{background:#0891b2}.zw-12.jq12{background:#65a30d}.zw-12.sq12{background:#d97706}
+  /* 大限歲數 / 來因宮 */
+  .zw-cell .zw-dec{font-size:9px;color:#475569;background:#eef2ff;border:1px solid #c7d2fe;padding:0 4px;border-radius:3px;margin-right:auto}
+  .zw-cell .zw-laiyin{position:absolute;top:6px;right:7px;font-size:9px;font-weight:700;color:#9a3412;background:#ffedd5;border:1px solid #fdba74;padding:0 4px;border-radius:10px;z-index:2}
+  .zw-cell.laiyinp{box-shadow:inset 0 0 0 1px #fdba74}
+
+  /* 紫微流年盤 */
+  .zw-horo{margin-top:22px;padding-top:18px;border-top:2px dashed #e2e8f0}
+  .zw-horo-head{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:var(--blue-d);margin-bottom:12px}
+  .zw-horo-head .ic{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;background:var(--blue);color:#fff;font-size:13px}
+  .zw-horo-head small{font-weight:400;font-size:11.5px;color:var(--sub);margin-left:2px}
+  .hs-years{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:12px}
+  .hs-years .hs-y-lbl{font-size:12px;color:var(--sub)}
+  .hs-yr{font-size:12.5px;padding:3px 11px;border:1px solid var(--line);background:#fff;border-radius:20px;cursor:pointer;color:#475569;transition:.15s}
+  .hs-yr:hover{border-color:#93c5fd;color:var(--blue-d)}
+  .hs-yr.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+  .hs-guide{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 15px;margin-bottom:14px}
+  .hs-guide .hs-g-title{font-size:13px;font-weight:700;color:#c2410c;margin-bottom:6px}
+  .hs-guide ul{margin:0;padding-left:18px;font-size:12px;color:#7c2d12;line-height:1.85}
+  .hs-guide li{margin-bottom:3px}
+  .hs-guide b{color:#9a3412}
+  .hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;align-items:stretch}
+  .hs-cell{border:1px solid var(--line);border-radius:9px;padding:8px 8px;background:#fff;display:flex;flex-direction:column;min-height:104px;position:relative}
+  .hs-cell.center{grid-column:2/4;grid-row:2/4;background:linear-gradient(135deg,#eff6ff,#fdf4ff);border:1px solid #c7d2fe;align-items:center;justify-content:center;text-align:center;padding:14px}
+  .hs-cell.y-ming{border:2px solid #dc2626;background:#fef2f2}
+  .hs-c-title{font-size:17px;font-weight:800;color:var(--blue-d);margin-bottom:6px}
+  .hs-c-sub{font-size:12.5px;color:#475569}.hs-c-sub b{color:var(--ink)}
+  .hs-c-sihua{margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;justify-content:center;align-items:center}
+  .hs-c-sihua .hs-c-k{font-size:11px;color:var(--sub);width:100%;margin-bottom:1px}
+  .hs-sihua{font-size:12px;font-weight:600;color:#334155;background:#f1f5f9;border-radius:6px;padding:1px 7px}
+  .hs-sihua i{font-style:normal;color:#fff;font-size:9px;padding:0 3px;border-radius:3px;margin-left:3px}
+  .hs-sihua.sh-祿 i{background:#16a34a}.hs-sihua.sh-權 i{background:#dc2626}.hs-sihua.sh-科 i{background:#2563eb}.hs-sihua.sh-忌 i{background:#64748b}
+  .hs-pnames{display:flex;flex-direction:column;gap:2px;margin-bottom:4px}
+  .hs-yname{font-size:12.5px;font-weight:700;color:#dc2626;line-height:1.25}
+  .hs-dname{font-size:10.5px;color:#7c3aed;line-height:1.2}
+  .hs-nat{font-size:10px;color:#94a3b8;line-height:1.35;margin-top:2px}
+  .hs-flows{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+  .hs-flow{font-size:9.5px;color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:3px;padding:0 3px}
+  .hs-gz{font-size:10px;color:#cbd5e1;margin-top:auto;padding-top:3px;text-align:right}
+  .hs-tag{position:absolute;top:6px;right:6px;font-size:9px;font-weight:700;color:#fff;padding:1px 5px;border-radius:9px}
+  .hs-tag.y{background:#dc2626}.hs-tag.d{background:#7c3aed}
 
   .zw-legend{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
   .zw-legend .lg-title{font-size:13px;font-weight:700;color:var(--blue-d);margin-bottom:8px}
@@ -796,8 +872,8 @@ import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, SX_NAMING, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
-import { extractZiwei, PALACE_ORDER, SIHUA_DESC } from "./engine-ziwei.js";
-import { GLOSSARY } from "./glossary.js";
+import { extractZiwei, buildHoroscope, PALACE_ORDER, SIHUA_DESC, BOSHI12_DESC } from "./engine-ziwei.js";
+import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND } from "./glossary.js";
 
 /* 廟旺得利平不陷：星曜在該宮的「亮度／力量」，白話一句 */
 const BRIGHT_NOTE={
@@ -961,7 +1037,14 @@ function readPerson(n){
       const hi=bz.hourIdx>=0?bz.hourIdx:0;
       const astro=iztro.astro.bySolar(ds,hi,g,true,"zh-TW");
       analysis.ziwei=extractZiwei(astro);
-    }catch(e){analysis.ziwei=null;}
+      // 紫微運限（流年盤）：以「今天」起盤，UI 可切換年份
+      try{
+        const now=new Date();
+        const today=now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate();
+        analysis.ziweiHoro=buildHoroscope(astro, today, hi);
+        analysis._ziweiAstro=astro;  // 留著供切換年份重算
+      }catch(e){analysis.ziweiHoro=null;}
+    }catch(e){analysis.ziwei=null;analysis.ziweiHoro=null;}
   }else analysis.ziwei=null;
   // 袁天罡稱骨（年干支+農曆月日+時辰，時辰依真太陽時）
   try{
@@ -1195,6 +1278,39 @@ function renderGodTally(gt, showIntro=false){
     </div>`).join("")}</div>`;
 }
 
+/* ====== 十神 × 賺錢方式 ====== */
+function renderGodMoney(a){
+  const order=["比肩","劫財","食神","傷官","正財","偏財","正官","七殺","正印","偏印"];
+  const cls={比肩:"比劫",劫財:"比劫",食神:"食傷",傷官:"食傷",正財:"財星",偏財:"財星",正官:"官殺",七殺:"官殺",正印:"印星",偏印:"印星"};
+  const colors={比劫:"#3b82f6",食傷:"#16a34a",財星:"#d97706",官殺:"#dc2626",印星:"#8b5cf6"};
+  // 找出命盤實際出現的十神（天干十神 + 藏干十神），用來高亮「最貼近你的」
+  const have=new Set();
+  [a.chart.year,a.chart.month,a.chart.day,a.chart.hour].forEach(p=>{
+    if(!p) return;
+    if(p.ganGod&&p.ganGod!=="日主") have.add(p.ganGod);
+    (p.cangan||[]).forEach(cg=>{ if(cg.god&&cg.god!=="日主") have.add(cg.god); });
+  });
+  const cap=`<div class="cap" style="margin-bottom:12px">每個人八字裡的十神組合不同，<b>適合的賺錢方式也不一樣</b>。下面把十種十神各自的求財路線、適合行業與要注意的地方列出來；<b style="color:var(--blue-d)">有藍框的，是你命盤中實際出現、特別貼近你的那幾種</b>，可優先參考。<br><span style="color:var(--sub);font-size:12px">（命理為趨吉避凶之參考，實際仍要看整體格局與大運配合）</span></div>`;
+  const cards=order.map(g=>{
+    const m=SHISHEN_MONEY[g]; if(!m) return "";
+    const c=colors[cls[g]];
+    const mine=have.has(g);
+    const jobs=(m.jobs||[]).map(j=>`<span class="gm-job">${j}</span>`).join("");
+    return `<div class="gm-card${mine?' mine':''}" style="--gm:${c}">
+      <div class="gm-head">
+        <span class="gm-name">${g}</span>
+        <span class="gm-cls" style="background:${c}">${cls[g]}</span>
+        ${mine?'<span class="gm-mine-tag">你有</span>':''}
+      </div>
+      <div class="gm-special">${m.special}</div>
+      <div class="gm-how">${m.how}</div>
+      <div class="gm-jobs">${jobs}</div>
+      <div class="gm-watch"><b>注意</b>${m.watch}</div>
+    </div>`;
+  }).join("");
+  return `${cap}<div class="gm-grid">${cards}</div>`;
+}
+
 /* ====== 神煞 ====== */
 /* 神煞白話：類型(吉/凶/中)＋一句白話＋對你的提醒 */
 const SHENSHA_PLAIN={
@@ -1407,6 +1523,22 @@ function renderZiwei(a){
         +`<div class="star-note">${meaning}${brNote?`<br><span style="color:#b08900">${brNote}</span>`:""}${s.mutagen?`<br><span style="color:#2563eb">${(SIHUA_DESC[s.mutagen]||("化"+s.mutagen))}</span>`:""}</div>`;
     }).join("")
       || `<div style="color:#cbd5e1;font-size:10px">（此宮無主星，看對面那一宮借用）</div>`;
+    // 輔星（六吉/六煞）＋雜曜：小字一排，吉藍煞紅雜灰
+    const minorHTML=(p.minorStars||[]).map(s=>{
+      const cls=s.type==="soft"?"zw-soft":s.type==="tough"?"zw-tough":(s.type==="lucun"||s.type==="tianma")?"zw-lucun":"zw-adj";
+      return `<span class="zw-mstar ${cls}">${s.name}${s.mutagen?`<i class="sh sh-${s.mutagen}">${s.mutagen}</i>`:""}${s.brightness?`<small>${s.brightness}</small>`:""}</span>`;
+    }).join("");
+    const adjHTML=(p.adjStars||[]).map(s=>`<span class="zw-mstar zw-adj">${s.name||s}</span>`).join("");
+    const minorLine=(minorHTML||adjHTML)?`<div class="zw-minor">${minorHTML}${adjHTML}</div>`:"";
+    // 排盤明細：長生/博士/將前/歲前十二神 + 大限歲數
+    const s12=[];
+    if(p.changsheng12) s12.push(`<span class="zw-12 cs12" title="長生十二神：能量階段">${p.changsheng12}</span>`);
+    if(p.boshi12) s12.push(`<span class="zw-12 bo12" title="博士十二神：${BOSHI12_DESC[p.boshi12]||''}">${p.boshi12}</span>`);
+    if(p.jiangqian12) s12.push(`<span class="zw-12 jq12" title="將前十二神">${p.jiangqian12}</span>`);
+    if(p.suiqian12) s12.push(`<span class="zw-12 sq12" title="歲前十二神（太歲方位）">${p.suiqian12}</span>`);
+    const s12Line=s12.length?`<div class="zw-12row">${s12.join("")}</div>`:"";
+    const decadalLine=p.decadal&&Array.isArray(p.decadal.range)?`<span class="zw-dec" title="大限：這十年走這一宮（虛歲 ${p.decadal.range[0]}–${p.decadal.range[1]}）">大限 ${p.decadal.range[0]}–${p.decadal.range[1]}</span>`:"";
+    const laiyin=p.isOriginalPalace?'<span class="zw-laiyin" title="來因宮＝生年天干所落之宮，是你這輩子福分與因果的源頭">來因</span>':'';
     // 三方四正的宮（對宮＋兩三合宮）：宮名＋完整物件(供整合判斷)
     const b=p.earthlyBranch;
     const oppPal=cellByBranch[ZW_CHONG[b]]||null;
@@ -1418,10 +1550,11 @@ function renderZiwei(a){
     const badge=(isMing?'<span class="zw-badge ming-b" title="命宮＝你是誰、先天個性">命宮</span>':'')+(isBody?'<span class="zw-badge body-b" title="身宮＝後天會變成的樣子">身宮</span>':'');
     // 浮動框內容（點擊跳出）
     const detail=palaceDetailHTML(p,{opp:(oppPal||{}).name||"",he:hePals.map(x=>x.name),oppPal,hePals});
-    cells+=`<div class="zw-cell clickable zwt-${sc.tone}${isMing?' ming':''}${isBody?' bodyp':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
+    cells+=`<div class="zw-cell clickable zwt-${sc.tone}${isMing?' ming':''}${isBody?' bodyp':''}${p.isOriginalPalace?' laiyinp':''}" data-detail="${encodeURIComponent(detail)}" data-branch="${p.earthlyBranch||''}" title="點我看「${p.name}」的三方四正與詳解">
       <span class="zw-dot" style="background:${TONE_DOT[sc.tone]}" title="這宮整體：${sc.word}"></span>
-      <div class="pn">${p.name}${badge}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}
-      <div class="mn">${p.heavenlyStem||""}${p.earthlyBranch||""}</div></div>`;
+      ${laiyin}
+      <div class="pn">${p.name}${badge}<span class="pn-note">${(GLOSSARY[p.name]||p.desc||"").split("（")[0].split("：").slice(-1)[0]}</span></div>${stars}${minorLine}${s12Line}
+      <div class="mn">${decadalLine}<span class="zw-gz">${p.heavenlyStem||""}${p.earthlyBranch||""}</span></div></div>`;
   }
   const legend=`<div class="zw-legend">
     <div class="lg-title">📖 看不懂？這張盤這樣讀</div>
@@ -1463,7 +1596,93 @@ function renderZiwei(a){
         <div class="zw-side">${legend}${sihuaCard}${starDict}</div>
         <div class="ziwei-wrap"><svg class="zw-lines" id="zwLines"></svg><div class="ziwei-grid">${cells}</div>
           <div class="zw-pop" id="zwPop" hidden></div></div>
-      </div></div>`;
+      </div>
+      ${renderZiweiHoro(a)}</div>`;
+}
+
+/* iztro index(0-11) → 地支：固定 寅起 */
+const ZW_IDX_BRANCH=["寅","卯","辰","巳","午","未","申","酉","戌","亥","子","丑"];
+
+/* ====== 紫微流年盤（運限：大限/流年/小限/流月）====== */
+function renderZiweiHoro(a){
+  const z=a.ziwei, ho=a.ziweiHoro;
+  if(!z||!ho||!ho.yearly) return "";
+  const nowY=(ho.solarDate&&(""+ho.solarDate).slice(0,4))|| (new Date().getFullYear()+"");
+  const cellByBranch={}; z.palaces.forEach(p=>{ if(p.earthlyBranch) cellByBranch[p.earthlyBranch]=p; });
+  // 把一個 scope（流年/大限/小限）攤平成 branch→{宮名, 流曜[]}
+  const layout=(sc)=>{
+    if(!sc) return {map:{}, mingBranch:""};
+    const map={};
+    (sc.palaceNames||[]).forEach((nm,i)=>{ const br=ZW_IDX_BRANCH[i]; map[br]={name:nm, stars:(sc.stars&&sc.stars[i])||[]}; });
+    return {map, mingBranch: ZW_IDX_BRANCH[sc.index]||""};
+  };
+  const yl=layout(ho.yearly);
+  const dec=layout(ho.decadal);
+  const sihuaTags=(arr,scopeName)=>{
+    if(!arr||!arr.length) return "";
+    const labels=["祿","權","科","忌"];
+    return arr.map((star,i)=>`<span class="hs-sihua sh-${labels[i]}" title="${scopeName}化${labels[i]}：${star} 被化${labels[i]}">${star}<i>${labels[i]}</i></span>`).join("");
+  };
+  // 流年盤：在本命格局上疊「流年宮名 + 流年四化星 + 流曜」
+  let hcells="";
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    if(r>=1&&r<=2&&c>=1&&c<=2){
+      if(r===1&&c===1){
+        const ymut=ho.yearly.mutagen||[];
+        hcells+=`<div class="hs-cell center">
+          <div class="hs-c-title">${nowY} 流年盤</div>
+          <div class="hs-c-sub">流年干支 <b>${ho.yearly.stem}${ho.yearly.branch}</b>${ho.age&&ho.age.nominalAge?`　虛歲 <b>${ho.age.nominalAge}</b>`:""}</div>
+          <div class="hs-c-sub" style="margin-top:6px">大限 <b>${ho.decadal.stem}${ho.decadal.branch}</b>（這十年主軸）</div>
+          <div class="hs-c-sihua"><span class="hs-c-k">流年四化</span>${sihuaTags(ymut,"流年")}</div>
+        </div>`;
+      }
+      continue;
+    }
+    const branch=ZW_IDX_BRANCH.find(b=>GRID_POS[b]&&GRID_POS[b][0]===r&&GRID_POS[b][1]===c);
+    const nat=branch?cellByBranch[branch]:null;
+    if(!nat){hcells+=`<div class="hs-cell"></div>`;continue;}
+    const yInfo=yl.map[branch]||{name:"",stars:[]};
+    const dInfo=dec.map[branch]||{name:""};
+    const isYMing=branch===yl.mingBranch;
+    const isDMing=branch===dec.mingBranch;
+    // 本命主星（小灰字墊底，知道這格本來坐什麼星）
+    const natStars=(nat.majorStars||[]).map(s=>s.name).join("·")||"（空宮借對宮）";
+    // 流曜（流年飛入的星，如流昌流曲流陀等）
+    const flow=(yInfo.stars||[]).map(s=>`<span class="hs-flow">${s.name}</span>`).join("");
+    hcells+=`<div class="hs-cell${isYMing?' y-ming':''}">
+      <div class="hs-pnames">
+        <span class="hs-yname" title="流年${yInfo.name}：今年這宮主管「${PALACE_SHORT[yInfo.name]||yInfo.name}」">流年·${yInfo.name||"—"}</span>
+        <span class="hs-dname" title="大限${dInfo.name}：這十年這宮主管「${PALACE_SHORT[dInfo.name]||dInfo.name}」">限·${dInfo.name||"—"}</span>
+      </div>
+      <div class="hs-nat">本命 ${nat.name}：${natStars}</div>
+      ${flow?`<div class="hs-flows">${flow}</div>`:""}
+      <div class="hs-gz">${branch}</div>
+      ${isYMing?'<span class="hs-tag y">流年命宮</span>':''}${isDMing&&!isYMing?'<span class="hs-tag d">大限命宮</span>':''}
+    </div>`;
+  }
+  const yMingName=(yl.map[yl.mingBranch]||{}).name||"";
+  const guide=`<div class="hs-guide">
+    <div class="hs-g-title">📖 流年盤怎麼看</div>
+    <ul>
+      <li>這張是 <b>${nowY} 這一年</b>的運勢盤（會疊在你<b>一輩子的本命盤</b>上看）。每格上面：<span style="color:#dc2626"><b>流年·宮名</b></span>＝今年這個位置變成什麼宮、<span style="color:#7c3aed"><b>限·宮名</b></span>＝這十年大限這格是什麼宮。</li>
+      <li><b>「流年命宮」那格最關鍵</b>——今年的整體運勢主軸就看它（今年落在 <b style="color:#dc2626">${yMingName||"—"}</b> 的位置）。</li>
+      <li><b>中間的流年四化</b>（${(ho.yearly.mutagen||[]).join("、")}）＝今年被加成的四顆星：<span class="sh sh-祿">祿</span>今年的財路機會、<span class="sh sh-權">權</span>今年能掌權發揮、<span class="sh sh-科">科</span>今年的貴人名聲、<span class="sh sh-忌">忌</span>今年較卡關、要留意的事。看它們<b>落在哪一宮</b>，就知道今年哪方面有好處／要小心。</li>
+      <li>格子裡灰字「本命…」是這格<b>本來</b>坐什麼星，藍框小字是今年飛進來的<b>流曜</b>（如流昌、流陀）。</li>
+    </ul>
+  </div>`;
+  // 年份切換器（提供前後幾年快速跳）
+  const baseY=parseInt(nowY,10)||new Date().getFullYear();
+  const yrs=[]; for(let d=-2;d<=4;d++) yrs.push(baseY+d);
+  const switcher=`<div class="hs-years">
+    <span class="hs-y-lbl">看其他年份：</span>
+    ${yrs.map(y=>`<button class="hs-yr${y===baseY?' on':''}" data-hy="${y}">${y}</button>`).join("")}
+  </div>`;
+  return `<div class="zw-horo" id="zwHoro">
+    <div class="zw-horo-head"><span class="ic">運</span>紫微流年盤<small>大限／流年／小限 運限疊算</small></div>
+    ${switcher}
+    ${guide}
+    <div class="hs-wrap"><div class="hs-grid">${hcells}</div></div>
+  </div>`;
 }
 
 /* 紫微命盤總評卡：跑遍12宮排序，主動給整體結論＋最強/最弱宮＋圖例 */
@@ -1827,6 +2046,22 @@ const WX_HEALTH={
     over:"水過旺：易水腫、腎與膀胱負擔重、生殖泌尿系統易失調。",
     tip:"別憋尿、適度補水但別過量、保暖腰腎、節制房勞、顧內分泌。"}
 };
+/* ====== 日主天干人格速寫（你是哪種人）====== */
+function renderDayGan(a){
+  const dg=a.bz&&a.bz.dGan; const pf=dg&&DAYGAN_PROFILE[dg];
+  if(!pf) return "";
+  const wx=GAN_WX[dg]||"";
+  return `<div class="card"><h3><span class="ic">主</span>你的日主 · ${dg}（${pf.img}）</h3>
+    <div class="cap" style="margin-bottom:10px">「日主」是你出生那天的天干，代表<b>你自己這個人</b>。下面是你日主天干 <b class="wx-${wx}">${dg}</b> 的先天性情速寫——這是你的<b>底色</b>，再搭配前面的身強弱與十神一起看。</div>
+    <div class="dg-grid">
+      <div class="dg-row"><span class="dg-k">個性</span><span class="dg-v">${pf.trait}</span></div>
+      <div class="dg-row"><span class="dg-k">健康</span><span class="dg-v">較需留意：${pf.health}</span></div>
+      <div class="dg-row"><span class="dg-k">合拍方向</span><span class="dg-v">${pf.jobs.map(j=>`<span class="dg-job">${j}</span>`).join("")}</span></div>
+    </div>
+    <div class="cap" style="margin-top:9px;color:#94a3b8">※ 這是日主天干的「通性」，實際還要看整張命盤的強弱、調候與大運，不是單看一個字定終身。</div>
+  </div>`;
+}
+
 function renderHealth(a){
   const t=a.tally; const avoid=new Set(a.yong.avoid||[]);
   const vals=Object.values(t); const avg=vals.reduce((x,y)=>x+y,0)/5;
@@ -1922,7 +2157,9 @@ function renderShengXiao(a){
 }
 
 /* ====== 主渲染（單人） ====== */
+let CUR_A=null;  // 目前單人命盤 analysis（供紫微流年盤年份切換重算）
 function renderSingle(a){
+  CUR_A=a;
   const luck=renderLuck(a);
   const overall=computeOverall(a);
   const tabs=[
@@ -1951,6 +2188,7 @@ function renderSingle(a){
    <div class="panel" data-panel="bazi"><div class="grid g3">
      <div class="card full"><h3><span class="ic">柱</span>四柱排盤
        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a,true)}</div>
+     ${renderDayGan(a)}
      <div class="card"><h3><span class="ic">五</span>五行能量</h3>${renderWuxing(a.tally)}
        <div class="note" style="margin-top:8px">命局 <b class="wx-${a.strong}">${a.strong}</b> 旺、<b class="wx-${a.weak}">${a.weak}</b> 弱。</div>
        ${renderRemedy(a.yong.primary, a.yong.avoid)}</div>
@@ -1958,7 +2196,7 @@ function renderSingle(a){
        <div class="cap" style="margin-bottom:10px">納音＝用六十甲子配出的<b>另一套五行象徵</b>（如海中金、爐中火），是每一柱的「別名／質地」，傳統用來補充看個性與緣分，屬趣味參考。</div>
        ${[["年柱",a.bz.nayin.year],["月柱",a.bz.nayin.month],["日柱",a.bz.nayin.day],...(a.bz.nayin.hour?[["時柱",a.bz.nayin.hour]]:[])].map(([k,v])=>`
          <div class="ny-row" data-nayin="${v}"><div class="ny-top"><span class="k">${k}</span><span class="v">${v}</span></div>
-           <div class="ny-say">${NAYIN_PLAIN[v]||""}</div></div>`).join("")}
+           <div class="ny-say">${NAYIN_PLAIN[v]||""}</div>${NAYIN_TREND[v]?`<div class="ny-trend">📌 傾向：${NAYIN_TREND[v]}</div>`:""}</div>`).join("")}
        <div style="text-align:right;margin-top:10px"><span class="rtab guide-link" data-p="god">看十神能量分布 →</span></div></div>
      ${renderHealth(a)}
    </div></div>
@@ -1967,6 +2205,7 @@ function renderSingle(a){
      <div class="card full"><h3><span class="ic">身</span>身強弱判定</h3>${renderStrength(a.strength)}</div>
      <div class="card"><h3><span class="ic">用</span>用神・喜忌</h3>${renderYong(a.yong)}</div>
      <div class="card"><h3><span class="ic">神</span>十神能量分布</h3>${renderGodTally(a.godTally,true)}</div>
+     <div class="card full"><h3><span class="ic">財</span>十神 × 賺錢方式</h3>${renderGodMoney(a)}</div>
    </div></div>
 
    <div class="panel" data-panel="ziwei">${renderZiwei(a)}</div>
@@ -2121,6 +2360,7 @@ function bindTabs(luckCtx){
   }));
   bindZiweiPopover();
   bindChangSheng();
+  bindZiweiHoroYears();
   const lyBox=$("#liuyueBox");
   if(lyBox && luckCtx){
     lyBox.addEventListener("click",()=>{
@@ -2134,6 +2374,24 @@ function bindTabs(luckCtx){
       det.dataset.open="1";lyBox.innerHTML=lyBox.innerHTML.replace("▸","▾");
     });
   }
+}
+
+/* ====== 紫微流年盤：年份切換（重算 horoscope，原地換盤）====== */
+function bindZiweiHoroYears(){
+  const host=$("#zwHoro"); if(!host||!CUR_A||!CUR_A._ziweiAstro) return;
+  host.addEventListener("click",e=>{
+    const btn=e.target.closest(".hs-yr"); if(!btn) return;
+    const y=parseInt(btn.dataset.hy,10); if(!y) return;
+    try{
+      // 以該年「年中(7/1)」重算運限，UI 年份切換用
+      const dateStr=y+"-7-1";
+      CUR_A.ziweiHoro=buildHoroscope(CUR_A._ziweiAstro, dateStr, 6);
+      const fresh=renderZiweiHoro(CUR_A);
+      const tmp=document.createElement("div"); tmp.innerHTML=fresh;
+      const next=tmp.firstElementChild;
+      if(next){ host.replaceWith(next); bindZiweiHoroYears(); }
+    }catch(err){ /* 安靜失敗，保留原盤 */ }
+  });
 }
 
 /* ====== 點四柱的十二長生 → 上方對照表高亮 ====== */

@@ -44,27 +44,64 @@ export const SIHUA_DESC = {
   忌:"化忌—執著、阻礙、是非，主牽絆與功課所在"
 };
 
-/* 從 iztro astrolabe 物件萃取十二宮結構 */
+/* 輔星/雜曜亮度與類型對照（type→白話標籤、給 UI 上色用） */
+export const STAR_TYPE_LABEL = {
+  soft:"吉輔",     // 左輔右弼文昌文曲等六吉
+  tough:"凶煞",    // 擎羊陀羅火星鈴星等六煞
+  adjective:"雜曜",
+  flower:"桃花",
+  helper:"助曜",
+  lucun:"祿存",
+  tianma:"天馬"
+};
+/* 博士十二神白話（隨祿存起，順逆排）*/
+export const BOSHI12_DESC = {
+  博士:"聰明、才學，主智慧",力士:"權勢、爭強",青龍:"喜慶、財氣",小耗:"小破財、耗損",
+  將軍:"威武、衝勁",奏書:"文書、福氣",飛廉:"小人、是非",喜神:"喜事、人緣",
+  病符:"疾病、晦氣",大耗:"大破財、變動",伏兵:"暗中阻礙、小人",官符:"官非、口舌"
+};
+
+/* 把單一宮位物件轉成精簡資料（主星/輔星/雜曜/各神煞/大限小限/標記） */
+function packPalace(p, name){
+  if(!p) return {name, desc:PALACE_DESC[name], majorStars:[], minorStars:[], adjStars:[], empty:true};
+  const major=(p.majorStars||[]).map(s=>({
+    name:s.name, brightness:s.brightness||"", mutagen:s.mutagen||"",
+    desc:STAR_DESC[s.name]||""
+  }));
+  const minor=(p.minorStars||[]).map(s=>({
+    name:s.name, brightness:s.brightness||"", mutagen:s.mutagen||"", type:s.type||""
+  }));
+  const adj=(p.adjectiveStars||[]).map(s=>({name:s.name, type:s.type||"adjective"}));
+  return {
+    name: name||p.name,
+    heavenlyStem:p.heavenlyStem, earthlyBranch:p.earthlyBranch,
+    desc:PALACE_DESC[name||p.name],
+    majorStars:major, minorStars:minor, adjStars:adj,
+    // —— 排盤明細（iztro 原生，對齊專業排盤軟體）——
+    changsheng12: p.changsheng12||"",   // 長生十二神（長生沐浴冠帶…）
+    boshi12: p.boshi12||"",             // 博士十二神（博士力士青龍…）
+    jiangqian12: p.jiangqian12||"",     // 將前十二神（將星攀鞍歲驛…）
+    suiqian12: p.suiqian12||"",         // 歲前十二神（歲建晦氣喪門…）
+    decadal: p.decadal?{range:p.decadal.range, stem:p.decadal.heavenlyStem, branch:p.decadal.earthlyBranch}:null, // 大限
+    ages: p.ages||[],                  // 小限歲數（虛歲列表）
+    isBodyPalace: !!p.isBodyPalace,    // 是否身宮
+    isOriginalPalace: !!p.isOriginalPalace, // 是否來因宮
+    empty: major.length===0
+  };
+}
+
+/* 從 iztro astrolabe 物件萃取十二宮結構（含全套排盤明細） */
 export function extractZiwei(astrolabe){
   if(!astrolabe) return null;
   try{
     const palaces = PALACE_ORDER.map(name=>{
       let p;
       try{ p = astrolabe.palace(name); }catch(e){ p=null; }
-      if(!p) return {name, desc:PALACE_DESC[name], majorStars:[], minorStars:[], empty:true};
-      const major=(p.majorStars||[]).map(s=>({
-        name:s.name, brightness:s.brightness||"", mutagen:s.mutagen||"",
-        desc:STAR_DESC[s.name]||""
-      }));
-      const minor=(p.minorStars||[]).map(s=>({name:s.name, mutagen:s.mutagen||""}));
-      const adj=(p.adjectiveStars||[]).map(s=>s.name);
-      return {
-        name, heavenlyStem:p.heavenlyStem, earthlyBranch:p.earthlyBranch,
-        desc:PALACE_DESC[name],
-        majorStars:major, minorStars:minor, adjStars:adj,
-        empty: major.length===0
-      };
+      return packPalace(p, name);
     });
+    // 來因宮（生年天干所落之宮）：標出宮名
+    let originPalace="";
+    palaces.forEach(p=>{ if(p.isOriginalPalace) originPalace=p.name; });
     return {
       palaces,
       soul: astrolabe.soul,         // 命主
@@ -72,8 +109,50 @@ export function extractZiwei(astrolabe){
       fiveElementsClass: astrolabe.fiveElementsClass,  // 五行局
       sign: astrolabe.sign,
       zodiac: astrolabe.zodiac,
+      lunarDate: astrolabe.lunarDate,
+      chineseDate: astrolabe.chineseDate,
       earthlyBranchOfSoulPalace: astrolabe.earthlyBranchOfSoulPalace,
-      earthlyBranchOfBodyPalace: astrolabe.earthlyBranchOfBodyPalace
+      earthlyBranchOfBodyPalace: astrolabe.earthlyBranchOfBodyPalace,
+      originPalace
+    };
+  }catch(e){
+    return null;
+  }
+}
+
+/* 從 astrolabe 算指定日期的運限（大限/小限/流年/流月/流日）。
+ * 回傳各 scope 的：命宮所在地支、十二宮輪轉名、四化星、流曜分布。
+ * dateStr: "YYYY-M-D"；timeIdx: 時辰序 0-12（流時用，可省）。*/
+export function buildHoroscope(astrolabe, dateStr, timeIdx){
+  if(!astrolabe || typeof astrolabe.horoscope!=="function") return null;
+  try{
+    const h = astrolabe.horoscope(dateStr, timeIdx==null?0:timeIdx);
+    const PN_ORDER=["命宮","兄弟","夫妻","子女","財帛","疾厄","遷移","僕役","官祿","田宅","福德","父母"];
+    // 把 iztro 一個 scope（含 palaceNames / mutagen / stars[index] / 起始 branch+index）整理好
+    const pack=(sc)=>{
+      if(!sc) return null;
+      // sc.palaceNames：以「地支序」為索引，列出該運限下每個地支宮的「運限宮名」
+      // sc.index：該運限命宮落在第幾個地支宮（0=寅起算依 iztro 內部，用 palaceNames 對應即可）
+      const stars=(sc.stars||[]).map(arr=>(arr||[]).map(s=>({name:s.name, type:s.type||""})));
+      return {
+        name: sc.name||"",
+        stem: sc.heavenlyStem||"", branch: sc.earthlyBranch||"",
+        index: sc.index,
+        palaceNames: sc.palaceNames||[],   // 運限十二宮名（依地支序）
+        mutagen: sc.mutagen||[],           // 該運限四化星 [祿,權,科,忌]
+        stars,                             // 該運限飛入的流曜（依地支序）
+        nominalAge: sc.nominalAge,         // 小限虛歲
+        decStar: sc.yearlyDecStar||null    // 流年的歲前/將前十二神（流年限定）
+      };
+    };
+    return {
+      solarDate: h.solarDate, lunarDate: h.lunarDate,
+      decadal: pack(h.decadal),   // 大限
+      age: pack(h.age),           // 小限
+      yearly: pack(h.yearly),     // 流年
+      monthly: pack(h.monthly),   // 流月
+      daily: pack(h.daily),       // 流日
+      hourly: pack(h.hourly)      // 流時
     };
   }catch(e){
     return null;
