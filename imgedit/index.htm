@@ -50,7 +50,7 @@
     .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 
-    .page-content { padding: 12px 20px 20px; max-width: 1400px; margin: 0 auto; width: 100%; flex: 1; min-height: 0; display: flex; }
+    .page-content { padding: 12px 20px 20px; max-width: 1760px; margin: 0 auto; width: 100%; flex: 1; min-height: 0; display: flex; }
 
     .glass {
         position: relative; border-radius: 14px;
@@ -67,7 +67,7 @@
 
     /* ── Editor split ── */
     .stage {
-        flex: 1; min-width: 0; min-height: 0;
+        flex: 1 1 52%; min-width: 50%; min-height: 0;
         background:
             repeating-conic-gradient(#e9eef5 0% 25%, #f6f8fb 0% 50%) 50% / 22px 22px;
         border: 1.5px solid #e2e8f0; border-radius: 12px;
@@ -77,6 +77,7 @@
     #glcanvas { max-width: 100%; max-height: 100%; display: none; box-shadow: 0 4px 18px rgba(0,0,0,.18); }
     #glcanvas.ready { display: block; }
     .stage.picking #glcanvas { cursor: crosshair; }
+    .stage.painting #glcanvas { cursor: crosshair; }
 
     .dropzone {
         position: absolute; inset: 0;
@@ -110,33 +111,44 @@
         border: 1px solid #0f172a; border-radius: 50%; transform: translate(-50%,-50%);
     }
 
-    /* ── Control panel ── */
+    /* ── Control panel：左側功能清單，點選後右側顯示該功能的控制項（其餘隱藏）── */
     .panel {
-        width: 320px; flex: 0 0 320px; min-height: 0;
+        flex: 1 1 48%; min-width: 0; min-height: 0;
         display: flex; flex-direction: column;
         background: rgba(255,255,255,0.85);
         border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden;
     }
-    .panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 0 12px; }
-    .panel-scroll { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-    .panel-scroll::-webkit-scrollbar { width: 9px; }
-    .panel-scroll::-webkit-scrollbar-track { background: transparent; }
-    .panel-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid #fff; }
-    .panel-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .panel-scroll { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 10px 12px 12px; }
 
-    .group { border-bottom: 1px solid #eef2f7; }
+    /* 左：功能清單 */
+    .cat-list { flex: 0 0 142px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding-right: 2px; }
+    .cat-item {
+        display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+        padding: 9px 11px; border-radius: 8px; border: 1px solid transparent; background: transparent;
+        font-size: 12px; font-weight: 700; color: #475569; letter-spacing: .01em;
+        transition: background .15s, color .15s, box-shadow .15s;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cat-item:hover { background: #f1f5f9; color: #0d9488; }
+    .cat-item.active { background: linear-gradient(145deg,#14b8a6,#0d9488); color: #fff; box-shadow: 0 2px 8px rgba(13,148,136,.3); }
+
+    /* 右：選定功能的控制項 */
+    .cat-detail { flex: 1; min-width: 0; overflow-y: auto; padding: 2px 4px 6px; }
+    .cat-list, .cat-detail { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+    .cat-list::-webkit-scrollbar, .cat-detail::-webkit-scrollbar { width: 9px; }
+    .cat-list::-webkit-scrollbar-track, .cat-detail::-webkit-scrollbar-track { background: transparent; }
+    .cat-list::-webkit-scrollbar-thumb, .cat-detail::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid #fff; }
+    .cat-list::-webkit-scrollbar-thumb:hover, .cat-detail::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    .group { display: none; }
+    .group.show { display: block; }
     .group-head {
         display: flex; align-items: center; justify-content: space-between;
-        padding: 11px 14px; cursor: pointer; user-select: none;
+        padding: 2px 2px 10px; margin-bottom: 8px; border-bottom: 1px solid #eef2f7; cursor: default;
     }
-    .group-head h3 {
-        font-size: 11px; font-weight: 800; color: #0d9488;
-        letter-spacing: .07em; text-transform: uppercase;
-    }
-    .group-head .chev { color: #94a3b8; font-size: 11px; transition: transform .18s; }
-    .group.collapsed .chev { transform: rotate(-90deg); }
-    .group-body { padding: 2px 14px 14px; }
-    .group.collapsed .group-body { display: none; }
+    .group-head .chev { display: none; }
+    .group-head h3 { font-size: 13px; font-weight: 800; color: #0d9488; letter-spacing: .05em; text-transform: uppercase; }
+    .group-body { display: block; padding: 2px 2px 8px; }
 
     .slider-row { margin: 12px 0; }
     .slider-row:first-child { margin-top: 4px; }
@@ -179,9 +191,9 @@
     .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
     .btn-row .btn { flex: 1 1 auto; }
 
-    /* histogram */
-    .hist-wrap { padding: 10px 14px 4px; }
-    #histCanvas { width: 100%; height: 90px; display: block; background: #0f172a; border-radius: 8px; }
+    /* histogram (pinned above the multi-column controls) */
+    .hist-wrap { padding: 12px 14px 10px; border-bottom: 1px solid #eef2f7; max-width: 440px; width: 100%; }
+    #histCanvas { width: 100%; height: 84px; display: block; background: #0f172a; border-radius: 8px; }
     .hist-ch { display: flex; gap: 6px; margin-top: 8px; }
     .hist-ch button {
         flex: 1; font-size: 10.5px; padding: 4px 0; border-radius: 6px;
@@ -230,6 +242,18 @@
     }
     .size-lock input { width: 15px; height: 15px; accent-color: #0d9488; cursor: pointer; }
 
+    /* film preset dropdown */
+    .film-field { margin: 8px 0 6px; }
+    .film-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; }
+    .film-select {
+        width: 100%; padding: 8px 30px 8px 10px; font-size: 12.5px; font-family: inherit; font-weight: 600;
+        color: #0f172a; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 7px;
+        outline: none; cursor: pointer; -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%2364748b' stroke-width='1.6' d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 10px center; background-size: 11px;
+    }
+    .film-select:focus { border-color: #0d9488; box-shadow: 0 0 0 2px rgba(13,148,136,.15); }
+
     /* toast */
     .toast {
         position: fixed; bottom: 24px; left: 50%;
@@ -244,8 +268,9 @@
 
     @media (max-width: 880px) {
         .glass { flex-direction: column; }
-        .panel { width: auto; flex: 0 0 auto; max-height: 46vh; }
-        .stage { min-height: 240px; }
+        .panel { width: auto; flex: 0 0 auto; max-height: 50vh; }
+        .stage { flex: 1 1 auto; min-width: 0; min-height: 240px; }
+        .cat-list { flex-basis: 124px; }
     }
 </style>
 </head>
@@ -324,8 +349,11 @@ const P = {
     sharpen:0,
     inBlack:0, inWhite:255, gamma:1.0, outBlack:0, outWhite:255,
     hdr:0, hdrShadow:1.2, hdrHighlight:1.2,   // single-image exposure fusion
+    filmStrength:100, grain:0, vignette:0, leak:0,  // 底片風格（強度／顆粒／暗角／漏光）
 };
 const DEFAULTS = JSON.parse(JSON.stringify(P));
+let filmIndex = 0;                  // 底片風格預設索引（0＝無），非滑桿故獨立保存
+let activeCat = null;               // 目前選取的功能分類 key（左側清單）
 let wbGain = [1,1,1];               // from eyedropper / auto white balance
 let autoBlk = [0,0,0];              // per-channel black point from smart-auto
 let autoWht = [1,1,1];              // per-channel white point from smart-auto
@@ -344,6 +372,9 @@ let curvePts = [{x:0,y:0},{x:1,y:1}];
 
 // AI 去背遮罩狀態（maskTex 於 WebGL 區塊建立）
 let maskTex = null, hasMask = false, useMask = false, maskFeather = 0, maskShift = 0;
+// 保存模型原始遮罩與邊緣精修後遮罩，供「邊緣精修」滑桿即時混合（不必重跑模型）
+let bgRawMask = null, bgRefinedMask = null, bgMaskW = 0, bgMaskH = 0;
+let bgManual = null;          // 手動筆刷覆蓋層 [-1,1]（+前景 / -背景），疊在自動遮罩上
 
 // ───────────────────────── WebGL ─────────────────────────
 const gl = gl_canvas.getContext('webgl', { preserveDrawingBuffer:true, premultipliedAlpha:false });
@@ -378,11 +409,64 @@ uniform sampler2D uMask;   // AI 去背遮罩（來源解析度，r 通道＝前
 uniform float uUseMask;    // 0/1 是否套用遮罩
 uniform float uMaskFeather;// 邊緣羽化（texel 半徑）
 uniform float uMaskShift;  // 邊緣收縮(-)/擴張(+)，-0.5..0.5
+uniform float uFilm;       // 底片風格索引（0＝無）
+uniform float uFilmStr;    // 風格強度 0..1
+uniform float uGrain;      // 顆粒 0..1
+uniform float uVignette;   // 暗角 0..1
+uniform float uLeak;       // 漏光 0..1
 
 const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
 
 // well-exposedness: favour tones near mid-grey, fall off toward pure black / white
 float wexp(float l){ float d = l - 0.5; return exp(-(d*d) / (2.0 * 0.2 * 0.2)); }
+
+// 底片風格輔助：偽隨機雜訊（顆粒用）、轉灰、繞中間調的對比
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123); }
+vec3 lumv(vec3 c){ return vec3(dot(c, LUM)); }
+vec3 ctrMid(vec3 c, float a){ return (c - 0.5) * (1.0 + a) + 0.5; }
+
+// 各底片風格的色調曲線 + 色偏。回傳「完全套用」的色彩，外層再依強度混合。
+vec3 filmLook(vec3 c, float idx){
+    float l = dot(c, LUM);
+    if(idx < 1.5){            // 暖調高光 Warm Highlight
+        c = ctrMid(c, 0.08);
+        c.r += 0.05 * l; c.g += 0.02 * l; c.b += 0.05 * (1.0 - l);
+        c = mix(lumv(c), c, 1.05);
+    } else if(idx < 2.5){     // 柯達金 Kodak Gold
+        c = ctrMid(c, 0.10);
+        c.r += 0.06; c.g += 0.025; c.b -= 0.035;
+        c = mix(lumv(c), c, 1.12);
+    } else if(idx < 3.5){     // 富士 Fuji
+        c = ctrMid(c, 0.12);
+        c.g += 0.03 * (1.0 - l); c.b += 0.03 * (1.0 - l); c.r += 0.02 * l;
+        c = mix(lumv(c), c, 1.10);
+    } else if(idx < 4.5){     // 柔調人像 Portra
+        c = ctrMid(c, -0.04);
+        c.r += 0.04; c.g += 0.015;
+        c = mix(lumv(c), c, 0.93);
+    } else if(idx < 5.5){     // 電影感 青橙 Teal & Orange
+        c = ctrMid(c, 0.12);
+        c.r += (l - 0.5) * 0.14; c.b -= (l - 0.5) * 0.14; c.g += (l - 0.5) * 0.02;
+        c = mix(lumv(c), c, 1.06);
+    } else if(idx < 6.5){     // 黑白 Mono
+        c = vec3(dot(c, vec3(0.22, 0.69, 0.09)));
+        c = ctrMid(c, 0.10);
+    } else if(idx < 7.5){     // 褪色 Matte
+        c = c * 0.9 + 0.06; c.b += 0.02;
+        c = mix(lumv(c), c, 0.82);
+    } else if(idx < 8.5){     // 復古棕 Sepia
+        c = vec3(dot(c, vec3(0.299, 0.587, 0.114))) * vec3(1.07, 0.91, 0.71);
+        c = ctrMid(c, 0.06);
+    } else if(idx < 9.5){     // 冷調 Cold
+        c = ctrMid(c, 0.08);
+        c.b += 0.05; c.r -= 0.03;
+        c = mix(lumv(c), c, 1.03);
+    } else {                  // 濃郁 Velvia
+        c = ctrMid(c, 0.14);
+        c = mix(lumv(c), c, 1.30);
+    }
+    return c;
+}
 
 vec2 srcUV(vec2 o){ vec3 p = uXform * vec3(o, 1.0); return p.xy; }
 
@@ -463,6 +547,29 @@ void main(){
         c.b = texture2D(uCurve, vec2(c.b, 0.5)).r;
     }
 
+    // ── 底片風格 Film look（依強度混合）──
+    if(uFilm > 0.5){
+        c = mix(c, clamp(filmLook(c, uFilm), 0.0, 1.0), uFilmStr);
+    }
+    // ── 漏光 Light Leak（右上角暖色，screen 疊加）──
+    if(uLeak > 0.001){
+        float ld = smoothstep(0.9, 0.0, distance(vUV, vec2(0.92, 0.08)));
+        vec3 leakCol = vec3(1.0, 0.55, 0.28);
+        c = 1.0 - (1.0 - c) * (1.0 - leakCol * ld * uLeak);
+    }
+    // ── 暗角 Vignette（四角壓暗）──
+    if(uVignette > 0.001){
+        float vd = distance(vUV, vec2(0.5)) * 1.41421;
+        c *= 1.0 - uVignette * smoothstep(0.45, 1.05, vd);
+    }
+    // ── 顆粒 Grain（輸出像素級單色雜訊，亮部較弱）──
+    if(uGrain > 0.001){
+        float gn = hash(gl_FragCoord.xy) - 0.5;
+        float lg = dot(c, LUM);
+        c += gn * uGrain * 0.16 * mix(1.0, 0.45, smoothstep(0.55, 1.0, lg));
+    }
+    c = clamp(c, 0.0, 1.0);
+
     // AI 去背：用來源 uv 取遮罩當 alpha（裁切/旋轉/翻轉會自動跟著走，因 uv 已是來源座標）
     float alpha = 1.0;
     if(uUseMask > 0.5){
@@ -478,7 +585,7 @@ void main(){
             m = texture2D(uMask, uv).r;
         }
         m = clamp(m + uMaskShift, 0.0, 1.0);          // 收縮 / 擴張
-        m = clamp((m - 0.5) * 1.25 + 0.5, 0.0, 1.0);  // 稍微提升對比，邊緣更乾淨
+        m = clamp((m - 0.5) * 1.08 + 0.5, 0.0, 1.0);  // 輕微提升對比（遮罩已邊緣精修，毋須再硬化）
         alpha = m;
     }
     gl_FragColor = vec4(c, alpha);
@@ -513,7 +620,7 @@ if(gl){
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
 
-    for(const n of ['uTex','uCurve','uXform','uTexel','uWB','uTT','uExp','uContrast','uHi','uSh','uSat','uVib','uSharp','uInB','uInW','uGamma','uOutB','uOutW','uUseCurve','uHDR','uHdrSh','uHdrHi','uAutoBlk','uAutoWht','uMask','uUseMask','uMaskFeather','uMaskShift'])
+    for(const n of ['uTex','uCurve','uXform','uTexel','uWB','uTT','uExp','uContrast','uHi','uSh','uSat','uVib','uSharp','uInB','uInW','uGamma','uOutB','uOutW','uUseCurve','uHDR','uHdrSh','uHdrHi','uAutoBlk','uAutoWht','uMask','uUseMask','uMaskFeather','uMaskShift','uFilm','uFilmStr','uGrain','uVignette','uLeak'])
         U[n] = gl.getUniformLocation(prog, n);
 
     curveTex = gl.createTexture();
@@ -639,6 +746,11 @@ function render(){
     gl.uniform1f(U.uUseMask, (hasMask && useMask) ? 1 : 0);
     gl.uniform1f(U.uMaskFeather, maskFeather);
     gl.uniform1f(U.uMaskShift, maskShift/200);   // 滑桿 -100..100 → -0.5..0.5
+    gl.uniform1f(U.uFilm, filmIndex);
+    gl.uniform1f(U.uFilmStr, P.filmStrength/100);
+    gl.uniform1f(U.uGrain, P.grain/100);
+    gl.uniform1f(U.uVignette, P.vignette/100);
+    gl.uniform1f(U.uLeak, P.leak/100);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -815,7 +927,7 @@ const GROUPS = [
         {id:'autoWB', label:'自動白平衡', cls:'btn-ghost'},
         {id:'resetWB', label:'重置', cls:'btn-ghost'},
     ]},
-    { title:'色階 Levels', key:'levels', sliders:[
+    { title:'色階 Levels', key:'levels', collapsed:true, sliders:[
         {k:'inBlack', label:'輸入黑場', min:0, max:254, step:1},
         {k:'inWhite', label:'輸入白場', min:1, max:255, step:1},
         {k:'gamma', label:'Gamma (中間調)', min:0.2, max:3, step:0.01, float:true},
@@ -831,7 +943,7 @@ const GROUPS = [
         {k:'highlights', label:'高光', min:-100, max:100, step:1},
         {k:'shadows', label:'陰影', min:-100, max:100, step:1},
     ]},
-    { title:'HDR 曝光融合', key:'hdr', sliders:[
+    { title:'HDR 曝光融合', key:'hdr', collapsed:true, sliders:[
         {k:'hdr', label:'強度', min:0, max:100, step:1},
         {k:'hdrShadow', label:'陰影恢復 (EV)', min:0, max:3, step:0.05, float:true},
         {k:'hdrHighlight', label:'高光恢復 (EV)', min:0, max:3, step:0.05, float:true},
@@ -839,6 +951,29 @@ const GROUPS = [
     { title:'色彩', key:'color', sliders:[
         {k:'saturation', label:'飽和度', min:-100, max:100, step:1},
         {k:'vibrance', label:'自然飽和度', min:-100, max:100, step:1},
+    ]},
+    { title:'底片風格 Film', key:'film',
+      selectHTML:`<div class="film-field">
+            <label class="film-label" for="filmSelect">風格預設</label>
+            <select id="filmSelect" class="film-select">
+                <option value="0">無</option>
+                <option value="1">暖調高光 Warm Highlight</option>
+                <option value="2">柯達金 Kodak Gold</option>
+                <option value="3">富士 Fuji</option>
+                <option value="4">柔調人像 Portra</option>
+                <option value="5">電影感 青橙 Teal &amp; Orange</option>
+                <option value="6">黑白 Mono</option>
+                <option value="7">褪色 Matte</option>
+                <option value="8">復古棕 Sepia</option>
+                <option value="9">冷調 Cold</option>
+                <option value="10">濃郁 Velvia</option>
+            </select>
+        </div>`,
+      sliders:[
+        {k:'filmStrength', label:'風格強度', min:0, max:100, step:1},
+        {k:'grain', label:'顆粒 Grain', min:0, max:100, step:1},
+        {k:'vignette', label:'暗角 Vignette', min:0, max:100, step:1},
+        {k:'leak', label:'漏光 Light Leak', min:0, max:100, step:1},
     ]},
     { title:'細節', key:'detail', sliders:[
         {k:'sharpen', label:'銳化', min:0, max:200, step:1},
@@ -863,7 +998,7 @@ function buildPanel(){
         </div>
     </div>`;
     // AI 去背群組（緊接智慧自動）
-    html += `<div class="group" data-key="bg">
+    html += `<div class="group collapsed" data-key="bg">
         <div class="group-head"><h3>AI 去背</h3><span class="chev">▾</span></div>
         <div class="group-body">
             <div class="btn-row">
@@ -874,6 +1009,10 @@ function buildPanel(){
                 <button class="btn btn-ghost" id="bgClear" disabled>清除去背</button>
             </div>
             <div class="slider-row">
+                <div class="slider-top"><label>邊緣精修</label><span class="val" id="val_bgRefine">60</span></div>
+                <input type="range" id="sl_bgRefine" min="0" max="100" step="1" value="60">
+            </div>
+            <div class="slider-row">
                 <div class="slider-top"><label>邊緣羽化</label><span class="val" id="val_bgFeather">0</span></div>
                 <input type="range" id="sl_bgFeather" min="0" max="4" step="1" value="0">
             </div>
@@ -881,11 +1020,20 @@ function buildPanel(){
                 <div class="slider-top"><label>邊緣 收縮 ↔ 擴張</label><span class="val" id="val_bgShift">0</span></div>
                 <input type="range" id="sl_bgShift" min="-100" max="100" step="1" value="0">
             </div>
+            <div class="btn-row">
+                <button class="btn btn-ghost" id="bgPaintAdd" disabled>🖌 塗回前景</button>
+                <button class="btn btn-ghost" id="bgPaintSub" disabled>🩹 擦成背景</button>
+                <button class="btn btn-ghost" id="bgPaintClear" disabled>清除手動</button>
+            </div>
+            <div class="slider-row">
+                <div class="slider-top"><label>筆刷大小</label><span class="val" id="val_bgBrush">60</span></div>
+                <input type="range" id="sl_bgBrush" min="5" max="200" step="1" value="60">
+            </div>
             <div class="auto-readout" id="bgReadout">在本機用 AI 模型自動去背，<b>圖片不會上傳</b>。首次需下載模型（首次後會快取）。完成後調色與曲線仍作用在前景，下載 PNG 會保留透明背景。</div>
         </div>
     </div>`;
     // AI 超解析放大群組（接在 AI 去背後）
-    html += `<div class="group" data-key="sr">
+    html += `<div class="group collapsed" data-key="sr">
         <div class="group-head"><h3>AI 超解析放大</h3><span class="chev">▾</span></div>
         <div class="group-body">
             <div class="btn-row">
@@ -897,9 +1045,10 @@ function buildPanel(){
         </div>
     </div>`;
     for(const g of GROUPS){
-        html += `<div class="group" data-key="${g.key}">
+        html += `<div class="group${g.collapsed?' collapsed':''}" data-key="${g.key}">
             <div class="group-head"><h3>${g.title}</h3><span class="chev">▾</span></div>
             <div class="group-body">`;
+        if(g.selectHTML) html += g.selectHTML;
         for(const s of g.sliders){
             html += `<div class="slider-row">
                 <div class="slider-top">
@@ -917,7 +1066,7 @@ function buildPanel(){
         html += `</div></div>`;
     }
     // curves group
-    html += `<div class="group" data-key="curves">
+    html += `<div class="group collapsed" data-key="curves">
         <div class="group-head"><h3>曲線 (RGB)</h3><span class="chev">▾</span></div>
         <div class="group-body">
             <div id="curveMount"></div>
@@ -926,7 +1075,7 @@ function buildPanel(){
         </div>
     </div>`;
     // geometry group
-    html += `<div class="group" data-key="geo">
+    html += `<div class="group collapsed" data-key="geo">
         <div class="group-head"><h3>幾何 (裁切 / 旋轉)</h3><span class="chev">▾</span></div>
         <div class="group-body">
             <div class="geo-grid">
@@ -944,7 +1093,7 @@ function buildPanel(){
         </div>
     </div>`;
     // resize group
-    html += `<div class="group" data-key="resize">
+    html += `<div class="group collapsed" data-key="resize">
         <div class="group-head"><h3>調整大小</h3><span class="chev">▾</span></div>
         <div class="group-body">
             <div class="size-row">
@@ -956,15 +1105,13 @@ function buildPanel(){
             <p class="hint">設定輸出圖片的像素尺寸。勾選等比例縮放時，改寬或高會自動換算另一邊；取消勾選可分別設定寬高（圖片會被拉伸）。</p>
         </div>
     </div>`;
-    panelScroll.innerHTML = html;
+    panelScroll.innerHTML = `<div class="cat-list" id="catList"></div><div class="cat-detail" id="catDetail">${html}</div>`;
 
     // move the real curve canvas into mount
     $('curveMount').appendChild(curveCanvas);
 
-    // collapse toggles
-    panelScroll.querySelectorAll('.group-head').forEach(h=>{
-        h.addEventListener('click', ()=> h.parentElement.classList.toggle('collapsed'));
-    });
+    // 依各群組建立左側功能清單，點選後右側只顯示該群組
+    buildCatList();
     // sliders
     for(const g of GROUPS) for(const s of g.sliders){
         const sl=$('sl_'+s.k), val=$('val_'+s.k);
@@ -981,6 +1128,13 @@ function buildPanel(){
     panelScroll.querySelectorAll('label[data-reset]').forEach(lb=>{
         lb.addEventListener('dblclick', ()=>{ const k=lb.dataset.reset; setSlider(k, DEFAULTS[k]); requestRender(); });
     });
+
+    // 底片風格預設下拉
+    const filmSel=$('filmSelect');
+    if(filmSel){
+        filmSel.value=String(filmIndex);
+        filmSel.addEventListener('change', ()=>{ filmIndex=parseInt(filmSel.value,10)||0; requestRender(); });
+    }
 
     // smart auto
     $('smartAuto').addEventListener('click', smartAuto);
@@ -1044,6 +1198,11 @@ function buildPanel(){
         requestRender();
     });
     $('bgClear').addEventListener('click', ()=>{ resetBgState(); requestRender(); toast('已清除去背'); });
+    $('sl_bgRefine').addEventListener('input', e=>{ $('val_bgRefine').textContent=String(e.target.value); applyMaskBlend(); });
+    $('bgPaintAdd').addEventListener('click', ()=>setPaintMode('add'));
+    $('bgPaintSub').addEventListener('click', ()=>setPaintMode('sub'));
+    $('bgPaintClear').addEventListener('click', ()=>{ if(bgManual){ bgManual.fill(0); applyMaskBlend(); toast('已清除手動加減'); } });
+    $('sl_bgBrush').addEventListener('input', e=>{ brushSize=parseInt(e.target.value,10); $('val_bgBrush').textContent=String(brushSize); });
     $('sl_bgFeather').addEventListener('input', e=>{ maskFeather=parseFloat(e.target.value); $('val_bgFeather').textContent=String(maskFeather); requestRender(); });
     $('sl_bgShift').addEventListener('input', e=>{ maskShift=parseFloat(e.target.value); $('val_bgShift').textContent=String(maskShift); requestRender(); });
 
@@ -1053,14 +1212,48 @@ function buildPanel(){
 
     drawCurveEditor();
 }
+
+// 左側功能清單：依右側每個 .group 的標題建立按鈕，點選後只顯示對應群組
+function buildCatList(){
+    const list=$('catList'), detail=$('catDetail');
+    if(!list || !detail) return;
+    const groups=[...detail.querySelectorAll('.group')];
+    list.innerHTML='';
+    for(const g of groups){
+        const key=g.dataset.key;
+        const h3=g.querySelector('.group-head h3');
+        const btn=document.createElement('button');
+        btn.className='cat-item'; btn.dataset.key=key;
+        btn.textContent=(h3 ? h3.textContent : key);
+        btn.addEventListener('click', ()=>activateCat(key));
+        list.appendChild(btn);
+    }
+    // 預設選取上次的分類；無則選第一個
+    const keys=groups.map(g=>g.dataset.key);
+    activateCat(keys.includes(activeCat) ? activeCat : keys[0]);
+}
+function activateCat(key){
+    activeCat=key;
+    const list=$('catList'), detail=$('catDetail');
+    if(!list || !detail) return;
+    list.querySelectorAll('.cat-item').forEach(b=>b.classList.toggle('active', b.dataset.key===key));
+    detail.querySelectorAll('.group').forEach(g=>g.classList.toggle('show', g.dataset.key===key));
+    detail.scrollTop=0;
+    if(key==='curves') drawCurveEditor();   // 曲線變可見後重畫，確保尺寸正確
+}
+
 // 清掉去背狀態（換圖 / 重置 / 清除）：保留已載入的模型快取
 function resetBgState(){
     hasMask=false; useMask=false; maskFeather=0; maskShift=0;
-    const t=$('bgToggle'), c=$('bgClear'), f=$('sl_bgFeather'), s=$('sl_bgShift');
+    bgRawMask=null; bgRefinedMask=null; bgManual=null;
+    paintMode=null; stage.classList.remove('painting');
+    const t=$('bgToggle'), c=$('bgClear'), f=$('sl_bgFeather'), s=$('sl_bgShift'), rf=$('sl_bgRefine');
     if(t){ t.classList.remove('active'); t.disabled=true; }
     if(c) c.disabled=true;
-    if(f) f.value=0; if(s) s.value=0;
-    const fv=$('val_bgFeather'), sv=$('val_bgShift'); if(fv) fv.textContent='0'; if(sv) sv.textContent='0';
+    if(f) f.value=0; if(s) s.value=0; if(rf) rf.value=60;
+    const fv=$('val_bgFeather'), sv=$('val_bgShift'), rv=$('val_bgRefine');
+    if(fv) fv.textContent='0'; if(sv) sv.textContent='0'; if(rv) rv.textContent='60';
+    ['bgPaintAdd','bgPaintSub','bgPaintClear'].forEach(id=>{ const el=$(id); if(el){ el.disabled=true; el.classList.remove('active'); } });
 }
 function setSlider(k, v){
     P[k]=v;
@@ -1237,6 +1430,79 @@ gl_canvas.addEventListener('click', e=>{
     requestRender(); toast('白平衡已校正');
 });
 
+// ───────────────────────── 去背手動筆刷（塗回前景 / 擦成背景）─────────────────────────
+// bgManual：[-1,1] 的手動覆蓋層，+ 往前景、- 往背景；疊在自動遮罩之上（見 applyMaskBlend）。
+let paintMode=null;        // 'add' | 'sub' | null
+let brushSize=60;          // 來源像素半徑
+let paintLast=null, paintDirty=false;
+function setPaintMode(m){
+    if(!hasMask){ toast('請先「AI 一鍵去背」'); return; }
+    paintMode = (paintMode===m) ? null : m;
+    const a=$('bgPaintAdd'), b=$('bgPaintSub');
+    if(a) a.classList.toggle('active', paintMode==='add');
+    if(b) b.classList.toggle('active', paintMode==='sub');
+    stage.classList.toggle('painting', !!paintMode);
+    if(paintMode==='add') toast('在圖上塗抹「要保留」的區域');
+    else if(paintMode==='sub') toast('在圖上塗抹「要去掉」的區域');
+}
+function evtClient(e){
+    if(e.touches && e.touches[0]) return [e.touches[0].clientX, e.touches[0].clientY];
+    if(e.changedTouches && e.changedTouches[0]) return [e.changedTouches[0].clientX, e.changedTouches[0].clientY];
+    return [e.clientX, e.clientY];
+}
+function stageToSourcePx(e){
+    const [cx,cy]=evtClient(e);
+    const r=gl_canvas.getBoundingClientRect();
+    let u=(cx-r.left)/r.width, v=(cy-r.top)/r.height;
+    u=Math.min(1,Math.max(0,u)); v=Math.min(1,Math.max(0,v));
+    const [sx,sy]=apply3(buildXform(),u,v);
+    return [sx*img.w, sy*img.h];
+}
+function paintDab(px,py){
+    if(!bgManual || !paintMode) return;
+    const r=brushSize, r2=r*r, sign=paintMode==='add'?1:-1, flow=0.34;
+    const x0=Math.max(0,Math.floor(px-r)), x1=Math.min(bgMaskW-1,Math.ceil(px+r));
+    const y0=Math.max(0,Math.floor(py-r)), y1=Math.min(bgMaskH-1,Math.ceil(py+r));
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+        const dx=x-px, dy=y-py, d2=dx*dx+dy*dy;
+        if(d2>r2) continue;
+        const fall=1.0 - Math.sqrt(d2)/r;          // 邊緣柔化
+        const i=y*bgMaskW+x;
+        let m=bgManual[i] + sign*flow*fall;
+        bgManual[i]= m<-1?-1:(m>1?1:m);
+    }
+}
+function paintStroke(x0,y0,x1,y1){
+    const dist=Math.hypot(x1-x0,y1-y0), step=Math.max(1, brushSize*0.25);
+    const n=Math.max(1, Math.ceil(dist/step));
+    for(let k=0;k<=n;k++){ const t=k/n; paintDab(x0+(x1-x0)*t, y0+(y1-y0)*t); }
+}
+function schedulePaintCompose(){
+    if(paintDirty) return; paintDirty=true;
+    requestAnimationFrame(()=>{ paintDirty=false; applyMaskBlend(); });
+}
+function paintDown(e){
+    if(!paintMode || !hasMask || !img.loaded) return;
+    e.preventDefault();
+    const [px,py]=stageToSourcePx(e); paintLast=[px,py];
+    paintDab(px,py); schedulePaintCompose();
+    window.addEventListener('mousemove',paintMove); window.addEventListener('mouseup',paintUp);
+    window.addEventListener('touchmove',paintMove,{passive:false}); window.addEventListener('touchend',paintUp);
+}
+function paintMove(e){
+    if(!paintMode) return; e.preventDefault();
+    const [px,py]=stageToSourcePx(e);
+    if(paintLast) paintStroke(paintLast[0],paintLast[1],px,py); else paintDab(px,py);
+    paintLast=[px,py]; schedulePaintCompose();
+}
+function paintUp(){
+    paintLast=null;
+    window.removeEventListener('mousemove',paintMove); window.removeEventListener('mouseup',paintUp);
+    window.removeEventListener('touchmove',paintMove); window.removeEventListener('touchend',paintUp);
+}
+gl_canvas.addEventListener('mousedown',paintDown);
+gl_canvas.addEventListener('touchstart',paintDown,{passive:false});
+
 // ───────────────────────── crop tool ─────────────────────────
 const cropLayer=$('cropLayer');
 let cropMode=false, cropRectUV=null; // in display output uv [x,y,w,h]
@@ -1367,12 +1633,23 @@ async function runBgRemoval(){
         const tensor = out.output ?? Object.values(out)[0];
         const maskImg = await TF.RawImage.fromTensor(tensor[0].mul(255).to('uint8')).resize(img.w, img.h);
 
-        uploadMask(maskImg.data, img.w, img.h);
+        // 邊緣精修：以原圖（灰階）當 guide，用 guided filter 把遮罩 alpha 吸附到真實顏色邊緣，
+        // 髮絲／衣領等邊界比模型直接輸出更乾淨、更貼合。全程本機。
+        setStatus('AI 去背：邊緣精修…','busy');
+        $('bgReadout').textContent='邊緣精修中…（依原圖邊緣修正遮罩）';
+        await nextPaint();
+        bgRawMask = Uint8Array.from(maskImg.data);                          // 模型原始遮罩
+        bgRefinedMask = refineMaskEdges(maskImg.data, img.data, img.w, img.h); // 精修後遮罩
+        bgMaskW = img.w; bgMaskH = img.h;
+        bgManual = new Float32Array(bgMaskW*bgMaskH);                        // 重置手動筆刷層
+
+        applyMaskBlend();                  // 依「邊緣精修」滑桿混合 raw↔refined（再疊手動）後上傳
         hasMask=true; useMask=true;
         $('bgToggle').disabled=false; $('bgToggle').classList.add('active'); $('bgClear').disabled=false;
+        ['bgPaintAdd','bgPaintSub','bgPaintClear'].forEach(id=>{ const el=$(id); if(el) el.disabled=false; });
         requestRender();
         setStatus('AI 去背完成','ok'); toast('去背完成');
-        $('bgReadout').innerHTML='<b>去背完成。</b>調色／曲線仍作用在前景；可用「邊緣羽化／收縮↔擴張」微調。下載 <b>PNG</b> 保留透明背景（JPG 不支援透明，會以白底輸出）。';
+        $('bgReadout').innerHTML='<b>去背完成。</b>「邊緣精修」讓髮絲更乾淨（被吃掉就往左調低，0＝純模型遮罩）。<b>救不回來的地方用筆刷手動修</b>：「🖌 塗回前景」塗回被誤刪處、「🩹 擦成背景」擦掉殘留，可調「筆刷大小」、反覆塗會更實。下載 <b>PNG</b> 保留透明背景（JPG 不支援透明，會以白底輸出）。';
     }catch(err){
         console.error(err);
         setStatus('去背失敗','err'); toast('去背失敗：'+(err && err.message || err));
@@ -1390,6 +1667,140 @@ function uploadMask(maskData, w, h){
     gl.bindTexture(gl.TEXTURE_2D, maskTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+}
+
+// 依「邊緣精修」滑桿在「模型原始遮罩」與「精修後遮罩」之間線性混合 → 上傳（不必重跑模型）
+function applyMaskBlend(){
+    if(!bgRawMask || !bgRefinedMask) return;
+    const sl=$('sl_bgRefine');
+    const t = sl ? (parseFloat(sl.value)||0)/100 : 1;
+    const N=bgMaskW*bgMaskH, out=new Uint8Array(N);
+    for(let i=0;i<N;i++){
+        let a = (bgRawMask[i]*(1-t) + bgRefinedMask[i]*t)/255;
+        if(bgManual){                       // 疊上手動筆刷：+往前景、-往背景
+            const m=bgManual[i];
+            if(m>0) a = a + (1-a)*m;
+            else if(m<0) a = a*(1.0+m);
+        }
+        out[i] = a<=0?0:(a>=1?255:(a*255+0.5)|0);
+    }
+    uploadMask(out, bgMaskW, bgMaskH);
+    requestRender();
+}
+
+// ── 邊緣精修：guided filter（He et al.）──
+// 以灰階原圖 I 當 guide、模型遮罩 p 當輸入，輸出 q = a·I + b（區域線性模型），
+// 讓 alpha 在真實顏色邊緣處變陡、平滑區保持柔順 → 邊界吸附原圖、髮絲更乾淨。
+// box filter 以「可分離移動和」O(N) 實作；邊界用實際視窗大小正規化。
+function boxSum(src, w, h, r){
+    const tmp = new Float32Array(w*h), out = new Float32Array(w*h);
+    for(let y=0;y<h;y++){               // 水平移動和
+        const row=y*w; let acc=0;
+        for(let x=0;x<=r && x<w;x++) acc+=src[row+x];
+        for(let x=0;x<w;x++){
+            tmp[row+x]=acc;
+            const add=x+r+1, sub=x-r;
+            if(add<w) acc+=src[row+add];
+            if(sub>=0) acc-=src[row+sub];
+        }
+    }
+    for(let x=0;x<w;x++){               // 垂直移動和
+        let acc=0;
+        for(let y=0;y<=r && y<h;y++) acc+=tmp[y*w+x];
+        for(let y=0;y<h;y++){
+            out[y*w+x]=acc;
+            const add=y+r+1, sub=y-r;
+            if(add<h) acc+=tmp[add*w+x];
+            if(sub>=0) acc-=tmp[sub*w+x];
+        }
+    }
+    return out;
+}
+// 在某解析度求 guided filter 的區域線性係數 a,b（含平滑），並回傳 guide 的區域變異數 v。
+// v 用來判斷「這裡的原圖到底有沒有邊」：v 小＝平滑/同色（不該精修），v 大＝真實邊緣（可精修）。
+function guidedCoeffs(I, p, w, h, r, eps){
+    const N=w*h;
+    const Ip=new Float32Array(N), II=new Float32Array(N);
+    for(let i=0;i<N;i++){ Ip[i]=I[i]*p[i]; II[i]=I[i]*I[i]; }
+    const sumI=boxSum(I,w,h,r), sump=boxSum(p,w,h,r), sumIp=boxSum(Ip,w,h,r), sumII=boxSum(II,w,h,r);
+    const cntX=new Float32Array(w), cntY=new Float32Array(h);
+    for(let x=0;x<w;x++) cntX[x]=Math.min(x+r,w-1)-Math.max(x-r,0)+1;
+    for(let y=0;y<h;y++) cntY[y]=Math.min(y+r,h-1)-Math.max(y-r,0)+1;
+    const a=new Float32Array(N), b=new Float32Array(N), v=new Float32Array(N);
+    for(let y=0;y<h;y++){ const cy=cntY[y]; for(let x=0;x<w;x++){
+        const i=y*w+x, n=cntX[x]*cy;
+        const mI=sumI[i]/n, mp=sump[i]/n;
+        const varI=sumII[i]/n - mI*mI, covIp=sumIp[i]/n - mI*mp;
+        v[i]=varI;
+        const ai=covIp/(varI+eps);
+        a[i]=ai; b[i]=mp - ai*mI;
+    }}
+    const sa=boxSum(a,w,h,r), sb=boxSum(b,w,h,r);   // 平滑係數
+    for(let y=0;y<h;y++){ const cy=cntY[y]; for(let x=0;x<w;x++){
+        const i=y*w+x, n=cntX[x]*cy; a[i]=sa[i]/n; b[i]=sb[i]/n;
+    }}
+    return {a,b,v};
+}
+// 區塊平均縮小（給 fast guided filter 算粗尺度係數用）
+function downsampleAvg(src, w, h, lw, lh, s){
+    const out=new Float32Array(lw*lh);
+    for(let ly=0;ly<lh;ly++) for(let lx=0;lx<lw;lx++){
+        let acc=0,c=0; const y0=ly*s, x0=lx*s;
+        for(let dy=0;dy<s;dy++){ const yy=y0+dy; if(yy>=h) break;
+            for(let dx=0;dx<s;dx++){ const xx=x0+dx; if(xx>=w) break; acc+=src[yy*w+xx]; c++; } }
+        out[ly*lw+lx]=c?acc/c:0;
+    }
+    return out;
+}
+// smoothstep
+function smooth01(e0,e1,x){ let t=(x-e0)/(e1-e0); t=t<0?0:(t>1?1:t); return t*t*(3-2*t); }
+function refineMaskEdges(mask, rgb, w, h){
+    const N=w*h, eps=1e-4;              // eps 越小邊緣越銳（吸附越強）
+    // 只在「原圖真的有邊」處才採用精修結果；平滑/同色處（如白衣服貼白背景）保留模型原遮罩，
+    // 避免 guided filter 把無對比邊界的前景（白衣服）誤吃掉。以 guide 區域變異數 v 當混合權重。
+    const EC0=0.0018, EC1=0.0220;       // 補回細節（加 alpha）：一般門檻
+    const EC0R=0.0070, EC1R=0.0500;     // 削去前景（減 alpha）：更嚴，低對比（白衣貼白底）一律不准削
+    const I=new Float32Array(N), p=new Float32Array(N);
+    for(let i=0;i<N;i++){
+        I[i]=(rgb[i*4]*0.299 + rgb[i*4+1]*0.587 + rgb[i*4+2]*0.114)/255;
+        p[i]=mask[i]/255;
+    }
+    // 大圖用 fast guided filter：在縮小尺度算 a,b,v，再上採樣套回全解析度
+    // → 邊緣依然銳利（最終以全解析度 I 套用），記憶體與時間都大幅降低。
+    const s=Math.max(1, Math.round(Math.min(w,h)/512));
+    let a,b,v, aw, ah;
+    if(s<=1){
+        const r=Math.max(4, Math.min(28, Math.round(Math.min(w,h)/180)));
+        ({a,b,v}=guidedCoeffs(I,p,w,h,r,eps)); aw=w; ah=h;
+    } else {
+        const lw=Math.max(1,Math.floor(w/s)), lh=Math.max(1,Math.floor(h/s));
+        const Il=downsampleAvg(I,w,h,lw,lh,s), pl=downsampleAvg(p,w,h,lw,lh,s);
+        const r=Math.max(2, Math.round(Math.min(lw,lh)/40));
+        ({a,b,v}=guidedCoeffs(Il,pl,lw,lh,r,eps)); aw=lw; ah=lh;
+    }
+    const out=new Uint8Array(N);
+    for(let y=0;y<h;y++){
+        const fy=y/s, y0=Math.min(ah-1,Math.floor(fy)), y1=Math.min(ah-1,y0+1), ty=fy-y0;
+        for(let x=0;x<w;x++){
+            const fx=x/s, x0=Math.min(aw-1,Math.floor(fx)), x1=Math.min(aw-1,x0+1), tx=fx-x0;
+            const i00=y0*aw+x0,i01=y0*aw+x1,i10=y1*aw+x0,i11=y1*aw+x1;
+            const av=(a[i00]*(1-tx)+a[i01]*tx)*(1-ty)+(a[i10]*(1-tx)+a[i11]*tx)*ty;
+            const bv=(b[i00]*(1-tx)+b[i01]*tx)*(1-ty)+(b[i10]*(1-tx)+b[i11]*tx)*ty;
+            const vv=(v[i00]*(1-tx)+v[i01]*tx)*(1-ty)+(v[i10]*(1-tx)+v[i11]*tx)*ty;
+            const fi=y*w+x;
+            const qr=av*I[fi]+bv;                 // guided 精修結果（邊緣吸附）
+            const pf=p[fi];
+            // 想「削掉前景」(qr<pf) 時要求更強的原圖對比；想「補回細節」(qr>=pf) 時門檻一般
+            const ec = (qr<pf) ? smooth01(EC0R,EC1R,vv) : smooth01(EC0,EC1,vv);
+            let q=pf*(1.0-ec) + qr*ec;
+            // 前景保護：模型高度確信為前景處（大片白衣服）一律不准削掉
+            const prot=smooth01(0.78,0.95,pf);
+            q = q*(1.0-prot) + (q>pf?q:pf)*prot;
+            q=q<0?0:(q>1?1:q);
+            out[fi]=(q*255+0.5)|0;
+        }
+    }
+    return out;
 }
 
 // ───────────────────────── AI 超解析放大（Super-Resolution，本機推論）─────────────────────────
@@ -1665,6 +2076,7 @@ function loadImage(src){
         Object.assign(P, JSON.parse(JSON.stringify(DEFAULTS)));
         for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
         wbGain=[1,1,1]; autoBlk=[0,0,0]; autoWht=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
+        filmIndex=0; if($('filmSelect')) $('filmSelect').value='0';
         curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
         exitCrop(); resetBgState();
         resize.custom=false; resize.lock=true; if($('resizeLock')) $('resizeLock').checked=true; syncResizeFromNatural();
@@ -1702,6 +2114,7 @@ $('resetAllBtn').addEventListener('click', ()=>{
     Object.assign(P, JSON.parse(JSON.stringify(DEFAULTS)));
     for(const g of GROUPS) for(const s of g.sliders) setSlider(s.k, P[s.k]);
     wbGain=[1,1,1]; geo.rot=0; geo.flipH=false; geo.flipV=false; geo.crop=[0,0,1,1];
+    filmIndex=0; if($('filmSelect')) $('filmSelect').value='0';
     curvePts=[{x:0,y:0},{x:1,y:1}]; buildCurveLUT(); drawCurveEditor();
     exitCrop(); resetBgState();
     resize.custom=false; resize.lock=true; if($('resizeLock')) $('resizeLock').checked=true; syncResizeFromNatural();
