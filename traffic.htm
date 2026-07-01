@@ -603,6 +603,22 @@
             transition: background .12s, color .12s, border-color .12s;
         }
         .gear-btn:hover { background: #ecfdf5; color: #0d9488; border-color: #14b8a6; }
+        .ver-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 7px 12px;
+            border-radius: 8px;
+            border: 1.5px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background .12s, color .12s, border-color .12s;
+        }
+        .ver-toggle:hover { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
 
         /* ── Proxy modal (light) ── */
         .proxy-card {
@@ -684,6 +700,7 @@
                 <option value="foreign">外部代管</option>
             </select>
             <button class="gear-btn" id="gearBtn" type="button" title="代理設定" hidden>⚙</button>
+            <a class="ver-toggle" href="traffic-legacy.htm" title="切到舊版 (tcnvr2 系統) 看是否恢復">🕹 舊版</a>
             <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
         </div>
     </div>
