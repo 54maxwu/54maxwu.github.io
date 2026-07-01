@@ -655,7 +655,7 @@ function renderPanes() {
     if (tab.uid === active && !pane.querySelector('iframe')) {
       const frame = document.createElement('iframe');
       frame.src = pane.dataset.url;
-      frame.allow = 'fullscreen; display-capture; camera; microphone; clipboard-write; clipboard-read';
+      frame.allow = 'geolocation; fullscreen; display-capture; camera; microphone; clipboard-write; clipboard-read';
       frame.setAttribute('allowfullscreen', '');
       pane.appendChild(frame);
     }

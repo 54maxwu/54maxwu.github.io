@@ -310,8 +310,37 @@
         }
         .stn-marker.active span { font-size: 24px; }
 
-        .leaflet-popup-content { margin: 10px 12px; font-family: inherit; }
-        .leaflet-popup-content b { color: #0f766e; }
+        /* ── Pretty map card (Leaflet popup) ── */
+        .bus-pop .leaflet-popup-content-wrapper {
+            padding: 0; border-radius: 15px; overflow: hidden;
+            box-shadow: 0 14px 38px rgba(15,23,42,.32);
+            border: 1px solid rgba(15,23,42,.06);
+        }
+        .bus-pop .leaflet-popup-content { margin: 0; width: 300px !important; font-family: inherit; }
+        .bus-pop .leaflet-popup-tip { box-shadow: 0 6px 16px rgba(15,23,42,.18); }
+        .bus-pop a.leaflet-popup-close-button { color: rgba(255,255,255,.85); top: 9px; right: 9px; font-size: 20px; }
+        .bus-pop a.leaflet-popup-close-button:hover { color: #fff; }
+
+        .bpop { font-family: inherit; }
+        .bpop-hd {
+            padding: 12px 34px 12px 15px;
+            background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+            color: #fff;
+        }
+        .bpop-name { font-size: 15.5px; font-weight: 700; line-height: 1.3; }
+        .bpop-meta { font-size: 11px; opacity: .92; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .bpop-body {
+            max-height: 244px; overflow-y: auto; background: #fff;
+            scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
+        }
+        .bpop-body::-webkit-scrollbar { width: 7px; }
+        .bpop-body::-webkit-scrollbar-track { background: transparent; }
+        .bpop-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .bpop-foot {
+            padding: 8px 14px; font-size: 10.5px; color: #94a3b8;
+            background: #f8fafc; border-top: 1px solid #eef2f6;
+            display: flex; align-items: center; justify-content: space-between;
+        }
 
         .toast {
             position: fixed;
@@ -334,21 +363,50 @@
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+        /* ── Fullscreen / immersive big-map mode ── */
+        .fs-bar { position: fixed; top: 10px; right: 10px; z-index: 1500; display: flex; gap: 8px; }
+        .fs-btn {
+            width: 42px; height: 42px; border-radius: 11px; border: none;
+            background: rgba(15,23,42,.85); color: #fff; font-size: 17px; cursor: pointer;
+            box-shadow: 0 3px 12px rgba(0,0,0,.35);
+            display: flex; align-items: center; justify-content: center;
+            transition: background .12s;
+        }
+        .fs-btn:hover { background: #0d9488; }
+        body.immersive .app-header { display: none; }
+        body.immersive .layout { height: 100vh; height: 100dvh; flex-direction: column; }
+        body.immersive #map { height: 100% !important; min-height: 0 !important; flex: 1; }
+        body.immersive .list-panel {
+            position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+            width: auto; height: 52%; z-index: 1400;
+            border: none; border-top: 1px solid #e2e8f0;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -8px 26px rgba(0,0,0,.28);
+            transform: translateY(calc(100% - 46px));
+            transition: transform .28s ease;
+        }
+        body.immersive.show-list .list-panel { transform: translateY(0); }
+        body.immersive .list-head { cursor: pointer; }
+        body.immersive .list-head::after { content: '▲'; font-size: 10px; color: #94a3b8; transition: transform .28s; }
+        body.immersive.show-list .list-head::after { transform: rotate(180deg); }
+
         @media (max-width: 820px) {
             .app-header { padding: 9px 12px; gap: 8px 10px; }
             .app-header h1 { font-size: 15px; }
             .header-meta { margin-left: auto; }
             .addr-wrap { order: 5; flex-basis: 100%; max-width: none; min-width: 0; }
             .layout { flex-direction: column; }
-            #map { height: 42vh; min-height: 240px; flex: none; }
+            #map { height: 54vh; min-height: 260px; flex: none; }
             .list-panel { width: auto; flex: 1; border-left: none; border-top: 1px solid #e2e8f0; }
+            .bus-pop .leaflet-popup-content { width: 82vw !important; max-width: 320px; }
+            .bpop-body { max-height: 34vh; }
         }
         @media (max-width: 480px) {
             .app-header h1 { font-size: 14px; gap: 5px; }
             .ctl { padding: 8px 9px; }
             .icon-btn { width: 38px; height: 38px; font-size: 16px; }
             select.ctl { padding: 8px 22px 8px 9px; }
-            #map { height: 38vh; min-height: 200px; }
+            #map { height: 50vh; min-height: 240px; }
             .stn-head { padding: 12px 12px; }
             .stn-name { font-size: 15px; }
             .arr-row { padding: 12px 13px; }
@@ -374,6 +432,7 @@
             </select>
             <button class="ctl icon-btn" id="locateBtn" type="button" title="定位到我的位置">📍</button>
             <button class="ctl icon-btn" id="refreshBtn" type="button" title="重新整理">🔄</button>
+            <button class="ctl icon-btn" id="fsBtn" type="button" title="全螢幕大地圖">⛶</button>
             <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
         </div>
     </div>
@@ -394,6 +453,12 @@
                 </div>
             </div>
         </aside>
+    </div>
+
+    <div class="fs-bar" id="fsBar" hidden>
+        <button class="fs-btn" id="fsLocate2" type="button" title="定位">📍</button>
+        <button class="fs-btn" id="fsListToggle" type="button" title="站牌清單">☰</button>
+        <button class="fs-btn" id="fsExit" type="button" title="離開全螢幕">✕</button>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -466,9 +531,11 @@
     // ── Map ──
     const TC_CENTER = [24.1477, 120.6736];
     const map = L.map('map', { zoomControl: true, attributionControl: true }).setView(TC_CENTER, 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
+    // Carto Voyager：比預設 OSM 乾淨、店家標記較少（背景 POI 仍為 OSM 社群資料）
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 20,
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
 
     let meMarker = null, meCircle = null;
@@ -476,6 +543,7 @@
     let stations = [];              // 目前清單
     let queryCenter = null;         // {lat, lon} 上次查詢中心
     let activeUID = null;
+    let popupUID = null;            // 目前開著的地圖卡片對應站
     let etaTimer = null;
 
     function haversine(lat1, lon1, lat2, lon2) {
@@ -567,7 +635,7 @@
         }).join('');
 
         $list.querySelectorAll('.stn').forEach(el => {
-            el.querySelector('.stn-head').addEventListener('click', () => toggleStation(el.dataset.uid));
+            el.querySelector('.stn-head').addEventListener('click', () => selectStation(el.dataset.uid));
         });
     }
 
@@ -577,10 +645,13 @@
         stnMarkers.clear();
         stations.forEach(s => {
             const m = L.marker([s.lat, s.lon], {
-                icon: L.divIcon({ className: '', html: `<div class="stn-marker" data-uid="${s.uid}"><span>🚌</span></div>`, iconSize: [38,38], iconAnchor: [19,36], popupAnchor: [0,-32] }),
+                icon: L.divIcon({ className: '', html: `<div class="stn-marker" data-uid="${s.uid}"><span>🚌</span></div>`, iconSize: [38,38], iconAnchor: [19,36], popupAnchor: [0,-30] }),
                 title: s.name
             }).addTo(map);
-            m.on('click', () => { toggleStation(s.uid, true); });
+            const pop = L.popup({ className: 'bus-pop', maxWidth: 320, minWidth: 300, autoPan: false, closeButton: true });
+            pop._stnUID = s.uid;
+            m.bindPopup(pop);
+            m.on('click', () => focusStation(s));   // 置中；Leaflet 會開 popup → popupopen 接手其餘
             stnMarkers.set(s.uid, m);
         });
     }
@@ -591,47 +662,78 @@
         });
     }
 
-    // ── Expand / collapse a station → load arrivals ──
-    function toggleStation(uid, fromMap) {
-        const el = $list.querySelector(`.stn[data-uid="${cssEsc(uid)}"]`);
-        if (!el) return;
-        const already = uid === activeUID;
-        // collapse previous
-        $list.querySelectorAll('.stn.active').forEach(e => e.classList.remove('active'));
-        clearInterval(etaTimer); etaTimer = null;
-
-        if (already) { activeUID = null; markMarkerActive(null); return; }
-
-        activeUID = uid;
-        el.classList.add('active');
-        markMarkerActive(uid);
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        const s = stations.find(x => x.uid === uid);
-        if (fromMap && s) map.panTo([s.lat, s.lon], { animate: true });
-        if (s) {
-            const pop = stnMarkers.get(uid);
-            if (pop) pop.bindPopup(`<b>${TXT(s.name)}</b><br>${s.routes.length} 條路線 · ${fmtDist(s.dist)}`).openPopup();
-        }
-
-        loadArrivals(uid, el.dataset.id);
+    // 把某站置中在地圖（標記略低於中心，上方留給資訊卡）
+    function focusStation(s) {
+        const z = Math.max(map.getZoom(), 16);
+        const pt = map.project([s.lat, s.lon], z);
+        pt.y -= 96;
+        map.setView(map.unproject(pt, z), z, { animate: true });
     }
 
+    // 從右側清單點選 → 置中並開地圖卡片
+    function selectStation(uid) {
+        const mk = stnMarkers.get(uid);
+        const s = stations.find(x => x.uid === uid);
+        if (!mk || !s) return;
+        if (uid === activeUID) { mk.closePopup(); return; }   // 再點一次收合
+        focusStation(s);
+        mk.openPopup();
+    }
+
+    // popup 開啟 = 選定該站（清單／地圖點選共用此流程）
+    map.on('popupopen', e => {
+        const uid = e.popup._stnUID;
+        if (!uid) return;
+        popupUID = uid;
+        activeUID = uid;
+        $list.querySelectorAll('.stn.active').forEach(x => x.classList.remove('active'));
+        const el = $list.querySelector(`.stn[data-uid="${cssEsc(uid)}"]`);
+        if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        markMarkerActive(uid);
+        const s = stations.find(x => x.uid === uid);
+        e.popup.setContent(cardFull(s, '<div class="arr-loading">查詢到站時間…</div>', nowStr()));
+        clearInterval(etaTimer); etaTimer = null;
+        if (s) loadArrivals(uid, s.id);
+    });
+    map.on('popupclose', e => {
+        const uid = e.popup._stnUID;
+        if (!uid) return;
+        setTimeout(() => {
+            if (popupUID !== uid) return;        // 期間已開了別站
+            popupUID = null;
+            if (activeUID === uid) {
+                activeUID = null;
+                const el = $list.querySelector(`.stn[data-uid="${cssEsc(uid)}"]`);
+                if (el) el.classList.remove('active');
+                markMarkerActive(null);
+                clearInterval(etaTimer); etaTimer = null;
+            }
+        }, 0);
+    });
+
     async function loadArrivals(uid, stationId) {
+        const s = stations.find(x => x.uid === uid);
+        const mk = stnMarkers.get(uid);
         const body = document.getElementById('body-' + uid);
-        if (!body) return;
-        if (!body.dataset.loaded) body.innerHTML = '<div class="arr-loading">查詢到站時間…</div>';
+        if (body && !body.dataset.loaded) body.innerHTML = '<div class="arr-loading">查詢到站時間…</div>';
         let data;
         try {
             data = await fetchJson(ETA(stationId));
         } catch (e) {
-            body.innerHTML = '<div class="arr-loading">⚠ 無法取得到站時間</div>';
+            const fail = '<div class="arr-loading">⚠ 無法取得到站時間</div>';
+            if (body) body.innerHTML = fail;
+            if (mk && s && mk.isPopupOpen()) mk.setPopupContent(cardFull(s, fail, nowStr()));
             return;
         }
-        if (uid !== activeUID) return;      // 使用者已切換
-        renderArrivals(body, Array.isArray(data) ? data : []);
-        body.dataset.loaded = '1';
-
+        if (uid !== activeUID) return;
+        const recs = Array.isArray(data) ? data : [];
+        const inner = arrivalsInner(recs);
+        const now = nowStr();
+        if (body) {
+            body.innerHTML = inner + `<div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${now}</span></div>`;
+            body.dataset.loaded = '1';
+        }
+        if (mk && s && mk.isPopupOpen()) mk.setPopupContent(cardFull(s, inner, now));
         clearInterval(etaTimer);
         etaTimer = setInterval(() => { if (uid === activeUID) loadArrivals(uid, stationId); }, 20000);
     }
@@ -664,15 +766,18 @@
         return m ? m[1] + ':' + m[2] : s;
     }
 
-    function renderArrivals(body, recs) {
-        if (!recs.length) { body.innerHTML = '<div class="arr-loading">此站目前沒有路線動態資訊</div>'; return; }
+    function nowStr() {
+        return new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    // 到站列表內容（表頭 + 各路線），清單與地圖卡片共用
+    function arrivalsInner(recs) {
+        if (!recs.length) return '<div class="arr-loading">此站目前沒有路線動態資訊</div>';
         const items = recs.map(r => {
             const [label, cls, sortKey] = badge(r);
             return { label, cls, sortKey,
                 route: (r.RouteName && r.RouteName.Zh_tw) || r.RouteID || '',
                 plate: r.PlateNumb || '' };
         }).sort((a, b) => a.sortKey - b.sortKey);   // 快到的排前面
-
         const rows = items.map(it => {
             const mid = it.plate
                 ? `<span class="arr-plate" title="這台公車的車牌">🚍 ${TXT(it.plate)}</span>`
@@ -683,12 +788,18 @@
                 <span class="arr-badge ${it.cls}">${TXT(it.label)}</span>
             </div>`;
         }).join('');
-
-        const now = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        body.innerHTML =
-            `<div class="arr-hd"><span class="h-route">路線</span><span class="h-mid">車輛狀態</span><span>還有多久到</span></div>`
-            + rows
-            + `<div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${now}</span></div>`;
+        return `<div class="arr-hd"><span class="h-route">路線</span><span class="h-mid">車輛狀態</span><span>還有多久到</span></div>` + rows;
+    }
+    // 地圖上的漂亮資訊卡
+    function cardFull(s, inner, now) {
+        return `<div class="bpop">
+            <div class="bpop-hd">
+                <div class="bpop-name">${TXT(s.name)}</div>
+                <div class="bpop-meta"><span>📍 ${fmtDist(s.dist)}</span><span>${s.routes.length} 條路線</span>${s.bearing ? `<span>${TXT(s.bearing)}</span>` : ''}</div>
+            </div>
+            <div class="bpop-body">${inner}</div>
+            <div class="bpop-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${now}</span></div>
+        </div>`;
     }
 
     function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
@@ -711,7 +822,8 @@
                 console.warn(err);
                 const msg = err.code === 1 ? '定位權限被拒' : err.code === 3 ? '定位逾時' : '定位失敗';
                 setStatus(msg, 'err');
-                toast(msg + '：可拖曳地圖後按「搜尋此區域」');
+                if (err.code === 1) toast('定位被拒：請允許定位權限，或用上方「地址搜尋」／拖曳地圖後「搜尋此區域」');
+                else toast(msg + '：可用地址搜尋或拖曳地圖後「搜尋此區域」');
                 if (initial) fallbackNoGps();
                 else $searchHere.hidden = false;
             },
@@ -744,6 +856,40 @@
         const moved = haversine(queryCenter.lat, queryCenter.lon, c.lat, c.lng);
         if (moved > 200) $searchHere.hidden = false;
     });
+
+    // ── 全螢幕大地圖（純 CSS 沉浸模式，iOS 也可用；並嘗試真正 Fullscreen） ──
+    const $fsBtn = document.getElementById('fsBtn');
+    const $fsBar = document.getElementById('fsBar');
+    function setImmersive(on) {
+        document.body.classList.toggle('immersive', on);
+        $fsBar.hidden = !on;
+        if (!on) document.body.classList.remove('show-list');
+        // Leaflet 需在容器改變大小後重算
+        setTimeout(() => map.invalidateSize(), 280);
+    }
+    $fsBtn.addEventListener('click', () => {
+        const on = !document.body.classList.contains('immersive');
+        setImmersive(on);
+        try {
+            if (on) {
+                const el = document.documentElement;
+                (el.requestFullscreen || el.webkitRequestFullscreen || function(){}).call(el);
+            } else if (document.fullscreenElement || document.webkitFullscreenElement) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            }
+        } catch (e) { /* iframe 或 iOS 不支援 → CSS 沉浸模式仍生效 */ }
+    });
+    document.getElementById('fsExit').addEventListener('click', () => {
+        setImmersive(false);
+        try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+    });
+    document.getElementById('fsListToggle').addEventListener('click', () => document.body.classList.toggle('show-list'));
+    document.getElementById('fsLocate2').addEventListener('click', () => locate(false));
+    // 沉浸模式下點清單標題列 = 拉起／收合抽屜
+    document.querySelector('.list-head').addEventListener('click', () => {
+        if (document.body.classList.contains('immersive')) document.body.classList.toggle('show-list');
+    });
+    document.addEventListener('fullscreenchange', () => setTimeout(() => map.invalidateSize(), 200));
 
     // ── Address search (OpenStreetMap Nominatim, 免金鑰) ──
     const $addr   = document.getElementById('addrInput');
