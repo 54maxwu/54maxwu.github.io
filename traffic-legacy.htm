@@ -193,20 +193,6 @@
             text-transform: uppercase;
         }
         .cam-status.online { background: rgba(16,185,129,.92); }
-        .cam-status.pending { background: rgba(100,116,139,.85); }
-
-        .cam-src {
-            position: absolute;
-            top: 8px; right: 8px;
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 999px;
-            background: rgba(15,23,42,.7);
-            color: #cbd5e1;
-            letter-spacing: .03em;
-        }
-        .cam-src.foreign { background: rgba(37,99,235,.85); color: #fff; }
 
         .cam-body {
             padding: 10px 12px 12px;
@@ -349,6 +335,7 @@
             background: #000;
             object-fit: contain;
         }
+        /* Native browser controls already provide play / pause / seek / volume / fullscreen */
 
         .video-overlay {
             position: absolute;
@@ -576,89 +563,6 @@
             transform: translateX(-50%) translateY(0);
         }
 
-        /* ── Source filter + gear ── */
-        .src-filter {
-            font-size: 12px;
-            padding: 7px 26px 7px 10px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 8px;
-            background: #f8fafc;
-            color: #1e293b;
-            font-family: inherit;
-            outline: none;
-            cursor: pointer;
-        }
-        .src-filter:focus { border-color: #0d9488; background: #fff; }
-        .gear-btn {
-            width: 34px; height: 34px;
-            border-radius: 8px;
-            border: 1.5px solid #e2e8f0;
-            background: #f8fafc;
-            color: #64748b;
-            font-size: 15px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: background .12s, color .12s, border-color .12s;
-        }
-        .gear-btn:hover { background: #ecfdf5; color: #0d9488; border-color: #14b8a6; }
-
-        /* ── Proxy modal (light) ── */
-        .proxy-card {
-            background: #fff;
-            border-radius: 14px;
-            max-width: 540px;
-            width: 100%;
-            overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,.4);
-            display: flex;
-            flex-direction: column;
-            max-height: 90vh;
-        }
-        .proxy-card .ph {
-            padding: 14px 18px;
-            background: #0f172a;
-            color: #f1f5f9;
-            font-size: 14px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .proxy-card .ph button {
-            background: transparent; border: none; color: #94a3b8;
-            font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;
-        }
-        .proxy-card .pb { padding: 18px; overflow-y: auto; }
-        .proxy-card .pn { font-size: 12.5px; color: #475569; line-height: 1.6; margin-bottom: 12px; }
-        .proxy-card .pn code { background: #f1f5f9; padding: 1px 6px; border-radius: 5px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #be123c; }
-        .proxy-card .prow { display: flex; gap: 8px; flex-wrap: wrap; }
-        .proxy-card input.ptxt {
-            flex: 1 1 240px;
-            font-family: ui-monospace, Consolas, monospace;
-            font-size: 12px;
-            padding: 9px 11px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 8px;
-            outline: none;
-        }
-        .proxy-card input.ptxt:focus { border-color: #0d9488; }
-        .proxy-card .pbtn {
-            padding: 9px 16px; border: none; border-radius: 8px;
-            font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
-        }
-        .proxy-card .pbtn.save { background: linear-gradient(145deg,#14b8a6,#0d9488); color: #fff; }
-        .proxy-card .pbtn.clear { background: #f1f5f9; color: #475569; }
-        .proxy-card .pstatus { font-size: 12px; margin-top: 10px; font-weight: 600; min-height: 16px; }
-        .proxy-card .pstatus.set { color: #15803d; }
-        .proxy-card .pstatus.unset { color: #b45309; }
-        .proxy-card pre.pcode {
-            background: #0f172a; color: #e2e8f0; border-radius: 8px;
-            padding: 12px; font-size: 11px; overflow: auto; max-height: 240px;
-            margin-top: 10px; font-family: ui-monospace, Consolas, monospace; white-space: pre;
-        }
-
         @media (max-width: 640px) {
             .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
             .cam-name { font-size: 12px; min-height: 32px; }
@@ -678,12 +582,6 @@
             <button type="button" class="search-clear" id="searchClear" hidden>&times;</button>
         </div>
         <div class="header-meta">
-            <select class="src-filter" id="sourceFilter" title="來源篩選">
-                <option value="all">全部來源</option>
-                <option value="local">台中自有</option>
-                <option value="foreign">外部代管</option>
-            </select>
-            <button class="gear-btn" id="gearBtn" type="button" title="代理設定" hidden>⚙</button>
             <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
         </div>
     </div>
@@ -721,7 +619,7 @@
                 </div>
             </div>
             <div class="video-wrap">
-                <img id="video" class="modal-video" alt="" crossorigin="anonymous" referrerpolicy="no-referrer">
+                <img id="video" class="modal-video" alt="" referrerpolicy="no-referrer">
                 <div class="video-overlay" id="loadingOverlay">
                     <div class="spinner"></div>
                     <div class="ov-msg">正在連接串流…</div>
@@ -748,7 +646,7 @@
             </div>
 
             <div class="share-pop" id="sharePop">
-                <div class="pop-title">MJPEG 串流網址（給外部播放器用）</div>
+                <div class="pop-title">HLS 串流網址（HEVC,給外部播放器用）</div>
                 <div class="url-row">
                     <input type="text" id="shareUrl" readonly>
                 </div>
@@ -776,120 +674,135 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="proxyModal" style="z-index:150;">
-        <div class="proxy-card">
-            <div class="ph"><span>⚙ 代理設定</span><button id="proxyClose" type="button">&times;</button></div>
-            <div class="pb">
-                <p class="pn">台中交通站的攝影機清單與影像位址端點<strong>沒有開放跨網域</strong>（CORS），瀏覽器需要一個代理來讀取。要「全載」近千支攝影機時，公用代理很容易被限流，強烈建議部署你自己的 Cloudflare Worker（免費、穩定）。留空則改用公用代理。（影像串流本身有開 CORS，不經代理。）</p>
-                <div class="prow">
-                    <input type="text" class="ptxt" id="proxyInput" placeholder="https://tc.你的帳號.workers.dev" autocomplete="off" spellcheck="false">
-                    <button class="pbtn save" id="proxySave" type="button">儲存</button>
-                    <button class="pbtn clear" id="proxyClear" type="button">清除</button>
-                </div>
-                <div class="pstatus" id="proxyStatus"></div>
-                <div class="prow" style="margin-top:14px; align-items:center; justify-content:space-between;">
-                    <span class="pn" style="margin:0; font-weight:600;">Worker 程式碼（貼到 Cloudflare）：</span>
-                    <button class="pbtn clear" id="proxyCopy" type="button" style="padding:6px 12px;">⧉ 複製</button>
-                </div>
-                <pre class="pcode" id="proxyCode"></pre>
-            </div>
-        </div>
-    </div>
-
     <div class="toast" id="toast"></div>
 
     <script>
-    // ══════════════════════════════════════════════════════
-    //  台中交通即時影像 — 新版 (ATIS_TCC) 資料流
-    //  清單:  other/map/device_local.json  +  device_foreign.json
-    //  解位址: Device/Showcctv?id=<ID>  →  <img src="https://tcnvrN…/<hash>">
-    //  影像:  tcnvrN 的 MJPEG 串流 (multipart/x-mixed-replace，ACAO:*)
-    //  ATIS 端點無 CORS → 需經代理；影像本身有 CORS → 直連。
-    // ══════════════════════════════════════════════════════
-    const ATIS         = 'https://e-traffic.taichung.gov.tw/ATIS_TCC/';
-    const LOCAL_JSON   = ATIS + 'other/map/device_local.json';
-    const FOREIGN_JSON = ATIS + 'other/map/device_foreign.json';
-    const SHOWCCTV     = ATIS + 'Device/Showcctv?id=';
-
-    // ── Proxy setup (direct first, then user worker, then public) ──
-    const PROXY_KEY     = 'tc_traffic_proxy';
-    // 沿用既有的通用 ?url= 代理 worker；有預設 → 隱藏 ⚙ 代理 UI
-    const DEFAULT_PROXY = 'https://missing.54maxwu.workers.dev/';
-    const getProxy = () => { try { return (localStorage.getItem(PROXY_KEY) ?? DEFAULT_PROXY).trim(); } catch { return DEFAULT_PROXY; } };
-    const WORKER_CODE =
-`export default {
-  async fetch(request) {
-    const CORS = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    };
-    if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-    const target = new URL(request.url).searchParams.get('url');
-    if (!target) return new Response('missing ?url=', { status: 400, headers: CORS });
-    try {
-      const upstream = await fetch(target, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrafficViewer/1.0)' },
-        redirect: 'follow',
-      });
-      const body = await upstream.text();
-      return new Response(body, {
-        status: upstream.status,
-        headers: { ...CORS, 'Content-Type': upstream.headers.get('content-type') || 'text/html; charset=utf-8' },
-      });
-    } catch (e) {
-      return new Response('proxy error: ' + e.message, { status: 502, headers: CORS });
-    }
-  }
-};`;
-
-    function proxyList() {
-        const list = [];
-        const p = getProxy();
-        if (p) list.push(u => p + (p.includes('?') ? '&' : (p.endsWith('/') ? '' : '/')) + '?url=' + encodeURIComponent(u));
-        list.push(
-            u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
-            u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-            u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
-        );
-        return list;
-    }
-    // Fetch text: try DIRECT first (works if CORS ever opens / same-origin),
-    // then fall back through the proxy chain.
-    async function fetchText(u) {
-        try {
-            const r = await fetch(u, { cache: 'no-store' });
-            if (r.ok) { const t = await r.text(); if (t && t.length > 20) return t; }
-        } catch (e) { /* CORS-blocked → proxies */ }
-        let last;
-        for (const make of proxyList()) {
-            try {
-                const r = await fetch(make(u), { cache: 'no-store' });
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                const t = await r.text();
-                if (t && t.length > 20) return t;
-                throw new Error('空白回應');
-            } catch (e) { last = e; }
+    // ── MD5 (Joseph Myers, public domain) ─────────────────
+    const md5 = (() => {
+        function safeAdd(x, y) {
+            const lsw = (x & 0xffff) + (y & 0xffff);
+            return (((x >> 16) + (y >> 16) + (lsw >> 16)) << 16) | (lsw & 0xffff);
         }
-        throw last || new Error('無法取得內容');
+        function rol(n, c) { return (n << c) | (n >>> (32 - c)); }
+        function cmn(q, a, b, x, s, t) { return safeAdd(rol(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b); }
+        function ff(a, b, c, d, x, s, t) { return cmn((b & c) | ((~b) & d), a, b, x, s, t); }
+        function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & (~d)), a, b, x, s, t); }
+        function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+        function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | (~d)), a, b, x, s, t); }
+
+        function cycle(x, k) {
+            let [a, b, c, d] = x;
+            a=ff(a,b,c,d,k[0],7,-680876936);   d=ff(d,a,b,c,k[1],12,-389564586);
+            c=ff(c,d,a,b,k[2],17,606105819);   b=ff(b,c,d,a,k[3],22,-1044525330);
+            a=ff(a,b,c,d,k[4],7,-176418897);   d=ff(d,a,b,c,k[5],12,1200080426);
+            c=ff(c,d,a,b,k[6],17,-1473231341); b=ff(b,c,d,a,k[7],22,-45705983);
+            a=ff(a,b,c,d,k[8],7,1770035416);   d=ff(d,a,b,c,k[9],12,-1958414417);
+            c=ff(c,d,a,b,k[10],17,-42063);     b=ff(b,c,d,a,k[11],22,-1990404162);
+            a=ff(a,b,c,d,k[12],7,1804603682);  d=ff(d,a,b,c,k[13],12,-40341101);
+            c=ff(c,d,a,b,k[14],17,-1502002290);b=ff(b,c,d,a,k[15],22,1236535329);
+
+            a=gg(a,b,c,d,k[1],5,-165796510);   d=gg(d,a,b,c,k[6],9,-1069501632);
+            c=gg(c,d,a,b,k[11],14,643717713);  b=gg(b,c,d,a,k[0],20,-373897302);
+            a=gg(a,b,c,d,k[5],5,-701558691);   d=gg(d,a,b,c,k[10],9,38016083);
+            c=gg(c,d,a,b,k[15],14,-660478335); b=gg(b,c,d,a,k[4],20,-405537848);
+            a=gg(a,b,c,d,k[9],5,568446438);    d=gg(d,a,b,c,k[14],9,-1019803690);
+            c=gg(c,d,a,b,k[3],14,-187363961);  b=gg(b,c,d,a,k[8],20,1163531501);
+            a=gg(a,b,c,d,k[13],5,-1444681467); d=gg(d,a,b,c,k[2],9,-51403784);
+            c=gg(c,d,a,b,k[7],14,1735328473);  b=gg(b,c,d,a,k[12],20,-1926607734);
+
+            a=hh(a,b,c,d,k[5],4,-378558);      d=hh(d,a,b,c,k[8],11,-2022574463);
+            c=hh(c,d,a,b,k[11],16,1839030562); b=hh(b,c,d,a,k[14],23,-35309556);
+            a=hh(a,b,c,d,k[1],4,-1530992060);  d=hh(d,a,b,c,k[4],11,1272893353);
+            c=hh(c,d,a,b,k[7],16,-155497632);  b=hh(b,c,d,a,k[10],23,-1094730640);
+            a=hh(a,b,c,d,k[13],4,681279174);   d=hh(d,a,b,c,k[0],11,-358537222);
+            c=hh(c,d,a,b,k[3],16,-722521979);  b=hh(b,c,d,a,k[6],23,76029189);
+            a=hh(a,b,c,d,k[9],4,-640364487);   d=hh(d,a,b,c,k[12],11,-421815835);
+            c=hh(c,d,a,b,k[15],16,530742520);  b=hh(b,c,d,a,k[2],23,-995338651);
+
+            a=ii(a,b,c,d,k[0],6,-198630844);   d=ii(d,a,b,c,k[7],10,1126891415);
+            c=ii(c,d,a,b,k[14],15,-1416354905);b=ii(b,c,d,a,k[5],21,-57434055);
+            a=ii(a,b,c,d,k[12],6,1700485571);  d=ii(d,a,b,c,k[3],10,-1894986606);
+            c=ii(c,d,a,b,k[10],15,-1051523);   b=ii(b,c,d,a,k[1],21,-2054922799);
+            a=ii(a,b,c,d,k[8],6,1873313359);   d=ii(d,a,b,c,k[15],10,-30611744);
+            c=ii(c,d,a,b,k[6],15,-1560198380); b=ii(b,c,d,a,k[13],21,1309151649);
+            a=ii(a,b,c,d,k[4],6,-145523070);   d=ii(d,a,b,c,k[11],10,-1120210379);
+            c=ii(c,d,a,b,k[2],15,718787259);   b=ii(b,c,d,a,k[9],21,-343485551);
+
+            x[0] = safeAdd(a, x[0]);
+            x[1] = safeAdd(b, x[1]);
+            x[2] = safeAdd(c, x[2]);
+            x[3] = safeAdd(d, x[3]);
+        }
+
+        function blk(bytes, off) {
+            const b = new Array(16);
+            for (let i = 0; i < 16; i++) {
+                b[i] =  bytes[off + i*4]
+                     | (bytes[off + i*4 + 1] << 8)
+                     | (bytes[off + i*4 + 2] << 16)
+                     | (bytes[off + i*4 + 3] << 24);
+            }
+            return b;
+        }
+
+        const enc = new TextEncoder();
+        return function (str) {
+            const bytes = enc.encode(str);
+            const n = bytes.length;
+            const state = [1732584193, -271733879, -1732584194, 271733878];
+
+            let i;
+            for (i = 64; i <= n; i += 64) cycle(state, blk(bytes, i - 64));
+
+            const tail = new Uint8Array(64);
+            const rem = bytes.subarray(i - 64);
+            tail.set(rem);
+            tail[rem.length] = 0x80;
+            if (rem.length > 55) {
+                cycle(state, blk(tail, 0));
+                tail.fill(0);
+            }
+            const bits = n * 8;
+            tail[56] = bits & 0xFF;
+            tail[57] = (bits >>> 8) & 0xFF;
+            tail[58] = (bits >>> 16) & 0xFF;
+            tail[59] = (bits >>> 24) & 0xFF;
+            cycle(state, blk(tail, 0));
+
+            const hex = '0123456789abcdef';
+            let out = '';
+            for (const w of state) {
+                for (let j = 0; j < 4; j++) {
+                    const v = (w >>> (j * 8)) & 0xFF;
+                    out += hex[v >>> 4] + hex[v & 0xF];
+                }
+            }
+            return out;
+        };
+    })();
+
+    // ── Base64 helper (UTF-8 safe) ────────────────────────
+    function b64Encode(str) {
+        const bytes = new TextEncoder().encode(str);
+        let bin = '';
+        for (const b of bytes) bin += String.fromCharCode(b);
+        return btoa(bin);
     }
-    async function fetchJson(u) { return JSON.parse(await fetchText(u)); }
+
+    // ── Constants from the source Vue component ──────────
+    const API_BASE     = 'https://tcnvr2.taichung.gov.tw:7001';
+    const USERNAME     = 'publicviewer';
+    const DIGEST       = 'cfa189e7f102b35dd9aa0075f794517e';
+    const PARTIAL_HA2  = '8f61ab83c6acab8a073a6d49e1517860'; // md5("GET:")
 
     // ── State ─────────────────────────────────────────────
-    let cameras = [];                    // [{ id, name, source, x, y }]
-    let currentCam = null;               // { id, name, url }
-    const streamCache = new Map();       // id → url | null  (session)
-
-    function urlKey(id) { return 'tcs_' + id; }
-    function cachedUrl(id) { try { return localStorage.getItem(urlKey(id)); } catch { return null; } }
-    function saveUrl(id, url) { try { localStorage.setItem(urlKey(id), url); } catch {} }
+    let authKey = '';
+    let cameras = [];
 
     // ── DOM ───────────────────────────────────────────────
     const $grid       = document.getElementById('grid');
     const $search     = document.getElementById('searchInput');
     const $searchClr  = document.getElementById('searchClear');
-    const $sourceSel  = document.getElementById('sourceFilter');
-    const $gearBtn    = document.getElementById('gearBtn');
     const $modal      = document.getElementById('modal');
     const $video      = document.getElementById('video');
     const $closeBtn   = document.getElementById('closeBtn');
@@ -930,219 +843,119 @@
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // Position 欄位形如 "[07067]中清路/環中路(…),Zhongqing Rd…" 或 "02012文心南路…,Wenxin…"
-    // 取中文段、去掉開頭代碼。
-    function displayName(raw) {
-        let s = String(raw || '').trim();
-        s = s.replace(/^\[[^\]]*\]/, '').replace(/^\d{4,6}/, '').trim();
-        const zh = s.split(/,(?=[A-Za-z])/)[0].trim();  // 在「,英文」處切開
-        return zh || s || '(未命名)';
+    // ── Auth handshake ────────────────────────────────────
+    async function authenticate() {
+        setStatus('取得認證中…');
+        const res = await fetch(API_BASE + '/web/api/getNonce');
+        const d   = await res.json();
+        const nonce = d.reply.nonce;
+        const simplifiedHa2 = md5(DIGEST + ':' + nonce + ':' + PARTIAL_HA2);
+        authKey = b64Encode(USERNAME + ':' + nonce + ':' + simplifiedHa2);
     }
 
-    // ── Resolve a camera's live MJPEG URL via Showcctv ────
-    async function resolveStream(id) {
-        if (streamCache.has(id)) return streamCache.get(id);
-        const saved = cachedUrl(id);
-        if (saved) { streamCache.set(id, saved); return saved; }
-        let url = null;
-        try {
-            const html = await fetchText(SHOWCCTV + encodeURIComponent(id));
-            const m = html.match(/src="(https?:\/\/tcnvr[^"]+)"/i);
-            if (m) url = m[1];
-        } catch (e) { /* leave null */ }
-        streamCache.set(id, url);
-        if (url) saveUrl(id, url);   // hash 是固定的，永久快取
-        return url;
+    async function fetchCameras() {
+        const res = await fetch(API_BASE + '/ec2/getCamerasEx?auth=' + encodeURIComponent(authKey));
+        return res.json();
     }
-
-    // ── Load camera lists ─────────────────────────────────
-    async function loadCameras() {
-        const out = [];
-        const stamp = Date.now();
-        // 台中自有
-        try {
-            const loc = await fetchJson(LOCAL_JSON + '?_=' + stamp);
-            if (Array.isArray(loc)) loc.forEach(c => {
-                if ((c.Type || '').toLowerCase() === 'cctv' && c.Visible !== false)
-                    out.push({ id: c.ID, name: c.Position || c.ID, source: 'local', x: c.X, y: c.Y });
-            });
-        } catch (e) { console.warn('device_local 載入失敗', e); }
-        // 外部代管（公路局等）
-        try {
-            const frn = await fetchJson(FOREIGN_JSON + '?_=' + stamp);
-            if (Array.isArray(frn)) frn.forEach(c => {
-                if ((c.DeviceType || '').toLowerCase() === 'cctv')
-                    out.push({ id: c.ID, name: c.Position || c.ID, source: 'foreign', x: c.X, y: c.Y });
-            });
-        } catch (e) { console.warn('device_foreign 載入失敗', e); }
-        return out;
-    }
-
-    // ══ Thumbnail engine ══════════════════════════════════
-    // MJPEG-only 系統沒有單張快照端點：對每張卡片開串流→抓第一幀→
-    // 存成靜態 JPEG→立刻關連線（snapshot-and-release），並發受限，
-    // 由 IntersectionObserver 依進入畫面順序排入佇列。
-    const SNAP_CONCURRENCY = 6;
-    let active = 0;
-    const queue = [];
-    function pump() {
-        while (active < SNAP_CONCURRENCY && queue.length) {
-            const task = queue.shift();
-            active++;
-            Promise.resolve().then(task).finally(() => { active--; pump(); });
-        }
-    }
-    function enqueue(task) { queue.push(task); pump(); }
-
-    // 開一條 MJPEG，抓到第一幀就畫進 canvas、回傳 dataURL，然後斷線
-    function grabFrame(streamUrl) {
-        return new Promise(resolve => {
-            const im = new Image();
-            im.crossOrigin = 'anonymous';
-            let done = false;
-            const finish = (v) => {
-                if (done) return;
-                done = true;
-                clearTimeout(timer);
-                try { im.src = ''; } catch {}   // 關閉持久連線，釋放頻寬
-                resolve(v);
-            };
-            im.onload = () => {
-                try {
-                    const w = im.naturalWidth || 352, h = im.naturalHeight || 288;
-                    const c = document.createElement('canvas');
-                    c.width = w; c.height = h;
-                    c.getContext('2d').drawImage(im, 0, 0, w, h);
-                    finish(c.toDataURL('image/jpeg', 0.62));
-                } catch (e) { finish(null); }
-            };
-            im.onerror = () => finish(null);
-            const timer = setTimeout(() => finish(null), 12000);
-            im.src = streamUrl;
-        });
-    }
-
-    async function snapCard(card) {
-        if (!card.isConnected || card.dataset.snap) return;
-        card.dataset.snap = '1';
-        const id     = card.dataset.id;
-        const imgEl  = card.querySelector('.cam-thumb');
-        const fbEl   = card.querySelector('.cam-thumb-fallback');
-        const badge  = card.querySelector('.cam-status');
-
-        const url = await resolveStream(id);
-        if (!card.isConnected) return;
-        if (!url) { markOffline(badge, fbEl, imgEl); return; }
-        card.dataset.url = url;
-
-        const frame = await grabFrame(url);
-        if (!card.isConnected) return;
-        if (frame) {
-            imgEl.src = frame;
-            imgEl.classList.remove('broken');
-            fbEl.style.display = 'none';
-            badge.textContent = '● LIVE';
-            badge.className = 'cam-status online';
-        } else {
-            markOffline(badge, fbEl, imgEl);
-        }
-    }
-    function markOffline(badge, fbEl, imgEl) {
-        badge.textContent = 'OFFLINE';
-        badge.className = 'cam-status';
-        imgEl.classList.add('broken');
-        fbEl.style.display = 'block';
-    }
-
-    // 卡片進入視窗才排入抓圖佇列
-    const io = ('IntersectionObserver' in window)
-        ? new IntersectionObserver((entries, obs) => {
-            entries.forEach(en => {
-                if (en.isIntersecting) {
-                    obs.unobserve(en.target);
-                    enqueue(() => snapCard(en.target));
-                }
-            });
-        }, { rootMargin: '300px' })
-        : null;
 
     // ── Render grid ───────────────────────────────────────
     function renderGrid() {
-        // 換清單前先清空待抓佇列（避免抓到已被過濾掉的卡）
-        queue.length = 0;
-        const q   = $search.value.trim().toLowerCase();
-        const src = $sourceSel.value;
-        const list = cameras.filter(c =>
-            (src === 'all' || c.source === src) &&
-            (!q || displayName(c.name).toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
-        );
+        const q = $search.value.trim().toLowerCase();
+        const list = cameras
+            .filter(c => c.mac && c.mac !== '00-00-00-00-00-00')
+            .filter(c => !q || (c.name || '').toLowerCase().includes(q));
 
         if (!list.length) {
             $grid.innerHTML = '<div class="empty-state">沒有符合條件的攝影機</div>';
             return;
         }
 
+        const thumbBase = API_BASE + '/ec2/cameraThumbnail?height=180&width=320&auth=' + encodeURIComponent(authKey) + '&cameraId=';
         $grid.innerHTML = list.map(c => {
-            const nm = displayName(c.name);
+            const online = (c.status || '').toLowerCase() === 'online';
             return `
-                <div class="cam-card" data-id="${esc(c.id)}" data-name="${esc(nm)}">
+                <div class="cam-card" data-mac="${esc(c.mac)}" data-name="${esc(c.name || '')}">
                     <div class="cam-thumb-wrap">
-                        <img class="cam-thumb broken" alt="${esc(nm)}">
-                        <div class="cam-thumb-fallback">📹</div>
+                        <img class="cam-thumb" src="${thumbBase}${encodeURIComponent(c.mac)}" alt="${esc(c.name || '')}" loading="lazy" onerror="this.classList.add('broken'); this.nextElementSibling.style.display='block';">
+                        <div class="cam-thumb-fallback" style="display:none;">📹</div>
                         <div class="cam-play">
                             <svg viewBox="0 0 24 24" fill="#fff">
                                 <circle cx="12" cy="12" r="11" fill="rgba(0,0,0,.55)"/>
                                 <path d="M9.5 7.5v9l7-4.5z" fill="#fff"/>
                             </svg>
                         </div>
-                        <span class="cam-status pending">載入中</span>
-                        <span class="cam-src ${c.source === 'foreign' ? 'foreign' : ''}">${c.source === 'foreign' ? '外部' : '台中'}</span>
+                        <span class="cam-status ${online ? 'online' : ''}">${online ? '● LIVE' : 'OFFLINE'}</span>
                     </div>
                     <div class="cam-body">
-                        <div class="cam-name">${esc(nm)}</div>
+                        <div class="cam-name">${esc(c.name || '(未命名)')}</div>
                     </div>
                 </div>
             `;
         }).join('');
 
         $grid.querySelectorAll('.cam-card').forEach(el => {
-            el.addEventListener('click', () => openVideo(el.dataset.id, el.dataset.name));
-            if (io) io.observe(el);
-            else enqueue(() => snapCard(el));   // 無 IO 支援 → 直接排入
+            el.addEventListener('click', () => {
+                openVideo(el.dataset.mac, el.dataset.name);
+            });
         });
     }
 
     // ── Video modal ───────────────────────────────────────
-    function showLoading() { $loadingOv.hidden = false; $errorOv.hidden = true; $pausedOv.hidden = true; }
+    let currentCam = null;   // { mac, name }
+
+    function showLoading() {
+        $loadingOv.hidden = false;
+        $errorOv.hidden   = true;
+        $pausedOv.hidden  = true;
+    }
     function showError(msg, sub) {
-        $loadingOv.hidden = true; $errorOv.hidden = false; $pausedOv.hidden = true;
+        $loadingOv.hidden = true;
+        $errorOv.hidden   = false;
+        $pausedOv.hidden  = true;
         $errorMsg.textContent = msg || '無法載入串流';
         $errorSub.textContent = sub || '';
     }
-    function showPaused()   { $loadingOv.hidden = true; $errorOv.hidden = true; $pausedOv.hidden = false; }
-    function hideOverlays() { $loadingOv.hidden = true; $errorOv.hidden = true; $pausedOv.hidden = true; }
-
-    function loadStream() {
-        if (!currentCam || !currentCam.url) return;
-        showLoading();
-        $video.removeAttribute('src');
-        requestAnimationFrame(() => { $video.src = currentCam.url; });
+    function showPaused() {
+        $loadingOv.hidden = true;
+        $errorOv.hidden   = true;
+        $pausedOv.hidden  = false;
+    }
+    function hideOverlays() {
+        $loadingOv.hidden = true;
+        $errorOv.hidden   = true;
+        $pausedOv.hidden  = true;
     }
 
-    async function openVideo(id, name) {
-        currentCam = { id, name, url: null };
-        $modalTitle.textContent = displayName(name) || id;
+    // MJPEG endpoint — multipart JPEG stream, plays natively in <img>, no codec needed
+    function buildStreamUrl(camMac) {
+        return API_BASE + '/media/' + camMac + '.mpjpeg?auth=' + encodeURIComponent(authKey);
+    }
+    // HLS endpoint — higher quality (HEVC), keep for external desktop players
+    function buildHlsUrl(camMac) {
+        return API_BASE + '/hls/' + camMac + '.m3u?auth=' + encodeURIComponent(authKey);
+    }
+
+    function loadStream() {
+        if (!currentCam) return;
+        // Cache-bust so re-clicking the same camera forces a fresh connection
+        const src = buildStreamUrl(currentCam.mac) + '&t=' + Date.now();
+        $video.removeAttribute('src');
+        showLoading();
+        requestAnimationFrame(() => { $video.src = src; });
+    }
+
+    async function openVideo(mac, name) {
+        currentCam = { mac, name };
+        $modalTitle.textContent = name || '即時影像';
         $modal.classList.add('show');
         showLoading();
-        // 先用卡片可能已抓到的 URL，否則現解
-        let url = streamCache.get(id) || cachedUrl(id);
-        if (!url) {
-            try { url = await resolveStream(id); }
-            catch { url = null; }
+        // Auth tokens expire fast — refresh right before connecting
+        try { await authenticate(); }
+        catch {
+            showError('auth 取得失敗', '請稍後再試或重新整理頁面');
+            return;
         }
-        if (!currentCam || currentCam.id !== id) return;  // 中途關閉/切換
-        if (!url) { showError('設備維護中或離線', '此攝影機目前沒有可用影像'); return; }
-        currentCam.url = url;
+        if (!currentCam || currentCam.mac !== mac) return; // user closed / switched in the meantime
         loadStream();
     }
 
@@ -1152,69 +965,93 @@
         $sharePop.classList.remove('show');
         hideOverlays();
         currentCam = null;
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+        }
     }
 
     // ── <img> stream state → overlay handling ─────────────
     $video.addEventListener('load',  hideOverlays);
     $video.addEventListener('error', () => {
         if (!currentCam) return;
-        if (!$pausedOv.hidden) return;   // src 是為了外部播放而清掉的
+        if (!$pausedOv.hidden) return; // src cleared on purpose for external handoff
         showError('串流連線失敗', '請檢查網路或改用外部播放器');
     });
 
-    $pausedOv.addEventListener('click', () => {
+    // Click the paused placeholder → refresh auth and resume the in-page stream
+    $pausedOv.addEventListener('click', async () => {
+        if (!currentCam) return;
+        showLoading();
+        try { await authenticate(); }
+        catch { showError('auth 取得失敗', '請稍後再試'); return; }
         if (!currentCam) return;
         loadStream();
     });
 
     // ── Toolbar buttons ───────────────────────────────────
-    $reloadBtn.addEventListener('click', () => { toast('重新整理串流'); loadStream(); });
+    $reloadBtn.addEventListener('click', () => {
+        toast('重新整理串流');
+        loadStream();
+    });
+
     $retryBtn.addEventListener('click', loadStream);
 
     $fsBtn.addEventListener('click', () => {
         const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-        if (fsEl) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
-        if ($videoWrap.requestFullscreen)            $videoWrap.requestFullscreen();
-        else if ($videoWrap.webkitRequestFullscreen) $videoWrap.webkitRequestFullscreen();
-        else                                         toast('此瀏覽器不支援全螢幕');
+        if (fsEl) {
+            (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            return;
+        }
+        if ($videoWrap.requestFullscreen)             $videoWrap.requestFullscreen();
+        else if ($videoWrap.webkitRequestFullscreen)  $videoWrap.webkitRequestFullscreen();
+        else                                          toast('此瀏覽器不支援全螢幕');
     });
 
-    // ── External player ───────────────────────────────────
+    // ── External player ──────────────────────────────────
     function safeFilename(s) {
         return String(s || 'stream').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
     }
-    function stopInPageStream() { $video.removeAttribute('src'); }
 
-    async function ensureUrl() {
-        if (currentCam && currentCam.url) return currentCam.url;
-        if (!currentCam) return null;
-        const u = await resolveStream(currentCam.id);
-        if (currentCam) currentCam.url = u;
-        return u;
+    // Stop the in-page MJPEG stream so it stops eating bandwidth /
+    // doesn't conflict with the external player (same source IP)
+    function stopInPageStream() {
+        $video.removeAttribute('src');
     }
 
     async function externalAction(kind) {
         if (!currentCam) return;
-        const name = displayName(currentCam.name) || 'Stream';
+        const name = currentCam.name || 'Stream';
+
+        // Auth tokens expire fast — refresh before handing URL to external player
         $sharePop.classList.remove('show');
-        const url = await ensureUrl();
-        if (!url) { toast('無可用串流網址'); return; }
+        toast('取得最新 auth…');
+        try { await authenticate(); }
+        catch (e) { toast('auth 取得失敗'); return; }
+        const url = buildHlsUrl(currentCam.mac);
 
         switch (kind) {
             case 'potplayer':
-                stopInPageStream(); showPaused();
+                stopInPageStream();
+                showPaused();
                 location.href = 'potplayer://' + url;
                 toast('已交給 PotPlayer');
                 break;
             case 'vlc':
-                stopInPageStream(); showPaused();
+                stopInPageStream();
+                showPaused();
                 location.href = 'vlc://' + url;
                 toast('已交給 VLC');
                 break;
             case 'copy':
-                try { await navigator.clipboard.writeText(url); toast('已複製串流網址'); }
-                catch { $shareUrl.value = url; $shareUrl.select(); document.execCommand('copy'); toast('已複製串流網址'); }
+                try {
+                    await navigator.clipboard.writeText(url);
+                    toast('已複製串流網址（HLS）');
+                } catch {
+                    $shareUrl.value = url;
+                    $shareUrl.select();
+                    document.execCommand('copy');
+                    toast('已複製串流網址（HLS）');
+                }
                 break;
             case 'download': {
                 const content = `#EXTM3U\n#EXTINF:-1,${name}\n${url}\n`;
@@ -1235,11 +1072,12 @@
     async function openSharePop() {
         if (!currentCam) return;
         $sharePop.classList.add('show');
-        $shareUrl.value = '解析串流網址…';
-        const url = await ensureUrl();
+        $shareUrl.value = '取得最新 auth…';
+        try { await authenticate(); } catch { $shareUrl.value = 'auth 取得失敗'; return; }
         if (!currentCam) return;
-        $shareUrl.value = url || '（無可用網址）';
-        $shareUrl.focus(); $shareUrl.select();
+        $shareUrl.value = buildHlsUrl(currentCam.mac);  // external use → HLS URL
+        $shareUrl.focus();
+        $shareUrl.select();
     }
 
     $shareBtn.addEventListener('click', e => {
@@ -1247,16 +1085,22 @@
         if ($sharePop.classList.contains('show')) $sharePop.classList.remove('show');
         else openSharePop();
     });
+
+    // Click outside the popover to dismiss
     document.addEventListener('click', e => {
         if (!$sharePop.classList.contains('show')) return;
         if ($sharePop.contains(e.target) || $shareBtn.contains(e.target)) return;
         $sharePop.classList.remove('show');
     });
+
+    // Wire up both the popover rows and the error-overlay quick buttons
     document.querySelectorAll('[data-ext]').forEach(el => {
-        el.addEventListener('click', e => { e.stopPropagation(); externalAction(el.dataset.ext); });
+        el.addEventListener('click', e => {
+            e.stopPropagation();
+            externalAction(el.dataset.ext);
+        });
     });
 
-    // ── Snapshot (screenshot) ─────────────────────────────
     $snapBtn.addEventListener('click', () => {
         if (!$video.naturalWidth) { toast('影像尚未載入'); return; }
         try {
@@ -1266,10 +1110,11 @@
             const g = c.getContext('2d');
             g.drawImage($video, 0, 0, c.width, c.height);
 
+            // Overlay caption: name + timestamp
             const ts = new Date().toLocaleString('zh-TW', { hour12: false });
-            const cap = `${displayName(currentCam?.name) || ''}  ${ts}`;
+            const cap = `${currentCam?.name || ''}  ${ts}`;
             g.font = 'bold 18px -apple-system, "Segoe UI", "Noto Sans TC", sans-serif';
-            const padX = 14;
+            const padX = 14, padY = 10;
             const w = g.measureText(cap).width + padX * 2;
             g.fillStyle = 'rgba(0,0,0,.55)';
             g.fillRect(0, c.height - 36, w, 36);
@@ -1277,7 +1122,7 @@
             g.textBaseline = 'middle';
             g.fillText(cap, padX, c.height - 18);
 
-            const safeName = (displayName(currentCam?.name) || 'snapshot').replace(/[\\/:*?"<>|]/g, '_').slice(0, 40);
+            const safeName = (currentCam?.name || 'snapshot').replace(/[\\/:*?"<>|]/g, '_').slice(0, 40);
             const stamp = ts.replace(/[\/: ]/g, '-');
             const link = document.createElement('a');
             link.download = `${safeName}_${stamp}.png`;
@@ -1285,18 +1130,20 @@
             link.click();
             toast('已下載截圖');
         } catch (err) {
+            // Likely tainted canvas (CORS) — server didn't send Access-Control-Allow-Origin
             console.error(err);
             toast('截圖失敗（CORS 限制）');
         }
     });
 
-    // ── Modal events ──────────────────────────────────────
+    // ── Events ────────────────────────────────────────────
     $closeBtn.addEventListener('click', closeModal);
-    $modal.addEventListener('click', e => { if (e.target === $modal) closeModal(); });
+    $modal.addEventListener('click', e => {
+        if (e.target === $modal) closeModal();
+    });
     document.addEventListener('keydown', e => {
-        if (proxyModal.classList.contains('show') && e.key === 'Escape') { proxyModal.classList.remove('show'); return; }
         if (!$modal.classList.contains('show')) return;
-        if (document.activeElement === $shareUrl) return;
+        if (document.activeElement === $shareUrl) return; // don't trigger shortcuts while typing
         if (e.key === 'Escape') {
             if ($sharePop.classList.contains('show')) $sharePop.classList.remove('show');
             else closeModal();
@@ -1307,58 +1154,31 @@
         else if (e.key === 'o' || e.key === 'O') $shareBtn.click();
     });
 
-    // ── Search + filter ───────────────────────────────────
-    $search.addEventListener('input', () => { $searchClr.hidden = !$search.value; renderGrid(); });
-    $searchClr.addEventListener('click', () => { $search.value = ''; $searchClr.hidden = true; renderGrid(); $search.focus(); });
-    $sourceSel.addEventListener('change', renderGrid);
-
-    // ── Proxy modal ───────────────────────────────────────
-    const proxyModal  = document.getElementById('proxyModal');
-    const proxyInput  = document.getElementById('proxyInput');
-    const proxyStatus = document.getElementById('proxyStatus');
-    const proxyCode   = document.getElementById('proxyCode');
-    proxyCode.textContent = WORKER_CODE;
-    if (!DEFAULT_PROXY) $gearBtn.hidden = false;   // 無預設代理時才露出 ⚙
-
-    function refreshProxyStatus() {
-        const p = getProxy();
-        if (p) { proxyStatus.textContent = '目前使用：' + p; proxyStatus.className = 'pstatus set'; }
-        else   { proxyStatus.textContent = '目前使用公用代理（可能被限流）'; proxyStatus.className = 'pstatus unset'; }
-    }
-    $gearBtn.addEventListener('click', () => {
-        proxyInput.value = getProxy();
-        refreshProxyStatus();
-        proxyModal.classList.add('show');
+    $search.addEventListener('input', () => {
+        $searchClr.hidden = !$search.value;
+        renderGrid();
     });
-    document.getElementById('proxyClose').addEventListener('click', () => proxyModal.classList.remove('show'));
-    proxyModal.addEventListener('click', e => { if (e.target === proxyModal) proxyModal.classList.remove('show'); });
-    document.getElementById('proxySave').addEventListener('click', () => {
-        try { localStorage.setItem(PROXY_KEY, proxyInput.value.trim()); } catch {}
-        refreshProxyStatus(); toast('已儲存代理設定');
-    });
-    document.getElementById('proxyClear').addEventListener('click', () => {
-        try { localStorage.removeItem(PROXY_KEY); } catch {}
-        proxyInput.value = ''; refreshProxyStatus(); toast('已清除，改用公用代理');
-    });
-    document.getElementById('proxyCopy').addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(WORKER_CODE); toast('已複製 Worker 程式碼'); }
-        catch { toast('複製失敗，請手動選取'); }
+    $searchClr.addEventListener('click', () => {
+        $search.value = '';
+        $searchClr.hidden = true;
+        renderGrid();
+        $search.focus();
     });
 
     // ── Boot ──────────────────────────────────────────────
     (async () => {
         try {
+            await authenticate();
             setStatus('載入攝影機清單…');
-            cameras = await loadCameras();
-            if (!cameras.length) throw new Error('清單為空（可能被代理限流，試試設定自己的 Worker）');
-            const nLocal = cameras.filter(c => c.source === 'local').length;
-            const nForeign = cameras.length - nLocal;
-            setStatus(`共 ${cameras.length} 支（台中 ${nLocal}／外部 ${nForeign}）`, 'ok');
+            cameras = await fetchCameras();
+            if (!Array.isArray(cameras)) cameras = [];
+            const valid = cameras.filter(c => c.mac && c.mac !== '00-00-00-00-00-00').length;
+            setStatus(`已載入 ${valid} 支攝影機`, 'ok');
             renderGrid();
         } catch (err) {
             console.error(err);
             setStatus('連線失敗', 'err');
-            $grid.innerHTML = `<div class="empty-state">⚠ 無法取得攝影機清單<br><span style="font-size:11px;color:#94a3b8;">${esc(err.message || err)}</span><br><br>可點右上角 ⚙ 設定自己的代理 Worker 後重新整理。</div>`;
+            $grid.innerHTML = `<div class="empty-state">⚠ 無法取得攝影機清單<br><span style="font-size:11px;color:#94a3b8;">${esc(err.message || err)}</span></div>`;
         }
     })();
     </script>
