@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>附近公車站牌</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 20px;
+            min-height: 58px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            z-index: 20;
+            gap: 12px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; flex-wrap: wrap; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 5px 11px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; }
+        .status-pill.ok  { background: #ecfdf5; color: #047857; }
+        .status-pill.ok .dot { background: #10b981; }
+        .status-pill.err { background: #fef2f2; color: #b91c1c; }
+        .status-pill.err .dot { background: #ef4444; }
+        .status-pill.load { background: #eff6ff; color: #1d4ed8; }
+        .status-pill.load .dot { background: #3b82f6; animation: bpulse 1s ease-in-out infinite; }
+        @keyframes bpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+        .ctl {
+            font-size: 12px;
+            padding: 7px 10px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #1e293b;
+            font-family: inherit;
+            outline: none;
+            cursor: pointer;
+            transition: border-color .15s, background .15s, color .15s;
+        }
+        .ctl:hover { border-color: #14b8a6; }
+        select.ctl { padding-right: 24px; }
+        .icon-btn {
+            width: 34px; height: 34px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 15px;
+        }
+        .icon-btn.spin svg, .icon-btn.spinning { animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Layout ── */
+        .layout { flex: 1; display: flex; min-height: 0; }
+        #map { flex: 1; min-width: 0; background: #dbe4ea; z-index: 1; }
+
+        .list-panel {
+            width: 380px;
+            flex-shrink: 0;
+            background: #fff;
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .list-head {
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .list-head .count { font-size: 11px; font-weight: 600; color: #64748b; }
+        .list-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        .list-scroll::-webkit-scrollbar { width: 8px; }
+        .list-scroll::-webkit-scrollbar-track { background: transparent; }
+        .list-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .list-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .empty {
+            padding: 50px 20px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        .empty .spinner {
+            width: 26px; height: 26px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #0d9488;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        /* ── Station card ── */
+        .stn {
+            border: 1.5px solid #e2e8f0;
+            border-radius: 11px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .stn.active { border-color: #14b8a6; box-shadow: 0 4px 14px rgba(13,148,136,.16); }
+        .stn-head {
+            padding: 11px 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: #fff;
+            transition: background .12s;
+        }
+        .stn-head:hover { background: #f8fafc; }
+        .stn.active .stn-head { background: #f0fdfa; }
+        .stn-pin {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: #0d9488;
+            color: #fff;
+            font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .stn-main { flex: 1; min-width: 0; }
+        .stn-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.3;
+        }
+        .stn-sub {
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 3px;
+            font-size: 11px;
+            color: #64748b;
+        }
+        .stn-bearing {
+            display: inline-flex; align-items: center;
+            padding: 1px 6px; border-radius: 999px;
+            background: #f1f5f9; font-weight: 600;
+        }
+        .stn-routes {
+            display: flex; flex-wrap: wrap; gap: 4px;
+            margin-top: 7px;
+        }
+        .route-chip {
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: #ecfdf5;
+            color: #0f766e;
+            border: 1px solid #99f6e4;
+        }
+        .route-chip.more { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        .stn-chevron { color: #94a3b8; font-size: 13px; margin-top: 3px; transition: transform .2s; }
+        .stn.active .stn-chevron { transform: rotate(180deg); color: #0d9488; }
+
+        /* ── Arrivals table ── */
+        .stn-body { border-top: 1px solid #e2e8f0; background: #fafcfd; display: none; }
+        .stn.active .stn-body { display: block; }
+        .arr-loading { padding: 16px; text-align: center; color: #94a3b8; font-size: 12px; }
+        .arr-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 13px;
+            border-bottom: 1px solid #eef2f6;
+        }
+        .arr-row:last-child { border-bottom: none; }
+        .arr-route {
+            font-size: 13px; font-weight: 700; color: #1e293b;
+            min-width: 54px;
+        }
+        .arr-dest { flex: 1; min-width: 0; font-size: 11.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .arr-badge {
+            font-size: 11.5px; font-weight: 700;
+            padding: 3px 9px; border-radius: 999px;
+            white-space: nowrap;
+            background: #f1f5f9; color: #64748b;
+        }
+        .arr-badge.now  { background: #fee2e2; color: #b91c1c; }
+        .arr-badge.soon { background: #ffedd5; color: #c2410c; }
+        .arr-badge.ok   { background: #dcfce7; color: #15803d; }
+        .arr-badge.sched{ background: #e0e7ff; color: #4338ca; }
+        .arr-plate {
+            font-size: 10px; font-weight: 700;
+            padding: 2px 6px; border-radius: 5px;
+            background: #0f172a; color: #5eead4;
+            font-family: ui-monospace, Consolas, monospace;
+        }
+        .arr-foot {
+            padding: 7px 13px; font-size: 10.5px; color: #94a3b8;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        /* ── Map overlays ── */
+        .map-btn-search {
+            position: absolute;
+            left: 50%; bottom: 18px;
+            transform: translateX(-50%);
+            z-index: 500;
+            background: #0d9488;
+            color: #fff;
+            border: none;
+            padding: 9px 18px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(13,148,136,.45);
+            display: inline-flex; align-items: center; gap: 7px;
+            transition: transform .1s, box-shadow .15s, opacity .2s;
+        }
+        .map-btn-search:hover { box-shadow: 0 6px 20px rgba(13,148,136,.55); }
+        .map-btn-search:active { transform: translateX(-50%) scale(.96); }
+
+        .me-dot {
+            width: 16px; height: 16px;
+            background: #2563eb;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(37,99,235,.4), 0 1px 4px rgba(0,0,0,.4);
+        }
+        .stn-marker {
+            width: 24px; height: 24px;
+            background: #0d9488;
+            border: 2.5px solid #fff;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            box-shadow: 0 2px 5px rgba(0,0,0,.35);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .stn-marker span { transform: rotate(45deg); color: #fff; font-size: 11px; }
+        .stn-marker.active { background: #f59e0b; width: 30px; height: 30px; z-index: 600; }
+
+        .leaflet-popup-content { margin: 10px 12px; font-family: inherit; }
+        .leaflet-popup-content b { color: #0f766e; }
+
+        .toast {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,.4);
+            opacity: 0;
+            transition: opacity .2s, transform .2s;
+            z-index: 1000;
+            pointer-events: none;
+            max-width: 88vw;
+            text-align: center;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @media (max-width: 720px) {
+            .layout { flex-direction: column; }
+            #map { height: 44vh; flex: none; }
+            .list-panel { width: auto; flex: 1; border-left: none; border-top: 1px solid #e2e8f0; }
+            .app-header h1 { font-size: 15px; }
+            .app-header { padding: 10px 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>🚌 附近公車站牌</h1>
+        <div class="header-meta">
+            <select class="ctl" id="radiusSel" title="搜尋範圍">
+                <option value="300">300 公尺</option>
+                <option value="500" selected>500 公尺</option>
+                <option value="800">800 公尺</option>
+                <option value="1200">1.2 公里</option>
+            </select>
+            <button class="ctl icon-btn" id="locateBtn" type="button" title="定位到我的位置">📍</button>
+            <button class="ctl icon-btn" id="refreshBtn" type="button" title="重新整理">🔄</button>
+            <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">準備中</span></span>
+        </div>
+    </div>
+
+    <div class="layout">
+        <div id="map">
+            <button class="map-btn-search" id="searchHereBtn" type="button" hidden>🔍 搜尋此區域</button>
+        </div>
+        <aside class="list-panel">
+            <div class="list-head">
+                <span>附近站牌</span>
+                <span class="count" id="listCount"></span>
+            </div>
+            <div class="list-scroll" id="list">
+                <div class="empty">
+                    <div class="spinner"></div>
+                    正在定位…
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    // ══════════════════════════════════════════════════════
+    //  附近公車站牌 — 台中 ATIS TDX 代理 (client 免 auth)
+    //  站位:  api/TDXAPI/BusStationNearBy/{lon}/{lat}/{radius}
+    //  到站:  api/TDXAPI/BusEstimatedTime/{StationID}
+    //  ATIS 端點無 CORS → 走通用 ?url= 代理 worker
+    //  地圖:  Leaflet + OSM (免金鑰)；定位: navigator.geolocation
+    // ══════════════════════════════════════════════════════
+    const ATIS = 'https://e-traffic.taichung.gov.tw/ATIS_TCC/api/TDXAPI/';
+    const NEARBY = (lon, lat, r) => ATIS + `BusStationNearBy/${lon}/${lat}/${r}`;
+    const ETA    = (stationId)   => ATIS + `BusEstimatedTime/${stationId}`;
+
+    const PROXY_KEY     = 'tc_traffic_proxy';   // 與 traffic.htm 共用同一支 worker
+    const DEFAULT_PROXY = 'https://missing.54maxwu.workers.dev/';
+    const getProxy = () => { try { return (localStorage.getItem(PROXY_KEY) ?? DEFAULT_PROXY).trim(); } catch { return DEFAULT_PROXY; } };
+    function proxyList() {
+        const list = []; const p = getProxy();
+        if (p) list.push(u => p + (p.includes('?') ? '&' : (p.endsWith('/') ? '' : '/')) + '?url=' + encodeURIComponent(u));
+        list.push(
+            u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+            u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+        );
+        return list;
+    }
+    async function fetchJson(u) {
+        try {
+            const r = await fetch(u, { cache: 'no-store' });
+            if (r.ok) { const t = await r.text(); if (t) return JSON.parse(t); }
+        } catch (e) { /* CORS → proxy */ }
+        let last;
+        for (const make of proxyList()) {
+            try {
+                const r = await fetch(make(u), { cache: 'no-store' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const t = await r.text();
+                if (t) return JSON.parse(t);
+                throw new Error('空白');
+            } catch (e) { last = e; }
+        }
+        throw last || new Error('無法取得資料');
+    }
+
+    // ── DOM ──
+    const $status  = document.getElementById('statusText');
+    const $pill    = document.getElementById('statusPill');
+    const $list    = document.getElementById('list');
+    const $count   = document.getElementById('listCount');
+    const $radius  = document.getElementById('radiusSel');
+    const $locate  = document.getElementById('locateBtn');
+    const $refresh = document.getElementById('refreshBtn');
+    const $searchHere = document.getElementById('searchHereBtn');
+    const $toast   = document.getElementById('toast');
+
+    let toastT = null;
+    function toast(msg) {
+        $toast.textContent = msg; $toast.classList.add('show');
+        clearTimeout(toastT); toastT = setTimeout(() => $toast.classList.remove('show'), 2200);
+    }
+    function setStatus(text, kind) {
+        $status.textContent = text;
+        $pill.className = 'status-pill' + (kind ? ' ' + kind : '');
+    }
+    const TXT = s => (s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'));
+
+    // ── Map ──
+    const TC_CENTER = [24.1477, 120.6736];
+    const map = L.map('map', { zoomControl: true, attributionControl: true }).setView(TC_CENTER, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let meMarker = null, meCircle = null;
+    let stnMarkers = new Map();     // StationUID → marker
+    let stations = [];              // 目前清單
+    let queryCenter = null;         // {lat, lon} 上次查詢中心
+    let activeUID = null;
+    let etaTimer = null;
+
+    function haversine(lat1, lon1, lat2, lon2) {
+        const R = 6371000, toR = Math.PI / 180;
+        const dLat = (lat2 - lat1) * toR, dLon = (lon2 - lon1) * toR;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*toR)*Math.cos(lat2*toR)*Math.sin(dLon/2)**2;
+        return 2 * R * Math.asin(Math.sqrt(a));
+    }
+    const fmtDist = m => m < 1000 ? Math.round(m) + ' m' : (m/1000).toFixed(1) + ' km';
+
+    function setMe(lat, lon, acc) {
+        if (meMarker) map.removeLayer(meMarker);
+        if (meCircle) map.removeLayer(meCircle);
+        meMarker = L.marker([lat, lon], {
+            icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [16,16], iconAnchor: [8,8] }),
+            zIndexOffset: 1000, interactive: false
+        }).addTo(map);
+        if (acc && acc < 300) {
+            meCircle = L.circle([lat, lon], { radius: acc, color: '#2563eb', weight: 1, fillColor: '#3b82f6', fillOpacity: .12 }).addTo(map);
+        }
+    }
+
+    // ── Query nearby ──
+    async function queryArea(lat, lon, opts = {}) {
+        queryCenter = { lat, lon };
+        const r = +$radius.value;
+        setStatus('搜尋站牌中…', 'load');
+        $searchHere.hidden = true;
+        if (opts.fresh) $list.innerHTML = '<div class="empty"><div class="spinner"></div>搜尋附近站牌…</div>';
+        let data;
+        try {
+            data = await fetchJson(NEARBY(lon, lat, r));
+        } catch (e) {
+            console.error(e);
+            setStatus('查詢失敗', 'err');
+            $list.innerHTML = `<div class="empty">⚠ 無法取得站牌資料<br><span style="font-size:11px">${TXT(e.message||e)}</span></div>`;
+            return;
+        }
+        if (!Array.isArray(data)) data = [];
+        stations = data.map(s => {
+            const p = s.StationPosition || {};
+            const routes = [...new Set((s.Stops || []).map(x => x.StopName && x.RouteName && x.RouteName.Zh_tw).filter(Boolean))];
+            return {
+                uid: s.StationUID,
+                id: s.StationID,
+                name: (s.StationName && s.StationName.Zh_tw) || s.StationUID,
+                lat: p.PositionLat, lon: p.PositionLon,
+                bearing: s.Bearing || '',
+                routes,
+                dist: haversine(lat, lon, p.PositionLat, p.PositionLon)
+            };
+        }).filter(s => s.lat && s.lon)
+          .sort((a, b) => a.dist - b.dist);
+
+        renderStations();
+        drawMarkers();
+        setStatus(`找到 ${stations.length} 個站牌`, 'ok');
+    }
+
+    // ── Render list ──
+    function renderStations() {
+        $count.textContent = stations.length ? `${stations.length} 站` : '';
+        if (!stations.length) {
+            $list.innerHTML = '<div class="empty">此範圍內找不到公車站牌<br>試著放大搜尋範圍或移動地圖後「搜尋此區域」</div>';
+            return;
+        }
+        $list.innerHTML = stations.map(s => {
+            const shown = s.routes.slice(0, 8);
+            const extra = s.routes.length - shown.length;
+            const chips = shown.map(r => `<span class="route-chip">${TXT(r)}</span>`).join('')
+                + (extra > 0 ? `<span class="route-chip more">+${extra}</span>` : '');
+            return `
+            <div class="stn" data-uid="${TXT(s.uid)}" data-id="${TXT(s.id)}">
+                <div class="stn-head">
+                    <div class="stn-pin">🚏</div>
+                    <div class="stn-main">
+                        <div class="stn-name">${TXT(s.name)}</div>
+                        <div class="stn-sub">
+                            <span>📍 ${fmtDist(s.dist)}</span>
+                            ${s.bearing ? `<span class="stn-bearing">${TXT(s.bearing)}</span>` : ''}
+                            <span>${s.routes.length} 條路線</span>
+                        </div>
+                        <div class="stn-routes">${chips}</div>
+                    </div>
+                    <div class="stn-chevron">▾</div>
+                </div>
+                <div class="stn-body" id="body-${TXT(s.uid)}"></div>
+            </div>`;
+        }).join('');
+
+        $list.querySelectorAll('.stn').forEach(el => {
+            el.querySelector('.stn-head').addEventListener('click', () => toggleStation(el.dataset.uid));
+        });
+    }
+
+    // ── Markers ──
+    function drawMarkers() {
+        stnMarkers.forEach(m => map.removeLayer(m));
+        stnMarkers.clear();
+        stations.forEach(s => {
+            const m = L.marker([s.lat, s.lon], {
+                icon: L.divIcon({ className: '', html: `<div class="stn-marker" data-uid="${s.uid}"><span>🚌</span></div>`, iconSize: [24,24], iconAnchor: [12,22] }),
+                title: s.name
+            }).addTo(map);
+            m.on('click', () => { toggleStation(s.uid, true); });
+            stnMarkers.set(s.uid, m);
+        });
+    }
+    function markMarkerActive(uid) {
+        stnMarkers.forEach((m, k) => {
+            const el = m.getElement() && m.getElement().querySelector('.stn-marker');
+            if (el) el.classList.toggle('active', k === uid);
+        });
+    }
+
+    // ── Expand / collapse a station → load arrivals ──
+    function toggleStation(uid, fromMap) {
+        const el = $list.querySelector(`.stn[data-uid="${cssEsc(uid)}"]`);
+        if (!el) return;
+        const already = uid === activeUID;
+        // collapse previous
+        $list.querySelectorAll('.stn.active').forEach(e => e.classList.remove('active'));
+        clearInterval(etaTimer); etaTimer = null;
+
+        if (already) { activeUID = null; markMarkerActive(null); return; }
+
+        activeUID = uid;
+        el.classList.add('active');
+        markMarkerActive(uid);
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        const s = stations.find(x => x.uid === uid);
+        if (fromMap && s) map.panTo([s.lat, s.lon], { animate: true });
+        if (s) {
+            const pop = stnMarkers.get(uid);
+            if (pop) pop.bindPopup(`<b>${TXT(s.name)}</b><br>${s.routes.length} 條路線 · ${fmtDist(s.dist)}`).openPopup();
+        }
+
+        loadArrivals(uid, el.dataset.id);
+    }
+
+    async function loadArrivals(uid, stationId) {
+        const body = document.getElementById('body-' + uid);
+        if (!body) return;
+        if (!body.dataset.loaded) body.innerHTML = '<div class="arr-loading">查詢到站時間…</div>';
+        let data;
+        try {
+            data = await fetchJson(ETA(stationId));
+        } catch (e) {
+            body.innerHTML = '<div class="arr-loading">⚠ 無法取得到站時間</div>';
+            return;
+        }
+        if (uid !== activeUID) return;      // 使用者已切換
+        renderArrivals(body, Array.isArray(data) ? data : []);
+        body.dataset.loaded = '1';
+
+        clearInterval(etaTimer);
+        etaTimer = setInterval(() => { if (uid === activeUID) loadArrivals(uid, stationId); }, 20000);
+    }
+
+    function badge(rec) {
+        const st = rec.StopStatus;
+        if (st === 2) return ['交管不停', ''];
+        if (st === 3) return ['末班已過', ''];
+        if (st === 4) return ['今日未營運', ''];
+        const et = rec.EstimateTime;
+        if (et === undefined || et === null) {
+            if (rec.NextBusTime) return ['預計 ' + hhmm(rec.NextBusTime), 'sched'];
+            return ['尚未發車', ''];
+        }
+        if (et < 60)  return ['進站中', 'now'];
+        const m = Math.floor(et / 60);
+        if (m <= 3)   return [m + ' 分', 'soon'];
+        return [m + ' 分', 'ok'];
+    }
+    function hhmm(s) {
+        const m = String(s).match(/(\d{2}):(\d{2})/);
+        return m ? m[1] + ':' + m[2] : s;
+    }
+
+    function renderArrivals(body, recs) {
+        if (!recs.length) { body.innerHTML = '<div class="arr-loading">此站目前沒有路線動態資訊</div>'; return; }
+        // 依到站時間排序（估時優先，其餘在後）
+        recs.sort((a, b) => {
+            const ea = a.EstimateTime ?? Infinity, eb = b.EstimateTime ?? Infinity;
+            return ea - eb;
+        });
+        const rows = recs.map(r => {
+            const [label, cls] = badge(r);
+            const rn = (r.RouteName && r.RouteName.Zh_tw) || r.RouteID || '';
+            const dest = (r.DestinationStopName && r.DestinationStopName.Zh_tw) || '';
+            const plate = r.PlateNumb ? `<span class="arr-plate">${TXT(r.PlateNumb)}</span>` : '';
+            return `<div class="arr-row">
+                <span class="arr-route">${TXT(rn)}</span>
+                <span class="arr-dest">${TXT(dest)}</span>
+                ${plate}
+                <span class="arr-badge ${cls}">${TXT(label)}</span>
+            </div>`;
+        }).join('');
+        const now = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        body.innerHTML = rows + `<div class="arr-foot"><span>每 20 秒自動更新</span><span>更新 ${now}</span></div>`;
+    }
+
+    function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
+
+    // ── Geolocation ──
+    function locate(initial) {
+        if (!navigator.geolocation) { toast('此裝置不支援定位，請拖曳地圖後「搜尋此區域」'); fallbackNoGps(); return; }
+        setStatus('定位中…', 'load');
+        $locate.classList.add('spinning');
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                $locate.classList.remove('spinning');
+                const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+                setMe(lat, lon, accuracy);
+                map.setView([lat, lon], 16);
+                queryArea(lat, lon, { fresh: true });
+            },
+            err => {
+                $locate.classList.remove('spinning');
+                console.warn(err);
+                const msg = err.code === 1 ? '定位權限被拒' : err.code === 3 ? '定位逾時' : '定位失敗';
+                setStatus(msg, 'err');
+                toast(msg + '：可拖曳地圖後按「搜尋此區域」');
+                if (initial) fallbackNoGps();
+                else $searchHere.hidden = false;
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        );
+    }
+    function fallbackNoGps() {
+        // 沒有定位 → 以台中市中心查一次，並開放「搜尋此區域」
+        queryArea(TC_CENTER[0], TC_CENTER[1], { fresh: true });
+        $searchHere.hidden = false;
+    }
+
+    // ── Events ──
+    $locate.addEventListener('click', () => locate(false));
+    $refresh.addEventListener('click', () => {
+        if (queryCenter) queryArea(queryCenter.lat, queryCenter.lon, { fresh: false });
+        else locate(false);
+    });
+    $radius.addEventListener('change', () => {
+        if (queryCenter) queryArea(queryCenter.lat, queryCenter.lon, { fresh: true });
+    });
+    $searchHere.addEventListener('click', () => {
+        const c = map.getCenter();
+        queryArea(c.lat, c.lng, { fresh: true });
+    });
+    // 地圖移動後，若離上次查詢中心夠遠就顯示「搜尋此區域」
+    map.on('moveend', () => {
+        if (!queryCenter) return;
+        const c = map.getCenter();
+        const moved = haversine(queryCenter.lat, queryCenter.lon, c.lat, c.lng);
+        if (moved > 200) $searchHere.hidden = false;
+    });
+
+    // ── Boot ──
+    locate(true);
+    </script>
+</body>
+</html>
