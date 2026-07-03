@@ -508,6 +508,10 @@
             .list-panel { width: auto; flex: 1; border-left: none; border-top: 1px solid #e2e8f0; }
             .bus-pop .leaflet-popup-content { width: 82vw !important; max-width: 320px; }
             .bpop-body { max-height: 34vh; }
+            /* 手機版路線模式：面板滿版，藏頂部工具列與地圖，只留路線面板(左上角 ‹ 返回) */
+            body.route-mode .app-header,
+            body.route-mode #map { display: none; }
+            body.route-mode .list-panel { flex: 1; border-top: none; }
         }
         @media (max-width: 480px) {
             .app-header h1 { font-size: 14px; gap: 5px; }
@@ -896,6 +900,8 @@
         curRoute = null; routeData = null; activeRouteSeq = null; routeOrigin = null;
         $routeBar.hidden = true;
         document.body.classList.remove('route-mode');
+        // 手機版路線模式會藏地圖(display:none)，退出後 Leaflet 需重新量尺寸才不會灰掉
+        requestAnimationFrame(() => map.invalidateSize());
         stnMarkers.forEach(m => {
             const el = m.getElement() && m.getElement().querySelector('.stn-marker');
             if (el) el.classList.remove('onroute');
