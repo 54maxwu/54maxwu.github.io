@@ -123,13 +123,9 @@
             flex-shrink: 0;
         }
         .list-head .count { font-size: 11px; font-weight: 600; color: #64748b; }
-        .list-back {
-            display: none; flex-shrink: 0;
-            width: 32px; height: 32px; margin-right: 6px; border-radius: 8px; border: none;
-            background: #f1f5f9; color: #0f766e; font-size: 22px; line-height: 1; cursor: pointer;
-            align-items: center; justify-content: center;
-        }
-        .list-back:active { background: #e2e8f0; }
+        .sheet-grip { display: none; justify-content: center; padding: 9px 0 5px; flex-shrink: 0; cursor: pointer; touch-action: none; }
+        .sheet-grip span { width: 42px; height: 5px; border-radius: 999px; background: #cbd5e1; transition: background .15s; }
+        .sheet-grip:active span { background: #94a3b8; }
         .list-scroll {
             flex: 1;
             overflow-y: auto;
@@ -511,28 +507,36 @@
             .app-header h1 { font-size: 15px; }
             .header-meta { margin-left: auto; }
             .addr-wrap { order: 5; flex-basis: 100%; max-width: none; min-width: 0; }
-            .layout { flex-direction: column; }
-            #map { height: 54vh; min-height: 260px; flex: none; }
-            .list-panel { width: auto; flex: 1; border-left: none; border-top: 1px solid #e2e8f0; }
+            #fsBtn { display: none; }   /* 手機用底部面板取代沉浸模式 */
+
+            /* ── 手機版：地圖常駐背景 + 三段式底部面板(收合/半屏/全屏) ── */
+            .layout { position: relative; }
+            #map { height: 100%; min-height: 0; flex: 1; }
+            .sheet-grip { display: flex; }
+            .list-panel {
+                position: absolute; left: 0; right: 0; bottom: 0;
+                width: auto; height: 92%;   /* 相對 layout，全屏時不會蓋到 header */
+                border-left: none; border-top: none;
+                border-radius: 18px 18px 0 0;
+                box-shadow: 0 -10px 30px rgba(0,0,0,.22);
+                transform: translateY(50%);   /* 預設半屏 */
+                transition: transform .32s cubic-bezier(.32,.72,0,1);
+                z-index: 1200; will-change: transform;
+            }
+            body.m-peek .list-panel { transform: translateY(calc(100% - 112px)); }
+            body.m-half .list-panel { transform: translateY(50%); }
+            body.m-full .list-panel { transform: translateY(0); }
+
             .bus-pop .leaflet-popup-content { width: 82vw !important; max-width: 320px; }
             .bpop-body { max-height: 34vh; }
-            /* 手機版路線模式：面板滿版，藏頂部工具列與地圖，只留路線面板(左上角 ‹ 返回)。
-               immersive(全螢幕大地圖)時不套用 → 地圖仍滿版、清單當底部抽屜 */
-            body.route-mode:not(.immersive) .app-header,
-            body.route-mode:not(.immersive) #map { display: none; }
-            body.route-mode:not(.immersive) .list-panel { flex: 1; border-top: none; }
-            /* 手機版選站：下方清單滿版蓋掉地圖與浮卡，左上角 ‹ 返回地圖 */
-            body.stn-open:not(.immersive) .app-header,
-            body.stn-open:not(.immersive) #map { display: none; }
-            body.stn-open:not(.immersive) .list-panel { flex: 1; border-top: none; }
-            body.stn-open:not(.immersive) .list-back { display: inline-flex; }
+            /* 「搜尋此區域」移到地圖頂部置中，才不會被底部面板蓋住 */
+            .map-btn-search { bottom: auto; top: 12px; }
         }
         @media (max-width: 480px) {
             .app-header h1 { font-size: 14px; gap: 5px; }
             .ctl { padding: 8px 9px; }
             .icon-btn { width: 38px; height: 38px; font-size: 16px; }
             select.ctl { padding: 8px 22px 8px 9px; }
-            #map { height: 50vh; min-height: 240px; }
             .stn-head { padding: 12px 12px; }
             .stn-name { font-size: 15px; }
             .arr-row { padding: 12px 13px; }
@@ -573,8 +577,8 @@
             <button class="map-btn-search" id="searchHereBtn" type="button" hidden>🔍 搜尋此區域</button>
         </div>
         <aside class="list-panel">
+            <div class="sheet-grip" id="sheetGrip"><span></span></div>
             <div class="list-head">
-                <button class="list-back" id="listBack" type="button" title="返回地圖">‹</button>
                 <span>附近站牌</span>
                 <span class="count" id="listCount"></span>
             </div>
@@ -804,13 +808,15 @@
         });
     }
 
-    // 把某站置中在地圖（標記略低於中心，上方留給資訊卡）
-    function focusStation(s) {
+    // 置中到座標。手機版底部面板會蓋住下半 → 把標記推到可見上半區；桌機沿用小幅上移
+    function panTo(lat, lon, animate) {
         const z = Math.max(map.getZoom(), 16);
-        const pt = map.project([s.lat, s.lon], z);
-        pt.y -= 96;
-        map.setView(map.unproject(pt, z), z, { animate: true });
+        const pt = map.project([lat, lon], z);
+        const mobile = window.matchMedia('(max-width: 820px)').matches;
+        pt.y += mobile ? map.getSize().y * 0.24 : -96;
+        map.setView(map.unproject(pt, z), z, { animate: animate !== false });
     }
+    function focusStation(s) { panTo(s.lat, s.lon); }
 
     // 從右側清單點選 → 置中並開地圖卡片
     function selectStation(uid) {
@@ -828,7 +834,7 @@
         if (!uid) return;
         popupUID = uid;
         activeUID = uid;
-        document.body.classList.add('stn-open');   // 手機版：選站 → 清單滿版
+        raiseSheet('half');   // 手機版：選站 → 底部面板至少拉到半屏
         $list.querySelectorAll('.stn.active').forEach(x => x.classList.remove('active'));
         const el = $list.querySelector(`.stn[data-uid="${cssEsc(uid)}"]`);
         if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
@@ -850,8 +856,6 @@
                 if (el) el.classList.remove('active');
                 markMarkerActive(null);
                 clearInterval(etaTimer); etaTimer = null;
-                document.body.classList.remove('stn-open');   // 退出選站滿版 → 地圖回來
-                requestAnimationFrame(() => map.invalidateSize());
             }
         }, 0);
     });
@@ -918,13 +922,11 @@
         curRoute = null; routeData = null; activeRouteSeq = null; routeOrigin = null;
         $routeBar.hidden = true;
         document.body.classList.remove('route-mode');
-        // 手機版路線模式會藏地圖(display:none)，退出後 Leaflet 需重新量尺寸才不會灰掉
-        requestAnimationFrame(() => map.invalidateSize());
         stnMarkers.forEach(m => {
             const el = m.getElement() && m.getElement().querySelector('.stn-marker');
             if (el) el.classList.remove('onroute');
         });
-        if (restore && had) renderStations();   // 還原右側「附近站牌」清單
+        if (restore && had) { renderStations(); setSheet('half'); }   // 還原附近站牌 + 手機面板回半屏
     }
 
     async function selectRoute(name) {
@@ -983,6 +985,7 @@
             if (pick) { routeDir = pick.dir; activeRouteSeq = pick.seq; }
         }
         document.body.classList.add('route-mode');
+        setSheet('full');   // 手機版：進路線 → 底部面板全屏看完整站序
         renderRoute(true);
         // 首次載入把來源站捲進視野（只做一次，之後 20 秒刷新不搶捲軸）
         if (routeOrigin) {
@@ -1109,10 +1112,7 @@
         const row = $list.querySelector(`.rstop[data-seq="${seq}"]`);
         if (row) { row.classList.add('active'); row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
         if (st.lat == null) { toast('此站沒有座標，無法在地圖定位'); return; }
-        // 地圖置中（標記略低於中心，上方留給資訊卡；autoPan:false 讓 setView 說了算）
-        const z = Math.max(map.getZoom(), 16);
-        const pt = map.project([st.lat, st.lon], z); pt.y -= 96;
-        map.setView(map.unproject(pt, z), z, { animate: true });
+        panTo(st.lat, st.lon);   // 手機/桌機各自的偏移，讓標記落在可見區
         L.popup({ className: 'bus-pop', autoPan: false })
             .setLatLng([st.lat, st.lon])
             .setContent(`<div class="bpop"><div class="bpop-hd"><div class="bpop-name">${TXT(st.name)}</div><div class="bpop-meta"><span>站序 ${st.seq}</span></div></div></div>`)
@@ -1347,15 +1347,27 @@
     document.querySelector('.list-head').addEventListener('click', () => {
         if (document.body.classList.contains('immersive')) document.body.classList.toggle('show-list');
     });
-    // 手機版「選站滿版」左上角返回 → 關閉該站 popup，回到地圖
-    document.getElementById('listBack').addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const mk = activeUID && stnMarkers.get(activeUID);
-        if (mk && mk.isPopupOpen()) { mk.closePopup(); return; }   // popupclose 會收尾
-        document.body.classList.remove('stn-open');                 // 保險
-        requestAnimationFrame(() => map.invalidateSize());
-    });
     document.addEventListener('fullscreenchange', () => setTimeout(() => map.invalidateSize(), 200));
+
+    // ── 手機版底部面板：三段式(收合/半屏/全屏)。桌機這些 class 不生效 ──
+    const SHEET_ORDER = { peek: 0, half: 1, full: 2 };
+    function setSheet(state) {
+        document.body.classList.remove('m-peek', 'm-half', 'm-full');
+        document.body.classList.add('m-' + state);
+    }
+    function sheetState() {
+        return document.body.classList.contains('m-full') ? 'full'
+             : document.body.classList.contains('m-peek') ? 'peek' : 'half';
+    }
+    function raiseSheet(min) {   // 只往上拉、不會把已展開的收下去
+        if (SHEET_ORDER[sheetState()] < SHEET_ORDER[min]) setSheet(min);
+    }
+    setSheet('half');   // 預設半屏
+    // 點把手：收合 → 半屏 → 全屏 → 收合
+    document.getElementById('sheetGrip').addEventListener('click', () => {
+        const s = sheetState();
+        setSheet(s === 'peek' ? 'half' : s === 'half' ? 'full' : 'peek');
+    });
 
     // ── Address search (OpenStreetMap Nominatim, 免金鑰) ──
     const $addr   = document.getElementById('addrInput');
