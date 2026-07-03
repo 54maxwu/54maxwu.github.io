@@ -363,6 +363,56 @@
         }
         .route-bar .rb-close:hover { background: #ef4444; }
 
+        /* ── Route detail panel (Google 式) ── */
+        body.route-mode .list-head { display: none; }
+        body.route-mode #list { padding: 0; }
+        .rhead {
+            position: sticky; top: 0; z-index: 3;
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, #0d9488, #0f766e); color: #fff;
+        }
+        .rback {
+            flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px; border: none;
+            background: rgba(255,255,255,.18); color: #fff; font-size: 20px; line-height: 1; cursor: pointer;
+        }
+        .rback:hover { background: rgba(255,255,255,.32); }
+        .rhead-main { min-width: 0; }
+        .rhead-name { font-size: 18px; font-weight: 800; line-height: 1.1; }
+        .rhead-od { font-size: 11.5px; opacity: .92; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rdir {
+            position: sticky; top: 54px; z-index: 2;
+            display: flex; gap: 8px; padding: 10px 12px;
+            background: #fff; border-bottom: 1px solid #e2e8f0;
+        }
+        .rdir-btn {
+            flex: 1; padding: 8px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+            background: #f8fafc; color: #64748b; font-size: 13px; font-weight: 700;
+            font-family: inherit; cursor: pointer;
+        }
+        .rdir-btn.on { background: #0d9488; color: #fff; border-color: #0d9488; }
+        .rdir-btn:disabled { opacity: .4; cursor: default; }
+        .rstops { padding: 4px 0; }
+        .rstop { display: flex; align-items: stretch; gap: 10px; padding: 0 14px; }
+        .rstop-rail { position: relative; width: 14px; flex-shrink: 0; display: flex; justify-content: center; }
+        .rstop-rail::before { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; background: #cbd5e1; }
+        .rstop:first-child .rstop-rail::before { top: 50%; }
+        .rstop:last-child .rstop-rail::before { bottom: 50%; }
+        .rdot {
+            position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 50%;
+            background: #94a3b8; border: 2px solid #fff; align-self: center;
+        }
+        .rstop.imminent .rdot { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.22); }
+        .rstop-name {
+            flex: 1; min-width: 0; font-size: 13.5px; color: #1e293b; padding: 9px 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .rstop:last-child .rstop-name { border-bottom: none; }
+        .rstop.imminent .rstop-name { font-weight: 700; }
+        .rstop-eta { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; }
+        .rstop-clock { font-size: 10px; color: #94a3b8; }
+
         .toast {
             position: fixed;
             bottom: 70px;
@@ -576,6 +626,9 @@
     let etaTimer = null;
     let routeLayer = null;          // 目前畫在地圖上的路線圖層
     let curRoute = null;            // 目前選定的路線名
+    let routeTimer = null;          // 路線到站輪詢
+    let routeDir = 0;               // 目前顯示方向：0 去程 / 1 返程
+    let routeData = null;           // { name, byDir: {0:[...],1:[...]} }
 
     function haversine(lat1, lon1, lat2, lon2) {
         const R = 6371000, toR = Math.PI / 180;
@@ -797,30 +850,98 @@
         return segs;
     }
 
-    function clearRoute() {
+    function clearRoute(restore) {
         if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-        curRoute = null;
+        clearInterval(routeTimer); routeTimer = null;
+        const had = !!curRoute;
+        curRoute = null; routeData = null;
         $routeBar.hidden = true;
+        document.body.classList.remove('route-mode');
         stnMarkers.forEach(m => {
             const el = m.getElement() && m.getElement().querySelector('.stn-marker');
             if (el) el.classList.remove('onroute');
         });
+        if (restore && had) renderStations();   // 還原右側「附近站牌」清單
     }
 
     async function selectRoute(name) {
-        if (curRoute === name) { clearRoute(); return; }   // 再點一次收起
-        clearRoute();
+        if (curRoute === name) { clearRoute(true); return; }   // 再點一次收起
+        clearRoute(false);
         curRoute = name;
+        routeDir = 0;
         routeLayer = L.layerGroup().addTo(map);
         $routeBar.hidden = false;
         $rbName.textContent = name;
         $rbInfo.textContent = '載入路線…';
         if (TDX_PROXY) {
-            try { await drawRouteTDX(name); return; }
-            catch (e) { console.warn('TDX 繪製失敗，改用備援', e); }
+            try {
+                await drawRouteTDX(name);
+                try { await loadRoutePanel(name); } catch (e) { console.warn('路線面板載入失敗', e); }
+                return;
+            } catch (e) { console.warn('TDX 繪製失敗，改用備援', e); }
         }
         drawRouteFallback(name);
     }
+
+    // ── 右側改成「整條路線站序 + 各站預估到站」(Google 式) ──
+    async function loadRoutePanel(name) {
+        const etas = await tdxFetch('Bus/EstimatedTimeOfArrival/City/Taichung/' + encodeURIComponent(name));
+        if (curRoute !== name) return;
+        const ex = (etas || []).filter(x => x.RouteName && x.RouteName.Zh_tw === name);
+        const byDir = { 0: [], 1: [] };
+        ex.forEach(x => { (byDir[x.Direction] || (byDir[x.Direction] = [])).push(x); });
+        [0, 1].forEach(d => (byDir[d] || []).sort((a, b) => a.StopSequence - b.StopSequence));
+        if (!(byDir[routeDir] && byDir[routeDir].length)) routeDir = (byDir[0] && byDir[0].length) ? 0 : 1;
+        routeData = { name, byDir };
+        document.body.classList.add('route-mode');
+        renderRoutePanel();
+        clearInterval(routeTimer);
+        routeTimer = setInterval(() => { if (curRoute === name) loadRoutePanel(name).catch(() => {}); }, 20000);
+    }
+
+    function arrivalClock(s) {
+        if (s.EstimateTime != null && s.EstimateTime >= 0 && s.EstimateTime < 7200) {
+            const t = new Date(Date.now() + s.EstimateTime * 1000);
+            return t.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
+        }
+        return '';
+    }
+
+    function renderRoutePanel() {
+        if (!routeData) return;
+        const { name, byDir } = routeData;
+        const stops = byDir[routeDir] || [];
+        const first = stops[0], last = stops[stops.length - 1];
+        const has0 = byDir[0] && byDir[0].length, has1 = byDir[1] && byDir[1].length;
+        const rows = stops.map(s => {
+            const [label, cls] = badge(s);
+            const clock = arrivalClock(s);
+            const imm = (cls === 'now' || cls === 'soon');
+            return `<div class="rstop${imm ? ' imminent' : ''}">
+                <div class="rstop-rail"><span class="rdot"></span></div>
+                <div class="rstop-name">${TXT(s.StopName.Zh_tw)}</div>
+                <div class="rstop-eta">
+                    <span class="arr-badge ${cls}">${TXT(label)}</span>
+                    ${clock ? `<span class="rstop-clock">${clock} 到</span>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+        $list.innerHTML =
+            `<div class="rhead">
+                <button class="rback" onclick="clearRoute(true)" title="返回附近站牌">‹</button>
+                <div class="rhead-main">
+                    <div class="rhead-name">${TXT(name)}</div>
+                    <div class="rhead-od">${first ? TXT(first.StopName.Zh_tw) : ''} → ${last ? TXT(last.StopName.Zh_tw) : ''}</div>
+                </div>
+            </div>
+            <div class="rdir">
+                <button class="rdir-btn ${routeDir === 0 ? 'on' : ''}" onclick="setRouteDir(0)" ${has0 ? '' : 'disabled'}>去程</button>
+                <button class="rdir-btn ${routeDir === 1 ? 'on' : ''}" onclick="setRouteDir(1)" ${has1 ? '' : 'disabled'}>返程</button>
+            </div>
+            <div class="rstops">${rows || '<div class="arr-loading">此方向目前無資料</div>'}</div>
+            <div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${nowStr()}</span></div>`;
+    }
+    function setRouteDir(d) { routeDir = d; renderRoutePanel(); }
 
     async function drawRouteTDX(name) {
         const enc = encodeURIComponent(name);
@@ -882,7 +1003,7 @@
     }
 
     // 點「路線號」→ selectRoute（arr-route 用 inline onclick，卡片/清單皆可）
-    document.getElementById('routeBarClose').addEventListener('click', clearRoute);
+    document.getElementById('routeBarClose').addEventListener('click', () => clearRoute(true));
 
     // 回傳 [顯示文字, 顏色class, 排序用秒數]
     function badge(rec) {
