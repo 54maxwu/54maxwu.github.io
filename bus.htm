@@ -126,6 +126,15 @@
         .sheet-grip { display: none; justify-content: center; padding: 9px 0 5px; flex-shrink: 0; cursor: pointer; touch-action: none; }
         .sheet-grip span { width: 42px; height: 5px; border-radius: 999px; background: #cbd5e1; transition: background .15s; }
         .sheet-grip:active span { background: #94a3b8; }
+        /* 頂部自動更新進度條：跑滿 20 秒 = 下次刷新 */
+        .refresh-bar { height: 3px; background: #e5eaf0; overflow: hidden; flex-shrink: 0; }
+        .refresh-bar::after {
+            content: ''; display: block; height: 100%; width: 100%;
+            background: linear-gradient(90deg, #0d9488, #22c55e);
+            transform: scaleX(0); transform-origin: left;
+        }
+        .refresh-bar.run::after { animation: rbfill 20s linear; }
+        @keyframes rbfill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
         .list-scroll {
             flex: 1;
             overflow-y: auto;
@@ -394,8 +403,14 @@
             background: rgba(255,255,255,.18); color: #fff; font-size: 20px; line-height: 1; cursor: pointer;
         }
         .rback:hover { background: rgba(255,255,255,.32); }
-        .rhead-main { min-width: 0; }
+        .rhead-main { min-width: 0; flex: 1; }
         .rhead-name { font-size: 18px; font-weight: 800; line-height: 1.1; }
+        .rhead-map {
+            flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px; border: none;
+            background: rgba(255,255,255,.18); color: #fff; font-size: 17px; cursor: pointer;
+            display: none; align-items: center; justify-content: center;
+        }
+        .rhead-map:active { background: rgba(255,255,255,.34); }
         .rdir {
             position: sticky; top: 54px; z-index: 2;
             display: flex; background: #fff; border-bottom: 1px solid #e2e8f0;
@@ -545,6 +560,14 @@
             body.m-half .list-panel { transform: translateY(50%); }
             body.m-full .list-panel { transform: translateY(0); }
 
+            /* 路線詳情：真正滿版(仿台中公車 App)，用路線自己的 ‹ header；route-map 時才露地圖 */
+            body.route-mode:not(.route-map) .app-header { display: none; }
+            body.route-mode:not(.route-map) .sheet-grip { display: none; }
+            body.route-mode:not(.route-map) .list-panel {
+                height: 100%; transform: none !important; border-radius: 0; box-shadow: none;
+            }
+            .rhead-map { display: flex; }   /* 手機路線標頭才有地圖切換鈕 */
+
             .bus-pop .leaflet-popup-content { width: 82vw !important; max-width: 320px; }
             .bpop-body { max-height: 34vh; }
             /* 「搜尋此區域」移到地圖頂部置中，才不會被底部面板蓋住 */
@@ -596,6 +619,7 @@
         </div>
         <aside class="list-panel">
             <div class="sheet-grip" id="sheetGrip"><span></span></div>
+            <div class="refresh-bar" id="refreshBar" title="每 20 秒自動更新"></div>
             <div class="list-head">
                 <span>附近站牌</span>
                 <span class="count" id="listCount"></span>
@@ -867,6 +891,7 @@
     setInterval(() => {
         if (document.body.classList.contains('route-mode')) return;
         visibleStn.forEach(uid => loadStnFastest(uid, true));
+        if (typeof pulseRefreshBar === 'function') pulseRefreshBar();
     }, 20000);
 
     // ── Markers ──
@@ -969,6 +994,7 @@
             body.dataset.loaded = '1';
         }
         if (mk && s && mk.isPopupOpen()) mk.setPopupContent(cardFull(s, inner, now));
+        pulseRefreshBar();   // 重跑 20 秒進度條
         clearInterval(etaTimer);
         etaTimer = setInterval(() => { if (uid === activeUID) loadArrivals(uid, stationId); }, 20000);
     }
@@ -1007,12 +1033,19 @@
         const had = !!curRoute;
         curRoute = null; routeData = null; activeRouteSeq = null; routeOrigin = null;
         $routeBar.hidden = true;
-        document.body.classList.remove('route-mode');
+        document.body.classList.remove('route-mode', 'route-map');
         stnMarkers.forEach(m => {
             const el = m.getElement() && m.getElement().querySelector('.stn-marker');
             if (el) el.classList.remove('onroute');
         });
         if (restore && had) { renderStations(); setSheet('half'); }   // 還原附近站牌 + 手機面板回半屏
+        requestAnimationFrame(() => map.invalidateSize());   // 頂欄/地圖尺寸變動後重算
+    }
+    // 路線詳情 ↔ 地圖檢視 切換（滿版清單 vs 露出地圖看路線）
+    function toggleRouteMap() {
+        const on = document.body.classList.toggle('route-map');
+        setSheet(on ? 'half' : 'full');
+        requestAnimationFrame(() => map.invalidateSize());
     }
 
     async function selectRoute(name) {
@@ -1187,6 +1220,7 @@
         if (fit && bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
         $rbInfo.textContent = stops.length ? `${stops[0].name} → ${stops[stops.length - 1].name}` : (routeData.name + ' 路線');
         renderRoutePanel(!fit);   // 刷新(fit=false)時保留捲動位置；切方向/首載(fit=true)則歸零
+        pulseRefreshBar();        // 重跑 20 秒進度條
     }
 
     // 點某站 → 高亮該列 + 地圖置中並標示
@@ -1254,6 +1288,7 @@
             `<div class="rhead">
                 <button class="rback" onclick="clearRoute(true)" title="返回附近站牌">‹</button>
                 <div class="rhead-main"><div class="rhead-name">${TXT(name)}</div></div>
+                <button class="rhead-map" onclick="toggleRouteMap()" title="地圖／清單切換">🗺️</button>
             </div>
             <div class="rdir">
                 <button class="rdir-btn ${routeDir === 0 ? 'on' : ''}" onclick="setRouteDir(0)" ${has0 ? '' : 'disabled'}><span class="rdir-txt">往 ${TXT(dest0 || '去程')}</span>${nBus0 ? `<span class="rdir-live" title="此方向有 ${nBus0} 台即時公車">🚌 ${nBus0}</span>` : ''}</button>
@@ -1486,6 +1521,14 @@
         const s = sheetState();
         setSheet(s === 'peek' ? 'half' : s === 'half' ? 'full' : 'peek');
     });
+    // 頂部進度條：每次資料刷新後重跑 20 秒 → 跑滿＝下次刷新
+    function pulseRefreshBar() {
+        const b = document.getElementById('refreshBar');
+        if (!b) return;
+        b.classList.remove('run'); void b.offsetWidth; b.classList.add('run');
+    }
+    window.pulseRefreshBar = pulseRefreshBar;
+    pulseRefreshBar();
 
     // ── Address search (OpenStreetMap Nominatim, 免金鑰) ──
     const $addr   = document.getElementById('addrInput');
