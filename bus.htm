@@ -563,9 +563,11 @@
             /* 路線詳情：真正滿版(仿台中公車 App)，用路線自己的 ‹ header；route-map 時才露地圖 */
             body.route-mode:not(.route-map) .app-header { display: none; }
             body.route-mode:not(.route-map) .sheet-grip { display: none; }
-            body.route-mode:not(.route-map) .list-panel {
+            body.route-mode:not(.route-map) .list-panel,
+            body.stn-page .list-panel {
                 height: 100%; transform: none !important; border-radius: 0; box-shadow: none;
             }
+            body.stn-page .app-header, body.stn-page .sheet-grip { display: none; }
             .rhead-map { display: flex; }   /* 手機路線標頭才有地圖切換鈕 */
 
             .bus-pop .leaflet-popup-content { width: 82vw !important; max-width: 320px; }
@@ -733,6 +735,8 @@
     let routeData = null;           // { name, byDir: {0:[...],1:[...]} }
     let activeRouteSeq = null;      // 路線模式：目前選定的站序（右側清單高亮用）
     let routeOrigin = null;         // 從某站 popup 點路線時的來源站 {lat,lon,name}，用來自動選方向+定位
+    let stnPage = null;             // 站牌詳情頁狀態 {name,lat,lon,stationId,fromRoute:{name,dir}}
+    let stnPageTimer = null;
 
     function haversine(lat1, lon1, lat2, lon2) {
         const R = 6371000, toR = Math.PI / 180;
@@ -1030,6 +1034,8 @@
     function clearRoute(restore) {
         if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
         clearInterval(routeTimer); routeTimer = null;
+        clearInterval(stnPageTimer); stnPageTimer = null; stnPage = null;
+        document.body.classList.remove('stn-page');
         const had = !!curRoute;
         curRoute = null; routeData = null; activeRouteSeq = null; routeOrigin = null;
         $routeBar.hidden = true;
@@ -1178,6 +1184,7 @@
     // ── 畫地圖(線形 + 序號站點 + 即時公車) 與 右側清單 ──
     function renderRoute(fit) {
         if (!routeData || !routeLayer) return;
+        if (stnPage) return;   // 站牌詳情頁蓋在路線上時，路線刷新只更新資料不重繪清單
         const { shapes, byDir, buses } = routeData;
         const dir = byDir[routeDir] || { stops: [], etaByStop: {} };
         const stops = dir.stops;
@@ -1241,6 +1248,68 @@
             .openOn(map);
     }
 
+    // 點路線的站：滿版清單 → 開站牌詳情頁；地圖檢視 → 在地圖上定位
+    function onRouteStopTap(seq) {
+        if (document.body.classList.contains('route-map')) focusRouteStop(seq);
+        else openStopPage(seq);
+    }
+
+    // ── 站牌詳情頁（滿版，仿台中公車 App：該站各路線到站）──
+    function stopPageShell(name, inner) {
+        return `<div class="rhead">
+                <button class="rback" onclick="closeStopPage()" title="返回">‹</button>
+                <div class="rhead-main"><div class="rhead-name">${TXT(name)}</div></div>
+            </div>
+            <div class="stnpage-body">${inner}</div>`;
+    }
+    function openStopPage(seq) {
+        if (!routeData) return;
+        const st = ((routeData.byDir[routeDir] || {}).stops || []).find(s => s.seq === seq);
+        if (!st || st.lat == null) { toast('此站沒有座標'); return; }
+        stnPage = { name: st.name, lat: st.lat, lon: st.lon, stationId: null, fromRoute: { name: curRoute, dir: routeDir } };
+        document.body.classList.add('stn-page');
+        setSheet('full');
+        $list.innerHTML = stopPageShell(st.name, '<div class="arr-loading">查詢到站時間…</div>');
+        $list.scrollTop = 0;
+        loadStopPage();
+    }
+    async function loadStopPage() {
+        const page = stnPage;
+        if (!page) return;
+        try {
+            await ensureRouteDests();
+            if (!page.stationId) {   // 用座標解析出這站的 StationID
+                const near = await fetchJson(NEARBY(page.lon, page.lat, 100));
+                const arr = Array.isArray(near) ? near : [];
+                const pick = arr.find(x => (x.StationName && x.StationName.Zh_tw) === page.name) || arr[0];
+                if (!pick) throw new Error('查無站台');
+                page.stationId = pick.StationID;
+            }
+            const eta = await fetchJson(ETA(page.stationId));
+            if (stnPage !== page) return;   // 期間已離開
+            const recs = Array.isArray(eta) ? eta : [];
+            $list.innerHTML = stopPageShell(page.name, arrivalsInner(recs)
+                + `<div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${nowStr()}</span></div>`);
+            pulseRefreshBar();
+            clearInterval(stnPageTimer);
+            stnPageTimer = setInterval(loadStopPage, 20000);
+        } catch (e) {
+            if (stnPage === page) $list.innerHTML = stopPageShell(page.name, '<div class="arr-loading">⚠ 無法取得到站時間</div>');
+        }
+    }
+    function closeStopPage() {
+        clearInterval(stnPageTimer); stnPageTimer = null;
+        const from = stnPage && stnPage.fromRoute;
+        stnPage = null;
+        document.body.classList.remove('stn-page');
+        if (from && curRoute === from.name && routeData) {
+            routeDir = from.dir;
+            renderRoute(false);   // 回到路線詳情
+        } else {
+            clearRoute(true);     // 保險：回附近站牌
+        }
+    }
+
     function renderRoutePanel(keepScroll) {
         if (!routeData) return;
         const prevScroll = keepScroll ? $list.scrollTop : 0;
@@ -1273,7 +1342,7 @@
             const eta = dir.etaByStop[st.id] || {};
             const [label, cls] = timePill(eta);
             const plate = busAt[st.id];
-            return `<div class="rstop${plate ? ' here' : ''}${st.seq === activeRouteSeq ? ' active' : ''}" data-seq="${st.seq}" onclick="focusRouteStop(${st.seq})">
+            return `<div class="rstop${plate ? ' here' : ''}${st.seq === activeRouteSeq ? ' active' : ''}" data-seq="${st.seq}" onclick="onRouteStopTap(${st.seq})">
                 <div class="rtime ${cls}">${TXT(label)}</div>
                 <div class="rseq"><span class="rseq-num">${st.seq}</span></div>
                 <div class="rstop-body">
