@@ -363,7 +363,7 @@
         }
         .route-bar .rb-close:hover { background: #ef4444; }
 
-        /* ── Route detail panel (Google 式) ── */
+        /* ── Route detail panel (台中公車 App 式) ── */
         body.route-mode .list-head { display: none; }
         body.route-mode #list { padding: 0; }
         .rhead {
@@ -379,39 +379,50 @@
         .rback:hover { background: rgba(255,255,255,.32); }
         .rhead-main { min-width: 0; }
         .rhead-name { font-size: 18px; font-weight: 800; line-height: 1.1; }
-        .rhead-od { font-size: 11.5px; opacity: .92; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rdir {
             position: sticky; top: 54px; z-index: 2;
-            display: flex; gap: 8px; padding: 10px 12px;
-            background: #fff; border-bottom: 1px solid #e2e8f0;
+            display: flex; background: #fff; border-bottom: 1px solid #e2e8f0;
         }
         .rdir-btn {
-            flex: 1; padding: 8px; border: 1.5px solid #e2e8f0; border-radius: 8px;
-            background: #f8fafc; color: #64748b; font-size: 13px; font-weight: 700;
-            font-family: inherit; cursor: pointer;
-        }
-        .rdir-btn.on { background: #0d9488; color: #fff; border-color: #0d9488; }
-        .rdir-btn:disabled { opacity: .4; cursor: default; }
-        .rstops { padding: 4px 0; }
-        .rstop { display: flex; align-items: stretch; gap: 10px; padding: 0 14px; }
-        .rstop-rail { position: relative; width: 14px; flex-shrink: 0; display: flex; justify-content: center; }
-        .rstop-rail::before { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; background: #cbd5e1; }
-        .rstop:first-child .rstop-rail::before { top: 50%; }
-        .rstop:last-child .rstop-rail::before { bottom: 50%; }
-        .rdot {
-            position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 50%;
-            background: #94a3b8; border: 2px solid #fff; align-self: center;
-        }
-        .rstop.imminent .rdot { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.22); }
-        .rstop-name {
-            flex: 1; min-width: 0; font-size: 13.5px; color: #1e293b; padding: 9px 0;
+            flex: 1; padding: 13px 8px; border: none; background: transparent;
+            font-size: 14.5px; font-weight: 700; color: #94a3b8; cursor: pointer;
+            position: relative; font-family: inherit;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-            border-bottom: 1px solid #f1f5f9;
         }
-        .rstop:last-child .rstop-name { border-bottom: none; }
-        .rstop.imminent .rstop-name { font-weight: 700; }
-        .rstop-eta { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; }
-        .rstop-clock { font-size: 10px; color: #94a3b8; }
+        .rdir-btn.on { color: #0f766e; }
+        .rdir-btn.on::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 3px; background: #0d9488; border-radius: 3px 3px 0 0; }
+        .rdir-btn:disabled { opacity: .4; cursor: default; }
+        .rstops { padding: 0; }
+        .rstop { display: flex; align-items: stretch; gap: 10px; padding: 0 12px; border-bottom: 1px solid #f1f5f9; }
+        .rtime {
+            flex-shrink: 0; width: 72px; align-self: center; text-align: center;
+            padding: 9px 4px; border-radius: 9px; font-size: 14.5px; font-weight: 800;
+            color: #fff; line-height: 1.15;
+        }
+        .rtime.t-clock { background: #0d8a80; }
+        .rtime.t-soon  { background: #ef4444; }
+        .rtime.t-min   { background: #f59e0b; }
+        .rtime.t-none  { background: #e5eaf0; color: #64748b; }
+        .rseq { position: relative; width: 24px; flex-shrink: 0; display: flex; justify-content: center; }
+        .rseq::before { content: ''; position: absolute; top: 0; bottom: 0; width: 2px; background: #dce3ea; }
+        .rstop:first-child .rseq::before { top: 50%; }
+        .rstop:last-child .rseq::before { bottom: 50%; }
+        .rseq-num {
+            position: relative; z-index: 1; align-self: center;
+            min-width: 22px; height: 22px; padding: 0 4px; border-radius: 11px;
+            background: #fff; border: 2px solid #cbd5e1; color: #64748b;
+            font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+        }
+        .rstop.here .rseq-num { background: #ef4444; border-color: #ef4444; color: #fff; }
+        .rstop-body { flex: 1; min-width: 0; align-self: center; display: flex; align-items: center; gap: 8px; padding: 11px 0; }
+        .rstop-name { font-size: 14px; color: #1e293b; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rbus {
+            flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+            font-size: 11px; font-weight: 700; font-family: ui-monospace, Consolas, monospace;
+            background: #fff; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 2px 7px;
+            color: #334155; box-shadow: 0 1px 3px rgba(0,0,0,.12);
+        }
+        .rsignal { align-self: center; flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
 
         .toast {
             position: fixed;
@@ -899,44 +910,63 @@
         routeTimer = setInterval(() => { if (curRoute === name) loadRoutePanel(name).catch(() => {}); }, 20000);
     }
 
-    function arrivalClock(s) {
-        if (s.EstimateTime != null && s.EstimateTime >= 0 && s.EstimateTime < 7200) {
-            const t = new Date(Date.now() + s.EstimateTime * 1000);
-            return t.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    function hhmmISO(s) { const m = String(s).match(/T(\d{2}):(\d{2})/); return m ? m[1] + ':' + m[2] : ''; }
+    // 回傳 [大時間塊文字, 顏色class]
+    function timePill(s) {
+        const st = s.StopStatus;
+        if (st === 2) return ['交管不停', 't-none'];
+        if (st === 3) return ['末班已過', 't-none'];
+        if (st === 4) return ['未營運', 't-none'];
+        const et = s.EstimateTime;
+        if (et != null) {
+            if (et < 60) return ['即將到站', 't-soon'];
+            return [Math.floor(et / 60) + ' 分', 't-min'];
         }
-        return '';
+        if (s.NextBusTime) { const t = hhmmISO(s.NextBusTime); if (t) return [t, 't-clock']; }
+        return ['未發車', 't-none'];
     }
 
     function renderRoutePanel() {
         if (!routeData) return;
         const { name, byDir } = routeData;
         const stops = byDir[routeDir] || [];
-        const first = stops[0], last = stops[stops.length - 1];
         const has0 = byDir[0] && byDir[0].length, has1 = byDir[1] && byDir[1].length;
+        const destOf = a => (a && a.length) ? a[a.length - 1].StopName.Zh_tw : '';
+        const dest0 = destOf(byDir[0]), dest1 = destOf(byDir[1]);
+
+        // 每台公車(車牌)目前位置 = 它 EstimateTime 最小的那站 → 在那站顯示車牌
+        const byPlate = {};
+        stops.forEach(s => {
+            if (s.PlateNumb && s.EstimateTime != null) {
+                const p = s.PlateNumb;
+                if (!byPlate[p] || s.EstimateTime < byPlate[p].EstimateTime) byPlate[p] = s;
+            }
+        });
+        const busAt = {};
+        Object.values(byPlate).forEach(r => { busAt[r.StopSequence] = r.PlateNumb; });
+
         const rows = stops.map(s => {
-            const [label, cls] = badge(s);
-            const clock = arrivalClock(s);
-            const imm = (cls === 'now' || cls === 'soon');
-            return `<div class="rstop${imm ? ' imminent' : ''}">
-                <div class="rstop-rail"><span class="rdot"></span></div>
-                <div class="rstop-name">${TXT(s.StopName.Zh_tw)}</div>
-                <div class="rstop-eta">
-                    <span class="arr-badge ${cls}">${TXT(label)}</span>
-                    ${clock ? `<span class="rstop-clock">${clock} 到</span>` : ''}
+            const [label, cls] = timePill(s);
+            const plate = busAt[s.StopSequence];
+            return `<div class="rstop${plate ? ' here' : ''}">
+                <div class="rtime ${cls}">${TXT(label)}</div>
+                <div class="rseq"><span class="rseq-num">${s.StopSequence}</span></div>
+                <div class="rstop-body">
+                    <span class="rstop-name">${TXT(s.StopName.Zh_tw)}</span>
+                    ${plate ? `<span class="rbus">🚌 ${TXT(plate)}</span>` : ''}
                 </div>
+                <span class="rsignal" title="即時動態"></span>
             </div>`;
         }).join('');
+
         $list.innerHTML =
             `<div class="rhead">
                 <button class="rback" onclick="clearRoute(true)" title="返回附近站牌">‹</button>
-                <div class="rhead-main">
-                    <div class="rhead-name">${TXT(name)}</div>
-                    <div class="rhead-od">${first ? TXT(first.StopName.Zh_tw) : ''} → ${last ? TXT(last.StopName.Zh_tw) : ''}</div>
-                </div>
+                <div class="rhead-main"><div class="rhead-name">${TXT(name)}</div></div>
             </div>
             <div class="rdir">
-                <button class="rdir-btn ${routeDir === 0 ? 'on' : ''}" onclick="setRouteDir(0)" ${has0 ? '' : 'disabled'}>去程</button>
-                <button class="rdir-btn ${routeDir === 1 ? 'on' : ''}" onclick="setRouteDir(1)" ${has1 ? '' : 'disabled'}>返程</button>
+                <button class="rdir-btn ${routeDir === 0 ? 'on' : ''}" onclick="setRouteDir(0)" ${has0 ? '' : 'disabled'}>往 ${TXT(dest0 || '去程')}</button>
+                <button class="rdir-btn ${routeDir === 1 ? 'on' : ''}" onclick="setRouteDir(1)" ${has1 ? '' : 'disabled'}>往 ${TXT(dest1 || '返程')}</button>
             </div>
             <div class="rstops">${rows || '<div class="arr-loading">此方向目前無資料</div>'}</div>
             <div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${nowStr()}</span></div>`;
