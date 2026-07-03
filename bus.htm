@@ -342,6 +342,27 @@
             display: flex; align-items: center; justify-content: space-between;
         }
 
+        /* ── Route draw ── */
+        .arr-route { cursor: pointer; }
+        .arr-route:hover { text-decoration: underline; }
+        .stn-marker.onroute { background: #7c3aed; box-shadow: 0 4px 12px rgba(124,58,237,.5); }
+        .route-bar {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            z-index: 800; max-width: min(92%, 520px);
+            display: flex; align-items: center; gap: 10px;
+            background: #0f172a; color: #f1f5f9;
+            padding: 7px 8px 7px 13px; border-radius: 999px;
+            box-shadow: 0 6px 22px rgba(0,0,0,.4);
+            font-size: 12.5px;
+        }
+        .route-bar .rb-badge { font-weight: 800; color: #5eead4; font-size: 15px; white-space: nowrap; }
+        .route-bar .rb-info { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #cbd5e1; }
+        .route-bar .rb-close {
+            flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+            border: none; background: rgba(255,255,255,.14); color: #fff; cursor: pointer; font-size: 12px;
+        }
+        .route-bar .rb-close:hover { background: #ef4444; }
+
         .toast {
             position: fixed;
             bottom: 70px;
@@ -439,6 +460,11 @@
 
     <div class="layout">
         <div id="map">
+            <div class="route-bar" id="routeBar" hidden>
+                <span class="rb-badge" id="routeBarName"></span>
+                <span class="rb-info" id="routeBarInfo"></span>
+                <button class="rb-close" id="routeBarClose" type="button" title="清除路線">✕</button>
+            </div>
             <button class="map-btn-search" id="searchHereBtn" type="button" hidden>🔍 搜尋此區域</button>
         </div>
         <aside class="list-panel">
@@ -478,6 +504,9 @@
 
     const PROXY_KEY     = 'tc_traffic_proxy';   // 與 traffic.htm 共用同一支 worker
     const DEFAULT_PROXY = 'https://missing.54maxwu.workers.dev/';
+    // 畫公車路線需要 TDX 的 Shape/StopOfRoute（需金鑰）。金鑰放在這支 worker（不進 repo）。
+    // 尚未部署時會自動退回「無金鑰備援」（標出附近站點 + 官方路線圖連結）。
+    const TDX_PROXY = 'https://tdx.54maxwu.workers.dev/';
     const getProxy = () => { try { return (localStorage.getItem(PROXY_KEY) ?? DEFAULT_PROXY).trim(); } catch { return DEFAULT_PROXY; } };
     function proxyList() {
         const list = []; const p = getProxy();
@@ -545,6 +574,8 @@
     let activeUID = null;
     let popupUID = null;            // 目前開著的地圖卡片對應站
     let etaTimer = null;
+    let routeLayer = null;          // 目前畫在地圖上的路線圖層
+    let curRoute = null;            // 目前選定的路線名
 
     function haversine(lat1, lon1, lat2, lon2) {
         const R = 6371000, toR = Math.PI / 180;
@@ -738,6 +769,121 @@
         etaTimer = setInterval(() => { if (uid === activeUID) loadArrivals(uid, stationId); }, 20000);
     }
 
+    // ══ 路線繪製 ══════════════════════════════════════════
+    const $routeBar   = document.getElementById('routeBar');
+    const $rbName     = document.getElementById('routeBarName');
+    const $rbInfo     = document.getElementById('routeBarInfo');
+
+    async function tdxFetch(path) {
+        if (!TDX_PROXY) throw new Error('未設定 TDX proxy');
+        const u = TDX_PROXY + (TDX_PROXY.includes('?') ? '&' : (TDX_PROXY.endsWith('/') ? '' : '/')) + '?tdx=' + encodeURIComponent(path);
+        const r = await fetch(u, { cache: 'no-store' });
+        if (!r.ok) throw new Error('TDX HTTP ' + r.status);
+        return r.json();
+    }
+
+    // 解析 WKT（MULTILINESTRING / LINESTRING）→ [[ [lat,lon], … ], …]
+    function parseWKT(wkt) {
+        const segs = [];
+        const body = String(wkt).replace(/^\s*(MULTILINESTRING|LINESTRING)\s*/i, '');
+        let m; const re = /\(([^()]+)\)/g;
+        while ((m = re.exec(body))) {
+            const pts = m[1].split(',').map(p => {
+                const [lon, lat] = p.trim().split(/\s+/).map(Number);
+                return [lat, lon];
+            }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+            if (pts.length > 1) segs.push(pts);
+        }
+        return segs;
+    }
+
+    function clearRoute() {
+        if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+        curRoute = null;
+        $routeBar.hidden = true;
+        stnMarkers.forEach(m => {
+            const el = m.getElement() && m.getElement().querySelector('.stn-marker');
+            if (el) el.classList.remove('onroute');
+        });
+    }
+
+    async function selectRoute(name) {
+        if (curRoute === name) { clearRoute(); return; }   // 再點一次收起
+        clearRoute();
+        curRoute = name;
+        routeLayer = L.layerGroup().addTo(map);
+        $routeBar.hidden = false;
+        $rbName.textContent = name;
+        $rbInfo.textContent = '載入路線…';
+        if (TDX_PROXY) {
+            try { await drawRouteTDX(name); return; }
+            catch (e) { console.warn('TDX 繪製失敗，改用備援', e); }
+        }
+        drawRouteFallback(name);
+    }
+
+    async function drawRouteTDX(name) {
+        const enc = encodeURIComponent(name);
+        const [shapesRaw, sorsRaw] = await Promise.all([
+            tdxFetch('Bus/Shape/City/Taichung/' + enc).catch(() => []),
+            tdxFetch('Bus/StopOfRoute/City/Taichung/' + enc).catch(() => []),
+        ]);
+        // TDX 路線名為「部分比對」（查 99 會夾帶 699/99延）→ 取精確符合
+        const exact = x => x.RouteName && x.RouteName.Zh_tw === name;
+        const shapes = (shapesRaw || []).filter(exact);
+        const sors   = (sorsRaw   || []).filter(exact);
+        const colors = ['#0d9488', '#7c3aed'];
+        let bounds = [];
+        (shapes || []).forEach((sh, i) => {
+            if (!sh.Geometry) return;
+            parseWKT(sh.Geometry).forEach(seg => {
+                L.polyline(seg, { color: colors[i % 2], weight: 5, opacity: .85 }).addTo(routeLayer);
+                bounds = bounds.concat(seg);
+            });
+        });
+        (sors || []).forEach((dir, i) => {
+            (dir.Stops || []).forEach(st => {
+                const p = st.StopPosition; if (!p) return;
+                L.circleMarker([p.PositionLat, p.PositionLon], {
+                    radius: 4, color: '#fff', weight: 1.5, fillColor: colors[i % 2], fillOpacity: 1
+                }).bindTooltip((st.StopName && st.StopName.Zh_tw) || '', { direction: 'top' }).addTo(routeLayer);
+                bounds.push([p.PositionLat, p.PositionLon]);
+            });
+        });
+        if (!shapes || !shapes.length) {   // 沒線形 → 用站點連線
+            (sors || []).forEach((dir, i) => {
+                const line = (dir.Stops || []).map(st => st.StopPosition && [st.StopPosition.PositionLat, st.StopPosition.PositionLon]).filter(Boolean);
+                if (line.length > 1) L.polyline(line, { color: colors[i % 2], weight: 4, opacity: .8, dashArray: '6 6' }).addTo(routeLayer);
+            });
+        }
+        if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+        const d0 = sors && sors[0];
+        const first = d0 && d0.Stops && d0.Stops[0];
+        const last  = d0 && d0.Stops && d0.Stops[d0.Stops.length - 1];
+        $rbInfo.textContent = (first && last)
+            ? `${first.StopName.Zh_tw} → ${last.StopName.Zh_tw}`
+            : name + ' 路線';
+    }
+
+    function drawRouteFallback(name) {
+        const pts = [];
+        stations.forEach(s => {
+            if (s.routes.includes(name)) {
+                const mk = stnMarkers.get(s.uid);
+                const el = mk && mk.getElement() && mk.getElement().querySelector('.stn-marker');
+                if (el) el.classList.add('onroute');
+                pts.push([s.lat, s.lon]);
+            }
+        });
+        const link = 'https://citybus.taichung.gov.tw/ebus/route-map/' + encodeURIComponent(name);
+        $rbInfo.innerHTML = `附近經過 ${pts.length} 站 · <a href="${link}" target="_blank" rel="noopener" style="color:#5eead4;text-decoration:underline;">官方路線圖</a>`;
+        if (pts.length) map.fitBounds(pts, { padding: [60, 60], maxZoom: 16 });
+        else toast('附近沒有此路線的站點');
+    }
+
+    // 點「路線號」→ selectRoute（arr-route 用 inline onclick，卡片/清單皆可）
+    document.getElementById('routeBarClose').addEventListener('click', clearRoute);
+
     // 回傳 [顯示文字, 顏色class, 排序用秒數]
     function badge(rec) {
         const st = rec.StopStatus;
@@ -783,7 +929,7 @@
                 ? `<span class="arr-plate" title="這台公車的車牌">🚍 ${TXT(it.plate)}</span>`
                 : `<span class="arr-dir">尚無車輛在路上</span>`;
             return `<div class="arr-row">
-                <span class="arr-route">${TXT(it.route)}</span>
+                <span class="arr-route" data-route="${TXT(it.route)}" onclick="selectRoute(this.dataset.route)" title="點我在地圖畫出這條路線">${TXT(it.route)}</span>
                 <div class="arr-mid">${mid}</div>
                 <span class="arr-badge ${it.cls}">${TXT(it.label)}</span>
             </div>`;
