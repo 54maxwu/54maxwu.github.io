@@ -17,6 +17,7 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            height: 100dvh;   /* iOS：用動態視窗高度，避免底部被 Safari 網址列裁掉 */
             overflow: hidden;
         }
 
@@ -122,6 +123,13 @@
             flex-shrink: 0;
         }
         .list-head .count { font-size: 11px; font-weight: 600; color: #64748b; }
+        .list-back {
+            display: none; flex-shrink: 0;
+            width: 32px; height: 32px; margin-right: 6px; border-radius: 8px; border: none;
+            background: #f1f5f9; color: #0f766e; font-size: 22px; line-height: 1; cursor: pointer;
+            align-items: center; justify-content: center;
+        }
+        .list-back:active { background: #e2e8f0; }
         .list-scroll {
             flex: 1;
             overflow-y: auto;
@@ -508,10 +516,16 @@
             .list-panel { width: auto; flex: 1; border-left: none; border-top: 1px solid #e2e8f0; }
             .bus-pop .leaflet-popup-content { width: 82vw !important; max-width: 320px; }
             .bpop-body { max-height: 34vh; }
-            /* 手機版路線模式：面板滿版，藏頂部工具列與地圖，只留路線面板(左上角 ‹ 返回) */
-            body.route-mode .app-header,
-            body.route-mode #map { display: none; }
-            body.route-mode .list-panel { flex: 1; border-top: none; }
+            /* 手機版路線模式：面板滿版，藏頂部工具列與地圖，只留路線面板(左上角 ‹ 返回)。
+               immersive(全螢幕大地圖)時不套用 → 地圖仍滿版、清單當底部抽屜 */
+            body.route-mode:not(.immersive) .app-header,
+            body.route-mode:not(.immersive) #map { display: none; }
+            body.route-mode:not(.immersive) .list-panel { flex: 1; border-top: none; }
+            /* 手機版選站：下方清單滿版蓋掉地圖與浮卡，左上角 ‹ 返回地圖 */
+            body.stn-open:not(.immersive) .app-header,
+            body.stn-open:not(.immersive) #map { display: none; }
+            body.stn-open:not(.immersive) .list-panel { flex: 1; border-top: none; }
+            body.stn-open:not(.immersive) .list-back { display: inline-flex; }
         }
         @media (max-width: 480px) {
             .app-header h1 { font-size: 14px; gap: 5px; }
@@ -560,6 +574,7 @@
         </div>
         <aside class="list-panel">
             <div class="list-head">
+                <button class="list-back" id="listBack" type="button" title="返回地圖">‹</button>
                 <span>附近站牌</span>
                 <span class="count" id="listCount"></span>
             </div>
@@ -813,6 +828,7 @@
         if (!uid) return;
         popupUID = uid;
         activeUID = uid;
+        document.body.classList.add('stn-open');   // 手機版：選站 → 清單滿版
         $list.querySelectorAll('.stn.active').forEach(x => x.classList.remove('active'));
         const el = $list.querySelector(`.stn[data-uid="${cssEsc(uid)}"]`);
         if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
@@ -834,6 +850,8 @@
                 if (el) el.classList.remove('active');
                 markMarkerActive(null);
                 clearInterval(etaTimer); etaTimer = null;
+                document.body.classList.remove('stn-open');   // 退出選站滿版 → 地圖回來
+                requestAnimationFrame(() => map.invalidateSize());
             }
         }, 0);
     });
@@ -1328,6 +1346,14 @@
     // 沉浸模式下點清單標題列 = 拉起／收合抽屜
     document.querySelector('.list-head').addEventListener('click', () => {
         if (document.body.classList.contains('immersive')) document.body.classList.toggle('show-list');
+    });
+    // 手機版「選站滿版」左上角返回 → 關閉該站 popup，回到地圖
+    document.getElementById('listBack').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const mk = activeUID && stnMarkers.get(activeUID);
+        if (mk && mk.isPopupOpen()) { mk.closePopup(); return; }   // popupclose 會收尾
+        document.body.classList.remove('stn-open');                 // 保險
+        requestAnimationFrame(() => map.invalidateSize());
     });
     document.addEventListener('fullscreenchange', () => setTimeout(() => map.invalidateSize(), 200));
 
