@@ -299,6 +299,9 @@
         .bk-dot.rent { background: #22c55e; } .bk-dot.ret { background: #f59e0b; }
         .bike-card { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #eef2f6; cursor: pointer; }
         .bike-card:active { background: #f8fafc; }
+        .bike-card.active { background: #ecfdf5; box-shadow: inset 3px 0 0 #0d9488; }
+        .bike-card.active .bike-name { color: #0f766e; }
+        .bikemark.sel { transform: scale(1.45); border-color: #0d9488; box-shadow: 0 0 0 4px rgba(13,148,136,.35), 0 2px 8px rgba(0,0,0,.45); }
         .bike-main { flex: 1; min-width: 0; }
         .bike-name { font-size: 15px; font-weight: 700; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bike-sub { font-size: 11px; color: #64748b; margin-top: 3px; }
@@ -469,8 +472,9 @@
         .rtime.t-soon  { background: #ef4444; }
         .rtime.t-min   { background: #f59e0b; }
         .rtime.t-none  { background: #e5eaf0; color: #64748b; }
-        .rseq { position: relative; width: 24px; flex-shrink: 0; display: flex; justify-content: center; }
+        .rseq { position: relative; width: 30px; flex-shrink: 0; display: flex; justify-content: center; cursor: pointer; }
         .rseq::before { content: ''; position: absolute; top: 0; bottom: 0; width: 2px; background: #dce3ea; }
+        .rseq:hover .rseq-num { border-color: #0d9488; color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,.14); }
         .rstop:first-child .rseq::before { top: 50%; }
         .rstop:last-child .rseq::before { bottom: 50%; }
         .rseq-num {
@@ -931,6 +935,7 @@
 
     // ── YouBike：附近可借/可還 ──
     let bikeBase = null, bikeTimer = null, bikeLayer = null;
+    let bikeList = [], bikeMarkers = [], activeBikeIdx = -1;
     async function ensureBikeBase() {
         if (bikeBase) return bikeBase;
         const arr = await tdxFetch('Bike/Station/City/Taichung');
@@ -948,28 +953,36 @@
         if (queryCenter) return queryCenter;
         const c = map.getCenter(); return { lat: c.lat, lon: c.lng };
     }
+    let bikeAvail = null, bikeAvailTs = 0;
+    async function getBikeAvail() {   // 全市即時資料快取 25 秒，避免頻繁重抓被限流
+        if (bikeAvail && Date.now() - bikeAvailTs < 25000) return bikeAvail;
+        bikeAvail = await tdxFetch('Bike/Availability/City/Taichung');
+        bikeAvailTs = Date.now();
+        return bikeAvail;
+    }
     async function loadBikes() {
         if (!bikeMode) return;
         try {
-            const [base, avail] = await Promise.all([ensureBikeBase(), tdxFetch('Bike/Availability/City/Taichung')]);
+            const [base, avail] = await Promise.all([ensureBikeBase(), getBikeAvail()]);
             if (!bikeMode) return;
-            const c = bikeCenter(), list = [];
+            const c = bikeCenter(), R = (+$radius.value || 500) + 100, list = [];   // 跟著「範圍」選單，稍放寬
             (avail || []).forEach(a => {
                 const st = base[a.StationUID];
                 if (!st || st.lat == null) return;
                 const dist = haversine(c.lat, c.lon, st.lat, st.lon);
-                if (dist > 800) return;
+                if (dist > R) return;
                 list.push({ name: st.name, lat: st.lat, lon: st.lon, dist,
                     rent: a.AvailableRentBikes || 0, ret: a.AvailableReturnBikes || 0, ok: a.ServiceStatus === 1 });
             });
             list.sort((a, b) => a.dist - b.dist);
-            const top = list.slice(0, 40);
-            renderBikes(top); drawBikeMarkers(top); pulseRefreshBar();
-            clearInterval(bikeTimer); bikeTimer = setInterval(loadBikes, 20000);
+            bikeList = list.slice(0, 50);
+            renderBikes(bikeList); drawBikeMarkers(bikeList); pulseRefreshBar();
+            clearInterval(bikeTimer); bikeTimer = setInterval(loadBikes, 30000);   // 30 秒更新，減輕 TDX 負擔
         } catch (e) {
-            $list.innerHTML = '<div class="empty">⚠ 無法取得 YouBike 資料<br><span style="font-size:11px">' + TXT(e.message || e) + '</span></div>';
+            $list.innerHTML = '<div class="empty">⚠ 無法取得 YouBike 資料<br><span style="font-size:11px">' + TXT(e.message || e) + '</span><br><button class="addr-go" style="margin-top:12px;position:static" onclick="retryBikes()">重試</button></div>';
         }
     }
+    window.retryBikes = () => { if (bikeMode) { bikeAvail = null; loadBikes(); } };
     function renderBikes(list) {
         $count.textContent = list.length ? list.length + ' 站' : '';
         if (!list.length) { $list.innerHTML = '<div class="empty">附近 800m 內沒有 YouBike 站點<br>移動地圖或改用定位</div>'; return; }
@@ -985,17 +998,49 @@
                 </div>
             </div>`).join('');
         $list.querySelectorAll('.bike-card').forEach(el => {
-            el.addEventListener('click', () => { const b = list[+el.dataset.i]; panTo(b.lat, b.lon); raiseSheet('half'); });
+            el.addEventListener('click', () => focusBike(+el.dataset.i, true));
         });
+        if (activeBikeIdx >= 0) {   // 刷新後保留清單高亮
+            const el = $list.querySelector(`.bike-card[data-i="${activeBikeIdx}"]`);
+            if (el) el.classList.add('active');
+        }
+    }
+    function bikePopup(b) {
+        return `<div class="bpop"><div class="bpop-hd">
+            <div class="bpop-name">🚲 ${TXT(b.name)}</div>
+            <div class="bpop-meta"><span>📍 ${fmtDist(b.dist)} · 🚶 ${walkMin(b.dist)} 分</span><span>可借 ${b.ok ? b.rent : '—'}</span><span>可還 ${b.ok ? b.ret : '—'}</span></div>
+        </div></div>`;
     }
     function drawBikeMarkers(list) {
         if (!bikeLayer) bikeLayer = L.layerGroup().addTo(map);
         bikeLayer.clearLayers();
-        list.forEach(b => {
-            L.marker([b.lat, b.lon], {
-                icon: L.divIcon({ className: '', html: `<div class="bikemark${b.ok && b.rent === 0 ? ' empty' : ''}">${b.ok ? b.rent : '—'}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] })
-            }).addTo(bikeLayer).bindTooltip(TXT(b.name), { direction: 'top' });
+        bikeMarkers = list.map((b, i) => {
+            const sel = i === activeBikeIdx;
+            const m = L.marker([b.lat, b.lon], {
+                zIndexOffset: sel ? 1000 : 0,
+                icon: L.divIcon({ className: '', html: `<div class="bikemark${b.ok && b.rent === 0 ? ' empty' : ''}${sel ? ' sel' : ''}">${b.ok ? b.rent : '—'}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] })
+            });
+            m.bindTooltip(TXT(b.name), { direction: 'top' });
+            m.bindPopup(bikePopup(b), { className: 'bus-pop', autoPan: false });
+            m.on('click', () => focusBike(i, true));
+            m.addTo(bikeLayer);
+            return m;
         });
+    }
+    // 選中某 YouBike 站：地圖高亮該 marker + 開資訊卡，清單卡片同步高亮並捲入視野
+    function focusBike(i, openPop) {
+        const b = bikeList[i]; if (!b) return;
+        activeBikeIdx = i;
+        panTo(b.lat, b.lon); raiseSheet('half');
+        bikeMarkers.forEach((m, idx) => {
+            const el = m.getElement() && m.getElement().querySelector('.bikemark');
+            if (el) el.classList.toggle('sel', idx === i);
+            m.setZIndexOffset(idx === i ? 1000 : 0);
+        });
+        $list.querySelectorAll('.bike-card').forEach(el => el.classList.toggle('active', +el.dataset.i === i));
+        const card = $list.querySelector(`.bike-card[data-i="${i}"]`);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (openPop && bikeMarkers[i]) bikeMarkers[i].openPopup();
     }
     function setBikeMode(on) {
         bikeMode = on;
@@ -1006,6 +1051,7 @@
             if (curRoute || stnPage) clearRoute(true);
             if (activeUID) { const mk = stnMarkers.get(activeUID); if (mk) mk.closePopup(); }
             stnMarkers.forEach(m => map.removeLayer(m));   // 藏公車站牌
+            activeBikeIdx = -1;
             $list.innerHTML = '<div class="empty"><div class="spinner"></div>載入附近 YouBike…</div>';
             raiseSheet('half');
             loadBikes();
@@ -1128,12 +1174,28 @@
     const $rbName     = document.getElementById('routeBarName');
     const $rbInfo     = document.getElementById('routeBarInfo');
 
-    async function tdxFetch(path) {
-        if (!TDX_PROXY) throw new Error('未設定 TDX proxy');
-        const u = TDX_PROXY + (TDX_PROXY.includes('?') ? '&' : (TDX_PROXY.endsWith('/') ? '' : '/')) + '?tdx=' + encodeURIComponent(path);
-        const r = await fetch(u, { cache: 'no-store' });
-        if (!r.ok) throw new Error('TDX HTTP ' + r.status);
-        return r.json();
+    // 可放多支 TDX worker（不同帳號）做備援；429 時自動換下一支 + 退避重試
+    const TDX_PROXIES = [TDX_PROXY].filter(Boolean);
+    let tdxIdx = 0;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    async function tdxFetch(path, tries) {
+        if (!TDX_PROXIES.length) throw new Error('未設定 TDX proxy');
+        tries = tries || Math.max(3, TDX_PROXIES.length + 1);
+        let last;
+        for (let i = 0; i < tries; i++) {
+            const base = TDX_PROXIES[(tdxIdx + i) % TDX_PROXIES.length];
+            const u = base + (base.includes('?') ? '&' : (base.endsWith('/') ? '' : '/')) + '?tdx=' + encodeURIComponent(path);
+            try {
+                const r = await fetch(u, { cache: 'no-store' });
+                if (r.status === 429) { tdxIdx++; throw new Error('TDX HTTP 429'); }   // 限流 → 換下一支帳號
+                if (!r.ok) throw new Error('TDX HTTP ' + r.status);
+                return await r.json();
+            } catch (e) {
+                last = e;
+                if (i < tries - 1) await sleep(500 * (i + 1));   // 退避後重試
+            }
+        }
+        throw last;
     }
 
     // 解析 WKT（MULTILINESTRING / LINESTRING）→ [[ [lat,lon], … ], …]
@@ -1368,10 +1430,15 @@
             .openOn(map);
     }
 
-    // 點路線的站：滿版清單 → 開站牌詳情頁；地圖檢視 → 在地圖上定位
-    function onRouteStopTap(seq) {
-        if (document.body.classList.contains('route-map')) focusRouteStop(seq);
-        else openStopPage(seq);
+    // 點「序號」→ 地圖移到並放大到該站（手機若在滿版清單，先切出地圖再定位）
+    function tapRouteSeq(seq) {
+        const mobile = window.matchMedia('(max-width: 820px)').matches;
+        if (mobile && !document.body.classList.contains('route-map')) {
+            document.body.classList.add('route-map'); setSheet('half');
+            requestAnimationFrame(() => { map.invalidateSize(); focusRouteStop(seq); });
+        } else {
+            focusRouteStop(seq);
+        }
     }
 
     // ── 站牌詳情頁（滿版，仿台中公車 App：該站各路線到站）──
@@ -1462,9 +1529,9 @@
             const eta = dir.etaByStop[st.id] || {};
             const [label, cls] = timePill(eta);
             const plate = busAt[st.id];
-            return `<div class="rstop${plate ? ' here' : ''}${st.seq === activeRouteSeq ? ' active' : ''}" data-seq="${st.seq}" onclick="onRouteStopTap(${st.seq})">
+            return `<div class="rstop${plate ? ' here' : ''}${st.seq === activeRouteSeq ? ' active' : ''}" data-seq="${st.seq}" onclick="openStopPage(${st.seq})" title="看此站各路線到站">
                 <div class="rtime ${cls}">${TXT(label)}</div>
-                <div class="rseq"><span class="rseq-num">${st.seq}</span></div>
+                <div class="rseq" onclick="event.stopPropagation(); tapRouteSeq(${st.seq})" title="在地圖上定位此站"><span class="rseq-num">${st.seq}</span></div>
                 <div class="rstop-body">
                     <span class="rstop-name">${TXT(st.name)}</span>
                     ${plate ? `<span class="rbus">🚌 ${TXT(plate)}</span>` : ''}
@@ -1639,14 +1706,17 @@
     // ── Events ──
     $locate.addEventListener('click', () => locate(false));
     $refresh.addEventListener('click', () => {
+        if (bikeMode) { bikeAvail = null; loadBikes(); return; }
         if (queryCenter) queryArea(queryCenter.lat, queryCenter.lon, { fresh: false });
         else locate(false);
     });
     $radius.addEventListener('change', () => {
+        if (bikeMode) { loadBikes(); return; }
         if (queryCenter) queryArea(queryCenter.lat, queryCenter.lon, { fresh: true });
     });
     $searchHere.addEventListener('click', () => {
         const c = map.getCenter();
+        if (bikeMode) { queryCenter = { lat: c.lat, lon: c.lng }; bikeAvail = null; activeBikeIdx = -1; loadBikes(); $searchHere.hidden = true; return; }
         queryArea(c.lat, c.lng, { fresh: true });
     });
     // 地圖移動後，若離上次查詢中心夠遠就顯示「搜尋此區域」

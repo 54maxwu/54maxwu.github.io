@@ -654,9 +654,10 @@ function renderPanes() {
     // stay empty until the user switches to them.
     if (tab.uid === active && !pane.querySelector('iframe')) {
       const frame = document.createElement('iframe');
-      frame.src = pane.dataset.url;
+      // 權限政策必須在 src 載入前就設好，否則 geolocation 等權限不會生效
       frame.allow = 'geolocation; fullscreen; display-capture; camera; microphone; clipboard-write; clipboard-read';
       frame.setAttribute('allowfullscreen', '');
+      frame.src = pane.dataset.url;
       pane.appendChild(frame);
     }
   });
