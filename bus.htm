@@ -373,7 +373,7 @@
             box-shadow: 0 14px 38px rgba(15,23,42,.32);
             border: 1px solid rgba(15,23,42,.06);
         }
-        .bus-pop .leaflet-popup-content { margin: 0; width: 300px !important; font-family: inherit; }
+        .bus-pop .leaflet-popup-content { margin: 0; width: auto !important; min-width: 200px; max-width: 300px; font-family: inherit; }
         .bus-pop .leaflet-popup-tip { box-shadow: 0 6px 16px rgba(15,23,42,.18); }
         .bus-pop a.leaflet-popup-close-button { color: rgba(255,255,255,.85); top: 9px; right: 9px; font-size: 20px; }
         .bus-pop a.leaflet-popup-close-button:hover { color: #fff; }
@@ -602,7 +602,7 @@
             body.stn-page .app-header, body.stn-page .sheet-grip { display: none; }
             .rhead-map { display: flex; }   /* 手機路線標頭才有地圖切換鈕 */
 
-            .bus-pop .leaflet-popup-content { width: 82vw !important; max-width: 320px; }
+            .bus-pop .leaflet-popup-content { max-width: 76vw; }
             .bpop-body { max-height: 34vh; }
             /* 「搜尋此區域」移到地圖頂部置中，才不會被底部面板蓋住 */
             .map-btn-search { bottom: auto; top: 12px; }
@@ -1075,7 +1075,7 @@
                 icon: L.divIcon({ className: '', html: `<div class="stn-marker" data-uid="${s.uid}"><span>🚌</span></div>`, iconSize: [38,38], iconAnchor: [19,36], popupAnchor: [0,-30] }),
                 title: s.name
             }).addTo(map);
-            const pop = L.popup({ className: 'bus-pop', maxWidth: 320, minWidth: 300, autoPan: false, closeButton: true });
+            const pop = L.popup({ className: 'bus-pop', maxWidth: 280, minWidth: 200, autoPan: false, closeButton: true });
             pop._stnUID = s.uid;
             m.bindPopup(pop);
             m.on('click', () => focusStation(s));   // 置中；Leaflet 會開 popup → popupopen 接手其餘
@@ -1121,7 +1121,7 @@
         if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
         markMarkerActive(uid);
         const s = stations.find(x => x.uid === uid);
-        e.popup.setContent(cardFull(s, '<div class="arr-loading">查詢到站時間…</div>', nowStr()));
+        e.popup.setContent(cardCompact(s));   // 地圖上只留小名牌，到站資訊在右側清單卡(避免重複)
         clearInterval(etaTimer); etaTimer = null;
         if (s) loadArrivals(uid, s.id);
     });
@@ -1142,8 +1142,6 @@
     });
 
     async function loadArrivals(uid, stationId) {
-        const s = stations.find(x => x.uid === uid);
-        const mk = stnMarkers.get(uid);
         const body = document.getElementById('body-' + uid);
         if (body && !body.dataset.loaded) body.innerHTML = '<div class="arr-loading">查詢到站時間…</div>';
         let data;
@@ -1152,20 +1150,16 @@
             const [, d] = await Promise.all([ensureRouteDests(), fetchJson(ETA(stationId))]);
             data = d;
         } catch (e) {
-            const fail = '<div class="arr-loading">⚠ 無法取得到站時間</div>';
-            if (body) body.innerHTML = fail;
-            if (mk && s && mk.isPopupOpen()) mk.setPopupContent(cardFull(s, fail, nowStr()));
+            if (body) body.innerHTML = '<div class="arr-loading">⚠ 無法取得到站時間</div>';
             return;
         }
         if (uid !== activeUID) return;
         const recs = Array.isArray(data) ? data : [];
-        const inner = arrivalsInner(recs);
         const now = nowStr();
         if (body) {
-            body.innerHTML = inner + `<div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${now}</span></div>`;
+            body.innerHTML = arrivalsInner(recs) + `<div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${now}</span></div>`;
             body.dataset.loaded = '1';
         }
-        if (mk && s && mk.isPopupOpen()) mk.setPopupContent(cardFull(s, inner, now));
         pulseRefreshBar();   // 重跑 20 秒進度條
         clearInterval(etaTimer);
         etaTimer = setInterval(() => { if (uid === activeUID) loadArrivals(uid, stationId); }, 20000);
@@ -1662,15 +1656,13 @@
         }).join('');
         return `<div class="arr-hd"><span class="h-route">路線</span><span class="h-mid">往哪 · 車輛</span><span>還有多久到</span></div>` + rows;
     }
-    // 地圖上的漂亮資訊卡
-    function cardFull(s, inner, now) {
+    // 地圖上的小名牌(只標示點到哪一站；到站資訊在右側清單卡，避免重複)
+    function cardCompact(s) {
         return `<div class="bpop">
             <div class="bpop-hd">
                 <div class="bpop-name">${TXT(s.name)}</div>
                 <div class="bpop-meta"><span>📍 ${fmtDist(s.dist)} · 🚶 ${walkMin(s.dist)} 分</span>${s.bearing ? `<span>${TXT(bearingZh(s.bearing))}方</span>` : ''}<span>${s.routes.length} 條路線</span></div>
             </div>
-            <div class="bpop-body">${inner}</div>
-            <div class="bpop-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${now}</span></div>
         </div>`;
     }
 
