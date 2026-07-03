@@ -758,6 +758,7 @@
     let stnMarkers = new Map();     // StationUID → marker
     let stations = [];              // 目前清單
     let queryCenter = null;         // {lat, lon} 上次查詢中心
+    let queryRadius = 500;          // 上次查詢半徑(公尺)
     let activeUID = null;
     let popupUID = null;            // 目前開著的地圖卡片對應站
     let etaTimer = null;
@@ -798,7 +799,8 @@
     // ── Query nearby ──
     async function queryArea(lat, lon, opts = {}) {
         queryCenter = { lat, lon };
-        const r = +$radius.value;
+        const r = opts.radius || +$radius.value;   // 自動抓取時用視野半徑
+        queryRadius = r;
         setStatus('搜尋站牌中…', 'load');
         $searchHere.hidden = true;
         if (opts.fresh) $list.innerHTML = '<div class="empty"><div class="spinner"></div>搜尋附近站牌…</div>';
@@ -1293,13 +1295,13 @@
         }
         document.body.classList.add('route-mode');
         setSheet('full');   // 手機版：進路線 → 底部面板全屏看完整站序
-        renderRoute(true);
+        // 從站點進入(routeOrigin)→ 地圖維持原樣只畫路線，不縮到全路線
+        renderRoute(!routeOrigin);
         // 首次載入把來源站捲進視野（只做一次，之後 20 秒刷新不搶捲軸）
         if (routeOrigin) {
-            if (activeRouteSeq != null) {
-                const row = $list.querySelector(`.rstop[data-seq="${activeRouteSeq}"]`);
-                if (row) row.scrollIntoView({ block: 'center' });
-            }
+            const row = activeRouteSeq != null && $list.querySelector(`.rstop[data-seq="${activeRouteSeq}"]`);
+            if (row) row.scrollIntoView({ block: 'center' });
+            else $list.scrollTop = 0;
             routeOrigin = null;
         }
         clearInterval(routeTimer);
@@ -1722,12 +1724,28 @@
         if (bikeMode) { queryCenter = { lat: c.lat, lon: c.lng }; bikeAvail = null; activeBikeIdx = -1; loadBikes(); $searchHere.hidden = true; return; }
         queryArea(c.lat, c.lng, { fresh: true });
     });
-    // 地圖移動後，若離上次查詢中心夠遠就顯示「搜尋此區域」
+    // 依目前地圖視野推算查詢半徑(取畫面短邊的一半，300~1500m)
+    function viewportRadius() {
+        const c = map.getCenter(), ne = map.getBounds().getNorthEast();
+        const halfH = haversine(c.lat, c.lng, ne.lat, c.lng);
+        const halfW = haversine(c.lat, c.lng, c.lat, ne.lng);
+        return Math.round(Math.min(1500, Math.max(300, Math.min(halfH, halfW))));
+    }
+    // 移動/縮放地圖 → 自動抓取畫面內的站牌(取代手動「搜尋此區域」)
+    let autoFetchTimer = null;
     map.on('moveend', () => {
-        if (!queryCenter) return;
-        const c = map.getCenter();
-        const moved = haversine(queryCenter.lat, queryCenter.lon, c.lat, c.lng);
-        if (moved > 200) $searchHere.hidden = false;
+        clearTimeout(autoFetchTimer);
+        autoFetchTimer = setTimeout(() => {
+            if (document.body.classList.contains('route-mode') || stnPage) return;   // 路線/站牌詳情中不打擾
+            const c = map.getCenter();
+            if (bikeMode) { queryCenter = { lat: c.lat, lon: c.lng }; activeBikeIdx = -1; loadBikes(); return; }
+            if (!queryCenter) return;
+            const moved = haversine(queryCenter.lat, queryCenter.lon, c.lat, c.lng);
+            const vr = viewportRadius();
+            if (moved < queryRadius * 0.4 && Math.abs(vr - queryRadius) < queryRadius * 0.5) return;   // 視野沒明顯變 → 不重抓
+            if (activeUID) { $searchHere.hidden = false; return; }   // 正在看某站卡片 → 不打斷，留手動鈕
+            queryArea(c.lat, c.lng, { fresh: false, radius: vr });
+        }, 650);
     });
 
     // ── 全螢幕大地圖（純 CSS 沉浸模式，iOS 也可用；並嘗試真正 Fullscreen） ──
