@@ -243,7 +243,8 @@
             font-size: 15px; font-weight: 800; color: #0f766e;
             min-width: 52px;
         }
-        .arr-mid { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; }
+        .arr-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+        .arr-to { font-size: 12.5px; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
         .arr-dir { font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .arr-badge {
             font-size: 11.5px; font-weight: 700;
@@ -448,6 +449,11 @@
         }
         .stopnum.near { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.3), 0 1px 5px rgba(0,0,0,.45); }
         .busmark { display: flex; flex-direction: column; align-items: center; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+        .bus-arrow {   /* 車頭朝向：三角形就地旋轉，0°=正北 */
+            width: 0; height: 0; margin-bottom: 1px;
+            border-left: 5px solid transparent; border-right: 5px solid transparent;
+            border-bottom: 9px solid #ef4444;
+        }
         .busmark b {
             font-size: 8.5px; font-weight: 700; margin-top: -3px; white-space: nowrap;
             background: #0f172a; color: #5eead4; padding: 1px 3px; border-radius: 3px;
@@ -699,6 +705,9 @@
         return 2 * R * Math.asin(Math.sqrt(a));
     }
     const fmtDist = m => m < 1000 ? Math.round(m) + ' m' : (m/1000).toFixed(1) + ' km';
+    const walkMin = m => Math.max(1, Math.round(m / 80));   // 步行 ~80 m/分
+    const BEARING_ZH = { N: '正北', NE: '東北', E: '正東', SE: '東南', S: '正南', SW: '西南', W: '正西', NW: '西北' };
+    const bearingZh = b => BEARING_ZH[String(b || '').toUpperCase()] || b || '';
 
     function setMe(lat, lon, acc) {
         if (meMarker) map.removeLayer(meMarker);
@@ -768,8 +777,8 @@
                     <div class="stn-main">
                         <div class="stn-name">${TXT(s.name)}</div>
                         <div class="stn-sub">
-                            <span>📍 ${fmtDist(s.dist)}</span>
-                            ${s.bearing ? `<span class="stn-bearing">${TXT(s.bearing)}</span>` : ''}
+                            <span class="stn-dist">📍 ${fmtDist(s.dist)} · 步行 ${walkMin(s.dist)} 分</span>
+                            ${s.bearing ? `<span class="stn-bearing">${TXT(bearingZh(s.bearing))}</span>` : ''}
                             <span>${s.routes.length} 條路線</span>
                         </div>
                         <div class="stn-routes">${chips}</div>
@@ -867,7 +876,9 @@
         if (body && !body.dataset.loaded) body.innerHTML = '<div class="arr-loading">查詢到站時間…</div>';
         let data;
         try {
-            data = await fetchJson(ETA(stationId));
+            // 方向終點名與到站時間並行載入 → 首次就能標對「往 ○○」，且不增加延遲
+            const [, d] = await Promise.all([ensureRouteDests(), fetchJson(ETA(stationId))]);
+            data = d;
         } catch (e) {
             const fail = '<div class="arr-loading">⚠ 無法取得到站時間</div>';
             if (body) body.innerHTML = fail;
@@ -1087,12 +1098,14 @@
             }).addTo(routeLayer).on('click', () => focusRouteStop(st.seq));
             bounds.push([st.lat, st.lon]);
         });
-        // 公車即時位置（該方向）
+        // 公車即時位置（該方向）＋ 車頭朝向箭頭(Azimuth)
         (buses || []).filter(v => v.Direction === routeDir).forEach(v => {
             const p = v.BusPosition;
+            const az = (v.Azimuth != null && !isNaN(v.Azimuth)) ? v.Azimuth : null;
+            const arrow = az != null ? `<i class="bus-arrow" style="transform:rotate(${az}deg)"></i>` : '';
             L.marker([p.PositionLat, p.PositionLon], {
                 zIndexOffset: 1000,
-                icon: L.divIcon({ className: '', html: `<div class="busmark">🚌<b>${TXT(v.PlateNumb || '')}</b></div>`, iconSize: [34, 30], iconAnchor: [17, 26] })
+                icon: L.divIcon({ className: '', html: `<div class="busmark">${arrow}🚌<b>${TXT(v.PlateNumb || '')}</b></div>`, iconSize: [34, 40], iconAnchor: [17, 30] })
             }).addTo(routeLayer);
         });
 
@@ -1227,6 +1240,33 @@
     function nowStr() {
         return new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
+    // 全市路線 → 各方向終點名（打一次快取；用來標「往 ○○」方向）
+    let routeDestMap = null, routeDestPromise = null;
+    function ensureRouteDests() {
+        if (routeDestMap) return Promise.resolve(routeDestMap);
+        if (routeDestPromise) return routeDestPromise;
+        routeDestPromise = (async () => {
+            const map = {};
+            try {
+                const arr = await tdxFetch('Bus/Route/City/Taichung');
+                (arr || []).forEach(r => {
+                    const n = r.RouteName && r.RouteName.Zh_tw;
+                    if (n && !map[n]) map[n] = { dest: r.DestinationStopNameZh || '', dep: r.DepartureStopNameZh || '' };
+                });
+            } catch (e) { /* 拿不到就退化成 去/返程 */ }
+            routeDestMap = map;
+            return map;
+        })();
+        return routeDestPromise;
+    }
+    // TDX：Direction 0=去程(往 終點)、1=返程(往 起點)
+    function dirLabel(routeName, direction) {
+        const m = routeDestMap && routeDestMap[routeName];
+        if (!m) return direction === 1 ? '返程' : '去程';
+        const to = direction === 1 ? m.dep : m.dest;
+        return to ? '往 ' + to : (direction === 1 ? '返程' : '去程');
+    }
+
     // 到站列表內容（表頭 + 各路線），清單與地圖卡片共用
     function arrivalsInner(recs) {
         if (!recs.length) return '<div class="arr-loading">此站目前沒有路線動態資訊</div>';
@@ -1234,26 +1274,29 @@
             const [label, cls, sortKey] = badge(r);
             return { label, cls, sortKey,
                 route: (r.RouteName && r.RouteName.Zh_tw) || r.RouteID || '',
-                plate: r.PlateNumb || '' };
+                plate: r.PlateNumb || '', dir: r.Direction };
         }).sort((a, b) => a.sortKey - b.sortKey);   // 快到的排前面
         const rows = items.map(it => {
-            const mid = it.plate
+            const veh = it.plate
                 ? `<span class="arr-plate" title="這台公車的車牌">🚍 ${TXT(it.plate)}</span>`
-                : `<span class="arr-dir">尚無車輛在路上</span>`;
+                : `<span class="arr-dir">尚無車輛</span>`;
             return `<div class="arr-row">
                 <span class="arr-route" data-route="${TXT(it.route)}" onclick="selectRoute(this.dataset.route)" title="點我在地圖畫出這條路線">${TXT(it.route)}</span>
-                <div class="arr-mid">${mid}</div>
+                <div class="arr-mid">
+                    <span class="arr-to" title="行駛方向">${TXT(dirLabel(it.route, it.dir))}</span>
+                    ${veh}
+                </div>
                 <span class="arr-badge ${it.cls}">${TXT(it.label)}</span>
             </div>`;
         }).join('');
-        return `<div class="arr-hd"><span class="h-route">路線</span><span class="h-mid">車輛狀態</span><span>還有多久到</span></div>` + rows;
+        return `<div class="arr-hd"><span class="h-route">路線</span><span class="h-mid">往哪 · 車輛</span><span>還有多久到</span></div>` + rows;
     }
     // 地圖上的漂亮資訊卡
     function cardFull(s, inner, now) {
         return `<div class="bpop">
             <div class="bpop-hd">
                 <div class="bpop-name">${TXT(s.name)}</div>
-                <div class="bpop-meta"><span>📍 ${fmtDist(s.dist)}</span><span>${s.routes.length} 條路線</span>${s.bearing ? `<span>${TXT(s.bearing)}</span>` : ''}</div>
+                <div class="bpop-meta"><span>📍 ${fmtDist(s.dist)} · 🚶 ${walkMin(s.dist)} 分</span>${s.bearing ? `<span>${TXT(bearingZh(s.bearing))}方</span>` : ''}<span>${s.routes.length} 條路線</span></div>
             </div>
             <div class="bpop-body">${inner}</div>
             <div class="bpop-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${now}</span></div>
