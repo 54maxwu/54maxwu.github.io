@@ -667,6 +667,7 @@
     let routeDir = 0;               // 目前顯示方向：0 去程 / 1 返程
     let routeData = null;           // { name, byDir: {0:[...],1:[...]} }
     let activeRouteSeq = null;      // 路線模式：目前選定的站序（右側清單高亮用）
+    let routeOrigin = null;         // 從某站 popup 點路線時的來源站 {lat,lon,name}，用來自動選方向+定位
 
     function haversine(lat1, lon1, lat2, lon2) {
         const R = 6371000, toR = Math.PI / 180;
@@ -892,7 +893,7 @@
         if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
         clearInterval(routeTimer); routeTimer = null;
         const had = !!curRoute;
-        curRoute = null; routeData = null; activeRouteSeq = null;
+        curRoute = null; routeData = null; activeRouteSeq = null; routeOrigin = null;
         $routeBar.hidden = true;
         document.body.classList.remove('route-mode');
         stnMarkers.forEach(m => {
@@ -904,7 +905,10 @@
 
     async function selectRoute(name) {
         if (curRoute === name) { clearRoute(true); return; }   // 再點一次收起
+        // 記住是從哪一站點進來的（activeUID＝目前開著卡片的站）→ 之後自動選方向+定位
+        const org = stations.find(x => x.uid === activeUID);
         clearRoute(false);
+        routeOrigin = (org && org.lat != null) ? { lat: org.lat, lon: org.lon, name: org.name } : null;
         curRoute = name;
         routeDir = 0;
         routeLayer = L.layerGroup().addTo(map);
@@ -948,10 +952,47 @@
         });
         routeData = { name, shapes, byDir, buses };
         if (!(byDir[routeDir] && byDir[routeDir].stops.length)) routeDir = (byDir[0].stops.length ? 0 : 1);
+        activeRouteSeq = null;
+        // 從某站 popup 進來 → 自動切到「有車正開往該站」的方向，並記住該站
+        if (routeOrigin) {
+            const pick = pickDirForOrigin(byDir, routeOrigin);
+            if (pick) { routeDir = pick.dir; activeRouteSeq = pick.seq; }
+        }
         document.body.classList.add('route-mode');
         renderRoute(true);
+        // 首次載入把來源站捲進視野（只做一次，之後 20 秒刷新不搶捲軸）
+        if (routeOrigin) {
+            if (activeRouteSeq != null) {
+                const row = $list.querySelector(`.rstop[data-seq="${activeRouteSeq}"]`);
+                if (row) row.scrollIntoView({ block: 'center' });
+            }
+            routeOrigin = null;
+        }
         clearInterval(routeTimer);
         routeTimer = setInterval(() => { if (curRoute === name) refreshRoute(name); }, 20000);
+    }
+
+    // 找出「哪個方向有車正開往來源站」→ 回傳 { dir, seq }；找不到回 null
+    function pickDirForOrigin(byDir, origin) {
+        const cand = [];
+        [0, 1].forEach(d => {
+            const bd = byDir[d];
+            if (!bd || !bd.stops.length) return;
+            let near = null, nd = Infinity;
+            bd.stops.forEach(st => {
+                if (st.lat == null) return;
+                const dist = haversine(origin.lat, origin.lon, st.lat, st.lon);
+                if (dist < nd) { nd = dist; near = st; }
+            });
+            if (!near || nd > 150) return;   // 這方向 150m 內沒有來源站 → 不算
+            const eta = bd.etaByStop[near.id];
+            const et = (eta && eta.EstimateTime != null) ? eta.EstimateTime : Infinity;
+            cand.push({ dir: d, seq: near.seq, et, dist: nd });
+        });
+        if (!cand.length) return null;
+        // 有車正開往來源站的方向優先(et 最小)；都沒車 → 取離來源站最近的方向
+        cand.sort((a, b) => (a.et - b.et) || (a.dist - b.dist));
+        return { dir: cand[0].dir, seq: cand[0].seq };
     }
 
     // 每 20 秒只更新「到站時間 + 公車位置」，不重抓線形、不重新縮放
@@ -1030,7 +1071,7 @@
 
         if (fit && bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
         $rbInfo.textContent = stops.length ? `${stops[0].name} → ${stops[stops.length - 1].name}` : (routeData.name + ' 路線');
-        renderRoutePanel();
+        renderRoutePanel(!fit);   // 刷新(fit=false)時保留捲動位置；切方向/首載(fit=true)則歸零
     }
 
     // 點某站 → 高亮該列 + 地圖置中並標示
@@ -1054,8 +1095,9 @@
             .openOn(map);
     }
 
-    function renderRoutePanel() {
+    function renderRoutePanel(keepScroll) {
         if (!routeData) return;
+        const prevScroll = keepScroll ? $list.scrollTop : 0;
         const { name, byDir } = routeData;
         const dir = byDir[routeDir] || { stops: [], etaByStop: {} };
         const stops = dir.stops;
@@ -1107,6 +1149,7 @@
             </div>
             <div class="rstops">${rows || '<div class="arr-loading">此方向目前無資料</div>'}</div>
             <div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${nowStr()}</span></div>`;
+        if (keepScroll) $list.scrollTop = prevScroll;   // 刷新後還原捲動位置，避免彈回頂端
     }
     function setRouteDir(d) { routeDir = d; activeRouteSeq = null; renderRoute(true); }
 
