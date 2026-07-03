@@ -289,6 +289,34 @@
             display: flex; align-items: center; justify-content: space-between;
         }
 
+        /* ── YouBike ── */
+        .icon-btn.on { background: #0d9488; color: #fff; border-color: #0d9488; }
+        .bike-legend {
+            display: flex; gap: 16px; padding: 8px 14px; font-size: 11px; color: #64748b;
+            border-bottom: 1px solid #e6edf2; background: #f8fafc; position: sticky; top: 0; z-index: 1;
+        }
+        .bk-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+        .bk-dot.rent { background: #22c55e; } .bk-dot.ret { background: #f59e0b; }
+        .bike-card { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #eef2f6; cursor: pointer; }
+        .bike-card:active { background: #f8fafc; }
+        .bike-main { flex: 1; min-width: 0; }
+        .bike-name { font-size: 15px; font-weight: 700; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bike-sub { font-size: 11px; color: #64748b; margin-top: 3px; }
+        .bike-nums { display: flex; gap: 8px; flex-shrink: 0; }
+        .bk-num {
+            width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 17px; font-weight: 800; border: 2px solid;
+        }
+        .bk-num.rent { color: #15803d; border-color: #22c55e; background: #f0fdf4; }
+        .bk-num.ret  { color: #c2410c; border-color: #f59e0b; background: #fff7ed; }
+        .bk-num.zero { opacity: .38; }
+        .bikemark {
+            width: 26px; height: 26px; border-radius: 50%; background: #16a34a; color: #fff;
+            border: 2px solid #fff; font-size: 12px; font-weight: 800;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 5px rgba(0,0,0,.4);
+        }
+        .bikemark.empty { background: #94a3b8; }
+
         /* ── Map overlays ── */
         .map-btn-search {
             position: absolute;
@@ -603,6 +631,7 @@
                 <option value="800">800 公尺</option>
                 <option value="1200">1.2 公里</option>
             </select>
+            <button class="ctl icon-btn" id="bikeBtn" type="button" title="附近 YouBike 可借/可還">🚲</button>
             <button class="ctl icon-btn" id="locateBtn" type="button" title="定位到我的位置">📍</button>
             <button class="ctl icon-btn" id="refreshBtn" type="button" title="重新整理">🔄</button>
             <button class="ctl icon-btn" id="fsBtn" type="button" title="全螢幕大地圖">⛶</button>
@@ -737,6 +766,7 @@
     let routeOrigin = null;         // 從某站 popup 點路線時的來源站 {lat,lon,name}，用來自動選方向+定位
     let stnPage = null;             // 站牌詳情頁狀態 {name,lat,lon,stationId,fromRoute:{name,dir}}
     let stnPageTimer = null;
+    let bikeMode = false;           // YouBike 檢視模式
 
     function haversine(lat1, lon1, lat2, lon2) {
         const R = 6371000, toR = Math.PI / 180;
@@ -800,6 +830,7 @@
 
     // ── Render list ──
     function renderStations() {
+        if (bikeMode) return;   // YouBike 模式時不讓公車清單蓋掉
         $count.textContent = stations.length ? `${stations.length} 站` : '';
         if (!stations.length) {
             $list.innerHTML = '<div class="empty">此範圍內找不到公車站牌<br>試著放大搜尋範圍或移動地圖後「搜尋此區域」</div>';
@@ -893,13 +924,102 @@
     }
     // 每 20 秒只刷新「畫面上看得到」的卡片摘要
     setInterval(() => {
-        if (document.body.classList.contains('route-mode')) return;
+        if (document.body.classList.contains('route-mode') || bikeMode) return;
         visibleStn.forEach(uid => loadStnFastest(uid, true));
         if (typeof pulseRefreshBar === 'function') pulseRefreshBar();
     }, 20000);
 
+    // ── YouBike：附近可借/可還 ──
+    let bikeBase = null, bikeTimer = null, bikeLayer = null;
+    async function ensureBikeBase() {
+        if (bikeBase) return bikeBase;
+        const arr = await tdxFetch('Bike/Station/City/Taichung');
+        const m = {};
+        (arr || []).forEach(s => {
+            const p = s.StationPosition || {};
+            m[s.StationUID] = {
+                name: ((s.StationName && s.StationName.Zh_tw) || '').replace(/^YouBike\d?\.?\d?_?/, ''),
+                lat: p.PositionLat, lon: p.PositionLon,
+            };
+        });
+        bikeBase = m; return m;
+    }
+    function bikeCenter() {
+        if (queryCenter) return queryCenter;
+        const c = map.getCenter(); return { lat: c.lat, lon: c.lng };
+    }
+    async function loadBikes() {
+        if (!bikeMode) return;
+        try {
+            const [base, avail] = await Promise.all([ensureBikeBase(), tdxFetch('Bike/Availability/City/Taichung')]);
+            if (!bikeMode) return;
+            const c = bikeCenter(), list = [];
+            (avail || []).forEach(a => {
+                const st = base[a.StationUID];
+                if (!st || st.lat == null) return;
+                const dist = haversine(c.lat, c.lon, st.lat, st.lon);
+                if (dist > 800) return;
+                list.push({ name: st.name, lat: st.lat, lon: st.lon, dist,
+                    rent: a.AvailableRentBikes || 0, ret: a.AvailableReturnBikes || 0, ok: a.ServiceStatus === 1 });
+            });
+            list.sort((a, b) => a.dist - b.dist);
+            const top = list.slice(0, 40);
+            renderBikes(top); drawBikeMarkers(top); pulseRefreshBar();
+            clearInterval(bikeTimer); bikeTimer = setInterval(loadBikes, 20000);
+        } catch (e) {
+            $list.innerHTML = '<div class="empty">⚠ 無法取得 YouBike 資料<br><span style="font-size:11px">' + TXT(e.message || e) + '</span></div>';
+        }
+    }
+    function renderBikes(list) {
+        $count.textContent = list.length ? list.length + ' 站' : '';
+        if (!list.length) { $list.innerHTML = '<div class="empty">附近 800m 內沒有 YouBike 站點<br>移動地圖或改用定位</div>'; return; }
+        $list.innerHTML = `<div class="bike-legend"><span><i class="bk-dot rent"></i>可借</span><span><i class="bk-dot ret"></i>可還</span></div>`
+            + list.map((b, i) => `<div class="bike-card" data-i="${i}">
+                <div class="bike-main">
+                    <div class="bike-name">${TXT(b.name)}</div>
+                    <div class="bike-sub">📍 ${fmtDist(b.dist)} · 步行 ${walkMin(b.dist)} 分</div>
+                </div>
+                <div class="bike-nums">
+                    <span class="bk-num rent${b.ok && b.rent === 0 ? ' zero' : ''}">${b.ok ? b.rent : '—'}</span>
+                    <span class="bk-num ret${b.ok && b.ret === 0 ? ' zero' : ''}">${b.ok ? b.ret : '—'}</span>
+                </div>
+            </div>`).join('');
+        $list.querySelectorAll('.bike-card').forEach(el => {
+            el.addEventListener('click', () => { const b = list[+el.dataset.i]; panTo(b.lat, b.lon); raiseSheet('half'); });
+        });
+    }
+    function drawBikeMarkers(list) {
+        if (!bikeLayer) bikeLayer = L.layerGroup().addTo(map);
+        bikeLayer.clearLayers();
+        list.forEach(b => {
+            L.marker([b.lat, b.lon], {
+                icon: L.divIcon({ className: '', html: `<div class="bikemark${b.ok && b.rent === 0 ? ' empty' : ''}">${b.ok ? b.rent : '—'}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] })
+            }).addTo(bikeLayer).bindTooltip(TXT(b.name), { direction: 'top' });
+        });
+    }
+    function setBikeMode(on) {
+        bikeMode = on;
+        document.body.classList.toggle('bike-mode', on);
+        document.getElementById('bikeBtn').classList.toggle('on', on);
+        document.querySelector('.list-head span').textContent = on ? '🚲 附近 YouBike' : '附近站牌';
+        if (on) {
+            if (curRoute || stnPage) clearRoute(true);
+            if (activeUID) { const mk = stnMarkers.get(activeUID); if (mk) mk.closePopup(); }
+            stnMarkers.forEach(m => map.removeLayer(m));   // 藏公車站牌
+            $list.innerHTML = '<div class="empty"><div class="spinner"></div>載入附近 YouBike…</div>';
+            raiseSheet('half');
+            loadBikes();
+        } else {
+            clearInterval(bikeTimer); bikeTimer = null;
+            if (bikeLayer) { map.removeLayer(bikeLayer); bikeLayer = null; }
+            drawMarkers(); renderStations();   // 還原公車站牌
+        }
+    }
+    document.getElementById('bikeBtn').addEventListener('click', () => setBikeMode(!bikeMode));
+
     // ── Markers ──
     function drawMarkers() {
+        if (bikeMode) return;   // YouBike 模式時不畫公車站牌 marker
         stnMarkers.forEach(m => map.removeLayer(m));
         stnMarkers.clear();
         stations.forEach(s => {
