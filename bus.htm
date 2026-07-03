@@ -322,7 +322,7 @@
             border: 2px solid #fff; font-size: 12px; font-weight: 800;
             box-shadow: 0 1px 5px rgba(0,0,0,.4);
         }
-        .bikemark.empty { background: #94a3b8; }
+        .bikemark.bm-none { background: #94a3b8; }   /* 注意:不可叫 .empty,會吃到清單空狀態的 padding */
 
         /* ── Map overlays ── */
         .map-btn-search {
@@ -1026,7 +1026,7 @@
             const sel = i === activeBikeIdx;
             const m = L.marker([b.lat, b.lon], {
                 zIndexOffset: sel ? 1000 : 0,
-                icon: L.divIcon({ className: '', html: `<div class="bikemark${b.ok && b.rent === 0 ? ' empty' : ''}${sel ? ' sel' : ''}">${b.ok ? b.rent : '—'}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] })
+                icon: L.divIcon({ className: '', html: `<div class="bikemark${b.ok && b.rent === 0 ? ' bm-none' : ''}${sel ? ' sel' : ''}">${b.ok ? b.rent : '—'}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] })
             });
             m.bindTooltip(TXT(b.name), { direction: 'top' });
             m.bindPopup(bikePopup(b), { className: 'bus-pop', autoPan: false });
