@@ -202,6 +202,18 @@
             padding: 1px 6px; border-radius: 999px;
             background: #f1f5f9; font-weight: 600;
         }
+        .stn-fastest {
+            display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
+            margin-top: 6px; font-size: 12px; min-height: 20px; overflow: hidden;
+        }
+        .stn-fastest .sf-lead { font-size: 10.5px; color: #94a3b8; flex-shrink: 0; }
+        .stn-fastest .sf-route { font-weight: 800; color: #0f766e; flex-shrink: 0; }
+        .stn-fastest .sf-time {
+            font-weight: 800; color: #c2410c; background: #ffedd5;
+            padding: 1px 8px; border-radius: 999px; flex-shrink: 0;
+        }
+        .stn-fastest .sf-to { color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stn-fastest .sf-none, .stn-fastest .sf-loading { font-size: 11px; color: #cbd5e1; }
         .stn-routes {
             display: flex; flex-wrap: wrap; gap: 4px;
             margin-top: 7px;
@@ -781,6 +793,7 @@
                             ${s.bearing ? `<span class="stn-bearing">${TXT(bearingZh(s.bearing))}</span>` : ''}
                             <span>${s.routes.length} 條路線</span>
                         </div>
+                        <div class="stn-fastest"><span class="sf-loading">最快班次 …</span></div>
                         <div class="stn-routes">${chips}</div>
                     </div>
                     <div class="stn-chevron">▾</div>
@@ -792,7 +805,69 @@
         $list.querySelectorAll('.stn').forEach(el => {
             el.querySelector('.stn-head').addEventListener('click', () => selectStation(el.dataset.uid));
         });
+        observeStnCards();   // 只對畫面上看得到的卡片載入「最快一班」摘要
     }
+
+    // ── 站卡「最快一班」摘要：只載入畫面上看得到的卡片，省 API ──
+    const stnFastest = {};    // uid -> { html, ts }
+    const stnFetching = {};   // uid -> 是否載入中
+    const visibleStn = new Set();
+    let stnObserver = null;
+
+    function fastestSummary(recs) {
+        let best = null;
+        (recs || []).forEach(r => {
+            if (r.EstimateTime == null || r.StopStatus !== 0) return;
+            if (!best || r.EstimateTime < best.EstimateTime) best = r;
+        });
+        if (!best) return '<span class="sf-none">目前無進站班次</span>';
+        const [label] = badge(best);
+        const route = (best.RouteName && best.RouteName.Zh_tw) || best.RouteID || '';
+        return `<span class="sf-lead">最快</span><span class="sf-route">${TXT(route)}</span>`
+             + `<span class="sf-time">${TXT(label)}</span><span class="sf-to">${TXT(dirLabel(route, best.Direction))}</span>`;
+    }
+    async function loadStnFastest(uid, force) {
+        const s = stations.find(x => x.uid === uid);
+        if (!s) return;
+        const c = stnFastest[uid];
+        if (!force && c && (Date.now() - c.ts < 18000)) { paintStnFastest(uid); return; }
+        if (stnFetching[uid]) return;
+        stnFetching[uid] = true;
+        try {
+            await ensureRouteDests();
+            const data = await fetchJson(ETA(s.id));
+            stnFastest[uid] = { html: fastestSummary(Array.isArray(data) ? data : []), ts: Date.now() };
+            paintStnFastest(uid);
+        } catch (e) { /* 靜默，下輪再試 */ }
+        finally { stnFetching[uid] = false; }
+    }
+    function paintStnFastest(uid) {
+        const c = stnFastest[uid]; if (!c) return;
+        const el = $list.querySelector(`.stn[data-uid="${cssEsc(uid)}"] .stn-fastest`);
+        if (el) el.innerHTML = c.html;
+    }
+    function observeStnCards() {
+        if (stnObserver) stnObserver.disconnect();
+        visibleStn.clear();
+        const cards = $list.querySelectorAll('.stn');
+        if (!('IntersectionObserver' in window)) {   // 退化：載入前幾張
+            [...cards].slice(0, 6).forEach(el => loadStnFastest(el.dataset.uid));
+            return;
+        }
+        stnObserver = new IntersectionObserver(ens => {
+            ens.forEach(en => {
+                const uid = en.target.dataset.uid;
+                if (en.isIntersecting) { visibleStn.add(uid); loadStnFastest(uid); }
+                else visibleStn.delete(uid);
+            });
+        }, { root: null, rootMargin: '120px 0px', threshold: 0.01 });
+        cards.forEach(el => { paintStnFastest(el.dataset.uid); stnObserver.observe(el); });
+    }
+    // 每 20 秒只刷新「畫面上看得到」的卡片摘要
+    setInterval(() => {
+        if (document.body.classList.contains('route-mode')) return;
+        visibleStn.forEach(uid => loadStnFastest(uid, true));
+    }, 20000);
 
     // ── Markers ──
     function drawMarkers() {
