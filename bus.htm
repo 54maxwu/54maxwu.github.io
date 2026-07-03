@@ -424,6 +424,22 @@
         }
         .rsignal { align-self: center; flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
 
+        /* 地圖上：序號站點 + 即時公車 */
+        .stopnum {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #db2777; color: #fff; border: 2px solid #fff;
+            font-size: 11px; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 1px 5px rgba(0,0,0,.45);
+        }
+        .stopnum.near { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.3), 0 1px 5px rgba(0,0,0,.45); }
+        .busmark { display: flex; flex-direction: column; align-items: center; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+        .busmark b {
+            font-size: 8.5px; font-weight: 700; margin-top: -3px; white-space: nowrap;
+            background: #0f172a; color: #5eead4; padding: 1px 3px; border-radius: 3px;
+            font-family: ui-monospace, Consolas, monospace;
+        }
+
         .toast {
             position: fixed;
             bottom: 70px;
@@ -884,30 +900,65 @@
         $routeBar.hidden = false;
         $rbName.textContent = name;
         $rbInfo.textContent = '載入路線…';
-        if (TDX_PROXY) {
-            try {
-                await drawRouteTDX(name);
-                try { await loadRoutePanel(name); } catch (e) { console.warn('路線面板載入失敗', e); }
-                return;
-            } catch (e) { console.warn('TDX 繪製失敗，改用備援', e); }
-        }
-        drawRouteFallback(name);
+        if (!TDX_PROXY) { drawRouteFallback(name); return; }
+        try { await loadRoute(name); }
+        catch (e) { console.warn('TDX 路線載入失敗，改用備援', e); drawRouteFallback(name); }
     }
 
-    // ── 右側改成「整條路線站序 + 各站預估到站」(Google 式) ──
-    async function loadRoutePanel(name) {
-        const etas = await tdxFetch('Bus/EstimatedTimeOfArrival/City/Taichung/' + encodeURIComponent(name));
+    // 一次抓齊：線形 Shape / 站牌順序 StopOfRoute / 各站預估 ETA / 公車即時位置 RealTime
+    async function loadRoute(name) {
+        const enc = encodeURIComponent(name);
+        const [shapesR, sorsR, etasR, rtR] = await Promise.all([
+            tdxFetch('Bus/Shape/City/Taichung/' + enc).catch(() => []),
+            tdxFetch('Bus/StopOfRoute/City/Taichung/' + enc).catch(() => []),
+            tdxFetch('Bus/EstimatedTimeOfArrival/City/Taichung/' + enc).catch(() => []),
+            tdxFetch('Bus/RealTimeByFrequency/City/Taichung/' + enc).catch(() => []),
+        ]);
         if (curRoute !== name) return;
-        const ex = (etas || []).filter(x => x.RouteName && x.RouteName.Zh_tw === name);
-        const byDir = { 0: [], 1: [] };
-        ex.forEach(x => { (byDir[x.Direction] || (byDir[x.Direction] = [])).push(x); });
-        [0, 1].forEach(d => (byDir[d] || []).sort((a, b) => a.StopSequence - b.StopSequence));
-        if (!(byDir[routeDir] && byDir[routeDir].length)) routeDir = (byDir[0] && byDir[0].length) ? 0 : 1;
-        routeData = { name, byDir };
+        const exact = x => x.RouteName && x.RouteName.Zh_tw === name;   // 避免 99 夾帶 699/99延
+        const shapes = (shapesR || []).filter(exact);
+        const sors   = (sorsR   || []).filter(exact);
+        const etas   = (etasR   || []).filter(exact);
+        const buses  = (rtR     || []).filter(exact).filter(v => v.BusPosition && v.BusPosition.PositionLat != null);
+
+        const byDir = {};
+        [0, 1].forEach(d => {
+            const so = sors.find(x => x.Direction === d);
+            const stops = ((so && so.Stops) || []).slice()
+                .sort((a, b) => a.StopSequence - b.StopSequence)
+                .map(st => ({
+                    seq: st.StopSequence, name: (st.StopName && st.StopName.Zh_tw) || '', id: st.StopID,
+                    lat: st.StopPosition && st.StopPosition.PositionLat,
+                    lon: st.StopPosition && st.StopPosition.PositionLon,
+                }));
+            const etaByStop = {};
+            etas.filter(x => x.Direction === d).forEach(x => { etaByStop[x.StopID] = x; });
+            byDir[d] = { stops, etaByStop, dest: stops.length ? stops[stops.length - 1].name : '' };
+        });
+        routeData = { name, shapes, byDir, buses };
+        if (!(byDir[routeDir] && byDir[routeDir].stops.length)) routeDir = (byDir[0].stops.length ? 0 : 1);
         document.body.classList.add('route-mode');
-        renderRoutePanel();
+        renderRoute(true);
         clearInterval(routeTimer);
-        routeTimer = setInterval(() => { if (curRoute === name) loadRoutePanel(name).catch(() => {}); }, 20000);
+        routeTimer = setInterval(() => { if (curRoute === name) refreshRoute(name); }, 20000);
+    }
+
+    // 每 20 秒只更新「到站時間 + 公車位置」，不重抓線形、不重新縮放
+    async function refreshRoute(name) {
+        const enc = encodeURIComponent(name);
+        const [etasR, rtR] = await Promise.all([
+            tdxFetch('Bus/EstimatedTimeOfArrival/City/Taichung/' + enc).catch(() => null),
+            tdxFetch('Bus/RealTimeByFrequency/City/Taichung/' + enc).catch(() => null),
+        ]);
+        if (curRoute !== name || !routeData) return;
+        const exact = x => x.RouteName && x.RouteName.Zh_tw === name;
+        if (etasR) [0, 1].forEach(d => {
+            if (!routeData.byDir[d]) return;
+            const m = {}; etasR.filter(exact).filter(x => x.Direction === d).forEach(x => { m[x.StopID] = x; });
+            routeData.byDir[d].etaByStop = m;
+        });
+        if (rtR) routeData.buses = rtR.filter(exact).filter(v => v.BusPosition && v.BusPosition.PositionLat != null);
+        renderRoute(false);
     }
 
     function hhmmISO(s) { const m = String(s).match(/T(\d{2}):(\d{2})/); return m ? m[1] + ':' + m[2] : ''; }
@@ -926,33 +977,93 @@
         return ['未發車', 't-none'];
     }
 
+    // ── 畫地圖(線形 + 序號站點 + 即時公車) 與 右側清單 ──
+    function renderRoute(fit) {
+        if (!routeData || !routeLayer) return;
+        const { shapes, byDir, buses } = routeData;
+        const dir = byDir[routeDir] || { stops: [], etaByStop: {} };
+        const stops = dir.stops;
+        routeLayer.clearLayers();
+        let bounds = [];
+
+        // 線形（優先該方向，沒有就用全部）
+        const dShapes = shapes.filter(s => s.Direction === routeDir);
+        (dShapes.length ? dShapes : shapes).forEach(sh => {
+            if (!sh.Geometry) return;
+            parseWKT(sh.Geometry).forEach(seg => {
+                L.polyline(seg, { color: '#2563eb', weight: 5, opacity: .85 }).addTo(routeLayer);
+                bounds = bounds.concat(seg);
+            });
+        });
+        if (!dShapes.length && !shapes.length && stops.length > 1) {   // 沒線形 → 站點連線
+            L.polyline(stops.filter(s => s.lat != null).map(s => [s.lat, s.lon]), { color: '#2563eb', weight: 4, opacity: .8, dashArray: '6 6' }).addTo(routeLayer);
+        }
+        // 序號站點
+        stops.forEach(st => {
+            if (st.lat == null) return;
+            const eta = dir.etaByStop[st.id];
+            const near = eta && eta.EstimateTime != null && eta.EstimateTime < 180;
+            L.marker([st.lat, st.lon], {
+                icon: L.divIcon({ className: '', html: `<div class="stopnum${near ? ' near' : ''}">${st.seq}</div>`, iconSize: [24, 24], iconAnchor: [12, 12] })
+            }).addTo(routeLayer).on('click', () => focusRouteStop(st.seq));
+            bounds.push([st.lat, st.lon]);
+        });
+        // 公車即時位置（該方向）
+        (buses || []).filter(v => v.Direction === routeDir).forEach(v => {
+            const p = v.BusPosition;
+            L.marker([p.PositionLat, p.PositionLon], {
+                zIndexOffset: 1000,
+                icon: L.divIcon({ className: '', html: `<div class="busmark">🚌<b>${TXT(v.PlateNumb || '')}</b></div>`, iconSize: [34, 30], iconAnchor: [17, 26] })
+            }).addTo(routeLayer);
+        });
+
+        if (fit && bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+        $rbInfo.textContent = stops.length ? `${stops[0].name} → ${stops[stops.length - 1].name}` : (routeData.name + ' 路線');
+        renderRoutePanel();
+    }
+
+    // 點某站 → 地圖移到那站並標示
+    function focusRouteStop(seq) {
+        if (!routeData) return;
+        const st = ((routeData.byDir[routeDir] || {}).stops || []).find(s => s.seq === seq);
+        if (!st || st.lat == null) return;
+        const z = Math.max(map.getZoom(), 16);
+        const pt = map.project([st.lat, st.lon], z); pt.y -= 60;
+        map.setView(map.unproject(pt, z), z, { animate: true });
+        L.popup({ className: 'bus-pop' })
+            .setLatLng([st.lat, st.lon])
+            .setContent(`<div class="bpop"><div class="bpop-hd"><div class="bpop-name">${TXT(st.name)}</div><div class="bpop-meta"><span>站序 ${st.seq}</span></div></div></div>`)
+            .openOn(map);
+    }
+
     function renderRoutePanel() {
         if (!routeData) return;
         const { name, byDir } = routeData;
-        const stops = byDir[routeDir] || [];
-        const has0 = byDir[0] && byDir[0].length, has1 = byDir[1] && byDir[1].length;
-        const destOf = a => (a && a.length) ? a[a.length - 1].StopName.Zh_tw : '';
-        const dest0 = destOf(byDir[0]), dest1 = destOf(byDir[1]);
+        const dir = byDir[routeDir] || { stops: [], etaByStop: {} };
+        const stops = dir.stops;
+        const has0 = byDir[0] && byDir[0].stops.length, has1 = byDir[1] && byDir[1].stops.length;
+        const dest0 = byDir[0] ? byDir[0].dest : '', dest1 = byDir[1] ? byDir[1].dest : '';
 
-        // 每台公車(車牌)目前位置 = 它 EstimateTime 最小的那站 → 在那站顯示車牌
+        // 公車目前所在站：該車牌 ETA 最小的站
         const byPlate = {};
-        stops.forEach(s => {
+        Object.values(dir.etaByStop).forEach(s => {
             if (s.PlateNumb && s.EstimateTime != null) {
                 const p = s.PlateNumb;
                 if (!byPlate[p] || s.EstimateTime < byPlate[p].EstimateTime) byPlate[p] = s;
             }
         });
         const busAt = {};
-        Object.values(byPlate).forEach(r => { busAt[r.StopSequence] = r.PlateNumb; });
+        Object.values(byPlate).forEach(r => { busAt[r.StopID] = r.PlateNumb; });
 
-        const rows = stops.map(s => {
-            const [label, cls] = timePill(s);
-            const plate = busAt[s.StopSequence];
-            return `<div class="rstop${plate ? ' here' : ''}">
+        const rows = stops.map(st => {
+            const eta = dir.etaByStop[st.id] || {};
+            const [label, cls] = timePill(eta);
+            const plate = busAt[st.id];
+            return `<div class="rstop${plate ? ' here' : ''}" onclick="focusRouteStop(${st.seq})">
                 <div class="rtime ${cls}">${TXT(label)}</div>
-                <div class="rseq"><span class="rseq-num">${s.StopSequence}</span></div>
+                <div class="rseq"><span class="rseq-num">${st.seq}</span></div>
                 <div class="rstop-body">
-                    <span class="rstop-name">${TXT(s.StopName.Zh_tw)}</span>
+                    <span class="rstop-name">${TXT(st.name)}</span>
                     ${plate ? `<span class="rbus">🚌 ${TXT(plate)}</span>` : ''}
                 </div>
                 <span class="rsignal" title="即時動態"></span>
@@ -971,50 +1082,7 @@
             <div class="rstops">${rows || '<div class="arr-loading">此方向目前無資料</div>'}</div>
             <div class="arr-foot"><span>🔄 每 20 秒自動更新</span><span>更新 ${nowStr()}</span></div>`;
     }
-    function setRouteDir(d) { routeDir = d; renderRoutePanel(); }
-
-    async function drawRouteTDX(name) {
-        const enc = encodeURIComponent(name);
-        const [shapesRaw, sorsRaw] = await Promise.all([
-            tdxFetch('Bus/Shape/City/Taichung/' + enc).catch(() => []),
-            tdxFetch('Bus/StopOfRoute/City/Taichung/' + enc).catch(() => []),
-        ]);
-        // TDX 路線名為「部分比對」（查 99 會夾帶 699/99延）→ 取精確符合
-        const exact = x => x.RouteName && x.RouteName.Zh_tw === name;
-        const shapes = (shapesRaw || []).filter(exact);
-        const sors   = (sorsRaw   || []).filter(exact);
-        const colors = ['#0d9488', '#7c3aed'];
-        let bounds = [];
-        (shapes || []).forEach((sh, i) => {
-            if (!sh.Geometry) return;
-            parseWKT(sh.Geometry).forEach(seg => {
-                L.polyline(seg, { color: colors[i % 2], weight: 5, opacity: .85 }).addTo(routeLayer);
-                bounds = bounds.concat(seg);
-            });
-        });
-        (sors || []).forEach((dir, i) => {
-            (dir.Stops || []).forEach(st => {
-                const p = st.StopPosition; if (!p) return;
-                L.circleMarker([p.PositionLat, p.PositionLon], {
-                    radius: 4, color: '#fff', weight: 1.5, fillColor: colors[i % 2], fillOpacity: 1
-                }).bindTooltip((st.StopName && st.StopName.Zh_tw) || '', { direction: 'top' }).addTo(routeLayer);
-                bounds.push([p.PositionLat, p.PositionLon]);
-            });
-        });
-        if (!shapes || !shapes.length) {   // 沒線形 → 用站點連線
-            (sors || []).forEach((dir, i) => {
-                const line = (dir.Stops || []).map(st => st.StopPosition && [st.StopPosition.PositionLat, st.StopPosition.PositionLon]).filter(Boolean);
-                if (line.length > 1) L.polyline(line, { color: colors[i % 2], weight: 4, opacity: .8, dashArray: '6 6' }).addTo(routeLayer);
-            });
-        }
-        if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
-        const d0 = sors && sors[0];
-        const first = d0 && d0.Stops && d0.Stops[0];
-        const last  = d0 && d0.Stops && d0.Stops[d0.Stops.length - 1];
-        $rbInfo.textContent = (first && last)
-            ? `${first.StopName.Zh_tw} → ${last.StopName.Zh_tw}`
-            : name + ' 路線';
-    }
+    function setRouteDir(d) { routeDir = d; renderRoute(true); }
 
     function drawRouteFallback(name) {
         const pts = [];
