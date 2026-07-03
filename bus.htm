@@ -1453,7 +1453,8 @@
         if (!routeData) return;
         const st = ((routeData.byDir[routeDir] || {}).stops || []).find(s => s.seq === seq);
         if (!st || st.lat == null) { toast('此站沒有座標'); return; }
-        stnPage = { name: st.name, lat: st.lat, lon: st.lon, stationId: null, fromRoute: { name: curRoute, dir: routeDir } };
+        stnPage = { name: st.name, lat: st.lat, lon: st.lon, stationId: null,
+            fromRoute: { name: curRoute, dir: routeDir, seq, scroll: $list.scrollTop } };   // 記住返回時要還原的位置
         document.body.classList.add('stn-page');
         setSheet('full');
         $list.innerHTML = stopPageShell(st.name, '<div class="arr-loading">查詢到站時間…</div>');
@@ -1491,7 +1492,9 @@
         document.body.classList.remove('stn-page');
         if (from && curRoute === from.name && routeData) {
             routeDir = from.dir;
-            renderRoute(false);   // 回到路線詳情
+            activeRouteSeq = from.seq;      // 回來時高亮剛才那站
+            renderRoute(false);             // 回到路線詳情
+            $list.scrollTop = from.scroll;  // 還原剛才的捲動位置
         } else {
             clearRoute(true);     // 保險：回附近站牌
         }
