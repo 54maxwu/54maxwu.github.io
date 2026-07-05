@@ -8,7 +8,8 @@
 <!-- Three.js（3D 渲染）：用 importmap + 動態 import，載入失敗可被捕捉、不會整支腳本掛掉 -->
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
 } }
 </script>
 <script type="module">
@@ -21,6 +22,21 @@
         import('https://unpkg.com/three@0.160.0/build/three.module.js')
           .then(THREE=>{ window.THREE_FAILED=null; window.THREE=THREE; window.dispatchEvent(new Event('three-ready')); })
           .catch(err=>{ window.THREE_FAILED=err; }); });
+
+    // 高畫質模式（?hq=1 或記住的偏好）：額外載入後製泛光（Bloom）模組。載失敗就靜默降級成一般渲染，不影響遊戲。
+    const _q=new URLSearchParams(location.search);
+    const _hq = _q.has('hq') ? _q.get('hq')!=='0' : (()=>{ try{ return localStorage.getItem('bomb_hq')==='1'; }catch(e){ return false; } })();
+    if(_hq){
+      Promise.all([
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/UnrealBloomPass.js'),
+        import('three/addons/postprocessing/OutputPass.js'),
+      ]).then(([ec,rp,bloom,op])=>{
+        window.THREE_POST={ EffectComposer:ec.EffectComposer, RenderPass:rp.RenderPass, UnrealBloomPass:bloom.UnrealBloomPass, OutputPass:op.OutputPass };
+        window.dispatchEvent(new Event('three-post-ready'));
+      }).catch(err=>{ window.THREE_POST_FAILED=err; console.warn('bloom load failed, 降級一般渲染', err); });
+    }
   }
 </script>
 
@@ -236,6 +252,7 @@
   <div id="gameBtns" style="display:none;margin-left:auto;gap:8px;align-items:center">
     <button class="go ghost" id="guideBtn2" title="道具說明" style="min-width:40px">📖</button>
     <button class="go ghost" id="soundBtn" title="音效" style="min-width:40px">🔊</button>
+    <button class="go ghost" id="hqBtn" title="高畫質(泛光/陰影/反光)" style="min-width:40px">✨</button>
     <button class="go ghost" id="restartBtn">重新開始</button>
     <button class="go ghost" id="quitBtn">離開</button>
   </div>
@@ -970,6 +987,16 @@ function poolAcquire(key, factory){
 function poolReset(key){ const pl=G3.pools[key]; if(pl)pl.n=0; }
 function poolHideRest(key){ const pl=G3.pools[key]; if(!pl)return; for(let i=pl.n;i<pl.items.length;i++) pl.items[i].visible=false; }
 
+// 高畫質模式旗標：?hq=1 或 localStorage 記住的偏好 → 開陰影 + PBR 環境反光 + ACES 色調 + Bloom 泛光後製。
+// 手機搖桿(?pad)不進 3D，故此處只跟 hq 有關；預設 false → 完全走原本的快速路徑。
+const HQ = (()=>{
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.has('hq')) return q.get('hq')!=='0';          // ?hq=0 可強制關閉
+    return localStorage.getItem('bomb_hq')==='1';       // 否則看記住的偏好
+  }catch(e){ return false; }
+})();
+
 function init3D(){
   if(G3) return true;
   if(window.THREE_FAILED){ show3dError(); return false; }
@@ -979,9 +1006,16 @@ function init3D(){
   try{
     renderer=new THREE.WebGLRenderer({canvas:cv, antialias:true});
   }catch(e){ console.error('WebGL init failed',e); show3dError(); window.THREE_FAILED=e; return false; }
-  renderer.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1));   // 降採樣，省 fill-rate
+  renderer.setPixelRatio(Math.min(HQ?2:1.5,window.devicePixelRatio||1));   // 降採樣，省 fill-rate（HQ 允許到 2x 更銳利）
   renderer.setSize(cv.width,cv.height,false);
-  renderer.shadowMap.enabled=false;                                   // 關陰影：效能最大來源
+  if(HQ){
+    renderer.shadowMap.enabled=true;
+    renderer.shadowMap.type=THREE.PCFSoftShadowMap;                   // 柔和陰影邊緣
+    renderer.toneMapping=THREE.ACESFilmicToneMapping;                 // 電影感色調（配 Bloom 才不會過曝）
+    renderer.toneMappingExposure=1.05;
+  } else {
+    renderer.shadowMap.enabled=false;                                 // 關陰影：效能最大來源
+  }
   if('outputColorSpace' in renderer) renderer.outputColorSpace=THREE.SRGBColorSpace;
 
   const scene=new THREE.Scene();
@@ -993,19 +1027,69 @@ function init3D(){
   // 正交投影 → 棋盤邊緣平行（平面「棋盤」感，無透視收斂）；中等俯角 → 角色/道具仍有立體感
   camera.position.set(0,20,10); camera.lookAt(0,0,-0.3);
 
-  scene.add(new THREE.HemisphereLight('#cfe0ff','#202838',0.95));
-  scene.add(new THREE.AmbientLight('#5a6680',0.5));
-  const dir=new THREE.DirectionalLight('#fff4e0',0.9);
-  dir.position.set(7,15,6);                                            // 無陰影，純打光給 3D 角色
+  scene.add(new THREE.HemisphereLight('#cfe0ff','#202838',HQ?0.65:0.95));
+  scene.add(new THREE.AmbientLight('#5a6680',HQ?0.32:0.5));
+  const dir=new THREE.DirectionalLight('#fff4e0',HQ?1.15:0.9);
+  dir.position.set(7,15,6);
+  if(HQ){
+    // 投射陰影：正交相機的陰影框涵蓋整個棋盤
+    dir.castShadow=true;
+    dir.shadow.mapSize.set(2048,2048);                                // 更高解析 → 陰影邊緣更銳利不破
+    const sc=dir.shadow.camera; sc.left=-9; sc.right=9; sc.top=9; sc.bottom=-9; sc.near=1; sc.far=45;
+    dir.shadow.bias=-0.00025; dir.shadow.normalBias=0.028;            // 微調防漏光/自陰影瑕疵
+    dir.shadow.radius=4;                                              // 更柔的陰影邊緣
+  }
   scene.add(dir);
 
   const geo={ blast:new THREE.SphereGeometry(0.5,16,12) };
   const shared=new Set([geo.blast]);
 
   G3={ renderer,scene,camera,dir, geo,shared, pools:{}, rigs:[], wasAlive:[],
-       parts:[], partPool:[], puTex:{}, t:0, boardId:-1, boardPlane:null, gridSnap:null };
+       parts:[], partPool:[], puTex:{}, t:0, boardId:-1, boardPlane:null, gridSnap:null,
+       composer:null, bloomPass:null, envMap:null };
+
+  if(HQ){
+    // PBR 環境反光：用 PMREM 從程序天空產生環境貼圖 → 金屬炸彈/角色有反光層次。
+    try{
+      const pmrem=new THREE.PMREMGenerator(renderer);
+      const envScene=new THREE.Scene();
+      const top=new THREE.Color('#2a3a63'), bot=new THREE.Color('#0b1020');
+      const skyGeo=new THREE.SphereGeometry(50,16,8);
+      const skyMat=new THREE.ShaderMaterial({ side:THREE.BackSide,
+        uniforms:{ top:{value:top}, bot:{value:bot} },
+        vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+        fragmentShader:'varying vec3 vP; uniform vec3 top; uniform vec3 bot; void main(){ float h=clamp(vP.y/50.0*0.5+0.5,0.0,1.0); gl_FragColor=vec4(mix(bot,top,h),1.0); }' });
+      envScene.add(new THREE.Mesh(skyGeo,skyMat));
+      G3.envMap=pmrem.fromScene(envScene).texture;
+      scene.environment=G3.envMap;
+      pmrem.dispose();
+    }catch(e){ console.warn('env map 建立失敗，略過反光',e); }
+
+    setupBloom();                                                     // 若後製模組已載好就建 composer；否則等事件
+    if(!G3.composer) window.addEventListener('three-post-ready', setupBloom, {once:true});
+  }
+
   const ld=$('loading3d'); if(ld) ld.style.display='none';
   return true;
+}
+
+// 建立 Bloom 後製鏈（RenderPass → UnrealBloomPass → OutputPass）。
+// 只在 HQ 且模組已載入時建立；draw() 會偵測 composer 是否存在來決定用哪條渲染路徑。
+function setupBloom(){
+  if(!G3 || G3.composer || !window.THREE_POST) return;
+  const P=window.THREE_POST;
+  try{
+    const composer=new P.EffectComposer(G3.renderer);
+    composer.setPixelRatio(G3.renderer.getPixelRatio());
+    composer.setSize(cv.width,cv.height);
+    composer.addPass(new P.RenderPass(G3.scene,G3.camera));
+    // 參數：strength(強度) / radius(擴散) / threshold(亮度門檻，只有夠亮的爆炸/火花才發光)
+    // 收斂強度、拉高門檻 → 泛光更乾淨精緻，不糊整個畫面，只讓真正亮的爆炸/火花發光。
+    const bloom=new P.UnrealBloomPass(new THREE.Vector2(cv.width,cv.height), 0.7, 0.5, 0.6);
+    composer.addPass(bloom);
+    composer.addPass(new P.OutputPass());
+    G3.composer=composer; G3.bloomPass=bloom;
+  }catch(e){ console.warn('bloom composer 建立失敗，降級一般渲染',e); }
 }
 function show3dError(){ const el=$('loading3d'); if(el){ el.style.display='flex'; el.innerHTML='<div style="font-size:30px">⚠️</div><div>3D 引擎載入失敗<br>請檢查網路後重新整理頁面</div>'; } }
 
@@ -1066,8 +1150,11 @@ function buildBoard(){
   if(T.boardPlane){ T.scene.remove(T.boardPlane); T.boardPlane.geometry.dispose(); if(T.boardPlane.material.map)T.boardPlane.material.map.dispose(); T.boardPlane.material.dispose(); }
   if(T.slab){ T.scene.remove(T.slab); }
   T.gridSnap=world.grid.map(r=>r.slice());
-  const plane=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS), new THREE.MeshBasicMaterial({map:makeBoardTex()}));
-  plane.rotation.x=-Math.PI/2; plane.position.y=0.001; T.boardPlane=plane; T.scene.add(plane);
+  // HQ 用 Standard 材質才能接收陰影；一般用 Basic 最省。兩者都有 .map，syncBoard 換貼圖的程式不變。
+  const boardMat = HQ ? new THREE.MeshStandardMaterial({map:makeBoardTex(),roughness:0.92,metalness:0.0})
+                      : new THREE.MeshBasicMaterial({map:makeBoardTex()});
+  const plane=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS), boardMat);
+  plane.rotation.x=-Math.PI/2; plane.position.y=0.001; if(HQ) plane.receiveShadow=true; T.boardPlane=plane; T.scene.add(plane);
   if(!T.slab){ T.slab=new THREE.Mesh(new THREE.BoxGeometry(COLS+0.5,0.4,ROWS+0.5), new THREE.MeshBasicMaterial({color:'#070b16'})); T.slab.position.y=-0.21; }
   T.scene.add(T.slab);
 }
@@ -1088,11 +1175,13 @@ function syncBoard(){
 function makePlayerRig(i){
   const col=new THREE.Color(COLORS[i]);
   const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.SphereGeometry(0.32,24,18), new THREE.MeshStandardMaterial({color:col,roughness:0.45,metalness:0.1}));
-  body.position.y=0.34; body.scale.y=1.06; g.add(body);
-  // 平面假陰影（無 shadow map，便宜，給角色落地感）
-  const sh=new THREE.Mesh(new THREE.CircleGeometry(0.3,18), new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:0.28}));
-  sh.rotation.x=-Math.PI/2; sh.position.y=0.01; g.add(sh);
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.32,24,18), new THREE.MeshStandardMaterial({color:col,roughness:HQ?0.35:0.45,metalness:HQ?0.15:0.1,envMapIntensity:HQ?0.9:1}));
+  body.position.y=0.34; body.scale.y=1.06; if(HQ) body.castShadow=true; g.add(body);
+  // 平面假陰影（無 shadow map，便宜，給角色落地感）。HQ 有真陰影，改用假陰影就不需要 → 略過。
+  if(!HQ){
+    const sh=new THREE.Mesh(new THREE.CircleGeometry(0.3,18), new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:0.28}));
+    sh.rotation.x=-Math.PI/2; sh.position.y=0.01; g.add(sh);
+  }
   const belly=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,12), new THREE.MeshStandardMaterial({color:'#f8fafc',roughness:0.7}));
   belly.position.set(0,0.3,0.17); belly.scale.set(1,1.1,0.55); g.add(belly);
   const we=new THREE.MeshStandardMaterial({color:'#fff',roughness:0.3});
@@ -1147,8 +1236,8 @@ function syncPlayers(){
 // ── 炸彈 ─────────────────────────────────────────────
 function makeBombRig(){
   const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.SphereGeometry(0.3,20,16), new THREE.MeshStandardMaterial({color:'#0f172a',roughness:0.3,metalness:0.55,emissive:'#000000',emissiveIntensity:0}));
-  body.position.y=0.3; g.add(body);
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.3,20,16), new THREE.MeshStandardMaterial({color:'#0f172a',roughness:HQ?0.14:0.3,metalness:HQ?0.9:0.55,envMapIntensity:HQ?1.4:1,emissive:'#000000',emissiveIntensity:0}));
+  body.position.y=0.3; if(HQ) body.castShadow=true; g.add(body);
   const hi=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8), new THREE.MeshBasicMaterial({color:'#475569'})); hi.position.set(-0.1,0.42,0.1); g.add(hi);
   const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.18,6), new THREE.MeshStandardMaterial({color:'#94a3b8'})); fuse.position.set(0.07,0.62,0); fuse.rotation.z=-0.5; g.add(fuse);
   const spark=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:'#fbbf24'})); spark.position.set(0.13,0.72,0); g.add(spark);
@@ -1259,7 +1348,8 @@ function draw(){
   syncBlasts();
   syncPowerups();
   updateParticles();
-  G3.renderer.render(G3.scene,G3.camera);
+  if(G3.composer) G3.composer.render();          // HQ：走 Bloom 後製鏈
+  else G3.renderer.render(G3.scene,G3.camera);   // 一般：直接渲染（原本的快速路徑）
 }
 
 /* ============================================================
@@ -1950,6 +2040,20 @@ $('soundBtn').addEventListener('click',()=>{
   soundOn=!soundOn; $('soundBtn').textContent=soundOn?'🔊':'🔇';
   if(soundOn){ unlockAudio(); }
 });
+
+// 高畫質開關：存偏好 → 重載套用（渲染管線是初始化時建立的，切換需重載才乾淨）。
+(function(){
+  const btn=$('hqBtn'); if(!btn) return;
+  btn.style.opacity = HQ ? '1' : '0.5';               // 亮=開，暗=關
+  btn.title = (HQ?'高畫質:開':'高畫質:關')+'（泛光/陰影/反光，點擊切換）';
+  btn.addEventListener('click',()=>{
+    let next;
+    try{ next = localStorage.getItem('bomb_hq')==='1' ? '0':'1'; localStorage.setItem('bomb_hq',next); }
+    catch(e){ next = HQ?'0':'1'; }
+    // 重載並清掉網址上的 ?hq（避免蓋掉偏好），用偏好當唯一來源
+    const u=new URL(location.href); u.searchParams.delete('hq'); location.replace(u.toString());
+  });
+})();
 
 // 首次互動時解鎖 WebAudio（瀏覽器自動播放限制）
 ['pointerdown','keydown','touchstart'].forEach(ev=>window.addEventListener(ev,unlockAudio,{once:false,passive:true}));
