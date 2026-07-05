@@ -1095,9 +1095,23 @@
 
     // ── Map (MapLibre GL 向量地圖 + 3D 傾斜建築) ──
     const TC_CENTER = [24.1477, 120.6736];
-    // 免金鑰向量 style：MapTiler 免費 demo tiles（Carto/OSM 資料），含 building 圖層可拉高成 3D
-    const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-    const map = L.map('map', { zoomControl: true, attributionControl: true, _style: MAP_STYLE, _pitch: 50 }).setView(TC_CENTER, 15);
+    // MapTiler 向量 style：building 圖層帶真實樓高欄位 render_height，可拉出真實高低差的 3D 建築
+    // key 為公開前端 key；防護方式：MapTiler 後台鎖 https://54maxwu.github.io 網域(Allowed origins)
+    const MAPTILER_KEY = 'YmqpvxxKnLBGDIMwjbCg';
+    // 備援：MapTiler 失敗(額度/鎖網域/離線)時退回免 key 的 Carto voyager，仍有 3D 但為預設樓高
+    const MAP_STYLE_MT   = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
+    const MAP_STYLE_FREE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+    const map = L.map('map', { zoomControl: true, attributionControl: true, _style: MAP_STYLE_MT, _pitch: 50 }).setView(TC_CENTER, 15);
+
+    // MapTiler style 載入失敗 → 自動退回免 key 版
+    map.map.on('error', (e) => {
+        const msg = (e && e.error && e.error.message) || '';
+        if (/style|key|403|401|maptiler/i.test(msg) && !map._fellBack && map.map.getStyle && !map._triedFree) {
+            map._triedFree = true;
+            console.warn('MapTiler 載入失敗，退回免 key style：', msg);
+            try { map.map.setStyle(MAP_STYLE_FREE); map.map.once('style.load', () => addBuildings3D(map.map)); } catch (_) {}
+        }
+    });
 
     // 地圖載入後：加入 3D 建築量體（從向量 style 的 building 圖層拉高）
     map.map.on('load', () => {
@@ -1120,18 +1134,24 @@
                 type: 'fill-extrusion',
                 minzoom: 14,
                 paint: {
+                    // 依樓高上色：低矮暖白 → 高樓偏冷灰，讓高低差更明顯
                     'fill-extrusion-color': [
-                        'interpolate', ['linear'], ['zoom'],
-                        14, '#e2e8f0', 17, '#cbd5e1'
+                        'interpolate', ['linear'],
+                        ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
+                        0, '#e8edf2', 20, '#d3dce6', 60, '#b8c4d4', 120, '#9fb0c6'
                     ],
-                    // 沒有真實樓高欄位時用 render_height / 預設值
+                    // 真實樓高:MapTiler building 圖層提供 render_height(公尺);缺值退回預設 10m
                     'fill-extrusion-height': [
                         'interpolate', ['linear'], ['zoom'],
                         14, 0,
-                        16, ['coalesce', ['get', 'render_height'], ['get', 'height'], 12]
+                        15.5, ['coalesce', ['get', 'render_height'], ['get', 'height'], 10]
                     ],
-                    'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-                    'fill-extrusion-opacity': .82,
+                    'fill-extrusion-base': [
+                        'interpolate', ['linear'], ['zoom'],
+                        14, 0,
+                        15.5, ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0]
+                    ],
+                    'fill-extrusion-opacity': .85,
                 },
             }, firstSymbol);
         } catch (e) { console.warn('3D 建築圖層未套用:', e); }
