@@ -9,6 +9,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         [hidden] { display: none !important; }
         html, body { height: 100%; }
+        /* 尊重系統「減少動態效果」:關掉所有無限脈動/浮動,省電並照顧前庭敏感者 */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+        }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
@@ -280,10 +284,17 @@
             white-space: nowrap;
             background: #f1f5f9; color: #64748b;
         }
-        .arr-badge.now  { background: #fee2e2; color: #b91c1c; animation: arrNow 1.3s ease-in-out infinite; }
+        /* NOW 徽章脈動:改用 ::after 環放大+淡出(transform/opacity,GPU 合成),
+           取代動 box-shadow(每幀 repaint)。清單可同時有多個 NOW,故特別要省。 */
+        .arr-badge.now  { background: #fee2e2; color: #b91c1c; position: relative; }
+        .arr-badge.now::after {
+            content: ''; position: absolute; inset: 0; border-radius: 999px;
+            border: 2px solid rgba(239,68,68,.5); pointer-events: none;
+            animation: arrNow 1.3s ease-out infinite; will-change: transform, opacity;
+        }
         @keyframes arrNow {
-            0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.4); }
-            50%     { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+            0%   { transform: scale(1); opacity: .55; }
+            100% { transform: scale(1.35); opacity: 0; }
         }
         .arr-badge.soon { background: #ffedd5; color: #c2410c; }
         .arr-badge.ok   { background: #dcfce7; color: #15803d; }
@@ -795,6 +806,7 @@
         const o = opts || {};
         this._layers = new Set();
         this._popups = new Set();     // 目前開著的 popup(供 popupopen/close 派發)
+        this._overlays = new Set();   // 存活中的 GeoJSON 覆蓋層(圈/線)→ setStyle 退回後重建
         this.map = new ml.Map({
           container: el,
           style: o._style,
@@ -820,6 +832,13 @@
         if (zoom != null) o.zoom = zoom;
         if (opts && opts.animate === false) { this.map.jumpTo(o); }
         else this.map.easeTo(Object.assign(o, { duration: 500 }));
+        return this;
+      };
+      // 置中到座標並套用「目標 zoom 下的像素偏移」。MapLibre 的 offset 是在目的地
+      // zoom 計算的,天然正確 → 取代原本 project/unproject(會用當前 zoom 而算錯)的作法。
+      LMap.prototype.panToOffset = function (ll, zoom, pixelOffset, animate) {
+        const o = { center: toLngLat(ll), zoom, offset: pixelOffset || [0, 0] };
+        if (animate === false) this.map.jumpTo(o); else this.map.easeTo(Object.assign(o, { duration: 500 }));
         return this;
       };
       LMap.prototype.getZoom = function () { return this.map.getZoom(); };
@@ -875,7 +894,10 @@
         this._el.style.cursor = this.options.interactive === false ? '' : 'pointer';
         if (this.options.interactive !== false)
           this._el.addEventListener('click', (e) => { e.stopPropagation(); self.fire('click'); if (self._popup) self.openPopup(); });
+        // Leaflet 允許用建構子 option 指定 zIndexOffset(即時公車/定位點靠此浮到上層);
+        // 之前只有 setZIndexOffset() 才套用 → 這裡補上,否則建構子指定的 z 被忽略
         this._zoff = 0;
+        if (this.options.zIndexOffset != null) this.setZIndexOffset(this.options.zIndexOffset);
       }
       LMarker.prototype = Object.create(Emitter.prototype);
       LMarker.prototype.addTo = function (target) {
@@ -889,7 +911,13 @@
       LMarker.prototype.remove = function () { this._marker.remove(); if (this._popup) this._popup.remove(); return this; };
       LMarker.prototype.getElement = function () { return this._el; };
       LMarker.prototype.setZIndexOffset = function (z) { this._zoff = z; this._el.style.zIndex = z ? String(z) : ''; return this; };
-      LMarker.prototype.bindPopup = function (popup) { this._popup = popup; popup._marker = this; return this; };
+      // Leaflet 的 bindTooltip:滑鼠移入顯示提示。用瀏覽器原生 title(免額外 DOM/事件)即可。
+      LMarker.prototype.bindTooltip = function (text) { if (this._el) this._el.title = (text == null ? '' : String(text)); return this; };
+      // Leaflet 的 bindPopup 同時接受 LPopup 物件或 HTML 字串;shim 原本只吃物件 → YouBike 傳字串會炸。
+      LMarker.prototype.bindPopup = function (popup, opts) {
+        if (typeof popup === 'string') popup = new LPopup(opts || {}).setContent(popup);
+        this._popup = popup; if (popup) popup._marker = this; return this;
+      };
       LMarker.prototype.openPopup = function () {
         if (!this._popup || !this._map) return this;
         this._popup.setLatLng(this._ll).addTo(this._map);
@@ -914,8 +942,14 @@
       };
       LPopup.prototype.addTo = function (map) {
         this._map = map;
-        // 同一時間 Leaflet 預設單一 popup:先關掉其他站牌 popup(autoClose 行為)
-        Array.from(map._popups).forEach(p => { if (p !== this) p.remove(); });
+        // 同一時間 Leaflet 預設單一 popup:開新 popup 時關掉其他 popup(autoClose)。
+        // 站牌 popup 開啟 → 關掉其他站牌 popup(不動獨立名牌)。
+        // 獨立 popup(路線站名牌,openOn)→ 只關掉其他獨立名牌,不關站牌 popup,
+        // 以免開路線站名牌時把站牌 popup 關掉、連帶清掉站牌選取狀態。
+        Array.from(map._popups).forEach(p => {
+          if (p === this) return;
+          if (this._standalone ? p._standalone : !p._standalone) p.remove();
+        });
         const cls = 'lmgl-pop' + (this.options.className ? ' ' + this.options.className : '');
         this._mlPopup = new ml.Popup({
           closeButton: this.options.closeButton !== false,
@@ -933,7 +967,7 @@
         map._firePopupOpen(this);
         return this;
       };
-      LPopup.prototype.openOn = function (map) { return this.addTo(map); };   // Leaflet 相容：獨立 popup 直接開在地圖上
+      LPopup.prototype.openOn = function (map) { this._standalone = true; return this.addTo(map); };   // Leaflet 相容：獨立 popup 直接開在地圖上(不參與 autoClose)
       LPopup.prototype.remove = function () {
         if (this._mlPopup) { const p = this._mlPopup; this._mlPopup = null; p.remove(); }
         if (this._open && this._map) { this._open = false; this._map._firePopupClose(this); }
@@ -943,27 +977,33 @@
       // ── L.Circle(定位精度圈:用一顆 GeoJSON 圓近似)──
       let _circleSeq = 0;
       function LCircle(ll, opts) { this._ll = ll; this.options = opts || {}; this._id = 'lmgl-circle-' + (++_circleSeq); }
+      LCircle.prototype._draw = function () {
+        if (this._removed) return;            // 已被 remove:別讓延後的 draw 畫出孤兒圖層
+        const m = this._map.map;
+        const center = toLngLat(this._ll), r = this.options.radius != null ? this.options.radius : 50;
+        const pts = 48, coords = [];
+        const dLat = r / 111320;
+        const dLon = r / (111320 * Math.cos(center[1] * Math.PI / 180));
+        for (let i = 0; i <= pts; i++) { const t = (i / pts) * 2 * Math.PI; coords.push([center[0] + dLon * Math.cos(t), center[1] + dLat * Math.sin(t)]); }
+        const gj = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } };
+        if (m.getSource(this._id)) { m.getSource(this._id).setData(gj); return; }
+        m.addSource(this._id, { type: 'geojson', data: gj });
+        m.addLayer({ id: this._id + '-f', source: this._id, type: 'fill', paint: { 'fill-color': this.options.fillColor || '#3b82f6', 'fill-opacity': this.options.fillOpacity != null ? this.options.fillOpacity : .12 } });
+        m.addLayer({ id: this._id + '-l', source: this._id, type: 'line', paint: { 'line-color': this.options.color || '#2563eb', 'line-width': this.options.weight || 1 } });
+      };
       LCircle.prototype.addTo = function (map) {
-        this._map = map;
-        const draw = () => {
-          const m = map.map;
-          const center = toLngLat(this._ll), r = this.options.radius || 50;
-          const pts = 48, coords = [];
-          const dLat = r / 111320;
-          const dLon = r / (111320 * Math.cos(center[1] * Math.PI / 180));
-          for (let i = 0; i <= pts; i++) { const t = (i / pts) * 2 * Math.PI; coords.push([center[0] + dLon * Math.cos(t), center[1] + dLat * Math.sin(t)]); }
-          const gj = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } };
-          if (m.getSource(this._id)) { m.getSource(this._id).setData(gj); return; }
-          m.addSource(this._id, { type: 'geojson', data: gj });
-          m.addLayer({ id: this._id + '-f', source: this._id, type: 'fill', paint: { 'fill-color': this.options.fillColor || '#3b82f6', 'fill-opacity': this.options.fillOpacity != null ? this.options.fillOpacity : .12 } });
-          m.addLayer({ id: this._id + '-l', source: this._id, type: 'line', paint: { 'line-color': this.options.color || '#2563eb', 'line-width': this.options.weight || 1 } });
-        };
+        this._map = map; this._removed = false;
+        const draw = () => this._draw();
         if (map._loaded) draw(); else map.map.once('load', draw);
         map.addLayerObj(this);
+        map._overlays.add(this);           // 供 setStyle 退回後重建
         return this;
       };
       LCircle.prototype.remove = function () {
-        const m = this._map && this._map.map; if (!m) return this;
+        this._removed = true;
+        const m = this._map && this._map.map;
+        if (this._map) this._map._overlays.delete(this);
+        if (!m) return this;
         [this._id + '-f', this._id + '-l'].forEach(id => { if (m.getLayer(id)) m.removeLayer(id); });
         if (m.getSource(this._id)) m.removeSource(this._id);
         return this;
@@ -972,26 +1012,32 @@
       // ── L.Polyline(路線線段:GeoJSON line）──
       let _lineSeq = 0;
       function LPolyline(latlngs, opts) { this._pts = latlngs; this.options = opts || {}; this._id = 'lmgl-line-' + (++_lineSeq); }
+      LPolyline.prototype._draw = function () {
+        if (this._removed) return;            // 已被 remove:別讓延後的 draw 畫出孤兒圖層
+        const m = this._map.map;
+        const coords = this._pts.map(toLngLat);
+        const gj = { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } };
+        if (m.getSource(this._id)) { m.getSource(this._id).setData(gj); return; }
+        m.addSource(this._id, { type: 'geojson', data: gj });
+        const paint = { 'line-color': this.options.color || '#2563eb', 'line-width': this.options.weight || 4, 'line-opacity': this.options.opacity != null ? this.options.opacity : 1 };
+        if (this.options.dashArray) paint['line-dasharray'] = String(this.options.dashArray).trim().split(/[\s,]+/).map(Number);
+        m.addLayer({ id: this._id, source: this._id, type: 'line', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint });
+      };
       LPolyline.prototype.addTo = function (target) {
         const map = target._isGroup ? target._map : target;
-        this._map = map;
-        const draw = () => {
-          const m = map.map;
-          const coords = this._pts.map(toLngLat);
-          const gj = { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } };
-          if (m.getSource(this._id)) { m.getSource(this._id).setData(gj); return; }
-          m.addSource(this._id, { type: 'geojson', data: gj });
-          const paint = { 'line-color': this.options.color || '#2563eb', 'line-width': this.options.weight || 4, 'line-opacity': this.options.opacity != null ? this.options.opacity : 1 };
-          if (this.options.dashArray) paint['line-dasharray'] = String(this.options.dashArray).trim().split(/[\s,]+/).map(Number);
-          m.addLayer({ id: this._id, source: this._id, type: 'line', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint });
-        };
+        this._map = map; this._removed = false;
+        const draw = () => this._draw();
         if (map._loaded) draw(); else map.map.once('load', draw);
         if (target._isGroup) target._children.push(this);
         else map.addLayerObj(this);
+        map._overlays.add(this);           // 供 setStyle 退回後重建
         return this;
       };
       LPolyline.prototype.remove = function () {
-        const m = this._map && this._map.map; if (!m) return this;
+        this._removed = true;
+        const m = this._map && this._map.map;
+        if (this._map) this._map._overlays.delete(this);
+        if (!m) return this;
         if (m.getLayer(this._id)) m.removeLayer(this._id);
         if (m.getSource(this._id)) m.removeSource(this._id);
         return this;
@@ -1103,20 +1149,33 @@
     const MAP_STYLE_FREE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
     const map = L.map('map', { zoomControl: true, attributionControl: true, _style: MAP_STYLE_MT, _pitch: 50 }).setView(TC_CENTER, 15);
 
-    // MapTiler style 載入失敗 → 自動退回免 key 版
-    map.map.on('error', (e) => {
-        const msg = (e && e.error && e.error.message) || '';
-        if (/style|key|403|401|maptiler/i.test(msg) && !map._fellBack && map.map.getStyle && !map._triedFree) {
-            map._triedFree = true;
-            console.warn('MapTiler 載入失敗，退回免 key style：', msg);
-            try { map.map.setStyle(MAP_STYLE_FREE); map.map.once('style.load', () => addBuildings3D(map.map)); } catch (_) {}
-        }
-    });
+    // ── MapTiler → 免 key 版的容錯退回 ──────────────────────────────
+    // 退回只做一次(_triedFree)。觸發條件不靠脆弱的錯誤字串比對:
+    //   (a) 首個 style 在 6 秒內沒載入成功(逾時)→ 視為失敗,退回;或
+    //   (b) 收到任何 map error 且 style 尚未成功載入 → 退回。
+    // 這樣 429 額度、CORS、鎖網域、離線等「訊息文字各異」的失敗都能救到。
+    let styleLoaded = false;
+    function fallbackToFree(why) {
+        if (map._triedFree || styleLoaded) return;
+        map._triedFree = true;
+        console.warn('MapTiler style 失敗,退回免 key 版:', why);
+        try { map.map.setStyle(MAP_STYLE_FREE); } catch (e) { console.warn('setStyle 退回失敗', e); }
+    }
+    const styleTimeout = setTimeout(() => fallbackToFree('style.load 逾時 6s'), 6000);
+    map.map.on('error', (e) => { if (!styleLoaded) fallbackToFree((e && e.error && e.error.message) || 'map error'); });
 
-    // 地圖載入後：加入 3D 建築量體（從向量 style 的 building 圖層拉高）
-    map.map.on('load', () => {
+    // 每次 style 載入完成(首載 or 退回後)都要重建自訂圖層:3D 建築 + 存活中的圈/線覆蓋層。
+    // setStyle 會清空所有 addSource/addLayer,故必須在此重新掛回,否則精度圈/路線會永久消失。
+    map.map.on('style.load', () => {
+        styleLoaded = true;
+        clearTimeout(styleTimeout);
         addBuildings3D(map.map);
+        rehydrateOverlays();
     });
+    function rehydrateOverlays() {
+        // 重畫所有仍存活的 LCircle/LPolyline(setStyle 後其 source/layer 已被清掉)
+        map._overlays.forEach(o => { try { o._draw && o._draw(); } catch (e) { console.warn('覆蓋層重建失敗', e); } });
+    }
     function addBuildings3D(m) {
         // 找出 style 裡的 building 來源與 source-layer
         const src = m.getStyle().sources;
@@ -1508,10 +1567,11 @@
     // 置中到座標。手機版底部面板會蓋住下半 → 把標記推到可見上半區；桌機沿用小幅上移
     function panTo(lat, lon, animate) {
         const z = Math.max(map.getZoom(), 16);
-        const pt = map.project([lat, lon], z);
         const mobile = window.matchMedia('(max-width: 820px)').matches;
-        pt.y += mobile ? map.getSize().y * 0.24 : -96;
-        map.setView(map.unproject(pt, z), z, { animate: animate !== false });
+        // 讓標記落在可見上半區(手機底部面板會蓋住下半)。負 y = 標記顯示在畫面中心之上。
+        // 用 MapLibre 原生 offset(在目標 zoom 計算),取代原本會用「當前 zoom」而算錯的 project/unproject。
+        const offsetY = mobile ? -(map.getSize().y * 0.24) : 96;
+        map.panToOffset([lat, lon], z, [0, offsetY], animate);
     }
     function focusStation(s) { panTo(s.lat, s.lon); }
 
