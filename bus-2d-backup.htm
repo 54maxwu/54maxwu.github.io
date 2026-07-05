@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>附近公車站牌</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         [hidden] { display: none !important; }
@@ -415,28 +415,7 @@
         }
         .stn-marker.active span { font-size: 24px; }
 
-        /* ── MapLibre popup 玻璃擬態(對應 Leaflet .bus-pop) ── */
-        .lmgl-pop.bus-pop .maplibregl-popup-content {
-            padding: 0; border-radius: 16px; overflow: hidden;
-            box-shadow: 0 18px 44px rgba(15,23,42,.34), 0 3px 10px rgba(15,23,42,.14);
-            border: 1px solid rgba(255,255,255,.5);
-            background: rgba(255,255,255,.82);
-            -webkit-backdrop-filter: blur(14px) saturate(1.3);
-            backdrop-filter: blur(14px) saturate(1.3);
-            animation: popIn .22s cubic-bezier(.34,1.4,.64,1) both;
-            font-family: inherit;
-        }
-        .lmgl-pop .lmgl-pop-inner { min-width: 200px; max-width: 300px; }
-        .lmgl-pop.bus-pop .maplibregl-popup-tip { display: none; }
-        .lmgl-pop .maplibregl-popup-close-button {
-            color: rgba(255,255,255,.9); font-size: 20px; padding: 0 8px;
-            top: 6px; right: 4px; background: transparent; border: none; z-index: 3;
-        }
-        .lmgl-pop .maplibregl-popup-close-button:hover { color: #fff; background: transparent; }
-        /* MapLibre 標籤/logo 精簡 */
-        .maplibregl-ctrl-attrib.maplibregl-compact { font-size: 10px; }
-
-        /* ── (原 Leaflet popup 樣式，保留無害) ── */
+        /* ── Pretty map card (Leaflet popup) ── */
         .bus-pop .leaflet-popup-content-wrapper {
             padding: 0; border-radius: 16px; overflow: hidden;
             box-shadow: 0 18px 44px rgba(15,23,42,.34), 0 3px 10px rgba(15,23,42,.14);
@@ -729,7 +708,6 @@
                 <option value="800">800 公尺</option>
                 <option value="1200">1.2 公里</option>
             </select>
-            <button class="ctl icon-btn" id="tiltBtn" type="button" title="切換 2D／3D 傾斜視角">🏙️</button>
             <button class="ctl icon-btn" id="bikeBtn" type="button" title="附近 YouBike 可借/可還">🚲</button>
             <button class="ctl icon-btn" id="locateBtn" type="button" title="定位到我的位置">📍</button>
             <button class="ctl icon-btn" id="refreshBtn" type="button" title="重新整理">🔄</button>
@@ -771,268 +749,14 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script>
-    /* ═══════════════════════════════════════════════════════════════════
-       Leaflet→MapLibre 相容層 (LMGL shim)
-       只實作 bus 頁用到的 Leaflet API,讓原本的地圖邏輯不必重寫。
-       重點:Leaflet 用 [lat, lon];MapLibre 用 [lng, lat] → 這層負責轉換。
-       ═══════════════════════════════════════════════════════════════════ */
-    (function () {
-      const ml = window.maplibregl;
-      const toLngLat = (a) => Array.isArray(a) ? [a[1], a[0]] : (a.lng != null ? [a.lng, a.lat] : [a.lon, a.lat]);
-      const fromLngLat = (ll) => ({ lat: ll.lat, lng: ll.lng });
-
-      // 事件轉發器(給 marker/popup 用)
-      function Emitter() { this._h = {}; }
-      Emitter.prototype.on = function (ev, fn) { (this._h[ev] = this._h[ev] || []).push(fn); return this; };
-      Emitter.prototype.off = function (ev, fn) { if (this._h[ev]) this._h[ev] = this._h[ev].filter(f => f !== fn); return this; };
-      Emitter.prototype.fire = function (ev, data) { (this._h[ev] || []).forEach(fn => fn(data)); return this; };
-
-      // ── L.Map ──
-      function LMap(el, opts) {
-        Emitter.call(this);
-        const o = opts || {};
-        this._layers = new Set();
-        this._popups = new Set();     // 目前開著的 popup(供 popupopen/close 派發)
-        this.map = new ml.Map({
-          container: el,
-          style: o._style,
-          center: [120.6736, 24.1477],
-          zoom: 14,
-          pitch: o._pitch != null ? o._pitch : 0,
-          bearing: 0,
-          attributionControl: o.attributionControl !== false,
-          antialias: true,
-          maxZoom: 19,
-          dragRotate: true,
-          pitchWithRotate: true,
-        });
-        if (o.zoomControl !== false) this.map.addControl(new ml.NavigationControl({ visualizePitch: true }), 'topleft'.replace('left','-left'));
-        const self = this;
-        this.map.on('moveend', () => self.fire('moveend'));
-        this.map.on('load', () => { self._loaded = true; self.fire('load'); });
-      }
-      LMap.prototype = Object.create(Emitter.prototype);
-      LMap.prototype.setView = function (ll, zoom, opts) {
-        const c = toLngLat(ll);
-        const o = { center: c };
-        if (zoom != null) o.zoom = zoom;
-        if (opts && opts.animate === false) { this.map.jumpTo(o); }
-        else this.map.easeTo(Object.assign(o, { duration: 500 }));
-        return this;
-      };
-      LMap.prototype.getZoom = function () { return this.map.getZoom(); };
-      LMap.prototype.getCenter = function () { const c = this.map.getCenter(); return { lat: c.lat, lng: c.lng }; };
-      LMap.prototype.getBounds = function () {
-        const b = this.map.getBounds();
-        return {
-          getNorthEast: () => ({ lat: b.getNorth(), lng: b.getEast() }),
-          getSouthWest: () => ({ lat: b.getSouth(), lng: b.getWest() }),
-        };
-      };
-      LMap.prototype.getSize = function () { const c = this.map.getContainer(); return { x: c.clientWidth, y: c.clientHeight }; };
-      // project/unproject:回傳/接受「螢幕像素」。Leaflet 帶 zoom 參數,MapLibre 用當前視圖即可
-      LMap.prototype.project = function (ll) { const p = this.map.project(toLngLat(ll)); return { x: p.x, y: p.y }; };
-      LMap.prototype.unproject = function (pt) { const ll = this.map.unproject([pt.x, pt.y]); return { lat: ll.lat, lng: ll.lng }; };
-      LMap.prototype.fitBounds = function (arr, opts) {
-        const b = new ml.LngLatBounds();
-        arr.forEach(ll => b.extend(toLngLat(ll)));
-        const pad = (opts && opts.padding) ? (Array.isArray(opts.padding) ? opts.padding[0] : opts.padding) : 40;
-        const o = { padding: pad, duration: 500 };
-        if (opts && opts.maxZoom) o.maxZoom = opts.maxZoom;
-        try { this.map.fitBounds(b, o); } catch (e) {}
-        return this;
-      };
-      LMap.prototype.invalidateSize = function () { this.map.resize(); return this; };
-      LMap.prototype.removeLayer = function (layer) {
-        if (!layer) return this;
-        if (layer._isGroup) { layer.clearLayers(); this._layers.delete(layer); return this; }
-        if (layer.remove) layer.remove();
-        this._layers.delete(layer);
-        return this;
-      };
-      LMap.prototype.addLayerObj = function (l) { this._layers.add(l); return this; };
-      // popup 事件派發(marker.openPopup / popup.addTo 時呼叫)
-      LMap.prototype._firePopupOpen = function (popup) { this._popups.add(popup); this.fire('popupopen', { popup }); };
-      LMap.prototype._firePopupClose = function (popup) { this._popups.delete(popup); this.fire('popupclose', { popup }); };
-
-      // ── L.Marker(用 HTML DIV,對應原本的 divIcon）──
-      function LMarker(ll, opts) {
-        Emitter.call(this);
-        this._ll = ll; this.options = opts || {};
-        const icon = this.options.icon || {};
-        this._el = document.createElement('div');
-        this._el.style.lineHeight = '0';
-        if (icon._html != null) this._el.innerHTML = icon._html;
-        // anchor:Leaflet iconAnchor 以「左上為原點指向錨點」;MapLibre 用 offset(相對中心)
-        const size = icon._size || [0, 0];
-        const anchor = icon._anchor || [size[0] / 2, size[1] / 2];
-        const offset = [size[0] / 2 - anchor[0], size[1] / 2 - anchor[1]];
-        this._marker = new ml.Marker({ element: this._el, offset, anchor: 'center' });
-        this._marker.setLngLat(toLngLat(ll));
-        const self = this;
-        this._el.style.cursor = this.options.interactive === false ? '' : 'pointer';
-        if (this.options.interactive !== false)
-          this._el.addEventListener('click', (e) => { e.stopPropagation(); self.fire('click'); if (self._popup) self.openPopup(); });
-        this._zoff = 0;
-      }
-      LMarker.prototype = Object.create(Emitter.prototype);
-      LMarker.prototype.addTo = function (target) {
-        const map = target._isGroup ? target._map : target;
-        this._map = map;
-        this._marker.addTo(map.map);
-        if (target._isGroup) target._children.push(this);
-        else map.addLayerObj(this);
-        return this;
-      };
-      LMarker.prototype.remove = function () { this._marker.remove(); if (this._popup) this._popup.remove(); return this; };
-      LMarker.prototype.getElement = function () { return this._el; };
-      LMarker.prototype.setZIndexOffset = function (z) { this._zoff = z; this._el.style.zIndex = z ? String(z) : ''; return this; };
-      LMarker.prototype.bindPopup = function (popup) { this._popup = popup; popup._marker = this; return this; };
-      LMarker.prototype.openPopup = function () {
-        if (!this._popup || !this._map) return this;
-        this._popup.setLatLng(this._ll).addTo(this._map);
-        return this;
-      };
-      LMarker.prototype.closePopup = function () { if (this._popup) this._popup.remove(); return this; };
-
-      // ── L.Popup ──
-      function LPopup(opts) {
-        Emitter.call(this);
-        this.options = opts || {};
-        this._content = '';
-        this._ll = null;
-        this._open = false;
-      }
-      LPopup.prototype = Object.create(Emitter.prototype);
-      LPopup.prototype.setLatLng = function (ll) { this._ll = ll; if (this._mlPopup) this._mlPopup.setLngLat(toLngLat(ll)); return this; };
-      LPopup.prototype.setContent = function (html) {
-        this._content = html;
-        if (this._mlPopup) this._mlPopup.setHTML(`<div class="lmgl-pop-inner">${html}</div>`);
-        return this;
-      };
-      LPopup.prototype.addTo = function (map) {
-        this._map = map;
-        // 同一時間 Leaflet 預設單一 popup:先關掉其他站牌 popup(autoClose 行為)
-        Array.from(map._popups).forEach(p => { if (p !== this) p.remove(); });
-        const cls = 'lmgl-pop' + (this.options.className ? ' ' + this.options.className : '');
-        this._mlPopup = new ml.Popup({
-          closeButton: this.options.closeButton !== false,
-          closeOnClick: false,
-          className: cls,
-          maxWidth: (this.options.maxWidth || 300) + 'px',
-          offset: 22,
-        });
-        this._mlPopup.setLngLat(toLngLat(this._ll));
-        this._mlPopup.setHTML(`<div class="lmgl-pop-inner">${this._content}</div>`);
-        const self = this;
-        this._mlPopup.on('close', () => { if (self._open) { self._open = false; self._map._firePopupClose(self); } });
-        this._mlPopup.addTo(map.map);
-        this._open = true;
-        map._firePopupOpen(this);
-        return this;
-      };
-      LPopup.prototype.openOn = function (map) { return this.addTo(map); };   // Leaflet 相容：獨立 popup 直接開在地圖上
-      LPopup.prototype.remove = function () {
-        if (this._mlPopup) { const p = this._mlPopup; this._mlPopup = null; p.remove(); }
-        if (this._open && this._map) { this._open = false; this._map._firePopupClose(this); }
-        return this;
-      };
-
-      // ── L.Circle(定位精度圈:用一顆 GeoJSON 圓近似)──
-      let _circleSeq = 0;
-      function LCircle(ll, opts) { this._ll = ll; this.options = opts || {}; this._id = 'lmgl-circle-' + (++_circleSeq); }
-      LCircle.prototype.addTo = function (map) {
-        this._map = map;
-        const draw = () => {
-          const m = map.map;
-          const center = toLngLat(this._ll), r = this.options.radius || 50;
-          const pts = 48, coords = [];
-          const dLat = r / 111320;
-          const dLon = r / (111320 * Math.cos(center[1] * Math.PI / 180));
-          for (let i = 0; i <= pts; i++) { const t = (i / pts) * 2 * Math.PI; coords.push([center[0] + dLon * Math.cos(t), center[1] + dLat * Math.sin(t)]); }
-          const gj = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } };
-          if (m.getSource(this._id)) { m.getSource(this._id).setData(gj); return; }
-          m.addSource(this._id, { type: 'geojson', data: gj });
-          m.addLayer({ id: this._id + '-f', source: this._id, type: 'fill', paint: { 'fill-color': this.options.fillColor || '#3b82f6', 'fill-opacity': this.options.fillOpacity != null ? this.options.fillOpacity : .12 } });
-          m.addLayer({ id: this._id + '-l', source: this._id, type: 'line', paint: { 'line-color': this.options.color || '#2563eb', 'line-width': this.options.weight || 1 } });
-        };
-        if (map._loaded) draw(); else map.map.once('load', draw);
-        map.addLayerObj(this);
-        return this;
-      };
-      LCircle.prototype.remove = function () {
-        const m = this._map && this._map.map; if (!m) return this;
-        [this._id + '-f', this._id + '-l'].forEach(id => { if (m.getLayer(id)) m.removeLayer(id); });
-        if (m.getSource(this._id)) m.removeSource(this._id);
-        return this;
-      };
-
-      // ── L.Polyline(路線線段:GeoJSON line）──
-      let _lineSeq = 0;
-      function LPolyline(latlngs, opts) { this._pts = latlngs; this.options = opts || {}; this._id = 'lmgl-line-' + (++_lineSeq); }
-      LPolyline.prototype.addTo = function (target) {
-        const map = target._isGroup ? target._map : target;
-        this._map = map;
-        const draw = () => {
-          const m = map.map;
-          const coords = this._pts.map(toLngLat);
-          const gj = { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } };
-          if (m.getSource(this._id)) { m.getSource(this._id).setData(gj); return; }
-          m.addSource(this._id, { type: 'geojson', data: gj });
-          const paint = { 'line-color': this.options.color || '#2563eb', 'line-width': this.options.weight || 4, 'line-opacity': this.options.opacity != null ? this.options.opacity : 1 };
-          if (this.options.dashArray) paint['line-dasharray'] = String(this.options.dashArray).trim().split(/[\s,]+/).map(Number);
-          m.addLayer({ id: this._id, source: this._id, type: 'line', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint });
-        };
-        if (map._loaded) draw(); else map.map.once('load', draw);
-        if (target._isGroup) target._children.push(this);
-        else map.addLayerObj(this);
-        return this;
-      };
-      LPolyline.prototype.remove = function () {
-        const m = this._map && this._map.map; if (!m) return this;
-        if (m.getLayer(this._id)) m.removeLayer(this._id);
-        if (m.getSource(this._id)) m.removeSource(this._id);
-        return this;
-      };
-
-      // ── L.LayerGroup(路線/YouBike 圖層集合)──
-      function LLayerGroup() { this._isGroup = true; this._children = []; this._map = null; }
-      LLayerGroup.prototype.addTo = function (map) { this._map = map; map.addLayerObj(this); return this; };
-      LLayerGroup.prototype.clearLayers = function () { this._children.forEach(c => c.remove && c.remove()); this._children = []; return this; };
-
-      // ── L 命名空間 ──
-      window.L = {
-        map: (id, opts) => new LMap(typeof id === 'string' ? document.getElementById(id) : id, opts),
-        marker: (ll, opts) => new LMarker(ll, opts),
-        popup: (opts) => new LPopup(opts),
-        circle: (ll, opts) => new LCircle(ll, opts),
-        polyline: (pts, opts) => new LPolyline(pts, opts),
-        layerGroup: () => new LLayerGroup(),
-        divIcon: (o) => ({ _html: o.html, _size: o.iconSize, _anchor: o.iconAnchor }),
-        tileLayer: () => ({ addTo: () => {} }),   // MapLibre 用向量 style,不需要;保留空實作避免報錯
-      };
-    })();
-    </script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
     // ══════════════════════════════════════════════════════
-    //  附近公車站牌 3D — 台中 ATIS TDX 代理 (client 免 auth)
+    //  附近公車站牌 — 台中 ATIS TDX 代理 (client 免 auth)
     //  站位:  api/TDXAPI/BusStationNearBy/{lon}/{lat}/{radius}
     //  到站:  api/TDXAPI/BusEstimatedTime/{StationID}
     //  ATIS 端點無 CORS → 走通用 ?url= 代理 worker
-    //  地圖:  MapLibre GL 向量地圖 + 3D 傾斜建築 (免金鑰)；透過上方 shim
-    //         提供 Leaflet 相容 API(L.map/marker/popup/polyline…),沿用原本邏輯
-    //  定位:  navigator.geolocation
-    // ══════════════════════════════════════════════════════
-    // ══════════════════════════════════════════════════════
-    //  附近公車站牌 3D — 台中 ATIS TDX 代理 (client 免 auth)
-    //  站位:  api/TDXAPI/BusStationNearBy/{lon}/{lat}/{radius}
-    //  到站:  api/TDXAPI/BusEstimatedTime/{StationID}
-    //  ATIS 端點無 CORS → 走通用 ?url= 代理 worker
-    //  地圖:  MapLibre GL 向量地圖 + 3D 傾斜建築 (免金鑰)；透過 lmgl-shim.js
-    //         提供 Leaflet 相容 API(L.map/marker/popup/polyline…),沿用原本邏輯
-    //  定位:  navigator.geolocation
+    //  地圖:  Leaflet + OSM (免金鑰)；定位: navigator.geolocation
     // ══════════════════════════════════════════════════════
     const ATIS = 'https://e-traffic.taichung.gov.tw/ATIS_TCC/api/TDXAPI/';
     const NEARBY = (lon, lat, r) => ATIS + `BusStationNearBy/${lon}/${lat}/${r}`;
@@ -1093,62 +817,15 @@
     }
     const TXT = s => (s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'));
 
-    // ── Map (MapLibre GL 向量地圖 + 3D 傾斜建築) ──
+    // ── Map ──
     const TC_CENTER = [24.1477, 120.6736];
-    // 免金鑰向量 style：MapTiler 免費 demo tiles（Carto/OSM 資料），含 building 圖層可拉高成 3D
-    const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-    const map = L.map('map', { zoomControl: true, attributionControl: true, _style: MAP_STYLE, _pitch: 50 }).setView(TC_CENTER, 15);
-
-    // 地圖載入後：加入 3D 建築量體（從向量 style 的 building 圖層拉高）
-    map.map.on('load', () => {
-        addBuildings3D(map.map);
-    });
-    function addBuildings3D(m) {
-        // 找出 style 裡的 building 來源與 source-layer
-        const src = m.getStyle().sources;
-        let vecSrc = null;
-        for (const k in src) { if (src[k].type === 'vector') { vecSrc = k; break; } }
-        if (!vecSrc || m.getLayer('lmgl-buildings')) return;
-        // 插在標籤層之下，避免蓋住路名
-        let firstSymbol;
-        for (const l of m.getStyle().layers) { if (l.type === 'symbol') { firstSymbol = l.id; break; } }
-        try {
-            m.addLayer({
-                id: 'lmgl-buildings',
-                source: vecSrc,
-                'source-layer': 'building',
-                type: 'fill-extrusion',
-                minzoom: 14,
-                paint: {
-                    'fill-extrusion-color': [
-                        'interpolate', ['linear'], ['zoom'],
-                        14, '#e2e8f0', 17, '#cbd5e1'
-                    ],
-                    // 沒有真實樓高欄位時用 render_height / 預設值
-                    'fill-extrusion-height': [
-                        'interpolate', ['linear'], ['zoom'],
-                        14, 0,
-                        16, ['coalesce', ['get', 'render_height'], ['get', 'height'], 12]
-                    ],
-                    'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-                    'fill-extrusion-opacity': .82,
-                },
-            }, firstSymbol);
-        } catch (e) { console.warn('3D 建築圖層未套用:', e); }
-    }
-
-    // 2D／3D 傾斜切換
-    (function () {
-        const btn = document.getElementById('tiltBtn');
-        if (!btn) return;
-        let is3D = true;
-        btn.classList.add('on');
-        btn.addEventListener('click', () => {
-            is3D = !is3D;
-            btn.classList.toggle('on', is3D);
-            map.map.easeTo({ pitch: is3D ? 50 : 0, bearing: is3D ? map.map.getBearing() : 0, duration: 550 });
-        });
-    })();
+    const map = L.map('map', { zoomControl: true, attributionControl: true }).setView(TC_CENTER, 15);
+    // Carto Voyager：比預設 OSM 乾淨、店家標記較少（背景 POI 仍為 OSM 社群資料）
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 20,
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+    }).addTo(map);
 
     let meMarker = null, meCircle = null;
     let stnMarkers = new Map();     // StationUID → marker
