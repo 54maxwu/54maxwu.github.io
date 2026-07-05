@@ -740,7 +740,6 @@
                 <option value="800">800 公尺</option>
                 <option value="1200">1.2 公里</option>
             </select>
-            <button class="ctl icon-btn" id="tiltBtn" type="button" title="切換 2D／3D 傾斜視角">🏙️</button>
             <button class="ctl icon-btn" id="bikeBtn" type="button" title="附近 YouBike 可借/可還">🚲</button>
             <button class="ctl icon-btn" id="locateBtn" type="button" title="定位到我的位置">📍</button>
             <button class="ctl icon-btn" id="refreshBtn" type="button" title="重新整理">🔄</button>
@@ -817,10 +816,10 @@
           attributionControl: o.attributionControl !== false,
           antialias: true,
           maxZoom: 19,
-          dragRotate: true,
-          pitchWithRotate: true,
+          dragRotate: false,      // 平面地圖:停用旋轉/傾斜手勢
+          pitchWithRotate: false,
         });
-        if (o.zoomControl !== false) this.map.addControl(new ml.NavigationControl({ visualizePitch: true }), 'topleft'.replace('left','-left'));
+        if (o.zoomControl !== false) this.map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-left');
         const self = this;
         this.map.on('moveend', () => self.fire('moveend'));
         this.map.on('load', () => { self._loaded = true; self.fire('load'); });
@@ -1063,21 +1062,12 @@
     </script>
     <script>
     // ══════════════════════════════════════════════════════
-    //  附近公車站牌 3D — 台中 ATIS TDX 代理 (client 免 auth)
+    //  附近公車站牌 — 台中 ATIS TDX 代理 (client 免 auth)
     //  站位:  api/TDXAPI/BusStationNearBy/{lon}/{lat}/{radius}
     //  到站:  api/TDXAPI/BusEstimatedTime/{StationID}
     //  ATIS 端點無 CORS → 走通用 ?url= 代理 worker
-    //  地圖:  MapLibre GL 向量地圖 + 3D 傾斜建築 (免金鑰)；透過上方 shim
-    //         提供 Leaflet 相容 API(L.map/marker/popup/polyline…),沿用原本邏輯
-    //  定位:  navigator.geolocation
-    // ══════════════════════════════════════════════════════
-    // ══════════════════════════════════════════════════════
-    //  附近公車站牌 3D — 台中 ATIS TDX 代理 (client 免 auth)
-    //  站位:  api/TDXAPI/BusStationNearBy/{lon}/{lat}/{radius}
-    //  到站:  api/TDXAPI/BusEstimatedTime/{StationID}
-    //  ATIS 端點無 CORS → 走通用 ?url= 代理 worker
-    //  地圖:  MapLibre GL 向量地圖 + 3D 傾斜建築 (免金鑰)；透過 lmgl-shim.js
-    //         提供 Leaflet 相容 API(L.map/marker/popup/polyline…),沿用原本邏輯
+    //  地圖:  MapLibre GL 免金鑰向量地圖(平面)；透過上方 shim 提供
+    //         Leaflet 相容 API(L.map/marker/popup/polyline…),沿用原本邏輯
     //  定位:  navigator.geolocation
     // ══════════════════════════════════════════════════════
     const ATIS = 'https://e-traffic.taichung.gov.tw/ATIS_TCC/api/TDXAPI/';
@@ -1139,95 +1129,17 @@
     }
     const TXT = s => (s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'));
 
-    // ── Map (MapLibre GL 向量地圖 + 3D 傾斜建築) ──
+    // ── Map (MapLibre GL 向量地圖，平面) ──
     const TC_CENTER = [24.1477, 120.6736];
-    // MapTiler 向量 style：building 圖層帶真實樓高欄位 render_height，可拉出真實高低差的 3D 建築
-    // key 為公開前端 key；防護方式：MapTiler 後台鎖 https://54maxwu.github.io 網域(Allowed origins)
-    const MAPTILER_KEY = 'YmqpvxxKnLBGDIMwjbCg';
-    // 備援：MapTiler 失敗(額度/鎖網域/離線)時退回免 key 的 Carto voyager，仍有 3D 但為預設樓高
-    const MAP_STYLE_MT   = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
-    const MAP_STYLE_FREE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-    const map = L.map('map', { zoomControl: true, attributionControl: true, _style: MAP_STYLE_MT, _pitch: 50 }).setView(TC_CENTER, 15);
+    // 免金鑰向量 style（Carto voyager）：不需要 API key，純靜態即可用
+    const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+    const map = L.map('map', { zoomControl: true, attributionControl: true, _style: MAP_STYLE, _pitch: 0 }).setView(TC_CENTER, 15);
 
-    // ── MapTiler → 免 key 版的容錯退回 ──────────────────────────────
-    // 退回只做一次(_triedFree)。觸發條件不靠脆弱的錯誤字串比對:
-    //   (a) 首個 style 在 6 秒內沒載入成功(逾時)→ 視為失敗,退回;或
-    //   (b) 收到任何 map error 且 style 尚未成功載入 → 退回。
-    // 這樣 429 額度、CORS、鎖網域、離線等「訊息文字各異」的失敗都能救到。
-    let styleLoaded = false;
-    function fallbackToFree(why) {
-        if (map._triedFree || styleLoaded) return;
-        map._triedFree = true;
-        console.warn('MapTiler style 失敗,退回免 key 版:', why);
-        try { map.map.setStyle(MAP_STYLE_FREE); } catch (e) { console.warn('setStyle 退回失敗', e); }
-    }
-    const styleTimeout = setTimeout(() => fallbackToFree('style.load 逾時 6s'), 6000);
-    map.map.on('error', (e) => { if (!styleLoaded) fallbackToFree((e && e.error && e.error.message) || 'map error'); });
-
-    // 每次 style 載入完成(首載 or 退回後)都要重建自訂圖層:3D 建築 + 存活中的圈/線覆蓋層。
-    // setStyle 會清空所有 addSource/addLayer,故必須在此重新掛回,否則精度圈/路線會永久消失。
-    map.map.on('style.load', () => {
-        styleLoaded = true;
-        clearTimeout(styleTimeout);
-        addBuildings3D(map.map);
-        rehydrateOverlays();
-    });
+    // style 載入後：重建存活中的圈/線覆蓋層（style 重載會清空 addSource/addLayer）
+    map.map.on('style.load', () => rehydrateOverlays());
     function rehydrateOverlays() {
-        // 重畫所有仍存活的 LCircle/LPolyline(setStyle 後其 source/layer 已被清掉)
         map._overlays.forEach(o => { try { o._draw && o._draw(); } catch (e) { console.warn('覆蓋層重建失敗', e); } });
     }
-    function addBuildings3D(m) {
-        // 找出 style 裡的 building 來源與 source-layer
-        const src = m.getStyle().sources;
-        let vecSrc = null;
-        for (const k in src) { if (src[k].type === 'vector') { vecSrc = k; break; } }
-        if (!vecSrc || m.getLayer('lmgl-buildings')) return;
-        // 插在標籤層之下，避免蓋住路名
-        let firstSymbol;
-        for (const l of m.getStyle().layers) { if (l.type === 'symbol') { firstSymbol = l.id; break; } }
-        try {
-            m.addLayer({
-                id: 'lmgl-buildings',
-                source: vecSrc,
-                'source-layer': 'building',
-                type: 'fill-extrusion',
-                minzoom: 14,
-                paint: {
-                    // 依樓高上色：低矮暖白 → 高樓偏冷灰，讓高低差更明顯
-                    'fill-extrusion-color': [
-                        'interpolate', ['linear'],
-                        ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
-                        0, '#e8edf2', 20, '#d3dce6', 60, '#b8c4d4', 120, '#9fb0c6'
-                    ],
-                    // 真實樓高:MapTiler building 圖層提供 render_height(公尺);缺值退回預設 10m
-                    'fill-extrusion-height': [
-                        'interpolate', ['linear'], ['zoom'],
-                        14, 0,
-                        15.5, ['coalesce', ['get', 'render_height'], ['get', 'height'], 10]
-                    ],
-                    'fill-extrusion-base': [
-                        'interpolate', ['linear'], ['zoom'],
-                        14, 0,
-                        15.5, ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0]
-                    ],
-                    'fill-extrusion-opacity': .85,
-                },
-            }, firstSymbol);
-        } catch (e) { console.warn('3D 建築圖層未套用:', e); }
-    }
-
-    // 2D／3D 傾斜切換
-    (function () {
-        const btn = document.getElementById('tiltBtn');
-        if (!btn) return;
-        let is3D = true;
-        btn.classList.add('on');
-        btn.addEventListener('click', () => {
-            is3D = !is3D;
-            btn.classList.toggle('on', is3D);
-            map.map.easeTo({ pitch: is3D ? 50 : 0, bearing: is3D ? map.map.getBearing() : 0, duration: 550 });
-        });
-    })();
 
     let meMarker = null, meCircle = null;
     let stnMarkers = new Map();     // StationUID → marker
