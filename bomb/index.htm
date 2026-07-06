@@ -163,7 +163,14 @@
     display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:4px;
     user-select:none;-webkit-user-select:none;
   }
-  .dpad>*{pointer-events:none}   /* 命中測試都在容器上做（角度分區），子元素只是視覺 */
+  .dpad>*{pointer-events:none}   /* 命中測試都在感應區上做（角度分區），子元素只是視覺 */
+  /* 盲按容錯：觸控列左右對半切成兩塊隱形感應區（左＝方向、右＝炸彈），
+     按鈕圖形只是視覺定位點，手指沒對準也吃得到；方向永遠以 D-pad 視覺中心算角度。
+     上下再用負 margin 外擴一點，蓋住列的邊緣地帶 */
+  #dpadZone{flex:1 1 0;display:flex;align-items:center;justify-content:flex-start;
+    touch-action:none;padding:10px 0 24px;margin:-10px 0 -24px}
+  #bombZone{flex:1 1 0;align-items:flex-end;justify-content:center;
+    touch-action:none;padding:10px 0 24px;margin:-10px 0 -24px}
   .dpad .arm{
     display:flex;align-items:center;justify-content:center;border-radius:10px;
     background:#fff;border:1px solid #e2e8f0;box-shadow:inset 0 2px 6px rgba(0,0,0,.05);
@@ -177,7 +184,7 @@
   .dpad .arm.on{background:#3b82f6;border-color:#2563eb;color:#fff;box-shadow:0 2px 10px rgba(59,130,246,.4)}
   .btncol{display:flex;flex-direction:column;align-items:center;gap:12px;flex:0 0 auto}
   .bombbtn{width:96px;height:96px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:36px;cursor:pointer;box-shadow:0 4px 14px rgba(239,68,68,.45);touch-action:none;flex:0 0 auto}
-  .bombbtn:active{background:#dc2626;transform:scale(.94)}
+  .bombbtn:active,.bombbtn.press{background:#dc2626;transform:scale(.94)}   /* .press：感應區按壓的視覺回饋（touch 走 zone，不會觸發 :active） */
 
   /* ── 派對大螢幕：房間 QR ── */
   .qrwrap{display:flex;justify-content:center;align-items:center;min-height:188px;background:#fff;border-radius:14px;padding:14px;border:1px solid #e2e8f0}
@@ -194,12 +201,15 @@
   #padPad{flex:1 1 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;
     padding:0 max(20px,env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
   /* 派對控制器（深色主題）：同一套 .dpad，只換配色與尺寸 */
+  /* 盲按容錯：整個左半螢幕＝方向感應區、右半螢幕＝炸彈感應區，緊張拍歪也吃得到 */
+  #padZone{flex:1 1 0;align-self:stretch;display:flex;align-items:center;justify-content:flex-start;touch-action:none}
+  #padBombZone{flex:1 1 0;align-self:stretch;display:flex;align-items:center;justify-content:flex-end;touch-action:none}
   #padDpad{width:46vw;max-width:250px;height:auto;aspect-ratio:1;gap:5px}
   #padDpad .arm{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);box-shadow:inset 0 2px 10px rgba(0,0,0,.35);color:#64748b;font-size:clamp(18px,6vw,30px)}
   #padDpad .ctr{background:rgba(255,255,255,.04)}
   #padDpad .arm.on{background:#2563eb;border-color:#3b82f6;color:#fff;box-shadow:0 4px 16px rgba(37,99,235,.5)}
   #padBomb{width:34vw;max-width:180px;aspect-ratio:1;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:clamp(40px,13vw,76px);cursor:pointer;box-shadow:0 6px 22px rgba(239,68,68,.5);touch-action:none}
-  #padBomb:active{background:#dc2626;transform:scale(.94)}
+  #padBomb:active,#padBomb.press{background:#dc2626;transform:scale(.94)}
   #padBomb:disabled{opacity:.4}
 
   .note{margin-top:20px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.7}
@@ -394,14 +404,16 @@
     </div>
 
     <div class="touch" id="touch">
-      <div class="dpad" id="dpad">
-        <div class="arm" data-d="up">▲</div>
-        <div class="arm" data-d="left">◀</div>
-        <div class="ctr"></div>
-        <div class="arm" data-d="right">▶</div>
-        <div class="arm" data-d="down">▼</div>
+      <div id="dpadZone">
+        <div class="dpad" id="dpad">
+          <div class="arm" data-d="up">▲</div>
+          <div class="arm" data-d="left">◀</div>
+          <div class="ctr"></div>
+          <div class="arm" data-d="right">▶</div>
+          <div class="arm" data-d="down">▼</div>
+        </div>
       </div>
-      <div class="btncol">
+      <div class="btncol" id="bombZone">
         <button class="bombbtn" id="bombBtn">💣</button>
       </div>
     </div>
@@ -418,14 +430,18 @@
     <div id="padStatus">正在加入房間…</div>
   </div>
   <div id="padPad">
-    <div class="dpad" id="padDpad">
-      <div class="arm" data-d="up">▲</div>
-      <div class="arm" data-d="left">◀</div>
-      <div class="ctr"></div>
-      <div class="arm" data-d="right">▶</div>
-      <div class="arm" data-d="down">▼</div>
+    <div id="padZone">
+      <div class="dpad" id="padDpad">
+        <div class="arm" data-d="up">▲</div>
+        <div class="arm" data-d="left">◀</div>
+        <div class="ctr"></div>
+        <div class="arm" data-d="right">▶</div>
+        <div class="arm" data-d="down">▼</div>
+      </div>
     </div>
-    <button id="padBomb" disabled>💣</button>
+    <div id="padBombZone">
+      <button id="padBomb" disabled>💣</button>
+    </div>
   </div>
 </div>
 
@@ -1500,7 +1516,9 @@ document.addEventListener('visibilitychange', ()=>{ if(document.hidden) clearHel
 //  • 同一時刻只輸出一個方向（意圖零歧義，配合格鎖移動不需要斜向）
 //  • 分區含遲滯：已有方向時要偏離 ±55° 才換向 → 斜向邊界不抖
 //  • 死區內維持現向（指尖微移不斷訊）
-function bindDpad(el, press){
+//  • zone：實際監聽觸控的感應區（可比可見 D-pad 大，盲按容錯）；角度一律以 el 的視覺中心計算
+function bindDpad(el, press, zone){
+  zone=zone||el;
   const arms={}; el.querySelectorAll('.arm').forEach(a=>arms[a.dataset.d]=a);
   let dir=null, tid=null;
   const show=()=>{ for(const k in arms) arms[k].classList.toggle('on',k===dir); };
@@ -1523,42 +1541,42 @@ function bindDpad(el, press){
     for(const k in CTR){ const d=dist(k); if(d<bd){ bd=d; best=k; } }
     return best;
   }
-  el.addEventListener('touchstart',e=>{
+  zone.addEventListener('touchstart',e=>{
     e.preventDefault();
     if(tid!==null) return;                        // 多點觸控只認第一指
     const t=e.changedTouches[0]; tid=t.identifier;
     setDir(hit(t.clientX,t.clientY));
   },{passive:false});
-  el.addEventListener('touchmove',e=>{
+  zone.addEventListener('touchmove',e=>{
     e.preventDefault();
     for(const t of e.changedTouches){ if(t.identifier===tid) setDir(hit(t.clientX,t.clientY)); }
   },{passive:false});
   const end=e=>{
     for(const t of e.changedTouches){ if(t.identifier===tid){ tid=null; setDir(null); } }
   };
-  el.addEventListener('touchend',end,{passive:false});
-  el.addEventListener('touchcancel',end,{passive:false});
+  zone.addEventListener('touchend',end,{passive:false});
+  zone.addEventListener('touchcancel',end,{passive:false});
   // 滑鼠拖曳（桌機測試用）
   let md=false;
-  el.addEventListener('mousedown',e=>{ md=true; setDir(hit(e.clientX,e.clientY)); });
+  zone.addEventListener('mousedown',e=>{ md=true; setDir(hit(e.clientX,e.clientY)); });
   window.addEventListener('mousemove',e=>{ if(md) setDir(hit(e.clientX,e.clientY)); });
   window.addEventListener('mouseup',()=>{ if(md){ md=false; setDir(null); } });
   return { reset(){ tid=null; setDir(null); } };
 }
 
-// 觸控：左 D-pad + 右炸彈鈕
+// 觸控：左 D-pad + 右炸彈鈕（監聽都在對半切的感應區上，盲按容錯）
 function bindTouch(){
   const press=(action,val)=>setLocalInput(myIndex,action,val);
-  dpadMain=bindDpad($('dpad'), press);
+  dpadMain=bindDpad($('dpad'), press, $('dpadZone'));
 
-  // 炸彈鈕
-  const bb=$('bombBtn');
-  const bon=e=>{e.preventDefault();press('bomb',true);};
-  const boff=e=>{e.preventDefault();press('bomb',false);};
-  bb.addEventListener('touchstart',bon,{passive:false});
-  bb.addEventListener('touchend',boff,{passive:false});
-  bb.addEventListener('touchcancel',boff,{passive:false});
-  bb.addEventListener('mousedown',bon); bb.addEventListener('mouseup',boff);
+  // 炸彈鈕：感應區＝觸控列右半邊；按壓視覺回饋走 .press（touch 在 zone 上不會觸發 :active）
+  const bb=$('bombBtn'), bz=$('bombZone');
+  const bon=e=>{e.preventDefault();bb.classList.add('press');press('bomb',true);};
+  const boff=e=>{e.preventDefault();bb.classList.remove('press');press('bomb',false);};
+  bz.addEventListener('touchstart',bon,{passive:false});
+  bz.addEventListener('touchend',boff,{passive:false});
+  bz.addEventListener('touchcancel',boff,{passive:false});
+  bz.addEventListener('mousedown',bon); bz.addEventListener('mouseup',boff);
 }
 
 /* ============================================================
@@ -2143,13 +2161,15 @@ function onPadState(s){
 }
 
 // D-pad + 炸彈鈕：直接寫進 myInput（padPump 每 tick 取樣送出）
+// 感應區＝左右半螢幕（#padZone / #padBombZone），緊張拍歪也吃得到
 function bindPad(){
-  const el=$('padDpad'), bomb=$('padBomb');
+  const el=$('padDpad'), bomb=$('padBomb'), bz=$('padBombZone');
   if(!el) return;
-  dpadPad=bindDpad(el, (k,v)=>{ myInput[k]=v; });
-  const bon=e=>{ e.preventDefault(); myInput.bomb=true; }, boff=e=>{ e.preventDefault(); myInput.bomb=false; };
-  bomb.addEventListener('touchstart',bon,{passive:false}); bomb.addEventListener('touchend',boff,{passive:false}); bomb.addEventListener('touchcancel',boff,{passive:false});
-  bomb.addEventListener('mousedown',bon); bomb.addEventListener('mouseup',boff);
+  dpadPad=bindDpad(el, (k,v)=>{ myInput[k]=v; }, $('padZone'));
+  const bon=e=>{ e.preventDefault(); if(bomb.disabled) return; bomb.classList.add('press'); myInput.bomb=true; };
+  const boff=e=>{ e.preventDefault(); bomb.classList.remove('press'); myInput.bomb=false; };
+  bz.addEventListener('touchstart',bon,{passive:false}); bz.addEventListener('touchend',boff,{passive:false}); bz.addEventListener('touchcancel',boff,{passive:false});
+  bz.addEventListener('mousedown',bon); bz.addEventListener('mouseup',boff);
 }
 
 /* ── 房間 QR 產生：先載 CDN 函式庫（與 three 同模式），失敗退線上服務，再不行只顯示網址 ── */
