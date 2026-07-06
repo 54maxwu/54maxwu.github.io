@@ -155,22 +155,26 @@
   .overlay .box h3{font-size:18px;margin-bottom:6px}
   .overlay .box p{color:#64748b;font-size:13px;margin-bottom:18px}
 
-  /* touch controls：左虛擬搖桿 + 右炸彈鈕 */
+  /* touch controls：左 D-pad（滑動換向）+ 右炸彈鈕 */
   .touch{display:none;margin-top:16px}
   .touch.show{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:0 6px}
-  .joy{
-    position:relative;width:140px;height:140px;border-radius:50%;
-    background:#fff;border:1px solid #e2e8f0;box-shadow:inset 0 2px 8px rgba(0,0,0,.06);
-    touch-action:none;flex:0 0 auto;
+  .dpad{
+    width:150px;height:150px;flex:0 0 auto;touch-action:none;
+    display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:4px;
+    user-select:none;-webkit-user-select:none;
   }
-  .joy .ring{position:absolute;inset:14px;border-radius:50%;border:2px dashed #e2e8f0}
-  .joy .knob{
-    position:absolute;width:58px;height:58px;border-radius:50%;
-    left:50%;top:50%;transform:translate(-50%,-50%);
-    background:#3b82f6;box-shadow:0 4px 12px rgba(59,130,246,.4);
-    transition:background .1s;pointer-events:none;
+  .dpad>*{pointer-events:none}   /* 命中測試都在容器上做（角度分區），子元素只是視覺 */
+  .dpad .arm{
+    display:flex;align-items:center;justify-content:center;border-radius:10px;
+    background:#fff;border:1px solid #e2e8f0;box-shadow:inset 0 2px 6px rgba(0,0,0,.05);
+    color:#94a3b8;font-size:17px;transition:background .06s;
   }
-  .joy.active .knob{background:#2563eb}
+  .dpad .arm[data-d=up]{grid-area:1/2}
+  .dpad .arm[data-d=left]{grid-area:2/1}
+  .dpad .arm[data-d=right]{grid-area:2/3}
+  .dpad .arm[data-d=down]{grid-area:3/2}
+  .dpad .ctr{grid-area:2/2;border-radius:10px;background:#f1f5f9}
+  .dpad .arm.on{background:#3b82f6;border-color:#2563eb;color:#fff;box-shadow:0 2px 10px rgba(59,130,246,.4)}
   .btncol{display:flex;flex-direction:column;align-items:center;gap:12px;flex:0 0 auto}
   .bombbtn{width:96px;height:96px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:36px;cursor:pointer;box-shadow:0 4px 14px rgba(239,68,68,.45);touch-action:none;flex:0 0 auto}
   .bombbtn:active{background:#dc2626;transform:scale(.94)}
@@ -189,10 +193,11 @@
   #padStatus{margin-top:6px;font-size:14px;color:#94a3b8;min-height:20px}
   #padPad{flex:1 1 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;
     padding:0 max(20px,env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
-  #padJoy{position:relative;width:46vw;max-width:250px;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 2px 16px rgba(0,0,0,.4);touch-action:none}
-  #padJoy .ring{position:absolute;inset:16px;border-radius:50%;border:2px dashed rgba(255,255,255,.14)}
-  #padKnob{position:absolute;width:34%;aspect-ratio:1;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%);background:#3b82f6;box-shadow:0 6px 20px rgba(59,130,246,.5);transition:background .1s;pointer-events:none}
-  #padJoy.active #padKnob{background:#2563eb}
+  /* 派對控制器（深色主題）：同一套 .dpad，只換配色與尺寸 */
+  #padDpad{width:46vw;max-width:250px;height:auto;aspect-ratio:1;gap:5px}
+  #padDpad .arm{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);box-shadow:inset 0 2px 10px rgba(0,0,0,.35);color:#64748b;font-size:clamp(18px,6vw,30px)}
+  #padDpad .ctr{background:rgba(255,255,255,.04)}
+  #padDpad .arm.on{background:#2563eb;border-color:#3b82f6;color:#fff;box-shadow:0 4px 16px rgba(37,99,235,.5)}
   #padBomb{width:34vw;max-width:180px;aspect-ratio:1;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:clamp(40px,13vw,76px);cursor:pointer;box-shadow:0 6px 22px rgba(239,68,68,.5);touch-action:none}
   #padBomb:active{background:#dc2626;transform:scale(.94)}
   #padBomb:disabled{opacity:.4}
@@ -238,8 +243,9 @@
     #game-view .ptag{font-size:11px;padding:3px 7px;white-space:nowrap;flex:0 0 auto}
     #game-view .touch{flex:0 0 auto;margin:0}
     #game-view .touch.show{margin:0;padding:0 4px}
-    .joy{width:116px;height:116px}
-    .joy .knob{width:50px;height:50px}
+    .dpad{width:128px;height:128px;gap:3px}
+    .dpad .arm{font-size:14px;border-radius:8px}
+    .dpad .ctr{border-radius:8px}
     .bombbtn{width:84px;height:84px;font-size:32px}
     #ctrlHint{display:none}
   }
@@ -388,9 +394,12 @@
     </div>
 
     <div class="touch" id="touch">
-      <div class="joy" id="joy">
-        <div class="ring"></div>
-        <div class="knob" id="joyKnob"></div>
+      <div class="dpad" id="dpad">
+        <div class="arm" data-d="up">▲</div>
+        <div class="arm" data-d="left">◀</div>
+        <div class="ctr"></div>
+        <div class="arm" data-d="right">▶</div>
+        <div class="arm" data-d="down">▼</div>
       </div>
       <div class="btncol">
         <button class="bombbtn" id="bombBtn">💣</button>
@@ -409,7 +418,13 @@
     <div id="padStatus">正在加入房間…</div>
   </div>
   <div id="padPad">
-    <div id="padJoy"><div class="ring"></div><div id="padKnob"></div></div>
+    <div class="dpad" id="padDpad">
+      <div class="arm" data-d="up">▲</div>
+      <div class="arm" data-d="left">◀</div>
+      <div class="ctr"></div>
+      <div class="arm" data-d="right">▶</div>
+      <div class="arm" data-d="down">▼</div>
+    </div>
     <button id="padBomb" disabled>💣</button>
   </div>
 </div>
@@ -531,6 +546,8 @@ function makePlayer(i){
     kick:false, pierce:false, remote:false, shield:0, invuln:0,
     dir:'down', moving:false, dying:0,
     input:{up:false,down:false,left:false,right:false,bomb:false,det:false},
+    // 轉向緩衝：最近「新按下」的方向與剩餘有效 ticks；prevIn 用來偵測 0→1 邊緣
+    bufDir:null, bufT:0, prevIn:{up:false,down:false,left:false,right:false},
     bombCooldown:0, detCooldown:0,
   };
 }
@@ -567,10 +584,20 @@ function bombAtCell(cx,cy){ return world.bombs.find(b=>b.cx===cx&&b.cy===cy); }
 // 輕點一下方向鍵也會剛好前進一格、不會走到一半又彈回原格。
 //  • 只在抵達格中心時重讀輸入 → 決定下一格（續走 / 轉彎 / 停）
 //  • 前方是牆/磚 → 停在本格；是炸彈且有踢彈能力 → 踢開
+const DIRBUF_TICKS=16;   // 轉向緩衝有效期 (~0.27s)：≥基礎速度走一格的 15 tick，格中任何時點輕點都撐得到下個格中心
+const DIRV={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]};
 function tryMove(p){
   if(!p.alive) return;
   const spd=SPEED_BASE+(p.speed-1)*SPEED_INC;
   const inp=p.input;
+  // 轉向緩衝：記下最近「新按下」（0→1 邊緣）的方向。格中心重讀輸入時它有最高優先權 →
+  // 格子中途輕點/滑一下新方向也會確實轉彎，不會被還按著的舊方向蓋掉（最近意圖優先）。
+  // 狀態只由輸入流決定性推導，host 與 client 預測/重播結果一致。
+  for(const k of ['up','down','left','right']){
+    if(inp[k] && !p.prevIn[k]){ p.bufDir=k; p.bufT=DIRBUF_TICKS; }
+    p.prevIn[k]=inp[k];
+  }
+  if(p.bufT>0) p.bufT--; else p.bufDir=null;
   // 角色永遠朝某個目標格中心前進；初始化為目前所在格
   if(p.tcx==null){ p.tcx=Math.round((p.px-TILE/2)/TILE); p.tcy=Math.round((p.py-TILE/2)/TILE); }
   let tX=p.tcx*TILE+TILE/2, tY=p.tcy*TILE+TILE/2;
@@ -579,10 +606,16 @@ function tryMove(p){
   if(Math.abs(p.px-tX)<0.001 && Math.abs(p.py-tY)<0.001){
     p.px=tX; p.py=tY;
     let wdx=0,wdy=0;
-    if(inp.left)wdx=-1; else if(inp.right)wdx=1;
-    if(inp.up)wdy=-1; else if(inp.down)wdy=1;
+    const bv=p.bufDir && DIRV[p.bufDir];
+    if(bv && canEnterCell(p.tcx+bv[0], p.tcy+bv[1], p)){
+      // 緩衝的方向走得通 → 直接採用並消耗掉（走不通就落回下面既有邏輯，held 方向仍可踢彈）
+      wdx=bv[0]; wdy=bv[1]; p.bufDir=null; p.bufT=0;
+    } else {
+      if(inp.left)wdx=-1; else if(inp.right)wdx=1;
+      if(inp.up)wdy=-1; else if(inp.down)wdy=1;
+    }
     if(wdx&&wdy){
-      // 斜推（搖桿同時給兩個方向）：挑走得通的那一軸做「轉角輔助」；
+      // 斜推（鍵盤同時按兩個方向）：挑走得通的那一軸做「轉角輔助」；
       // 兩軸都通時沿用目前行進軸（慣性），避免在路口左右橫跳。
       const hOK=canEnterCell(p.tcx+wdx,p.tcy,p), vOK=canEnterCell(p.tcx,p.tcy+wdy,p);
       if(hOK&&vOK){ if(p.dir==='up'||p.dir==='down') wdx=0; else wdy=0; }
@@ -1417,6 +1450,7 @@ function setLocalInput(playerIdx, action, val){
   }
 }
 const myInput={up:false,down:false,left:false,right:false,bomb:false,det:false};
+let dpadMain=null, dpadPad=null;   // 兩塊 D-pad 的控制把手（reset 用）；須宣告在 bindTouch()/bindPad() 呼叫點之前
 
 window.addEventListener('keydown',e=>{
   if($('game-view').classList.contains('show')===false) return;
@@ -1445,6 +1479,7 @@ window.addEventListener('keyup',e=>{
 // 視窗失焦 / 切到別的分頁時，keyup 不會觸發 → 角色會卡住一直走（線上還會狂送輸入）。
 // 這裡把目前控制的玩家輸入全部歸零，避免「放開鍵卻還在動」。
 function clearHeldInputs(){
+  dpadMain && dpadMain.reset(); dpadPad && dpadPad.reset();   // D-pad 內部方向/高亮同步歸零
   if(!world) return;
   const actions=['up','down','left','right','bomb','det'];
   if(mode==='local'){
@@ -1459,68 +1494,62 @@ function clearHeldInputs(){
 window.addEventListener('blur', clearHeldInputs);
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden) clearHeldInputs(); });
 
-// 搖桿向量 →（最多兩個）方向鍵：把 360° 切成 8 等分，斜推同時觸發相鄰兩向，
-// host 端再做轉角輔助。分區邊界穩定（不像「比大小」會在 45° 附近抖動）。
-function dirFromVec(dx,dy,dead){
-  const d={up:false,down:false,left:false,right:false};
-  if(Math.hypot(dx,dy)<dead) return d;
-  const s=Math.round(Math.atan2(dy,dx)/(Math.PI/4));   // dx右+ dy下+：0右 ±2上下 ±4左 …
-  const MAP={'0':['right'],'1':['right','down'],'2':['down'],'3':['down','left'],
-             '4':['left'],'-4':['left'],'-3':['up','left'],'-2':['up'],'-1':['up','right']};
-  for(const k of (MAP[String(s)]||[])) d[k]=true;
-  return d;
+// D-pad 綁定（主畫面觸控列 + 派對手機控制器共用）：
+//  • 命中測試在整塊容器上以「角度分區」計算 → 四向之間、甚至角落空隙都算最近的方向，
+//    手指滑過去就直接換向，不用抬起重按
+//  • 同一時刻只輸出一個方向（意圖零歧義，配合格鎖移動不需要斜向）
+//  • 分區含遲滯：已有方向時要偏離 ±55° 才換向 → 斜向邊界不抖
+//  • 死區內維持現向（指尖微移不斷訊）
+function bindDpad(el, press){
+  const arms={}; el.querySelectorAll('.arm').forEach(a=>arms[a.dataset.d]=a);
+  let dir=null, tid=null;
+  const show=()=>{ for(const k in arms) arms[k].classList.toggle('on',k===dir); };
+  function setDir(d){
+    if(d===dir) return;
+    if(dir) press(dir,false);
+    if(d) press(d,true);
+    dir=d; show();
+  }
+  const CTR={right:0,down:90,left:180,up:-90};   // 各方向的中心角（deg，dx右+ dy下+）
+  function hit(cx,cy){
+    const r=el.getBoundingClientRect();
+    const dx=cx-(r.left+r.width/2), dy=cy-(r.top+r.height/2);
+    const dead=r.width*0.10;
+    if(dx*dx+dy*dy<dead*dead) return dir;        // 死區：維持現向
+    const ang=Math.atan2(dy,dx)*180/Math.PI;
+    const dist=k=>{ const d=Math.abs(ang-CTR[k]); return d>180?360-d:d; };
+    if(dir && dist(dir)<=55) return dir;         // 遲滯：現向 ±55° 內不換
+    let best=dir, bd=1e9;
+    for(const k in CTR){ const d=dist(k); if(d<bd){ bd=d; best=k; } }
+    return best;
+  }
+  el.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(tid!==null) return;                        // 多點觸控只認第一指
+    const t=e.changedTouches[0]; tid=t.identifier;
+    setDir(hit(t.clientX,t.clientY));
+  },{passive:false});
+  el.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){ if(t.identifier===tid) setDir(hit(t.clientX,t.clientY)); }
+  },{passive:false});
+  const end=e=>{
+    for(const t of e.changedTouches){ if(t.identifier===tid){ tid=null; setDir(null); } }
+  };
+  el.addEventListener('touchend',end,{passive:false});
+  el.addEventListener('touchcancel',end,{passive:false});
+  // 滑鼠拖曳（桌機測試用）
+  let md=false;
+  el.addEventListener('mousedown',e=>{ md=true; setDir(hit(e.clientX,e.clientY)); });
+  window.addEventListener('mousemove',e=>{ if(md) setDir(hit(e.clientX,e.clientY)); });
+  window.addEventListener('mouseup',()=>{ if(md){ md=false; setDir(null); } });
+  return { reset(){ tid=null; setDir(null); } };
 }
 
-// 觸控：虛擬搖桿（拖曳分析方向，超過門檻就觸發對應方向）+ 炸彈鈕
+// 觸控：左 D-pad + 右炸彈鈕
 function bindTouch(){
   const press=(action,val)=>setLocalInput(myIndex,action,val);
-  const joy=$('joy'), knob=$('joyKnob');
-  let joyId=null;       // 追蹤的 touch identifier（多點觸控時只認搖桿這指）
-  const cur={up:false,down:false,left:false,right:false};
-  const MAXR=42;        // 旋鈕可移動半徑(px)
-  const DEAD=12;        // 死區：小於此距離視為不動
-
-  function setDir(d){
-    for(const k of ['up','down','left','right']){
-      if(cur[k]!==d[k]){ cur[k]=d[k]; press(k,d[k]); }
-    }
-  }
-  function moveKnob(dx,dy){
-    const dist=Math.hypot(dx,dy);
-    if(dist>MAXR){ dx=dx/dist*MAXR; dy=dy/dist*MAXR; }
-    knob.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    // 8 向：斜推同時給相鄰兩向，host 端做轉角輔助 → 過彎順、不在 45° 抖
-    setDir(dirFromVec(dx,dy,DEAD));
-  }
-  function resetKnob(){
-    knob.style.transform='translate(-50%,-50%)';
-    setDir({up:false,down:false,left:false,right:false});
-    joy.classList.remove('active');
-  }
-  function localXY(t){ const r=joy.getBoundingClientRect(); return {x:t.clientX-(r.left+r.width/2), y:t.clientY-(r.top+r.height/2)}; }
-
-  joy.addEventListener('touchstart',e=>{
-    e.preventDefault();
-    if(joyId!==null) return;
-    const t=e.changedTouches[0]; joyId=t.identifier;
-    joy.classList.add('active');
-    const p=localXY(t); moveKnob(p.x,p.y);
-  },{passive:false});
-  joy.addEventListener('touchmove',e=>{
-    e.preventDefault();
-    for(const t of e.changedTouches){ if(t.identifier===joyId){ const p=localXY(t); moveKnob(p.x,p.y); } }
-  },{passive:false});
-  const endTouch=e=>{
-    for(const t of e.changedTouches){ if(t.identifier===joyId){ joyId=null; resetKnob(); } }
-  };
-  joy.addEventListener('touchend',endTouch,{passive:false});
-  joy.addEventListener('touchcancel',endTouch,{passive:false});
-
-  // 滑鼠拖曳（桌機測試用）
-  let mouseDown=false;
-  joy.addEventListener('mousedown',e=>{ mouseDown=true; joy.classList.add('active'); const r=joy.getBoundingClientRect(); moveKnob(e.clientX-(r.left+r.width/2), e.clientY-(r.top+r.height/2)); });
-  window.addEventListener('mousemove',e=>{ if(!mouseDown)return; const r=joy.getBoundingClientRect(); moveKnob(e.clientX-(r.left+r.width/2), e.clientY-(r.top+r.height/2)); });
-  window.addEventListener('mouseup',()=>{ if(mouseDown){ mouseDown=false; resetKnob(); } });
+  dpadMain=bindDpad($('dpad'), press);
 
   // 炸彈鈕
   const bb=$('bombBtn');
@@ -1583,7 +1612,7 @@ function beginGame(){
   $('loading3d') && !G3 && ($('loading3d').style.display='flex');   // 3D 還沒就緒時顯示載入動畫
   matchEndedByLeave=false; $('ovBtn').textContent='再來一場';   // 還原結算按鈕（上一局可能被改成「返回大廳」）
   for(const a of ['up','down','left','right','bomb']) myInput[a]=false;   // 清掉殘留輸入，避免新局角色自走
-  $('joyKnob') && ($('joyKnob').style.transform='translate(-50%,-50%)');  // 搖桿視覺歸位
+  dpadMain && dpadMain.reset();   // D-pad 視覺/方向歸位
   $('lobby').style.display='none';
   $('game-view').classList.add('show');
   $('gameBtns').style.display='flex';   // 遊戲按鈕顯示在 header
@@ -1595,7 +1624,7 @@ function beginGame(){
   if(mode==='local'){
     $('ctrlHint').innerHTML='玩家1：WASD + 空白鍵（Q 引爆）　|　玩家2：方向鍵 + Enter（右Shift 引爆）';
   } else if(isTouch){
-    $('ctrlHint').innerHTML='左側搖桿移動　·　右側 💣 放炸彈';
+    $('ctrlHint').innerHTML='左側方向鍵移動（手指滑動即可換向）　·　右側 💣 放炸彈';
   } else {
     $('ctrlHint').innerHTML='WASD / 方向鍵移動　·　空白鍵 / Enter 放炸彈';
   }
@@ -2113,29 +2142,11 @@ function onPadState(s){
   }
 }
 
-// 搖桿 + 炸彈鈕：直接寫進 myInput（padPump 每 tick 取樣送出）
+// D-pad + 炸彈鈕：直接寫進 myInput（padPump 每 tick 取樣送出）
 function bindPad(){
-  const joy=$('padJoy'), knob=$('padKnob'), bomb=$('padBomb');
-  if(!joy) return;
-  let id=null; const cur={up:false,down:false,left:false,right:false};
-  const setDir=d=>{ for(const k of ['up','down','left','right']){ if(cur[k]!==d[k]){ cur[k]=d[k]; myInput[k]=d[k]; } } };
-  const xy=t=>{ const r=joy.getBoundingClientRect(); return {x:t.clientX-(r.left+r.width/2), y:t.clientY-(r.top+r.height/2), R:r.width*0.36}; };
-  function move(dx,dy,R){
-    const dist=Math.hypot(dx,dy); let kx=dx,ky=dy;
-    if(dist>R){ kx=dx/dist*R; ky=dy/dist*R; }
-    knob.style.transform=`translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
-    setDir(dirFromVec(dx,dy,R*0.3));   // 8 向：斜推給相鄰兩向，host 端轉角輔助
-  }
-  function reset(){ knob.style.transform='translate(-50%,-50%)'; setDir({up:false,down:false,left:false,right:false}); joy.classList.remove('active'); }
-  joy.addEventListener('touchstart',e=>{ e.preventDefault(); if(id!==null)return; const t=e.changedTouches[0]; id=t.identifier; joy.classList.add('active'); const p=xy(t); move(p.x,p.y,p.R); },{passive:false});
-  joy.addEventListener('touchmove',e=>{ e.preventDefault(); for(const t of e.changedTouches){ if(t.identifier===id){ const p=xy(t); move(p.x,p.y,p.R); } } },{passive:false});
-  const end=e=>{ for(const t of e.changedTouches){ if(t.identifier===id){ id=null; reset(); } } };
-  joy.addEventListener('touchend',end,{passive:false}); joy.addEventListener('touchcancel',end,{passive:false});
-  // 滑鼠（桌機測試）
-  let md=false;
-  joy.addEventListener('mousedown',e=>{ md=true; joy.classList.add('active'); const p=xy(e); move(p.x,p.y,p.R); });
-  window.addEventListener('mousemove',e=>{ if(!md)return; const p=xy(e); move(p.x,p.y,p.R); });
-  window.addEventListener('mouseup',()=>{ if(md){ md=false; reset(); } });
+  const el=$('padDpad'), bomb=$('padBomb');
+  if(!el) return;
+  dpadPad=bindDpad(el, (k,v)=>{ myInput[k]=v; });
   const bon=e=>{ e.preventDefault(); myInput.bomb=true; }, boff=e=>{ e.preventDefault(); myInput.bomb=false; };
   bomb.addEventListener('touchstart',bon,{passive:false}); bomb.addEventListener('touchend',boff,{passive:false}); bomb.addEventListener('touchcancel',boff,{passive:false});
   bomb.addEventListener('mousedown',bon); bomb.addEventListener('mouseup',boff);
