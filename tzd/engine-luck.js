@@ -117,7 +117,45 @@ export function dayBranchRel(yearZhi, dayZhi){
   return null;
 }
 
-export function calcLiuNian(birthYear, fromYear, count, yongWxList, dGan, dZhi){
+/* ============================================================
+ * 犯太歲：流年地支（太歲）對「本命年支（生肖）」的關係
+ * 值（同支，本命年）／沖（六沖）／刑（三刑・自刑）／破（六破）／害（六害）
+ * 可複合（如寅年生逢巳年＝刑＋害；午年生逢午年＝值＋自刑）
+ * ============================================================ */
+const TS_PO={子:"酉",酉:"子",午:"卯",卯:"午",辰:"丑",丑:"辰",寅:"亥",亥:"寅",巳:"申",申:"巳",戌:"未",未:"戌"};
+/* 刑：子卯互刑；寅巳申三刑；丑戌未三刑；辰午酉亥自刑 */
+const TS_XING={子:["卯"],卯:["子"],寅:["巳","申"],巳:["寅","申"],申:["寅","巳"],
+               丑:["戌","未"],戌:["丑","未"],未:["丑","戌"],辰:["辰"],午:["午"],酉:["酉"],亥:["亥"]};
+/* 各類犯太歲的白話（自家文案）：w=嚴重度權重 */
+export const TAISUI_KIND={
+  值:{w:3,name:"值太歲",say:"就是俗稱的「本命年」，太歲當頭坐。這一年運勢起伏較明顯、事情變動多，情緒也容易浮動——凡事宜穩不宜急，別在這年硬做重大豪賭。"},
+  沖:{w:4,name:"沖太歲",say:"沖者動也——五種裡變動感最強的一年：搬遷、轉職、感情或合作關係的重整都可能發生。變動不一定是壞事，順勢調整就是轉機，怕的是硬抗。"},
+  刑:{w:2,name:"刑太歲",say:"刑者傷也——容易有口舌是非、人際摩擦或小人暗損。說話留三分、合約文件多看兩眼、少替人作保。"},
+  破:{w:1,name:"破太歲",say:"破者耗也——容易破財、計畫生變的小狀況年。錢財往來保守些、重要安排多留備案，就能把「破」降到最低。"},
+  害:{w:1,name:"害太歲",say:"害者阻也——易犯小人、暗中受阻，親近的人之間也容易生心結。少涉入他人紛爭、多當面溝通。"},
+};
+export function taiSuiRel(taisuiZhi, birthZhi){
+  if(!taisuiZhi||!birthZhi) return null;
+  const kinds=[];
+  if(birthZhi===taisuiZhi) kinds.push("值");
+  if(LN_CHONG[taisuiZhi]===birthZhi) kinds.push("沖");
+  if((TS_XING[taisuiZhi]||[]).includes(birthZhi)) kinds.push("刑");
+  if(TS_PO[taisuiZhi]===birthZhi) kinds.push("破");
+  if(LN_HAI[taisuiZhi]===birthZhi) kinds.push("害");
+  if(!kinds.length) return null;
+  const selfXing = kinds.includes("值")&&kinds.includes("刑");   // 辰午酉亥：本命年兼自刑
+  const label = selfXing ? "值太歲（兼自刑）" : kinds.map(k=>TAISUI_KIND[k].name).join("＋");
+  const maxW = Math.max(...kinds.map(k=>TAISUI_KIND[k].w));
+  const level = (maxW>=3||kinds.length>=2) ? "重" : maxW>=2 ? "中" : "輕";
+  const say = selfXing
+    ? TAISUI_KIND.值.say+" 又逢「自刑」——這年最大的敵人是自己：容易鑽牛角尖、情緒內耗，記得對自己寬容些。"
+    : kinds.map(k=>TAISUI_KIND[k].say).join(" ");
+  return { kinds, label, level, say };
+}
+/* 安太歲白話（給 UI 共用一句） */
+export const TAISUI_ADVICE="傳統習俗上可在年初到廟裡「安太歲」、點光明燈，求個心安；就命理本意而言，化解之道其實是：這一年<b>凡事多一分謹慎、避免重大冒進</b>，把健康作息與人際和氣顧好，平順走過就是最好的化解。";
+
+export function calcLiuNian(birthYear, fromYear, count, yongWxList, dGan, dZhi, yZhi){
   const list=[];
   for(let k=0;k<count;k++){
     const yr=fromYear+k;
@@ -128,7 +166,8 @@ export function calcLiuNian(birthYear, fromYear, count, yongWxList, dGan, dZhi){
       year:yr, age:yr-birthYear+1, gz,
       ganGod: tenGod(dGan, GAN[g]),
       tier:t.tier, tierScore:t.score,
-      rel: dZhi?dayBranchRel(ZHI[z], dZhi):null
+      rel: dZhi?dayBranchRel(ZHI[z], dZhi):null,
+      taisui: yZhi?taiSuiRel(ZHI[z], yZhi):null
     });
   }
   return list;

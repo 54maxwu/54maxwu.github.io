@@ -5,7 +5,7 @@
 import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX, GAN, ZHI, ZHI_WX, GAN_YY, ZHI_YY } from "./engine-calendar.js";
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
-import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
+import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME, taiSuiRel, TAISUI_ADVICE } from "./engine-luck.js";
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, SX_NAMING, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, buildHoroscope, PALACE_ORDER, SIHUA_DESC, BOSHI12_DESC } from "./engine-ziwei.js";
@@ -431,7 +431,7 @@ export function renderLuck(a){
     <div class="age">${p.startYear}</div>
     <div class="tier tier-${p.tier}">${p.tier}</div>
   </div>`).join("");
-  const ln=calcLiuNian(a.bz.solar.y,nowY,10,a.yong.primary,a.bz.dGan,a.bz.dZhi);
+  const ln=calcLiuNian(a.bz.solar.y,nowY,10,a.yong.primary,a.bz.dGan,a.bz.dZhi,a.bz.yZhi);
   const DOM_META=[["career","💼事業"],["money","💰財運"],["love","💕感情"],["people","🤝人際"],["health","🩺健康"]];
   const lnRows=ln.map((L,i)=>{const th=LUCK_THEME[L.tier];
     const tierCls=L.tier==='旺'?'good':L.tier==='弱'?'bad':'mid';
@@ -440,14 +440,17 @@ export function renderLuck(a){
     const dom=GOD_YEAR_DOMAINS[L.ganGod]||{};
     const domHTML=DOM_META.map(([k,lbl])=>dom[k]?`<div class="lyd-row"><span class="lyd-k">${lbl}</span><span class="lyd-v">${dom[k]}</span></div>`:"").join("");
     const relHTML=L.rel?`<div class="ly-rel ly-rel-${L.rel.kind==='合'?'good':L.rel.kind==='沖'?'bad':'mid'}"><b>日支${L.rel.kind}</b>${L.rel.say}</div>`:"";
+    const tsHTML=L.taisui?`<div class="ly-rel ly-rel-ts"><b>⚡${L.taisui.label}</b>${L.taisui.say}</div>`:"";
     return `<div class="ly-card ${isNow?'now':''}">
       <div class="ly-head">
         <span class="ly-yr">${L.year}<span class="ly-age">${L.age}歲</span>${isNow?'<span class="ly-tag">今年</span>':''}</span>
         <span class="ly-gz">${wxSpan(L.gz[0])}${L.gz[1]}</span>
         <span class="badge ${tierCls}">${L.tier}・${tierWord}</span>
+        ${L.taisui?`<span class="badge bad">⚡犯太歲</span>`:""}
       </div>
       <div class="ly-god"><b>${L.ganGod}年</b>（${godShort(L.ganGod)}）</div>
       <div class="ly-desc">${godYear(L.ganGod)}</div>
+      ${tsHTML}
       ${relHTML}
       ${domHTML?`<div class="ly-domains">${domHTML}</div>`:""}
       <div class="ly-yiji">
@@ -455,11 +458,28 @@ export function renderLuck(a){
         <div><span class="yj-j">忌</span>${th.ji.join("、")}</div>
       </div>
     </div>`;}).join("");
+  // ── 犯太歲總覽卡：生肖 vs 近十年太歲（值沖刑破害）＋今年狀態＋安太歲白話 ──
+  const tsNow=ln.find(L=>L.year===nowY);
+  const tsYears=ln.filter(L=>L.taisui);
+  const sxName=(a.sx&&a.sx.sx)||ZHI_SX[a.bz.yZhi]||"";
+  const tsNowHTML = (tsNow&&tsNow.taisui)
+    ? `<div class="ts-now hit"><b>今年（${nowY} ${tsNow.gz}年）你犯太歲：${tsNow.taisui.label}</b><span class="ts-lv lv-${tsNow.taisui.level}">${tsNow.taisui.level}</span><br>${tsNow.taisui.say}</div>`
+    : `<div class="ts-now safe"><b>今年（${nowY}）你不犯太歲</b>——生肖與太歲無值、沖、刑、破、害，安心。年運吉凶看上方流年卡即可。</div>`;
+  const tsChips=tsYears.map(L=>`<span class="ts-chip lv-${L.taisui.level}"><b>${L.year}</b> ${L.gz}年・${L.taisui.label}${L.year===nowY?"（今年）":""}</span>`).join("");
+  const tsCard=`<div class="card"><h3><span class="ic">歲</span>犯太歲檢查
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">流年太歲 vs 你的生肖（本命年支 ${a.bz.yZhi}・屬${sxName}）</span></h3>
+    <div class="cap">「犯太歲」看的是<b>每年的流年地支（太歲）</b>與<b>你生肖（本命年支）</b>的關係，共五種：<b>值</b>（同支，即本命年）、<b>沖</b>（正對面，變動最大）、<b>刑</b>（相刑，是非）、<b>破</b>（相破，破耗）、<b>害</b>（相害，小人）。一般以沖最重、值刑次之、破害較輕。</div>
+    ${tsNowHTML}
+    ${tsYears.length?`<div class="ts-years"><div class="ts-years-t">未來十年內犯太歲的年份</div>${tsChips}</div>`
+      :`<div class="ts-years"><div class="ts-years-t">未來十年內你都不犯太歲 🎉</div></div>`}
+    <div class="note" style="margin-top:10px">💡 <b>要不要安太歲？</b>${TAISUI_ADVICE}</div>
+  </div>`;
   return {dy,html:`<div class="stack">
     ${luckLegend(a.yong.primary)}
     <div class="card"><h3><span class="ic">運</span>大運（每十年一柱）
       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">${dy.dir}・${dy.startDesc}・旺衰依喜用神（${a.yong.primary.join("")}）判定</span></h3>
       <div class="timeline">${tl}</div></div>
+    ${tsCard}
     <div class="card"><h3><span class="ic">年</span>流年（近十年）
       <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每年干支對你喜用神（${a.yong.primary.join("")}）的旺衰＋當年主題</span></h3>
       <div class="cap" style="margin-bottom:10px">「<b>宜</b>」是這類年份較有利、可主動去做的事；「<b>忌</b>」是較不利、宜避開或謹慎的事。旺弱看的是當年五行幫不幫你的喜用神，主題看的是流年十神。</div>
@@ -1113,8 +1133,9 @@ export function renderSummary(a){
   if(badSS.length) ssSay+=`也有 <b style="color:#b91c1c">${badSS.join("、")}</b> 要留意，凡事多一分謹慎。`;
   // 今年運
   const nowY=new Date().getFullYear();
-  const ln=calcLiuNian(a.bz.solar.y,nowY,1,a.yong.primary,a.bz.dGan)[0];
-  const yearSay=ln?`<b>今年（${nowY}）</b>對你是「<b style="color:${ln.tier==='旺'?'#15803d':ln.tier==='弱'?'#b91c1c':'#b45309'}">${ln.tier==='旺'?'順遂得力':ln.tier==='弱'?'較費力、宜守':'平穩待時'}</b>」之年，走 ${ln.ganGod}運（${godShort?godShort(ln.ganGod):""}）。`:"";
+  const ln=calcLiuNian(a.bz.solar.y,nowY,1,a.yong.primary,a.bz.dGan,null,a.bz.yZhi)[0];
+  let yearSay=ln?`<b>今年（${nowY}）</b>對你是「<b style="color:${ln.tier==='旺'?'#15803d':ln.tier==='弱'?'#b91c1c':'#b45309'}">${ln.tier==='旺'?'順遂得力':ln.tier==='弱'?'較費力、宜守':'平穩待時'}</b>」之年，走 ${ln.ganGod}運（${godShort?godShort(ln.ganGod):""}）。`:"";
+  if(ln&&ln.taisui) yearSay+=`另外今年你<b style="color:#b91c1c">犯太歲（${ln.taisui.label}）</b>——變動與是非較多，凡事多一分謹慎、避免重大冒進。`;
 
   return `<div class="card full sum-card">
     <h3><span class="ic" style="background:#fef3c7;color:#b45309">解</span>一段話讀懂${name}的命
