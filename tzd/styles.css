@@ -464,6 +464,47 @@
   .ts-chip.lv-重{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca}
   .ts-chip.lv-中{background:#fef3c7;color:#b45309;border:1px solid #fde68a}
   .ts-chip.lv-輕{background:#fefce8;color:#a16207;border:1px solid #fef08a}
+
+  /* ── 擇日助手 ── */
+  .zr-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+  .zr-tab{border:1px solid var(--line);background:#fff;color:var(--sub);font-size:12.5px;
+    padding:6px 12px;border-radius:20px;cursor:pointer;transition:.12s}
+  .zr-tab:hover{border-color:var(--blue);color:var(--blue-d)}
+  .zr-tab.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+  .zr-panel{display:none}
+  .zr-panel.on{display:block}
+  .zr-sum{font-size:12.5px;color:var(--sub);line-height:1.7;margin-bottom:10px}
+  .zr-day{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:7px 9px;border-radius:8px;
+    border:1px solid transparent;border-bottom:1px dashed var(--line);font-size:12.5px}
+  .zr-day.top{background:#f0fdf4;border:1px solid #bbf7d0;margin:3px 0}
+  .zr-date{min-width:74px}
+  .zr-date b{font-size:14px;color:var(--ink)}
+  .zr-date i{font-style:normal;font-size:11px;color:#94a3b8;margin-left:4px}
+  .zr-lunar{color:#94a3b8;font-size:11.5px;min-width:64px}
+  .zr-gz{font-weight:600;color:#475569}
+  .zr-top{display:inline-block;background:#16a34a;color:#fff;font-size:10.5px;font-weight:700;
+    padding:1px 8px;border-radius:10px}
+  .zr-chong{margin-left:auto;font-size:11px;color:#b45309}
+
+  /* ── 生命靈數 ── */
+  .ls-main{display:flex;align-items:center;gap:14px;margin:6px 0 4px}
+  .ls-big{flex:0 0 auto;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#2563eb);
+    color:#fff;font-size:34px;font-weight:800;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 14px rgba(124,58,237,.35)}
+  .ls-who{font-size:12.5px;color:#475569;line-height:1.7}
+  .ls-who b{display:block;font-size:14px;color:var(--ink);margin-bottom:2px}
+  .ls-wrap{display:flex;gap:14px;align-items:flex-start;margin:10px 0;flex-wrap:wrap}
+  .ls-grid{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px}
+  .ls-cell{border:1px solid var(--line);border-radius:8px;background:#f8fafc;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:1px}
+  .ls-cell.has{background:#eef2ff;border-color:#c7d2fe}
+  .ls-cell .ls-n{font-size:13px;font-weight:700;color:#94a3b8}
+  .ls-cell.has .ls-n{color:#4338ca}
+  .ls-dots{font-size:8px;color:#7c3aed;letter-spacing:1px}
+  .ls-lines{flex:1 1 200px;display:flex;flex-direction:column;gap:6px}
+  .ls-line{font-size:12px;color:#475569;line-height:1.6;background:#f8fafc;border-radius:7px;padding:6px 9px}
+  .ls-line b{color:#4338ca;margin-right:6px}
+  .ls-miss{font-size:12px;color:#92400e;background:#fffbeb;border-radius:7px;padding:7px 10px;line-height:1.7}
   .ly-domains{display:flex;flex-direction:column;gap:4px;margin:7px 0;border-top:1px dashed var(--line);padding-top:8px}
   .lyd-row{display:flex;gap:8px;font-size:11.5px;line-height:1.6}
   .lyd-k{flex:none;width:54px;font-weight:700;color:var(--blue-d)}

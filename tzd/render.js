@@ -6,6 +6,8 @@ import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX, GAN, ZHI, ZHI_W
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME, taiSuiRel, TAISUI_ADVICE } from "./engine-luck.js";
+import { pickDays, ZERI_EVENTS, JIANCHU_META } from "./engine-zeri.js";
+import { lingshu, NUM_SAY, MASTER_SAY } from "./engine-lingshu.js";
 import { shengXiaoInfo, sunSign, risingSign, SIGN_TRAIT, SIGN_DETAIL, SX_DETAIL, SX_NAMING, nameAnalysis, nameSuggest, charsByStroke, luckText } from "./engine-aux.js";
 import { coupleAnalysis } from "./engine-couple.js";
 import { extractZiwei, buildHoroscope, PALACE_ORDER, SIHUA_DESC, BOSHI12_DESC } from "./engine-ziwei.js";
@@ -1448,13 +1450,77 @@ export function renderShengXiao(a){
 
 export let CUR_A=null;  // 目前單人命盤 analysis（供紫微流年盤年份切換重算）
 
+/* ====== 擇日助手（個人化）：建除十二神挑吉日 → 避沖你、標旺弱 ====== */
+export function renderZeri(a){
+  const now=new Date();
+  const from={y:now.getFullYear(), m:now.getMonth()+1, d:now.getDate()};
+  const person={yZhi:a.bz.yZhi, dZhi:a.bz.dZhi, yong:a.yong.primary};
+  const SCAN=90, SHOW=18;
+  let tabs="", panels="";
+  ZERI_EVENTS.forEach((ev,i)=>{
+    const r=pickDays(from,SCAN,ev.key,person);
+    const rows=r.days.slice(0,SHOW).map(D=>`<div class="zr-day${D.top?' top':''}">
+      <span class="zr-date"><b>${D.y!==from.y?D.y+"/":""}${D.m}/${D.d}</b><i>週${D.week}</i></span>
+      <span class="zr-lunar">${D.lunar}</span>
+      <span class="zr-gz">${D.gz}日</span>
+      <span class="badge blue" title="${JIANCHU_META[D.zhishen].say}">${D.zhishen}日</span>
+      <span class="badge ${D.tier==='旺'?'good':D.tier==='弱'?'bad':'mid'}" title="這天的五行對你喜用神：旺＝幫你、弱＝不幫">${D.tier}</span>
+      ${D.he?'<span class="badge good" title="這天地支六合你的日支，人和加分">合</span>':''}
+      ${D.top?'<span class="zr-top">上吉</span>':''}
+      <span class="zr-chong" title="這天沖屬${D.chongSx}的人——同行的家人朋友屬${D.chongSx}要留意">沖${D.chongSx}</span>
+    </div>`).join("");
+    tabs+=`<button class="zr-tab${i===0?' on':''}" data-ze="${ev.key}">${ev.icon} ${ev.label}</button>`;
+    panels+=`<div class="zr-panel${i===0?' on':''}" data-zep="${ev.key}">
+      <div class="zr-sum">值神取 <b>${ev.good.join("、")}</b>（${ev.why}）。未來 ${SCAN} 天有 <b>${r.days.length}</b> 個適合你的日子${r.clashSkipped?`，另有 <b>${r.clashSkipped}</b> 天雖是吉日、但<b>沖你的生肖或日支</b>，已自動避開`:""}${r.days.length>SHOW?`；先列最近 ${SHOW} 個`:""}。</div>
+      ${rows||`<div class="empty-tip">未來 ${SCAN} 天內沒有適合的日子（吉日剛好都沖你），可改看其他事項或過陣子再查。</div>`}
+    </div>`;
+  });
+  return `<div class="stack"><div class="card" id="zeriBox">
+    <h3><span class="ic">擇</span>擇日助手
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">依你的八字個人化挑日，不是通用黃曆</span></h3>
+    <div class="cap">先用傳統<b>建除十二神</b>挑出適合該事項的吉日，再依<b>你的命盤</b>個人化：自動避開<b>沖你生肖（${a.bz.yZhi}・屬${a.sx.sx}）與你日支（${a.bz.dZhi}）</b>的日子，並標注每天五行對你喜用神（<b>${a.yong.primary.join("")}</b>）的旺弱；<b class="zr-top" style="position:static">上吉</b>＝旺你喜用或六合你日支，優先挑。同一天對別人是吉日、對你未必——這張表是算給你一個人的。</div>
+    <div class="zr-tabs">${tabs}</div>
+    ${panels}
+    <div class="note" style="margin-top:10px">💡 「沖○」＝那天與該生肖相沖：日子已避開沖<b>你</b>的，但若<b>同行重要親友</b>屬被沖生肖（如嫁娶的另一半、搬家的家人），建議另挑。重大日子傳統上還會合日課時辰，此表以「日」為單位供快篩。</div>
+  </div></div>`;
+}
+
+/* ====== 生命靈數 ====== */
+export function renderLingshu(a){
+  const s=a.bz.solar;
+  const L=lingshu(s.y,s.m,s.d);
+  const formula=`${L.digits.join("+")} = <b>${L.talentSum}</b>`+(L.talentSum>9?` → ${String(L.talentSum).split("").join("+")} = <b>${L.main}</b>`:"");
+  const order=[1,4,7,2,5,8,3,6,9];
+  const cells=order.map(n=>`<div class="ls-cell${L.grid[n]?' has':''}">
+      <span class="ls-n">${n}</span>${L.grid[n]?`<span class="ls-dots">${"●".repeat(Math.min(L.grid[n],4))}</span>`:""}
+    </div>`).join("");
+  const lineHTML=L.lines.length
+    ? L.lines.map(l=>`<div class="ls-line"><b>${l.key.split("").join("-")} ${l.name}</b>${l.say}</div>`).join("")
+    : `<div class="ls-line" style="color:#94a3b8">生日數字較集中，沒有湊滿的連線——能量集中在少數幾個數字上，反而專。</div>`;
+  const missHTML=L.missing.length
+    ? `<div class="ls-miss"><b>空缺數 ${L.missing.map(x=>x.n).join("、")}</b>：${L.missing.map(x=>x.say).join("；")}。空缺不是缺陷，是這輩子的練習題。</div>`
+    : "";
+  return `<div class="card"><h3><span class="ic">數</span>生命靈數</h3>
+    <div class="cap">把你的<b>國曆生日</b>逐位相加（透明算給你看）：${formula}。第一次相加的 <b>${L.talentSum}</b> 是<b>天賦數</b>，最後的 <b>${L.main}</b> 是<b>主命數</b>。</div>
+    <div class="ls-main"><div class="ls-big">${L.main}</div>
+      <div class="ls-who"><b>${NUM_SAY[L.main].name}</b>${NUM_SAY[L.main].say}</div></div>
+    ${L.master?`<div class="note" style="margin:8px 0">✨ ${MASTER_SAY[L.master]}</div>`:""}
+    <div class="ls-wrap">
+      <div class="ls-grid">${cells}</div>
+      <div class="ls-lines">${lineHTML}</div>
+    </div>
+    ${missHTML}
+    <div class="note" style="margin-top:10px">🗓 <b>${L.flow.year} 年你的流年數是 ${L.flow.num}</b>——${L.flow.say}<span style="color:#94a3b8">（靈數以九年為一循環，流年數＝當年西元＋生月＋生日逐位相加）</span></div>
+  </div>`;
+}
+
 export function renderSingle(a){
   CUR_A=a;
   const luck=renderLuck(a);
   const overall=computeOverall(a);
   const tabs=[
     ["命盤總覽","overview"],["八字四柱","bazi"],["十神用神","god"],
-    ["紫微斗數","ziwei"],["大運流年","luck"],["神煞格局","shensha"],["姓名星座","name"]
+    ["紫微斗數","ziwei"],["大運流年","luck"],["擇日助手","zeri"],["神煞格局","shensha"],["姓名星座靈數","name"]
   ];
   const html=`
    <div class="tabbar-row">
@@ -1512,6 +1578,8 @@ export function renderSingle(a){
 
    <div class="panel" data-panel="luck">${luck.html}</div>
 
+   <div class="panel" data-panel="zeri">${renderZeri(a)}</div>
+
    <div class="panel" data-panel="shensha"><div class="stack">
      ${renderChengGu(a.chenggu)}
      <div class="sec-2col">
@@ -1524,6 +1592,7 @@ export function renderSingle(a){
 
    <div class="panel" data-panel="name"><div class="grid g3">
      ${a.nameInfo?renderName(a):`<div class="card full"><div class="empty-tip">未輸入姓名。可回上方填入姓名以分析五格三才。</div></div>`}
+     ${renderLingshu(a)}
      ${renderSign(a)}
      ${renderShengXiao(a)}
    </div></div>`;
@@ -1666,6 +1735,15 @@ export function bindTabs(luckCtx){
       const t=e.target.closest(".ly2-tab"); if(!t) return;
       lyBlock.querySelectorAll(".ly2-tab").forEach(x=>x.classList.toggle("on",x===t));
       lyBlock.querySelectorAll(".ly2-panel").forEach(p=>p.classList.toggle("on",p.dataset.ldp===t.dataset.ld));
+    });
+  }
+  // 擇日助手：事項切換（各事項面板已預先算好，切換只是顯隱）
+  const zrBox=$("#zeriBox");
+  if(zrBox){
+    zrBox.addEventListener("click",e=>{
+      const t=e.target.closest(".zr-tab"); if(!t) return;
+      zrBox.querySelectorAll(".zr-tab").forEach(x=>x.classList.toggle("on",x===t));
+      zrBox.querySelectorAll(".zr-panel").forEach(p=>p.classList.toggle("on",p.dataset.zep===t.dataset.ze));
     });
   }
   const lyBox=$("#liuyueBox");
