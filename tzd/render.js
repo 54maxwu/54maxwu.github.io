@@ -16,7 +16,8 @@ import { STAR_DEEP, SIHUA_DEEP } from "./ziwei-stars.js";
 import { BEN_VS_LIU, LIUNIAN_SKILLS, LIUNIAN_APPLY, LIUNIAN_TIPS, detectDieGong, DOMAINS, analyzeDomainYear } from "./ziwei-liunian.js";
 import { $, $$, BRIGHT_NOTE, GAN_IMG, ZHI_SX, ZHI_HR, BR_LEVEL, NAYIN_PLAIN, WX_COLOR, PILLAR_LIFE, WX_REMEDY, COLOR_HEX, STRENGTH_PLAIN, SHENSHA_PLAIN, POS_PLAIN, PATTERN_PLAIN, GOD_SHORT, GOD_YEAR, GRID_POS, ZW_IDX_BRANCH, PALACE_TOPIC, PALACE_SHORT, palaceLabel, SANFANG_TYPE, ZW_CHONG, ZW_SANHE, WX_HEALTH, LAIYIN_SAY, GOD_YEAR_DOMAINS } from "./ui-data.js";
 import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND,
-  HAI_DESC, HAI_GENERAL, CHONG_DESC, CHONG_GENERAL, HE_GENERAL, TIANLUO_DESC, XING_GENERAL } from "./glossary.js";
+  HAI_DESC, HAI_GENERAL, CHONG_DESC, CHONG_GENERAL, HE_GENERAL, TIANLUO_DESC, XING_GENERAL,
+  DZHI_LOOK, HOUR_LIFE, NAME_DIFF } from "./glossary.js";
 
 export function ganTip(g){return `${g}＝${GAN_YY[g]||""}${GAN_WX[g]||""}，像${GAN_IMG[g]||""}`;}
 
@@ -1450,6 +1451,24 @@ export function renderShengXiao(a){
 
 export let CUR_A=null;  // 目前單人命盤 analysis（供紫微流年盤年份切換重算）
 
+/* ====== 民俗速查：日支看個性外表 ＋ 十二時辰論一生（趣味參考） ====== */
+export function renderFolk(a){
+  const dz=a.bz.dZhi, look=DZHI_LOOK[dz];
+  const hz=a.bz.hourKnown?a.bz.hZhi:null;
+  const hourHTML=hz&&HOUR_LIFE[hz]
+    ? `<div class="folk-sec"><div class="folk-t">⏰ ${hz}時出生（${ZHI_HR[hz]}點）論一生</div>
+       <div class="folk-say">${HOUR_LIFE[hz]}</div></div>`
+    : `<div class="folk-sec"><div class="folk-say" style="color:#94a3b8">時辰不詳——回上方填入出生時間，可看「十二時辰出生論一生」。</div></div>`;
+  return `<div class="card"><h3><span class="ic">俗</span>民俗速查：日支個性外表・時辰論一生
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">民間流傳的簡易對照，趣味參考</span></h3>
+    <div class="cap">老一輩流傳的兩張速查表：<b>日支</b>（八字第三柱的地支）看個性與體態傾向、<b>出生時辰</b>論一生大勢。準不準見仁見智，當作認識八字的趣味切入點。</div>
+    ${look?`<div class="folk-sec"><div class="folk-t">🪞 你的日支「${dz}」</div>
+      <div class="kv"><span class="k">個性</span><span class="v">${look.ch}</span></div>
+      <div class="kv"><span class="k">外表體態</span><span class="v">${look.look}</span></div></div>`:""}
+    ${hourHTML}
+  </div>`;
+}
+
 /* ====== 擇日助手（個人化）：建除十二神挑吉日 → 避沖你、標旺弱 ====== */
 export function renderZeri(a){
   const now=new Date();
@@ -1545,6 +1564,7 @@ export function renderSingle(a){
      <div class="card"><h3><span class="ic">柱</span>四柱排盤
        <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">每柱含天干十神、地支藏干十神、十二長生、納音</span></h3>${renderBaziTable(a,true)}</div>
      ${renderDayGan(a)}
+     ${renderFolk(a)}
      <div class="card"><h3><span class="ic">五</span>五行能量・性格・調補</h3>
        <div class="wx-energy-layout">
          <div class="wx-energy-left">${renderWuxing(a.tally,true)}
@@ -1714,9 +1734,27 @@ export function renderCouple(A,B){
       </div>
       <div class="card"><h3><span class="ic">議</span>相處建議</h3>
         <div class="note">${c.comp.desc}<br><br>${c.yong.desc}<br><br><b>重點提醒：</b>${c.advice.join("；")}。</div></div>
+      ${renderNameDiff(A,B)}
     </div></div>
     <div class="panel" data-panel="cpA"><div class="grid g2">${renderPersonDigest(A)}</div></div>
     <div class="panel" data-panel="cpB"><div class="grid g2">${renderPersonDigest(B)}</div></div>`;
+}
+
+/* ====== 合盤趣味：姓名筆劃相減看兩人關係 ====== */
+export function renderNameDiff(A,B){
+  if(!A.nameInfo||!B.nameInfo){
+    return `<div class="card"><h3><span class="ic">劃</span>姓名筆劃相減（趣味）</h3>
+      <div class="empty-tip">兩人都輸入姓名，就能玩「姓名筆劃相減」——民間流傳的關係小遊戲。回上方補姓名後重新啟盤。</div></div>`;
+  }
+  const ta=A.nameInfo.total, tb=B.nameInfo.total;
+  const raw=Math.abs(ta-tb), idx=raw%26;
+  const nameA=A.name||"本人", nameB=B.name||"對方";
+  return `<div class="card"><h3><span class="ic">劃</span>姓名筆劃相減（趣味）
+      <span style="margin-left:auto;font-size:11.5px;font-weight:400;color:var(--sub)">民間流傳的姓名小遊戲，純屬趣味</span></h3>
+    <div class="cap">把兩人姓名的<b>康熙筆畫總數</b>相減，差數對照民間流傳的關係表。跟上面的八字合盤沒有關係，當茶餘飯後的話題就好。</div>
+    <div class="nd-calc">${nameA} <b>${ta}</b> 劃 − ${nameB} <b>${tb}</b> 劃 ＝ 差 <b>${raw}</b>${raw>25?`（超過 25，以 26 循環計為 <b>${idx}</b>）`:""}</div>
+    <div class="nd-result">「<b>${NAME_DIFF[idx]}</b>」</div>
+  </div>`;
 }
 
 export function bindTabs(luckCtx){
