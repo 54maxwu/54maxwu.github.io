@@ -42,3 +42,6 @@ tip/assets/
 
 # Wrangler local build cache
 .wrangler/
+
+# Claude Code 個人本機設定（權限允許清單等，不進版控）
+.claude/settings.local.json
