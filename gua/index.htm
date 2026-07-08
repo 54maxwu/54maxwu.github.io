@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>六十四卦查表 · 易經卦意速查</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="易經六十四卦查表工具：依上下卦、卦名、卦序快速查卦，含卦辭爻辭原文、白話總解與愛情/事業/學業/財運/健康/出行分類解讀">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+    background: #f1f5f9; color: #2c3e50; min-height: 100vh;
+  }
+  /* 自訂捲軸 */
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: #eef2f7; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .app-header {
+    background: #fff; border-bottom: 1px solid #e2e8f0; padding: 14px 24px; min-height: 60px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); position: sticky; top: 0; z-index: 10;
+  }
+  .app-header .logo { width: 30px; height: 30px; border-radius: 8px; background: #1e293b; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .app-header h1 { font-size: 16px; font-weight: 600; color: #1e293b; }
+  .app-header .tag { font-size: 12px; color: #64748b; }
+
+  .page-content { padding: 14px 20px 40px; max-width: 1100px; margin: 0 auto; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .card h2 { font-size: 15px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card h2 .ic { width: 24px; height: 24px; border-radius: 7px; background: #eef2ff; color: #4338ca;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 auto; }
+  .cap { font-size: 12.5px; color: #64748b; line-height: 1.8; margin-bottom: 10px; }
+
+  /* ── 查詢區 ── */
+  .search-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .search-row input {
+    flex: 1 1 220px; padding: 9px 13px; border: 1px solid #cbd5e1; border-radius: 9px; font-size: 14px; outline: none;
+  }
+  .search-row input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+  .tri-pick { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+  .tri-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tri-row .lb { font-size: 12.5px; color: #64748b; font-weight: 600; width: 42px; flex: 0 0 auto; }
+  .tri-btn {
+    border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px; padding: 5px 9px; cursor: pointer;
+    font-size: 13px; color: #475569; line-height: 1.4; transition: .12s;
+  }
+  .tri-btn small { display: block; font-size: 10px; color: #94a3b8; }
+  .tri-btn:hover { border-color: #6366f1; color: #4338ca; }
+  .tri-btn.on { background: #4338ca; border-color: #4338ca; color: #fff; }
+  .tri-btn.on small { color: #c7d2fe; }
+
+  /* ── 8×8 速查表 ── */
+  .grid-wrap { overflow-x: auto; }
+  table.g8 { border-collapse: collapse; width: 100%; min-width: 620px; }
+  table.g8 th, table.g8 td { border: 1px solid #e2e8f0; text-align: center; padding: 5px 3px; font-size: 12px; }
+  table.g8 th { background: #f8fafc; color: #64748b; font-weight: 600; white-space: nowrap; }
+  table.g8 th small { color: #94a3b8; font-weight: 400; }
+  table.g8 td { cursor: pointer; transition: .1s; }
+  table.g8 td:hover { background: #eef2ff; }
+  table.g8 td.sel { background: #4338ca; color: #fff; }
+  table.g8 td .sym { font-size: 17px; line-height: 1.1; display: block; }
+  table.g8 td .nm { display: block; white-space: nowrap; }
+
+  /* ── 卦詳情 ── */
+  .detail-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
+  .hexpic { flex: 0 0 auto; display: flex; flex-direction: column-reverse; gap: 5px; padding: 12px 14px;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+  .hexpic .yline { width: 84px; height: 9px; display: flex; gap: 12px; }
+  .hexpic .yline i { flex: 1; background: #1e293b; border-radius: 2px; }
+  .dh-main { flex: 1 1 200px; }
+  .dh-name { font-size: 26px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dh-name .usym { font-size: 30px; color: #4338ca; }
+  .dh-sub { font-size: 13px; color: #64748b; margin-top: 6px; line-height: 1.8; }
+  .lv { display: inline-block; padding: 2px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 700; }
+  .lv-上上 { background: #dcfce7; color: #15803d; } .lv-上 { background: #ecfdf5; color: #059669; }
+  .lv-中上 { background: #e0f2fe; color: #0369a1; } .lv-中 { background: #f1f5f9; color: #475569; }
+  .lv-中下 { background: #fef3c7; color: #b45309; } .lv-下 { background: #ffedd5; color: #c2410c; }
+  .lv-下下 { background: #fee2e2; color: #b91c1c; }
+  .nav-btn { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 7px 13px; cursor: pointer;
+    font-size: 13px; color: #475569; }
+  .nav-btn:hover { border-color: #6366f1; color: #4338ca; }
+
+  .ci-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 14px;
+    font-size: 15px; color: #78350f; line-height: 1.9; margin-bottom: 12px; }
+  .ci-box b { color: #b45309; margin-right: 8px; }
+  .mean-box { font-size: 14px; color: #334155; line-height: 2; margin-bottom: 14px; }
+
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .cat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 13px; }
+  .cat .ct { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 5px; }
+  .cat .cb { font-size: 12.5px; color: #475569; line-height: 1.85; }
+  .tip-box { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 11px 14px;
+    font-size: 13px; color: #3730a3; line-height: 1.9; margin-bottom: 12px; }
+  .xiang-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 14px;
+    font-size: 12.5px; color: #64748b; line-height: 1.9; margin-bottom: 12px; }
+  .xiang-box b { color: #475569; }
+
+  details.yao { border: 1px solid #e2e8f0; border-radius: 10px; padding: 0; overflow: hidden; }
+  details.yao summary { cursor: pointer; padding: 11px 14px; font-size: 13.5px; font-weight: 600; color: #1e293b;
+    background: #f8fafc; list-style: none; }
+  details.yao summary::before { content: "▸ "; color: #6366f1; }
+  details.yao[open] summary::before { content: "▾ "; }
+  .yao-body { padding: 4px 14px 12px; }
+  .yao-row { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px dashed #e2e8f0; font-size: 13.5px; line-height: 1.8; }
+  .yao-row:last-child { border-bottom: none; }
+  .yao-row .yp { flex: 0 0 44px; font-weight: 700; color: #4338ca; }
+  .yao-row .yt { color: #334155; }
+  .yao-note { font-size: 12px; color: #94a3b8; line-height: 1.8; margin-top: 8px; }
+
+  /* ── 全部卦 chips ── */
+  .all-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid #e2e8f0; background: #fff; border-radius: 20px; padding: 4px 11px; font-size: 12.5px;
+    color: #475569; cursor: pointer; transition: .1s; }
+  .chip:hover { border-color: #6366f1; color: #4338ca; }
+  .chip.sel { background: #4338ca; border-color: #4338ca; color: #fff; }
+  .chip i { font-style: normal; color: #94a3b8; margin-right: 3px; font-size: 11px; }
+  .chip.sel i { color: #c7d2fe; }
+  .chip.dim { opacity: .25; }
+
+  /* 求卦說明 */
+  .howto { font-size: 12.5px; color: #475569; line-height: 2; }
+  .howto b { color: #1e293b; }
+  .howto ol { margin: 4px 0 4px 20px; }
+  .howto .hl { background: #fffbeb; border-radius: 5px; padding: 0 5px; }
+
+  @media (max-width: 640px) {
+    .page-content { padding: 10px 10px 30px; }
+    .card { padding: 14px; border-radius: 12px; }
+    .dh-name { font-size: 21px; }
+    .hexpic .yline { width: 66px; height: 7px; }
+  }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="logo">卦</div>
+  <h1>六十四卦查表</h1>
+  <span class="tag">自己求卦、來這查意思 · 卦辭爻辭照《周易》原文</span>
+</header>
+
+<div class="page-content">
+
+  <div class="card">
+    <h2><span class="ic">查</span>查卦</h2>
+    <div class="search-row">
+      <input id="q" placeholder="輸入卦名（屯、水雷屯）、卦序（3）或上下卦（上坎下震）…" autocomplete="off">
+    </div>
+    <div class="tri-pick">
+      <div class="tri-row"><span class="lb">上卦</span><span id="upRow"></span></div>
+      <div class="tri-row"><span class="lb">下卦</span><span id="downRow"></span></div>
+    </div>
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:13px;color:#4338ca;font-weight:600">📖 不會求卦？金錢卦擲法與「變爻」怎麼看（點開）</summary>
+      <div class="howto" style="margin-top:8px">
+        <b>金錢卦（三枚銅板）擲法：</b>
+        <ol>
+          <li>心中默唸想問的事，三枚硬幣合掌搖勻擲出，共擲 <b>六次</b>。</li>
+          <li>每次記下：字（陰面）幾個、花（陽面）幾個——<span class="hl">兩正一反＝陽爻⚊</span>、<span class="hl">兩反一正＝陰爻⚋</span>、<span class="hl">三個正面＝老陽（陽爻，是變爻）</span>、<span class="hl">三個反面＝老陰（陰爻，是變爻）</span>。</li>
+          <li>第一擲是<b>最下面</b>的初爻，由下往上疊六爻；下三爻＝下卦、上三爻＝上卦，來此對照出卦名。</li>
+        </ol>
+        <b>變爻（動爻）取斷（朱熹《易學啟蒙》法）：</b>
+        <ol>
+          <li><b>沒有變爻</b>：看本卦「卦辭」。</li>
+          <li><b>一個變爻</b>：看本卦<b>該爻的爻辭</b>（本頁每卦下方都列了六爻爻辭）。</li>
+          <li><b>兩個變爻</b>：看兩個變爻的爻辭，以<b>上面那個</b>為主。</li>
+          <li><b>三個變爻</b>：看本卦＋之卦（變爻陰陽反轉後的新卦）的卦辭，本卦為主。</li>
+          <li><b>四／五個變爻</b>：看<b>之卦</b>中「沒變的爻」的爻辭（五變取那一爻、四變以下爻為主）。</li>
+          <li><b>六爻全變</b>：乾坤兩卦看「用九／用六」，其他卦看<b>之卦卦辭</b>。</li>
+        </ol>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">表</span>八宮速查表<span style="font-size:11.5px;font-weight:400;color:#94a3b8">直行＝上卦（外卦）、橫列＝下卦（內卦），點格子看詳解</span></h2>
+    <div class="grid-wrap"><table class="g8" id="g8"></table></div>
+  </div>
+
+  <div class="card" id="detailCard">
+    <div id="detail"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">64</span>全部六十四卦<span style="font-size:11.5px;font-weight:400;color:#94a3b8">照《周易》卦序</span></h2>
+    <div class="all-chips" id="chips"></div>
+  </div>
+
+  <div class="cap" style="text-align:center">
+    卦辭、爻辭逐字取自《周易》原文（維基文庫本，用字從原典如「无」）；像意整理自民間流傳卦書；白話與分類解讀為本站自撰。<br>
+    易占為自省與參考之用，重大決定仍請理性判斷——路在自己腳下。
+  </div>
+
+</div>
+
+<script src="./gua-data.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const TRIGS=["乾","兌","離","震","巽","坎","艮","坤"];
+const shortName=g=>g.up===g.down?g.name[0]:g.name.slice(2);   // 乾為天→乾、水雷屯→屯
+let cur=null;
+
+/* URL hash（#3）支援 */
+function seqFromHash(){ const n=parseInt(location.hash.slice(1),10); return (n>=1&&n<=64)?n:1; }
+
+/* ── 上下卦按鈕 ── */
+let pickUp=null, pickDown=null;
+function buildTriRows(){
+  for(const which of ["up","down"]){
+    const row=$(which==="up"?"#upRow":"#downRow");
+    TRIGS.forEach(t=>{
+      const b=document.createElement("button");
+      b.className="tri-btn"; b.dataset.t=t; b.dataset.w=which;
+      b.innerHTML=`${TRIG[t].sym} ${t}<small>${TRIG[t].nat}</small>`;
+      b.onclick=()=>{
+        if(which==="up"){ pickUp=(pickUp===t)?null:t; }
+        else{ pickDown=(pickDown===t)?null:t; }
+        refreshTriBtns();
+        if(pickUp&&pickDown){
+          const g=GUA64.find(x=>x.up===pickUp&&x.down===pickDown);
+          if(g) show(g.seq,true);
+        }
+      };
+      row.appendChild(b);
+    });
+  }
+}
+function refreshTriBtns(){
+  document.querySelectorAll(".tri-btn").forEach(b=>{
+    b.classList.toggle("on", (b.dataset.w==="up"?pickUp:pickDown)===b.dataset.t);
+  });
+}
+
+/* ── 8×8 表：直行＝上卦、橫列＝下卦 ── */
+function buildGrid(){
+  const t=$("#g8");
+  let html=`<tr><th>下卦＼上卦</th>${TRIGS.map(u=>`<th>${TRIG[u].sym} ${u}<br><small>${TRIG[u].nat}</small></th>`).join("")}</tr>`;
+  for(const d of TRIGS){
+    html+=`<tr><th>${TRIG[d].sym} ${d} <small>${TRIG[d].nat}</small></th>`;
+    for(const u of TRIGS){
+      const g=GUA64.find(x=>x.up===u&&x.down===d);
+      html+=`<td data-seq="${g.seq}"><span class="sym">${String.fromCodePoint(0x4DC0+g.seq-1)}</span><span class="nm">${shortName(g)}</span></td>`;
+    }
+    html+="</tr>";
+  }
+  t.innerHTML=html;
+  t.addEventListener("click",e=>{
+    const td=e.target.closest("td[data-seq]"); if(td) show(+td.dataset.seq,true);
+  });
+}
+
+/* ── 全部 chips ── */
+function buildChips(){
+  const box=$("#chips");
+  box.innerHTML=GUA64.map(g=>`<button class="chip" data-seq="${g.seq}"><i>${g.seq}</i>${g.name}</button>`).join("");
+  box.addEventListener("click",e=>{
+    const c=e.target.closest(".chip"); if(c) show(+c.dataset.seq,true);
+  });
+}
+
+/* ── 詳情 ── */
+function hexLines(g){
+  const lines=[...TRIG[g.down].lines, ...TRIG[g.up].lines]; // 由下而上
+  return lines.map(v=>`<div class="yline">${v?'<i></i>':'<i></i><i></i>'}</div>`).join("");
+}
+const CATS=[["💘 愛情婚姻","love"],["💼 事業工作","career"],["📚 學業考試","study"],["💰 財運","money"],["🩺 健康","health"],["✈️ 出行","travel"]];
+function show(seq, scroll){
+  const g=GUA64.find(x=>x.seq===seq); if(!g) return;
+  cur=seq;
+  history.replaceState(null,"","#"+seq);
+  const prev=seq>1?seq-1:64, next=seq<64?seq+1:1;
+  $("#detail").innerHTML=`
+    <div class="detail-head">
+      <div class="hexpic">${hexLines(g)}</div>
+      <div class="dh-main">
+        <div class="dh-name"><span class="usym">${String.fromCodePoint(0x4DC0+seq-1)}</span>${g.name}
+          <span class="lv lv-${g.level}">${g.level}卦</span></div>
+        <div class="dh-sub">《周易》第 ${g.seq} 卦　·　上${g.up}${TRIG[g.up].sym}（${TRIG[g.up].nat}）　下${g.down}${TRIG[g.down].sym}（${TRIG[g.down].nat}）</div>
+      </div>
+      <div style="display:flex;gap:8px;flex:0 0 auto">
+        <button class="nav-btn" onclick="show(${prev},false)">← 上一卦</button>
+        <button class="nav-btn" onclick="show(${next},false)">下一卦 →</button>
+      </div>
+    </div>
+    <div class="ci-box"><b>卦辭</b>${shortName(g)}：${g.ci}</div>
+    <div class="mean-box">${g.mean}</div>
+    <div class="cat-grid">${CATS.map(([lb,k])=>`<div class="cat"><div class="ct">${lb}</div><div class="cb">${g[k]}</div></div>`).join("")}</div>
+    <div class="tip-box">💡 <b>一句話</b>：${g.tip}</div>
+    <div class="xiang-box"><b>傳統像意</b>：${g.xiang}</div>
+    <details class="yao"><summary>六爻爻辭（有變爻時看這裡）</summary>
+      <div class="yao-body">
+        ${g.yao.map(y=>{const m=y.match(/^(.+?)：([\s\S]+)$/);return `<div class="yao-row"><span class="yp">${m?m[1]:""}</span><span class="yt">${m?m[2]:y}</span></div>`;}).join("")}
+        <div class="yao-note">爻位由下往上數：初爻＝最下面那一爻（你第一擲的結果）。一個變爻看該爻爻辭；多個變爻的取法見上方「變爻怎麼看」。</div>
+      </div>
+    </details>`;
+  // 高亮
+  document.querySelectorAll("#g8 td").forEach(td=>td.classList.toggle("sel",+td.dataset.seq===seq));
+  document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("sel",+c.dataset.seq===seq));
+  pickUp=g.up; pickDown=g.down; refreshTriBtns();
+  if(scroll) $("#detailCard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+/* ── 搜尋 ── */
+function doSearch(v){
+  v=v.trim();
+  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("dim"));
+  if(!v) return;
+  const n=parseInt(v,10);
+  let hits=[];
+  if(n>=1&&n<=64&&String(n)===v) hits=[GUA64[n-1]];
+  else{
+    const m=v.match(/上([乾兌離震巽坎艮坤])下([乾兌離震巽坎艮坤])/);
+    if(m) hits=GUA64.filter(g=>g.up===m[1]&&g.down===m[2]);
+    else hits=GUA64.filter(g=>g.name.includes(v));
+  }
+  const hitSet=new Set(hits.map(h=>h.seq));
+  document.querySelectorAll(".chip").forEach(c=>{ if(!hitSet.has(+c.dataset.seq)) c.classList.add("dim"); });
+  if(hits.length===1) show(hits[0].seq,false);
+}
+$("#q").addEventListener("input",e=>doSearch(e.target.value));
+$("#q").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){ const first=document.querySelector(".chip:not(.dim)"); if(first) show(+first.dataset.seq,true); }
+});
+
+buildTriRows(); buildGrid(); buildChips();
+show(seqFromHash(), false);
+window.addEventListener("hashchange",()=>{ const s=seqFromHash(); if(s!==cur) show(s,false); });
+</script>
+</body>
+</html>
