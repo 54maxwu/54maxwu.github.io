@@ -39,31 +39,38 @@
   /* ── 查詢區 ── */
   .search-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .search-row input {
-    flex: 1 1 220px; padding: 9px 13px; border: 1px solid #cbd5e1; border-radius: 9px; font-size: 14px; outline: none;
+    flex: 1 1 220px; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; outline: none;
+    min-width: 0; width: 100%;
   }
   .search-row input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
-  .tri-pick { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
-  .tri-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tri-pick { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+  .tri-row { display: flex; align-items: center; gap: 8px; }
   .tri-row .lb { font-size: 12.5px; color: #64748b; font-weight: 600; width: 42px; flex: 0 0 auto; }
+  .tri-btns { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
   .tri-btn {
-    border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px; padding: 5px 9px; cursor: pointer;
-    font-size: 13px; color: #475569; line-height: 1.4; transition: .12s;
+    border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 9px; padding: 7px 2px; cursor: pointer;
+    font-size: 13px; color: #475569; line-height: 1.35; transition: .12s; text-align: center;
+    -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
   }
   .tri-btn small { display: block; font-size: 10px; color: #94a3b8; }
   .tri-btn:hover { border-color: #6366f1; color: #4338ca; }
   .tri-btn.on { background: #4338ca; border-color: #4338ca; color: #fff; }
   .tri-btn.on small { color: #c7d2fe; }
+  .howto-sum { cursor: pointer; font-size: 13px; color: #4338ca; font-weight: 600;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; padding: 10px 12px;
+    list-style: none; -webkit-tap-highlight-color: transparent; }
 
-  /* ── 8×8 速查表 ── */
+  /* ── 8×8 速查表（設計成手機不用橫捲也放得下） ── */
   .grid-wrap { overflow-x: auto; }
-  table.g8 { border-collapse: collapse; width: 100%; min-width: 620px; }
-  table.g8 th, table.g8 td { border: 1px solid #e2e8f0; text-align: center; padding: 5px 3px; font-size: 12px; }
+  table.g8 { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  table.g8 th, table.g8 td { border: 1px solid #e2e8f0; text-align: center; padding: 5px 2px; font-size: 12px; overflow: hidden; }
   table.g8 th { background: #f8fafc; color: #64748b; font-weight: 600; white-space: nowrap; }
   table.g8 th small { color: #94a3b8; font-weight: 400; }
-  table.g8 td { cursor: pointer; transition: .1s; }
+  table.g8 th.corner { width: 46px; font-size: 11px; }
+  table.g8 td { cursor: pointer; transition: .1s; -webkit-tap-highlight-color: transparent; }
   table.g8 td:hover { background: #eef2ff; }
   table.g8 td.sel { background: #4338ca; color: #fff; }
-  table.g8 td .sym { font-size: 17px; line-height: 1.1; display: block; }
+  table.g8 td .sym { font-size: 17px; line-height: 1.15; display: block; }
   table.g8 td .nm { display: block; white-space: nowrap; }
 
   /* ── 卦詳情 ── */
@@ -81,8 +88,9 @@
   .lv-中上 { background: #e0f2fe; color: #0369a1; } .lv-中 { background: #f1f5f9; color: #475569; }
   .lv-中下 { background: #fef3c7; color: #b45309; } .lv-下 { background: #ffedd5; color: #c2410c; }
   .lv-下下 { background: #fee2e2; color: #b91c1c; }
+  .navs { display: flex; gap: 8px; flex: 0 0 auto; }
   .nav-btn { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 7px 13px; cursor: pointer;
-    font-size: 13px; color: #475569; }
+    font-size: 13px; color: #475569; -webkit-tap-highlight-color: transparent; }
   .nav-btn:hover { border-color: #6366f1; color: #4338ca; }
 
   .ci-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 14px;
@@ -128,11 +136,48 @@
   .howto ol { margin: 4px 0 4px 20px; }
   .howto .hl { background: #fffbeb; border-radius: 5px; padding: 0 5px; }
 
+  /* ── 手機版 ── */
   @media (max-width: 640px) {
-    .page-content { padding: 10px 10px 30px; }
-    .card { padding: 14px; border-radius: 12px; }
-    .dh-name { font-size: 21px; }
-    .hexpic .yline { width: 66px; height: 7px; }
+    .app-header { padding: 10px 14px; min-height: 48px; gap: 8px; }
+    .app-header .tag { display: none; }
+    .page-content { padding: 10px 8px 30px; }
+    .card { padding: 13px 12px; border-radius: 12px; margin-bottom: 10px; }
+    .card h2 { font-size: 14px; }
+    .card h2 > span:not(.ic) { flex: 1 1 100%; }   /* 標題副註換行，不擠 */
+
+    /* 上下卦選擇：標籤在上、按鈕 4 欄滿版（兩排剛好 8 個） */
+    .tri-row { flex-direction: column; align-items: stretch; gap: 5px; }
+    .tri-row .lb { width: auto; }
+    .tri-btns { grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    .tri-btn { padding: 9px 2px; font-size: 14px; }
+    .tri-btn small { font-size: 10.5px; }
+
+    /* 8×8 表：縮小到免橫捲 */
+    table.g8 th.corner { width: 34px; }
+    table.g8 th { padding: 3px 0; font-size: 10px; }
+    table.g8 th small { display: none; }
+    table.g8 td { padding: 3px 0; }
+    table.g8 td .sym { font-size: 13px; }
+    table.g8 td .nm { font-size: 10px; }
+
+    /* 詳解：卦畫+卦名一列，導航按鈕整排滿版 */
+    .detail-head { gap: 12px; }
+    .dh-name { font-size: 20px; gap: 8px; }
+    .dh-name .usym { font-size: 24px; }
+    .dh-sub { font-size: 12px; }
+    .hexpic { padding: 9px 10px; }
+    .hexpic .yline { width: 56px; height: 7px; gap: 9px; }
+    .navs { flex: 1 1 100%; display: flex; gap: 8px; }
+    .nav-btn { flex: 1; padding: 10px; font-size: 14px; }
+    .ci-box { font-size: 14px; }
+    .mean-box { font-size: 13.5px; }
+    .cat-grid { grid-template-columns: 1fr; gap: 8px; }
+    .howto ol { margin-left: 16px; }
+    .chip { padding: 6px 12px; font-size: 13px; }
+  }
+  @media (max-width: 380px) {
+    table.g8 td .nm { display: none; }   /* 特窄機種只留卦符 */
+    table.g8 td .sym { font-size: 15px; }
   }
 </style>
 </head>
@@ -148,14 +193,14 @@
   <div class="card">
     <h2><span class="ic">查</span>查卦</h2>
     <div class="search-row">
-      <input id="q" placeholder="輸入卦名（屯、水雷屯）、卦序（3）或上下卦（上坎下震）…" autocomplete="off">
+      <input id="q" placeholder="卦名（水雷屯）／卦序（3）／上坎下震" autocomplete="off">
     </div>
     <div class="tri-pick">
-      <div class="tri-row"><span class="lb">上卦</span><span id="upRow"></span></div>
-      <div class="tri-row"><span class="lb">下卦</span><span id="downRow"></span></div>
+      <div class="tri-row"><span class="lb">上卦</span><div class="tri-btns" id="upRow"></div></div>
+      <div class="tri-row"><span class="lb">下卦</span><div class="tri-btns" id="downRow"></div></div>
     </div>
-    <details style="margin-top:10px">
-      <summary style="cursor:pointer;font-size:13px;color:#4338ca;font-weight:600">📖 不會求卦？金錢卦擲法與「變爻」怎麼看（點開）</summary>
+    <details style="margin-top:12px">
+      <summary class="howto-sum">📖 不會求卦？金錢卦擲法與「變爻」怎麼看（點開）</summary>
       <div class="howto" style="margin-top:8px">
         <b>金錢卦（三枚銅板）擲法：</b>
         <ol>
@@ -238,9 +283,9 @@ function refreshTriBtns(){
 /* ── 8×8 表：直行＝上卦、橫列＝下卦 ── */
 function buildGrid(){
   const t=$("#g8");
-  let html=`<tr><th>下卦＼上卦</th>${TRIGS.map(u=>`<th>${TRIG[u].sym} ${u}<br><small>${TRIG[u].nat}</small></th>`).join("")}</tr>`;
+  let html=`<tr><th class="corner">下＼上</th>${TRIGS.map(u=>`<th>${TRIG[u].sym}${u}<br><small>${TRIG[u].nat}</small></th>`).join("")}</tr>`;
   for(const d of TRIGS){
-    html+=`<tr><th>${TRIG[d].sym} ${d} <small>${TRIG[d].nat}</small></th>`;
+    html+=`<tr><th>${TRIG[d].sym}${d}<br><small>${TRIG[d].nat}</small></th>`;
     for(const u of TRIGS){
       const g=GUA64.find(x=>x.up===u&&x.down===d);
       html+=`<td data-seq="${g.seq}"><span class="sym">${String.fromCodePoint(0x4DC0+g.seq-1)}</span><span class="nm">${shortName(g)}</span></td>`;
@@ -281,7 +326,7 @@ function show(seq, scroll){
           <span class="lv lv-${g.level}">${g.level}卦</span></div>
         <div class="dh-sub">《周易》第 ${g.seq} 卦　·　上${g.up}${TRIG[g.up].sym}（${TRIG[g.up].nat}）　下${g.down}${TRIG[g.down].sym}（${TRIG[g.down].nat}）</div>
       </div>
-      <div style="display:flex;gap:8px;flex:0 0 auto">
+      <div class="navs">
         <button class="nav-btn" onclick="show(${prev},false)">← 上一卦</button>
         <button class="nav-btn" onclick="show(${next},false)">下一卦 →</button>
       </div>
