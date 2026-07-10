@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>檔案真實格式偵測</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        /* 自訂捲軸（全站規範） */
+        * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .app-header h1 { font-size: 16px; font-weight: 600; color: #1e293b; letter-spacing: .02em; margin: 0; }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 11px; padding: 4px 10px; border-radius: 999px;
+            border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b;
+            font-weight: 600; white-space: nowrap;
+            transition: background-color .2s, color .2s, border-color .2s;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+        .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+        .page-content { padding: 12px 20px 20px; max-width: 1100px; margin: 0 auto; }
+
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 24px;
+        }
+
+        .field-label {
+            font-size: .78rem; font-weight: 700; color: #0e7490;
+            text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px;
+        }
+
+        /* ── 拖曳區 ── */
+        .dropzone {
+            border: 2.5px dashed #94a3b8;
+            border-radius: 12px;
+            padding: 44px 20px;
+            text-align: center;
+            cursor: pointer;
+            color: #64748b;
+            background: rgba(248,250,252,.6);
+            transition: border-color .15s, background .15s, color .15s;
+            user-select: none;
+        }
+        .dropzone:hover { border-color: #0e7490; color: #0e7490; background: rgba(236,254,255,.7); }
+        .dropzone.dragover {
+            border-color: #0e7490; color: #0e7490;
+            background: rgba(207,250,254,.8);
+            box-shadow: inset 0 0 0 3px rgba(14,116,144,.12);
+        }
+        .dropzone svg { display: block; margin: 0 auto 10px; opacity: .8; }
+        .dropzone .dz-main { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+        .dropzone .dz-sub { font-size: 12px; color: #94a3b8; line-height: 1.6; }
+
+        .toolbar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+        .btn {
+            padding: 9px 20px; font-size: 13px; font-weight: 700;
+            border-radius: 8px; border: none; cursor: pointer;
+            letter-spacing: .04em; font-family: inherit;
+            transition: background .15s, box-shadow .15s, transform .08s;
+        }
+        .btn-primary {
+            background: linear-gradient(145deg, #06b6d4, #0e7490);
+            color: #fff; box-shadow: 0 2px 8px rgba(14,116,144,0.35);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 14px rgba(14,116,144,0.45); }
+        .btn-primary:active { transform: scale(.97); }
+        .btn-secondary { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+        .btn-secondary:hover { background: #f8fafc; color: #0e7490; border-color: #0e7490; }
+        .btn-secondary:active { transform: scale(.97); }
+        .toolbar .hint { font-size: 11px; color: #94a3b8; }
+
+        /* ── 結果卡片 ── */
+        .results { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+        .file-card {
+            position: relative;
+            background: rgba(255,255,255,0.9);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 16px 14px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+            overflow: hidden;
+        }
+        .file-card::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+            width: 5px; background: var(--cat-color, #94a3b8);
+        }
+        .fc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .fc-name {
+            font-weight: 700; font-size: 14px; color: #1e293b;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            overflow-wrap: anywhere;
+        }
+        .fc-size { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+
+        .verdict {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 800; padding: 3px 10px;
+            border-radius: 999px; border: 1px solid; letter-spacing: .03em;
+            white-space: nowrap;
+        }
+        .verdict.match    { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .verdict.mismatch { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        .verdict.noext    { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .verdict.unknown  { color: #64748b; background: #f8fafc; border-color: #e2e8f0; }
+
+        .fc-body {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 96px minmax(0, 1fr);
+            gap: 5px 10px;
+            font-size: 12.5px;
+        }
+        .fc-body dt { color: #64748b; font-weight: 600; font-size: 11.5px; align-self: center; white-space: nowrap; }
+        .fc-body dd { margin: 0; color: #1e293b; overflow-wrap: anywhere; line-height: 1.55; }
+        .fc-body dd .big { font-size: 14px; font-weight: 700; }
+        .ext-chip {
+            display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-weight: 700; font-size: 12px; padding: 1px 8px; border-radius: 6px;
+            background: #f1f5f9; border: 1px solid #e2e8f0; color: #0e7490;
+        }
+        .ext-chip.bad { color: #b91c1c; background: #fef2f2; border-color: #fecaca; text-decoration: line-through; }
+        .conf {
+            display: inline-block; font-size: 10.5px; font-weight: 700;
+            padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px;
+        }
+        .conf.hi  { color: #15803d; background: #ecfdf5; }
+        .conf.mid { color: #b45309; background: #fffbeb; }
+        .conf.lo  { color: #64748b; background: #f1f5f9; }
+
+        .magic-hex {
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12px; color: #0f172a;
+            background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 4px 8px; display: inline-block; letter-spacing: .04em;
+            overflow-wrap: anywhere;
+        }
+        .magic-hex .hit { color: #0e7490; font-weight: 800; }
+
+        .fc-note { font-size: 11.5px; color: #64748b; margin-top: 8px; line-height: 1.55; }
+        .fc-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .mini-btn {
+            font-size: 11px; font-weight: 700; padding: 5px 12px;
+            border-radius: 999px; cursor: pointer; font-family: inherit;
+            background: #fff; color: #475569; border: 1px solid #cbd5e1;
+            transition: color .12s, border-color .12s, background .12s;
+        }
+        .mini-btn:hover { color: #0e7490; border-color: #0e7490; background: #f0fdff; }
+
+        .result-empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 40px 20px 20px; }
+
+        @media (max-width: 600px) {
+            .page-content { padding: 10px 10px 16px; }
+            .glass { padding: 16px 14px; }
+            .dropzone { padding: 32px 12px; }
+            .fc-body { grid-template-columns: 82px minmax(0, 1fr); }
+        }
+
+        /* ── Modal（自訂,不用原生 alert/confirm） ── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(15,23,42,.55);
+            display: none; align-items: center; justify-content: center;
+            z-index: 100; padding: 24px; backdrop-filter: blur(2px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #fff; border-radius: 12px; width: 100%; max-width: 760px;
+            max-height: 80vh; display: flex; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4); overflow: hidden;
+        }
+        .modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border-bottom: 1px solid #e2e8f0;
+            font-size: 13px; font-weight: 700; color: #1e293b; gap: 10px;
+        }
+        .modal-header .sub { font-weight: 400; font-size: 11px; color: #94a3b8; }
+        .modal-close {
+            background: transparent; border: none; width: 28px; height: 28px;
+            border-radius: 6px; font-size: 20px; line-height: 1; cursor: pointer;
+            color: #64748b; font-family: inherit; transition: background .12s, color .12s;
+            flex: none;
+        }
+        .modal-close:hover { background: #fef2f2; color: #b91c1c; }
+        .hexdump {
+            background: #0f172a; color: #e2e8f0;
+            padding: 14px 16px; margin: 0;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12px; line-height: 1.6;
+            white-space: pre; overflow: auto; flex: 1; min-height: 0;
+        }
+        .hexdump { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .hexdump::-webkit-scrollbar { width: 8px; height: 8px; }
+        .hexdump::-webkit-scrollbar-track { background: transparent; }
+        .hexdump::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; border: none; background-clip: border-box; }
+        .hexdump::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .hexdump .off { color: #64748b; }
+        .hexdump .asc { color: #7dd3fc; }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>檔案真實格式偵測</h1>
+        <div class="header-meta">
+            <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">拖曳檔案以偵測</span></span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="field-label">File Signature / Magic Bytes 偵測</div>
+            <div class="dropzone" id="dropzone">
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <path d="M14 2v6h6"/>
+                    <path d="M9 15l3-3 3 3M12 12v6"/>
+                </svg>
+                <div class="dz-main">拖曳檔案到這裡,或點擊選擇檔案</div>
+                <div class="dz-sub">支援多檔同時分析 · 也可直接 Ctrl+V 貼上檔案<br>完全在本機分析,檔案不會上傳到任何地方</div>
+            </div>
+            <input type="file" id="fileInput" multiple hidden>
+            <div class="toolbar">
+                <button type="button" class="btn btn-primary" id="pickBtn">選擇檔案</button>
+                <button type="button" class="btn btn-secondary" id="clearBtn">清除結果</button>
+                <span class="hint">依據檔頭簽章（magic bytes）判斷真實格式,不受副檔名影響</span>
+            </div>
+            <div class="results" id="results">
+                <div class="result-empty" id="emptyHint">尚未分析任何檔案 — 把可疑的檔案拖進來,看看它「真正」是什麼格式</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="hexModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span id="hexTitle">Hex 檢視</span>
+                <span class="sub" id="hexSub"></span>
+                <button type="button" class="modal-close" id="hexClose" title="關閉">&times;</button>
+            </div>
+            <pre class="hexdump" id="hexBody"></pre>
+        </div>
+    </div>
+
+<script>
+'use strict';
+
+/* ═══════════════ 工具函式 ═══════════════ */
+
+function hexToBytes(h) {
+    const out = [];
+    for (let i = 0; i < h.length; i += 2) {
+        const pair = h.substr(i, 2);
+        out.push(pair === '??' ? -1 : parseInt(pair, 16));
+    }
+    return out;
+}
+function strBytes(s) { const a = []; for (let i = 0; i < s.length; i++) a.push(s.charCodeAt(i) & 0xFF); return a; }
+function utf16leBytes(s) { const a = []; for (let i = 0; i < s.length; i++) { a.push(s.charCodeAt(i) & 0xFF, (s.charCodeAt(i) >> 8) & 0xFF); } return a; }
+
+// needle: number[]（-1 為萬用字元）
+function matchAt(buf, off, needle) {
+    if (off < 0 || off + needle.length > buf.length) return false;
+    for (let i = 0; i < needle.length; i++) {
+        if (needle[i] !== -1 && buf[off + i] !== needle[i]) return false;
+    }
+    return true;
+}
+function findBytes(buf, needle, limit) {
+    const end = Math.min(buf.length, limit || buf.length) - needle.length;
+    outer:
+    for (let i = 0; i <= end; i++) {
+        for (let j = 0; j < needle.length; j++) {
+            if (needle[j] !== -1 && buf[i + j] !== needle[j]) continue outer;
+        }
+        return i;
+    }
+    return -1;
+}
+function containsStr(buf, s, limit) { return findBytes(buf, strBytes(s), limit) !== -1; }
+function containsU16(buf, s) { return findBytes(buf, utf16leBytes(s)) !== -1; }
+function ascii4(buf, off) {
+    let s = '';
+    for (let i = off; i < off + 4 && i < buf.length; i++) s += String.fromCharCode(buf[i]);
+    return s;
+}
+function fmtSize(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1073741824) return (n / 1048576).toFixed(2) + ' MB';
+    return (n / 1073741824).toFixed(2) + ' GB';
+}
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ═══════════════ 簽章資料庫 ═══════════════
+   sig: [offset, 'hex'] 陣列（全部條件須成立）；offset 可為負值 = 從檔尾起算。
+   refine(sample, hit) 可再細分容器格式,回傳覆寫欄位。
+   參考: https://en.wikipedia.org/wiki/List_of_file_signatures            */
+
+const CAT = {
+    image:   { label: '圖片',   color: '#0ea5e9' },
+    audio:   { label: '音訊',   color: '#8b5cf6' },
+    video:   { label: '影片',   color: '#f43f5e' },
+    archive: { label: '壓縮/封裝', color: '#f59e0b' },
+    doc:     { label: '文件',   color: '#0d9488' },
+    exec:    { label: '執行檔/程式', color: '#ef4444' },
+    font:    { label: '字型',   color: '#6366f1' },
+    data:    { label: '資料/資料庫', color: '#64748b' },
+    text:    { label: '文字',   color: '#22c55e' },
+    other:   { label: '其他',   color: '#94a3b8' },
+};
+
+const FTYP_BRANDS = {
+    'isom': ['mp4', 'MP4 影片', 'video/mp4', 'video'], 'iso2': ['mp4', 'MP4 影片', 'video/mp4', 'video'],
+    'iso4': ['mp4', 'MP4 影片', 'video/mp4', 'video'], 'iso5': ['mp4', 'MP4 影片', 'video/mp4', 'video'],
+    'iso6': ['mp4', 'MP4 影片', 'video/mp4', 'video'], 'mp41': ['mp4', 'MP4 影片', 'video/mp4', 'video'],
+    'mp42': ['mp4', 'MP4 影片', 'video/mp4', 'video'], 'mp4v': ['mp4', 'MP4 影片', 'video/mp4', 'video'],
+    'avc1': ['mp4', 'MP4 影片 (AVC)', 'video/mp4', 'video'], 'dash': ['mp4', 'MP4 影片 (DASH 分段)', 'video/mp4', 'video'],
+    'mmp4': ['mp4', 'MP4 影片', 'video/mp4', 'video'],
+    'qt  ': ['mov', 'QuickTime 影片', 'video/quicktime', 'video'],
+    'M4V ': ['m4v', 'M4V 影片', 'video/x-m4v', 'video'],
+    'M4A ': ['m4a', 'M4A 音訊', 'audio/mp4', 'audio'],
+    'M4B ': ['m4b', 'M4B 有聲書', 'audio/mp4', 'audio'],
+    'M4P ': ['m4p', 'M4P 受保護音訊', 'audio/mp4', 'audio'],
+    '3gp4': ['3gp', '3GP 影片', 'video/3gpp', 'video'], '3gp5': ['3gp', '3GP 影片', 'video/3gpp', 'video'],
+    '3gp6': ['3gp', '3GP 影片', 'video/3gpp', 'video'], '3gpp': ['3gp', '3GP 影片', 'video/3gpp', 'video'],
+    '3g2a': ['3g2', '3G2 影片', 'video/3gpp2', 'video'],
+    'heic': ['heic', 'HEIC 圖片', 'image/heic', 'image'], 'heix': ['heic', 'HEIC 圖片', 'image/heic', 'image'],
+    'hevc': ['heic', 'HEIC 圖片序列', 'image/heic-sequence', 'image'],
+    'mif1': ['heif', 'HEIF 圖片', 'image/heif', 'image'], 'msf1': ['heif', 'HEIF 圖片序列', 'image/heif-sequence', 'image'],
+    'avif': ['avif', 'AVIF 圖片', 'image/avif', 'image'], 'avis': ['avif', 'AVIF 圖片序列', 'image/avif', 'image'],
+    'crx ': ['cr3', 'Canon CR3 RAW 相片', 'image/x-canon-cr3', 'image'],
+    'jxl ': ['jxl', 'JPEG XL 圖片 (容器)', 'image/jxl', 'image'],
+};
+
+function refineFtyp(sample) {
+    const brand = ascii4(sample.head, 8);
+    const b = FTYP_BRANDS[brand];
+    if (b) return { exts: [b[0]], name: b[1], mime: b[2], cat: b[3], score: 8, note: 'ftyp 品牌: ' + brand.trim() };
+    return { exts: ['mp4', 'mov', 'm4a', 'heic'], name: 'ISO-BMFF 容器 (MP4 家族)', mime: 'video/mp4', cat: 'video', note: '未知 ftyp 品牌: ' + brand };
+}
+
+function refineRiff(sample) {
+    const t = ascii4(sample.head, 8);
+    const map = {
+        'WAVE': ['wav', 'WAV 音訊', 'audio/wav', 'audio'],
+        'AVI ': ['avi', 'AVI 影片', 'video/x-msvideo', 'video'],
+        'WEBP': ['webp', 'WebP 圖片', 'image/webp', 'image'],
+        'ACON': ['ani', 'Windows 動態游標', 'application/x-navi-animation', 'image'],
+        'CDDA': ['cda', 'CD 音軌捷徑', 'application/x-cdf', 'audio'],
+        'RMID': ['rmi', 'RIFF MIDI', 'audio/midi', 'audio'],
+    };
+    const m = map[t];
+    if (m) return { exts: [m[0]], name: m[1], mime: m[2], cat: m[3], score: 8, note: 'RIFF 子型別: ' + t.trim() };
+    return { exts: ['riff'], name: 'RIFF 容器 (未知子型別 ' + t + ')', mime: 'application/octet-stream', cat: 'other' };
+}
+
+function refineEbml(sample) {
+    const head4k = sample.head.subarray(0, 4096);
+    if (containsStr(head4k, 'webm')) return { exts: ['webm'], name: 'WebM 影片', mime: 'video/webm', cat: 'video', score: 8, note: 'EBML DocType: webm' };
+    if (containsStr(head4k, 'matroska')) return { exts: ['mkv', 'mka', 'mks'], name: 'Matroska 影片 (MKV)', mime: 'video/x-matroska', cat: 'video', score: 8, note: 'EBML DocType: matroska' };
+    return { exts: ['mkv', 'webm'], name: 'EBML 容器 (MKV/WebM)', mime: 'video/x-matroska', cat: 'video' };
+}
+
+function refineOgg(sample) {
+    const head1k = sample.head.subarray(0, 1024);
+    if (findBytes(head1k, strBytes('OpusHead')) !== -1) return { exts: ['opus', 'ogg'], name: 'Ogg Opus 音訊', mime: 'audio/ogg', cat: 'audio', score: 8, note: '編碼: Opus' };
+    if (findBytes(head1k, [0x01].concat(strBytes('vorbis'))) !== -1) return { exts: ['ogg', 'oga'], name: 'Ogg Vorbis 音訊', mime: 'audio/ogg', cat: 'audio', score: 8, note: '編碼: Vorbis' };
+    if (findBytes(head1k, [0x80].concat(strBytes('theora'))) !== -1) return { exts: ['ogv', 'ogg'], name: 'Ogg Theora 影片', mime: 'video/ogg', cat: 'video', score: 8, note: '編碼: Theora' };
+    if (findBytes(head1k, [0x7F].concat(strBytes('FLAC'))) !== -1) return { exts: ['oga', 'ogg'], name: 'Ogg FLAC 音訊', mime: 'audio/ogg', cat: 'audio', score: 8, note: '編碼: FLAC' };
+    if (containsStr(head1k, 'Speex')) return { exts: ['spx', 'ogg'], name: 'Ogg Speex 音訊', mime: 'audio/ogg', cat: 'audio', score: 8, note: '編碼: Speex' };
+    return { exts: ['ogg'], name: 'Ogg 容器', mime: 'application/ogg', cat: 'audio' };
+}
+
+function refineZip(sample) {
+    const all = [sample.head, sample.tail];
+    const has = s => all.some(b => containsStr(b, s));
+    if (has('mimetypeapplication/epub+zip')) return { exts: ['epub'], name: 'EPUB 電子書', mime: 'application/epub+zip', cat: 'doc', score: 8, note: 'ZIP 容器內含 EPUB mimetype' };
+    if (has('mimetypeapplication/vnd.oasis.opendocument.text')) return { exts: ['odt'], name: 'OpenDocument 文字文件', mime: 'application/vnd.oasis.opendocument.text', cat: 'doc', score: 8 };
+    if (has('mimetypeapplication/vnd.oasis.opendocument.spreadsheet')) return { exts: ['ods'], name: 'OpenDocument 試算表', mime: 'application/vnd.oasis.opendocument.spreadsheet', cat: 'doc', score: 8 };
+    if (has('mimetypeapplication/vnd.oasis.opendocument.presentation')) return { exts: ['odp'], name: 'OpenDocument 簡報', mime: 'application/vnd.oasis.opendocument.presentation', cat: 'doc', score: 8 };
+    if (has('AndroidManifest.xml') || has('classes.dex')) return { exts: ['apk'], name: 'Android APK 安裝包', mime: 'application/vnd.android.package-archive', cat: 'exec', score: 8, note: 'ZIP 容器內含 AndroidManifest.xml / classes.dex' };
+    if (has('word/')) return { exts: ['docx', 'docm'], name: 'Word 文件 (OOXML)', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', cat: 'doc', score: 8, note: 'ZIP 容器內含 word/ 目錄' };
+    if (has('xl/')) return { exts: ['xlsx', 'xlsm'], name: 'Excel 試算表 (OOXML)', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', cat: 'doc', score: 8, note: 'ZIP 容器內含 xl/ 目錄' };
+    if (has('ppt/')) return { exts: ['pptx', 'ppsx', 'pptm'], name: 'PowerPoint 簡報 (OOXML)', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', cat: 'doc', score: 8, note: 'ZIP 容器內含 ppt/ 目錄' };
+    if (has('visio/')) return { exts: ['vsdx'], name: 'Visio 圖表 (OOXML)', mime: 'application/vnd.ms-visio.drawing', cat: 'doc', score: 8 };
+    if (has('Payload/') && has('.app/')) return { exts: ['ipa'], name: 'iOS App 安裝包 (IPA)', mime: 'application/octet-stream', cat: 'exec', score: 8 };
+    if (has('extension.vsixmanifest')) return { exts: ['vsix'], name: 'VS Code / Visual Studio 擴充套件', mime: 'application/vsix', cat: 'exec', score: 8 };
+    if (has('.class') || has('META-INF/MANIFEST.MF')) return { exts: ['jar', 'war', 'ear'], name: 'Java JAR 封裝', mime: 'application/java-archive', cat: 'exec', score: 8, note: 'ZIP 容器內含 META-INF / .class' };
+    if (has('[Content_Types].xml')) return { exts: ['docx', 'xlsx', 'pptx'], name: 'Office OOXML 文件 (未知類型)', mime: 'application/octet-stream', cat: 'doc', score: 6 };
+    return { exts: ['zip'], name: 'ZIP 壓縮檔', mime: 'application/zip', cat: 'archive', score: 6 };
+}
+
+function refineOle(sample) {
+    const all = [sample.head, sample.tail];
+    const hasU16 = s => all.some(b => containsU16(b, s));
+    const hasA = s => all.some(b => containsStr(b, s));
+    if (hasU16('WordDocument')) return { exts: ['doc'], name: 'Word 97-2003 文件', mime: 'application/msword', cat: 'doc', note: 'OLE2 內含 WordDocument 串流' };
+    if (hasU16('Workbook') || hasU16('Book')) return { exts: ['xls'], name: 'Excel 97-2003 試算表', mime: 'application/vnd.ms-excel', cat: 'doc', note: 'OLE2 內含 Workbook 串流' };
+    if (hasU16('PowerPoint Document')) return { exts: ['ppt'], name: 'PowerPoint 97-2003 簡報', mime: 'application/vnd.ms-powerpoint', cat: 'doc' };
+    if (hasU16('VisioDocument')) return { exts: ['vsd'], name: 'Visio 97-2003 圖表', mime: 'application/vnd.visio', cat: 'doc' };
+    if (hasU16('__properties_version1.0') || hasU16('__recip_version1.0')) return { exts: ['msg'], name: 'Outlook 郵件 (MSG)', mime: 'application/vnd.ms-outlook', cat: 'doc' };
+    if (hasA('Installation Database') || hasU16('Installation Database')) return { exts: ['msi'], name: 'Windows Installer 安裝包 (MSI)', mime: 'application/x-msi', cat: 'exec' };
+    return { exts: ['doc', 'xls', 'ppt', 'msi', 'msg'], name: 'Microsoft OLE2 複合文件', mime: 'application/x-ole-storage', cat: 'doc', note: '舊版 Office 家族容器,無法確認細項' };
+}
+
+function refineTiff(sample) {
+    const h = sample.head;
+    if (h.length >= 10 && h[8] === 0x43 && h[9] === 0x52) return { exts: ['cr2'], name: 'Canon CR2 RAW 相片', mime: 'image/x-canon-cr2', cat: 'image', score: 8 };
+    return { note: 'TIFF 結構也用於相機 RAW (NEF/DNG/ARW 等),副檔名可能不同' };
+}
+
+function refineMz(sample) {
+    const h = sample.head;
+    if (h.length < 0x40) return null;
+    const peOff = h[0x3C] | (h[0x3D] << 8) | (h[0x3E] << 16) | (h[0x3F] << 24);
+    if (peOff > 0 && peOff + 24 < h.length && h[peOff] === 0x50 && h[peOff + 1] === 0x45 && h[peOff + 2] === 0 && h[peOff + 3] === 0) {
+        const machine = h[peOff + 4] | (h[peOff + 5] << 8);
+        const chars = h[peOff + 22] | (h[peOff + 23] << 8);
+        const archMap = { 0x014C: 'x86', 0x8664: 'x64', 0xAA64: 'ARM64', 0x01C4: 'ARM' };
+        const arch = archMap[machine] || ('0x' + machine.toString(16));
+        const isDll = (chars & 0x2000) !== 0;
+        if (isDll) return { exts: ['dll', 'ocx', 'sys'], name: 'Windows DLL 動態函式庫 (' + arch + ')', mime: 'application/x-msdownload', cat: 'exec', score: 10 };
+        return { exts: ['exe', 'scr'], name: 'Windows 執行檔 PE (' + arch + ')', mime: 'application/x-msdownload', cat: 'exec', score: 10 };
+    }
+    return { exts: ['exe', 'dll', 'com'], name: 'DOS/Windows 執行檔 (MZ)', mime: 'application/x-msdownload', cat: 'exec' };
+}
+
+function refineCafebabe(sample) {
+    const h = sample.head;
+    const v = (h[4] << 24) | (h[5] << 16) | (h[6] << 8) | h[7];
+    if (v >>> 0 < 0x40) return { exts: ['dylib', 'macho'], name: 'Mach-O 通用二進位檔 (macOS)', mime: 'application/x-mach-binary', cat: 'exec', score: 6 };
+    return { exts: ['class'], name: 'Java Class 位元組碼', mime: 'application/java-vm', cat: 'exec', score: 6 };
+}
+
+function refineAr(sample) {
+    if (containsStr(sample.head.subarray(0, 256), 'debian-binary')) return { exts: ['deb'], name: 'Debian 套件 (DEB)', mime: 'application/vnd.debian.binary-package', cat: 'archive' };
+    return { exts: ['a', 'ar', 'lib'], name: 'Unix ar 靜態函式庫', mime: 'application/x-archive', cat: 'archive' };
+}
+
+function refineMdb(sample) {
+    if (containsStr(sample.head.subarray(0, 64), 'Standard ACE DB')) return { exts: ['accdb'], name: 'Access 資料庫 (ACCDB)', mime: 'application/msaccess', cat: 'data' };
+    return { exts: ['mdb'], name: 'Access 資料庫 (MDB)', mime: 'application/msaccess', cat: 'data' };
+}
+
+function refineVdi(sample) {
+    if (containsStr(sample.head.subarray(0, 128), 'VirtualBox')) return null;
+    return false; // 不是 VDI,放棄此判定
+}
+
+const DB = [
+    // ── 圖片 ──
+    { name: 'PNG 圖片', exts: ['png'], mime: 'image/png', cat: 'image', sig: [[0, '89504E470D0A1A0A']] },
+    { name: 'JPEG 圖片', exts: ['jpg', 'jpeg', 'jpe', 'jfif'], mime: 'image/jpeg', cat: 'image', sig: [[0, 'FFD8FF']] },
+    { name: 'GIF 圖片 (89a)', exts: ['gif'], mime: 'image/gif', cat: 'image', sig: [[0, '474946383961']] },
+    { name: 'GIF 圖片 (87a)', exts: ['gif'], mime: 'image/gif', cat: 'image', sig: [[0, '474946383761']] },
+    { name: 'BMP 點陣圖', exts: ['bmp', 'dib'], mime: 'image/bmp', cat: 'image', sig: [[0, '424D']], weak: true },
+    { name: 'TIFF 圖片 (LE)', exts: ['tif', 'tiff', 'cr2', 'nef', 'dng', 'arw'], mime: 'image/tiff', cat: 'image', sig: [[0, '49492A00']], refine: refineTiff },
+    { name: 'TIFF 圖片 (BE)', exts: ['tif', 'tiff', 'nef'], mime: 'image/tiff', cat: 'image', sig: [[0, '4D4D002A']], refine: refineTiff },
+    { name: 'ICO 圖示', exts: ['ico'], mime: 'image/x-icon', cat: 'image', sig: [[0, '00000100']], verify: s => s.head.length > 5 && s.head[4] >= 1 && s.head[4] <= 128 && s.head[5] === 0 },
+    { name: 'CUR 游標', exts: ['cur'], mime: 'image/x-icon', cat: 'image', sig: [[0, '00000200']], verify: s => s.head.length > 5 && s.head[4] >= 1 && s.head[4] <= 128 && s.head[5] === 0 },
+    { name: 'Photoshop 檔案', exts: ['psd', 'psb'], mime: 'image/vnd.adobe.photoshop', cat: 'image', sig: [[0, '38425053']] },
+    { name: 'JPEG 2000', exts: ['jp2', 'j2k', 'jpf'], mime: 'image/jp2', cat: 'image', sig: [[0, '0000000C6A5020200D0A870A']] },
+    { name: 'JPEG 2000 codestream', exts: ['j2k', 'j2c'], mime: 'image/jp2', cat: 'image', sig: [[0, 'FF4FFF51']] },
+    { name: 'JPEG XL 圖片', exts: ['jxl'], mime: 'image/jxl', cat: 'image', sig: [[0, '0000000C4A584C200D0A870A']] },
+    { name: 'JPEG XL 圖片 (裸流)', exts: ['jxl'], mime: 'image/jxl', cat: 'image', sig: [[0, 'FF0A']], weak: true },
+    { name: 'QOI 圖片', exts: ['qoi'], mime: 'image/qoi', cat: 'image', sig: [[0, '716F6966']] },
+    { name: 'OpenEXR 圖片', exts: ['exr'], mime: 'image/x-exr', cat: 'image', sig: [[0, '762F3101']] },
+    { name: 'Radiance HDR 圖片', exts: ['hdr'], mime: 'image/vnd.radiance', cat: 'image', sig: [[0, '233F52414449414E4345']] },
+    { name: 'DDS 貼圖', exts: ['dds'], mime: 'image/vnd-ms.dds', cat: 'image', sig: [[0, '44445320']] },
+    { name: 'BPG 圖片', exts: ['bpg'], mime: 'image/bpg', cat: 'image', sig: [[0, '425047FB']] },
+    { name: 'FLIF 圖片', exts: ['flif'], mime: 'image/flif', cat: 'image', sig: [[0, '464C4946']] },
+    { name: 'macOS 圖示 (ICNS)', exts: ['icns'], mime: 'image/icns', cat: 'image', sig: [[0, '69636E73']] },
+    { name: 'GIMP XCF 圖片', exts: ['xcf'], mime: 'image/x-xcf', cat: 'image', sig: [[0, '67696D7020786366']] },
+    { name: 'DjVu 文件', exts: ['djvu', 'djv'], mime: 'image/vnd.djvu', cat: 'image', sig: [[0, '41542654464F524D']] },
+    { name: 'FITS 天文影像', exts: ['fits', 'fit'], mime: 'application/fits', cat: 'image', sig: [[0, '53494D504C4520203D']] },
+    { name: 'Fuji RAF RAW 相片', exts: ['raf'], mime: 'image/x-fuji-raf', cat: 'image', sig: [[0, '46554A4946494C4D']] },
+    { name: 'TGA 圖片 (含註腳)', exts: ['tga'], mime: 'image/x-tga', cat: 'image', sigLabel: 'TRUEVISION-XFILE (檔尾註腳)',
+      test: s => (s.size >= 26 && matchAt(s.tail, s.tail.length - 18, strBytes('TRUEVISION-XFILE'))) ? 6 : 0 },
+    { name: 'PCX 圖片', exts: ['pcx'], mime: 'image/x-pcx', cat: 'image', sig: [[0, '0A??01']], weak: true },
+
+    // ── 音訊 ──
+    { name: 'MP3 音訊 (含 ID3 標籤)', exts: ['mp3'], mime: 'audio/mpeg', cat: 'audio', sig: [[0, '494433']], note: 'ID3 標籤也可能包在 AAC/FLAC 外層,以 MP3 最常見' },
+    { name: 'FLAC 無損音訊', exts: ['flac'], mime: 'audio/flac', cat: 'audio', sig: [[0, '664C6143']] },
+    { name: 'Ogg 容器', exts: ['ogg'], mime: 'application/ogg', cat: 'audio', sig: [[0, '4F676753']], refine: refineOgg },
+    { name: 'AIFF 音訊', exts: ['aif', 'aiff', 'aifc'], mime: 'audio/aiff', cat: 'audio', sig: [[0, '464F524D'], [8, '414946']] },
+    { name: 'MIDI 樂曲', exts: ['mid', 'midi'], mime: 'audio/midi', cat: 'audio', sig: [[0, '4D546864']] },
+    { name: 'AMR 語音', exts: ['amr'], mime: 'audio/amr', cat: 'audio', sig: [[0, '2321414D52']] },
+    { name: "Monkey's Audio (APE)", exts: ['ape'], mime: 'audio/x-ape', cat: 'audio', sig: [[0, '4D414320']] },
+    { name: 'WavPack 音訊', exts: ['wv'], mime: 'audio/x-wavpack', cat: 'audio', sig: [[0, '7776706B']] },
+    { name: 'Sun/NeXT 音訊', exts: ['au', 'snd'], mime: 'audio/basic', cat: 'audio', sig: [[0, '2E736E64']] },
+    { name: 'DSD 音訊 (DSF)', exts: ['dsf'], mime: 'audio/x-dsf', cat: 'audio', sig: [[0, '44534420']] },
+    { name: 'TTA 無損音訊', exts: ['tta'], mime: 'audio/x-tta', cat: 'audio', sig: [[0, '54544131']] },
+    { name: 'AAC ADTS 音訊', exts: ['aac'], mime: 'audio/aac', cat: 'audio', sig: [[0, 'FFF1']], weak: true },
+    { name: 'AAC ADTS 音訊 (MPEG-2)', exts: ['aac'], mime: 'audio/aac', cat: 'audio', sig: [[0, 'FFF9']], weak: true },
+    { name: 'AC-3 音訊', exts: ['ac3'], mime: 'audio/ac3', cat: 'audio', sig: [[0, '0B77']], weak: true },
+
+    // ── 影片/容器 ──
+    { name: 'ISO-BMFF (MP4 家族)', exts: ['mp4'], mime: 'video/mp4', cat: 'video', sig: [[4, '66747970']], refine: refineFtyp },
+    { name: 'RIFF 容器', exts: ['wav', 'avi', 'webp'], mime: 'application/octet-stream', cat: 'other', sig: [[0, '52494646']], refine: refineRiff },
+    { name: 'Matroska / WebM', exts: ['mkv', 'webm'], mime: 'video/x-matroska', cat: 'video', sig: [[0, '1A45DFA3']], refine: refineEbml },
+    { name: 'Flash 影片 (FLV)', exts: ['flv'], mime: 'video/x-flv', cat: 'video', sig: [[0, '464C5601']] },
+    { name: 'ASF 容器 (WMV/WMA)', exts: ['wmv', 'wma', 'asf'], mime: 'video/x-ms-asf', cat: 'video', sig: [[0, '3026B2758E66CF11']] },
+    { name: 'MPEG Program Stream', exts: ['mpg', 'mpeg', 'vob'], mime: 'video/mpeg', cat: 'video', sig: [[0, '000001BA']] },
+    { name: 'MPEG 視訊串流', exts: ['mpg', 'mpeg', 'm1v'], mime: 'video/mpeg', cat: 'video', sig: [[0, '000001B3']] },
+    { name: 'RealMedia 影片', exts: ['rm', 'rmvb'], mime: 'application/vnd.rn-realmedia', cat: 'video', sig: [[0, '2E524D46']] },
+    { name: 'MPEG-TS 傳輸串流', exts: ['ts', 'm2ts', 'mts'], mime: 'video/mp2t', cat: 'video',
+      test: s => (s.head.length > 377 && s.head[0] === 0x47 && s.head[188] === 0x47 && s.head[376] === 0x47) ? 3 : 0, sigLabel: '0x47 同步位元組 (每 188 bytes)' },
+    { name: 'Flash 動畫 (未壓縮)', exts: ['swf'], mime: 'application/x-shockwave-flash', cat: 'video', sig: [[0, '465753']] },
+    { name: 'Flash 動畫 (zlib)', exts: ['swf'], mime: 'application/x-shockwave-flash', cat: 'video', sig: [[0, '435753']] },
+    { name: 'Flash 動畫 (LZMA)', exts: ['swf'], mime: 'application/x-shockwave-flash', cat: 'video', sig: [[0, '5A5753']] },
+
+    // ── 壓縮/封裝 ──
+    { name: 'ZIP 壓縮檔', exts: ['zip'], mime: 'application/zip', cat: 'archive', sig: [[0, '504B0304']], refine: refineZip },
+    { name: 'ZIP 壓縮檔 (空)', exts: ['zip'], mime: 'application/zip', cat: 'archive', sig: [[0, '504B0506']] },
+    { name: 'ZIP 壓縮檔 (分割)', exts: ['zip'], mime: 'application/zip', cat: 'archive', sig: [[0, '504B0708']] },
+    { name: 'RAR 壓縮檔 (v5)', exts: ['rar'], mime: 'application/vnd.rar', cat: 'archive', sig: [[0, '526172211A070100']] },
+    { name: 'RAR 壓縮檔 (v1.5-4)', exts: ['rar'], mime: 'application/vnd.rar', cat: 'archive', sig: [[0, '526172211A0700']] },
+    { name: '7-Zip 壓縮檔', exts: ['7z'], mime: 'application/x-7z-compressed', cat: 'archive', sig: [[0, '377ABCAF271C']] },
+    { name: 'GZIP 壓縮檔', exts: ['gz', 'tgz'], mime: 'application/gzip', cat: 'archive', sig: [[0, '1F8B']] },
+    { name: 'BZIP2 壓縮檔', exts: ['bz2', 'tbz2'], mime: 'application/x-bzip2', cat: 'archive', sig: [[0, '425A68']] },
+    { name: 'XZ 壓縮檔', exts: ['xz', 'txz'], mime: 'application/x-xz', cat: 'archive', sig: [[0, 'FD377A585A00']] },
+    { name: 'Zstandard 壓縮檔', exts: ['zst'], mime: 'application/zstd', cat: 'archive', sig: [[0, '28B52FFD']] },
+    { name: 'LZ4 壓縮檔', exts: ['lz4'], mime: 'application/x-lz4', cat: 'archive', sig: [[0, '04224D18']] },
+    { name: 'TAR 封存檔', exts: ['tar'], mime: 'application/x-tar', cat: 'archive', sig: [[257, '7573746172']], sigLabel: 'ustar (offset 257)' },
+    { name: 'MS Cabinet (CAB)', exts: ['cab'], mime: 'application/vnd.ms-cab-compressed', cat: 'archive', sig: [[0, '4D534346']] },
+    { name: 'ARJ 壓縮檔', exts: ['arj'], mime: 'application/x-arj', cat: 'archive', sig: [[0, '60EA']], weak: true },
+    { name: 'LZH/LHA 壓縮檔', exts: ['lzh', 'lha'], mime: 'application/x-lzh-compressed', cat: 'archive', sig: [[2, '2D6C68']] },
+    { name: 'Unix compress (.Z)', exts: ['z'], mime: 'application/x-compress', cat: 'archive', sig: [[0, '1F9D']], weak: true },
+    { name: 'ISO 光碟映像', exts: ['iso'], mime: 'application/x-iso9660-image', cat: 'archive',
+      test: s => { for (const off of [0x8001, 0x8801, 0x9001]) { if (matchAt(s.head, off, strBytes('CD001'))) return 5; } return 0; }, sigLabel: 'CD001 (offset 0x8001)' },
+    { name: 'Windows 映像 (WIM)', exts: ['wim'], mime: 'application/x-ms-wim', cat: 'archive', sig: [[0, '4D5357494D']] },
+    { name: 'RPM 套件', exts: ['rpm'], mime: 'application/x-rpm', cat: 'archive', sig: [[0, 'EDABEEDB']] },
+    { name: 'Unix ar / DEB', exts: ['ar', 'deb', 'a'], mime: 'application/x-archive', cat: 'archive', sig: [[0, '213C617263683E']], refine: refineAr },
+    { name: 'CPIO 封存檔', exts: ['cpio'], mime: 'application/x-cpio', cat: 'archive', sig: [[0, '3037303730']] },
+    { name: 'SquashFS 檔案系統', exts: ['squashfs', 'sqsh'], mime: 'application/octet-stream', cat: 'archive', sig: [[0, '68737173']] },
+    { name: 'Apple 磁碟映像 (DMG)', exts: ['dmg'], mime: 'application/x-apple-diskimage', cat: 'archive',
+      test: s => (s.size >= 512 && matchAt(s.tail, s.tail.length - 512, strBytes('koly'))) ? 4 : 0, sigLabel: 'koly 註腳 (檔尾 512 bytes)' },
+    { name: 'Chrome 擴充套件 (CRX)', exts: ['crx'], mime: 'application/x-chrome-extension', cat: 'exec', sig: [[0, '43723234']] },
+    { name: 'zlib 壓縮資料', exts: ['zlib'], mime: 'application/zlib', cat: 'archive', sig: [[0, '78??']], weak: true,
+      verify: s => [0x01, 0x5E, 0x9C, 0xDA].includes(s.head[1]) },
+
+    // ── 文件 ──
+    { name: 'PDF 文件', exts: ['pdf', 'ai'], mime: 'application/pdf', cat: 'doc', sig: [[0, '25504446']], note: '現代 Adobe Illustrator (.ai) 也以 PDF 結構儲存' },
+    { name: 'PostScript 文件', exts: ['ps', 'eps'], mime: 'application/postscript', cat: 'doc', sig: [[0, '25215053']] },
+    { name: 'OLE2 複合文件', exts: ['doc', 'xls', 'ppt'], mime: 'application/x-ole-storage', cat: 'doc', sig: [[0, 'D0CF11E0A1B11AE1']], refine: refineOle },
+    { name: 'RTF 文件', exts: ['rtf'], mime: 'application/rtf', cat: 'doc', sig: [[0, '7B5C727466']] },
+    { name: 'CHM 說明檔', exts: ['chm'], mime: 'application/vnd.ms-htmlhelp', cat: 'doc', sig: [[0, '49545346']] },
+    { name: 'Mobipocket 電子書', exts: ['mobi', 'prc'], mime: 'application/x-mobipocket-ebook', cat: 'doc', sig: [[60, '424F4F4B4D4F4249']], sigLabel: 'BOOKMOBI (offset 60)' },
+    { name: 'OneNote 筆記', exts: ['one'], mime: 'application/onenote', cat: 'doc', sig: [[0, 'E4525C7B8CD8A74D']] },
+    { name: 'Outlook PST 信箱', exts: ['pst', 'ost'], mime: 'application/vnd.ms-outlook-pst', cat: 'doc', sig: [[0, '2142444E']] },
+
+    // ── 執行檔/程式 ──
+    { name: 'Windows 執行檔 (MZ)', exts: ['exe', 'dll'], mime: 'application/x-msdownload', cat: 'exec', sig: [[0, '4D5A']], refine: refineMz, weak: true },
+    { name: 'ELF 執行檔 (Linux)', exts: ['elf', 'so', 'bin'], mime: 'application/x-executable', cat: 'exec', sig: [[0, '7F454C46']] },
+    { name: 'Mach-O 執行檔 (32-bit)', exts: ['macho'], mime: 'application/x-mach-binary', cat: 'exec', sig: [[0, 'FEEDFACE']] },
+    { name: 'Mach-O 執行檔 (64-bit)', exts: ['macho', 'dylib'], mime: 'application/x-mach-binary', cat: 'exec', sig: [[0, 'FEEDFACF']] },
+    { name: 'Mach-O 執行檔 (LE 32)', exts: ['macho'], mime: 'application/x-mach-binary', cat: 'exec', sig: [[0, 'CEFAEDFE']] },
+    { name: 'Mach-O 執行檔 (LE 64)', exts: ['macho', 'dylib'], mime: 'application/x-mach-binary', cat: 'exec', sig: [[0, 'CFFAEDFE']] },
+    { name: 'Java Class / Mach-O Fat', exts: ['class'], mime: 'application/java-vm', cat: 'exec', sig: [[0, 'CAFEBABE']], refine: refineCafebabe },
+    { name: 'WebAssembly 模組', exts: ['wasm'], mime: 'application/wasm', cat: 'exec', sig: [[0, '0061736D']] },
+    { name: 'Android DEX 位元組碼', exts: ['dex'], mime: 'application/octet-stream', cat: 'exec', sig: [[0, '6465780A']] },
+    { name: 'Lua 位元組碼', exts: ['luac'], mime: 'application/x-lua-bytecode', cat: 'exec', sig: [[0, '1B4C7561']] },
+
+    // ── 字型 ──
+    { name: 'TrueType 字型', exts: ['ttf'], mime: 'font/ttf', cat: 'font', sig: [[0, '0001000000']] },
+    { name: 'OpenType 字型', exts: ['otf'], mime: 'font/otf', cat: 'font', sig: [[0, '4F54544F']] },
+    { name: 'WOFF 網頁字型', exts: ['woff'], mime: 'font/woff', cat: 'font', sig: [[0, '774F4646']] },
+    { name: 'WOFF2 網頁字型', exts: ['woff2'], mime: 'font/woff2', cat: 'font', sig: [[0, '774F4632']] },
+    { name: 'TrueType 字型集', exts: ['ttc'], mime: 'font/collection', cat: 'font', sig: [[0, '74746366']] },
+
+    // ── 資料/資料庫/其他 ──
+    { name: 'SQLite 資料庫', exts: ['sqlite', 'db', 'sqlite3'], mime: 'application/vnd.sqlite3', cat: 'data', sig: [[0, '53514C69746520666F726D6174203300']] },
+    { name: 'Access 資料庫', exts: ['mdb', 'accdb'], mime: 'application/msaccess', cat: 'data', sig: [[0, '00010000'], [4, '5374616E64617264']], refine: refineMdb },
+    { name: 'Apache Parquet', exts: ['parquet'], mime: 'application/vnd.apache.parquet', cat: 'data', sig: [[0, '50415231']] },
+    { name: 'HDF5 資料檔', exts: ['h5', 'hdf5'], mime: 'application/x-hdf5', cat: 'data', sig: [[0, '894844460D0A1A0A']] },
+    { name: 'Apache Avro', exts: ['avro'], mime: 'application/avro', cat: 'data', sig: [[0, '4F626A01']] },
+    { name: 'PCAP 封包擷取', exts: ['pcap'], mime: 'application/vnd.tcpdump.pcap', cat: 'data', sig: [[0, 'D4C3B2A1']] },
+    { name: 'PCAP 封包擷取 (BE)', exts: ['pcap'], mime: 'application/vnd.tcpdump.pcap', cat: 'data', sig: [[0, 'A1B2C3D4']] },
+    { name: 'PCAPNG 封包擷取', exts: ['pcapng'], mime: 'application/x-pcapng', cat: 'data', sig: [[0, '0A0D0D0A']],
+      verify: s => matchAt(s.head, 8, hexToBytes('1A2B3C4D')) || matchAt(s.head, 8, hexToBytes('4D3C2B1A')) },
+    { name: 'DICOM 醫療影像', exts: ['dcm', 'dicom'], mime: 'application/dicom', cat: 'data', sig: [[128, '4449434D']], sigLabel: 'DICM (offset 128)' },
+    { name: 'Windows 捷徑 (LNK)', exts: ['lnk'], mime: 'application/x-ms-shortcut', cat: 'data', sig: [[0, '4C0000000114020000000000C000000000000046']] },
+    { name: 'Windows 登錄 Hive', exts: ['dat', 'hiv'], mime: 'application/octet-stream', cat: 'data', sig: [[0, '72656766']] },
+    { name: 'Windows 事件記錄 (EVTX)', exts: ['evtx'], mime: 'application/octet-stream', cat: 'data', sig: [[0, '456C6646696C65']] },
+    { name: 'KeePass 資料庫 (KDBX)', exts: ['kdbx'], mime: 'application/x-keepass2', cat: 'data', sig: [[0, '03D9A29A67FB4BB5']] },
+    { name: 'KeePass 資料庫 (KDB)', exts: ['kdb'], mime: 'application/x-keepass', cat: 'data', sig: [[0, '03D9A29A65FB4BB5']] },
+    { name: 'VHD 虛擬磁碟', exts: ['vhd'], mime: 'application/x-vhd', cat: 'data',
+      test: s => (matchAt(s.head, 0, strBytes('conectix')) || (s.size >= 512 && matchAt(s.tail, s.tail.length - 512, strBytes('conectix')))) ? 6 : 0, sigLabel: 'conectix (檔頭或檔尾 512B footer)' },
+    { name: 'VHDX 虛擬磁碟', exts: ['vhdx'], mime: 'application/x-vhdx', cat: 'data', sig: [[0, '7668647866696C65']] },
+    { name: 'VMDK 虛擬磁碟', exts: ['vmdk'], mime: 'application/x-vmdk', cat: 'data', sig: [[0, '4B444D56']] },
+    { name: 'VMDK 描述檔', exts: ['vmdk'], mime: 'application/x-vmdk', cat: 'data', sig: [[0, '23204469736B204465736372697074']] },
+    { name: 'QCOW 虛擬磁碟', exts: ['qcow2', 'qcow'], mime: 'application/x-qemu-disk', cat: 'data', sig: [[0, '514649FB']] },
+    { name: 'VirtualBox VDI', exts: ['vdi'], mime: 'application/x-virtualbox-vdi', cat: 'data', sig: [[0, '3C3C3C20']], refine: refineVdi },
+    { name: 'BitTorrent 種子', exts: ['torrent'], mime: 'application/x-bittorrent', cat: 'data', sig: [[0, '64383A616E6E6F756E6365']] },
+    { name: 'glTF 二進位模型 (GLB)', exts: ['glb'], mime: 'model/gltf-binary', cat: 'data', sig: [[0, '676C5446']] },
+    { name: 'FBX 3D 模型', exts: ['fbx'], mime: 'application/octet-stream', cat: 'data', sig: [[0, '4B617964617261204642582042696E617279']] },
+    { name: 'Blender 場景', exts: ['blend'], mime: 'application/x-blender', cat: 'data', sig: [[0, '424C454E444552']] },
+    { name: 'NES ROM', exts: ['nes'], mime: 'application/x-nes-rom', cat: 'data', sig: [[0, '4E45531A']] },
+    { name: 'N64 ROM', exts: ['n64', 'z64'], mime: 'application/octet-stream', cat: 'data', sig: [[0, '80371240']] },
+    { name: 'DOOM WAD', exts: ['wad'], mime: 'application/octet-stream', cat: 'data', sig: [[0, '49574144']] },
+    { name: 'DOOM PWAD', exts: ['wad'], mime: 'application/octet-stream', cat: 'data', sig: [[0, '50574144']] },
+];
+
+// MP3 裸流 frame sync（無 ID3 標籤時）
+DB.push({
+    name: 'MP3 音訊 (裸流)', exts: ['mp3'], mime: 'audio/mpeg', cat: 'audio', weak: true, sigLabel: 'MPEG frame sync (FF Ex/Fx)',
+    test: s => {
+        const h = s.head;
+        if (h.length < 4) return 0;
+        if (h[0] !== 0xFF || (h[1] & 0xE0) !== 0xE0) return 0;
+        const ver = (h[1] >> 3) & 3, layer = (h[1] >> 1) & 3, bitrate = (h[2] >> 4) & 0xF;
+        return (ver !== 1 && layer !== 0 && bitrate !== 0 && bitrate !== 0xF) ? 2 : 0;
+    },
+});
+
+/* ═══════════════ 文字類偵測 ═══════════════ */
+
+function sniffText(sample) {
+    const h = sample.head;
+    if (!h.length) return null;
+
+    let enc = null, start = 0;
+    if (matchAt(h, 0, [0xEF, 0xBB, 0xBF])) { enc = 'UTF-8 (BOM)'; start = 3; }
+    else if (matchAt(h, 0, [0xFF, 0xFE])) { enc = 'UTF-16 LE'; }
+    else if (matchAt(h, 0, [0xFE, 0xFF])) { enc = 'UTF-16 BE'; }
+
+    let text;
+    try {
+        if (enc === 'UTF-16 LE') text = new TextDecoder('utf-16le').decode(h.subarray(2, 4096));
+        else if (enc === 'UTF-16 BE') text = new TextDecoder('utf-16be').decode(h.subarray(2, 4096));
+        else text = new TextDecoder('utf-8', { fatal: true }).decode(h.subarray(start, Math.min(h.length, 4096)));
+    } catch (e) {
+        // 非合法 UTF-8 — 檢查是否仍是「可列印為主」的文字（如 Big5/Latin1）
+        let printable = 0, total = Math.min(h.length, 2048);
+        for (let i = 0; i < total; i++) {
+            const b = h[i];
+            if (b === 9 || b === 10 || b === 13 || (b >= 32 && b !== 127)) printable++;
+        }
+        if (printable / total > 0.92) {
+            return { name: '純文字 (非 UTF-8,可能是 Big5/Latin-1 等)', exts: TEXT_EXTS, mime: 'text/plain', cat: 'text', score: 1, textLike: true, sigLabel: '可列印字元比例 ' + Math.round(printable / total * 100) + '%' };
+        }
+        return null;
+    }
+
+    // 控制字元太多就不是文字
+    let ctrl = 0;
+    for (let i = 0; i < Math.min(text.length, 2048); i++) {
+        const c = text.charCodeAt(i);
+        if (c < 32 && c !== 9 && c !== 10 && c !== 13) ctrl++;
+    }
+    if (ctrl > Math.min(text.length, 2048) * 0.02) return null;
+
+    if (!enc) enc = /[-￿]/.test(text) ? 'UTF-8' : 'ASCII';
+    const t = text.replace(/^\s+/, '');
+    const tl = t.toLowerCase();
+    const mk = (name, exts, mime, label) => ({ name: name + ' — ' + enc, exts, mime, cat: 'text', score: 3, textLike: true, sigLabel: label });
+
+    if (tl.startsWith('<?xml')) {
+        if (tl.includes('<svg')) return mk('SVG 向量圖 (XML)', ['svg'], 'image/svg+xml', '<?xml + <svg');
+        if (tl.includes('<rss') || tl.includes('<feed')) return mk('RSS/Atom Feed (XML)', ['xml', 'rss', 'atom'], 'application/rss+xml', '<?xml + <rss/<feed');
+        if (tl.includes('<gpx')) return mk('GPX 航跡 (XML)', ['gpx'], 'application/gpx+xml', '<?xml + <gpx');
+        if (tl.includes('<kml')) return mk('KML 地圖 (XML)', ['kml'], 'application/vnd.google-earth.kml+xml', '<?xml + <kml');
+        if (tl.includes('<plist')) return mk('Apple Property List (XML)', ['plist'], 'application/x-plist', '<?xml + <plist');
+        if (tl.includes('http://schemas.microsoft.com/office')) return mk('Office XML 文件', ['xml'], 'text/xml', '<?xml + Office schema');
+        return mk('XML 文件', ['xml', 'xsd', 'xsl', 'config', 'csproj'], 'text/xml', '<?xml 宣告');
+    }
+    if (tl.startsWith('<svg')) return mk('SVG 向量圖', ['svg'], 'image/svg+xml', '<svg 開頭');
+    if (tl.startsWith('<!doctype html') || tl.startsWith('<html')) return mk('HTML 網頁', ['html', 'htm'], 'text/html', 'HTML doctype/標籤');
+    if (t.startsWith('%PDF')) return mk('PDF 文件 (文字開頭)', ['pdf'], 'application/pdf', '%PDF');
+    if (t.startsWith('#!')) {
+        const line1 = t.slice(0, t.indexOf('\n') === -1 ? 80 : t.indexOf('\n'));
+        let exts = ['sh'], name = 'Shell/Script 指令稿';
+        if (/python/i.test(line1)) { exts = ['py']; name = 'Python 指令稿'; }
+        else if (/node/i.test(line1)) { exts = ['js', 'mjs']; name = 'Node.js 指令稿'; }
+        else if (/perl/i.test(line1)) { exts = ['pl']; name = 'Perl 指令稿'; }
+        else if (/ruby/i.test(line1)) { exts = ['rb']; name = 'Ruby 指令稿'; }
+        else if (/bash|sh\b/i.test(line1)) { exts = ['sh', 'bash']; }
+        return mk(name + ' (' + line1.trim() + ')', exts, 'text/x-script', '#! shebang');
+    }
+    if (t.startsWith('-----BEGIN ')) {
+        const kind = (t.match(/-----BEGIN ([A-Z0-9 ]+)-----/) || [])[1] || '';
+        return mk('PEM 憑證/金鑰 (' + kind + ')', ['pem', 'crt', 'key', 'cer', 'pub', 'csr'], 'application/x-pem-file', '-----BEGIN');
+    }
+    if (t.startsWith('BEGIN:VCALENDAR')) return mk('iCalendar 行事曆', ['ics'], 'text/calendar', 'BEGIN:VCALENDAR');
+    if (t.startsWith('BEGIN:VCARD')) return mk('vCard 名片', ['vcf'], 'text/vcard', 'BEGIN:VCARD');
+    if (t.startsWith('#EXTM3U')) return mk('M3U 播放清單', ['m3u', 'm3u8'], 'audio/x-mpegurl', '#EXTM3U');
+    if (t.startsWith('WEBVTT')) return mk('WebVTT 字幕', ['vtt'], 'text/vtt', 'WEBVTT');
+    if (t.startsWith('Windows Registry Editor') || t.startsWith('REGEDIT4')) return mk('Windows 登錄檔匯出 (.reg)', ['reg'], 'text/plain', 'Windows Registry Editor');
+    if (tl.startsWith('solid ')) return mk('STL 3D 模型 (ASCII,或純文字)', ['stl', 'txt'], 'model/stl', 'solid 開頭');
+    if (/^\d+\s*\r?\n\d{2}:\d{2}:\d{2},\d{3}\s*-->/.test(t)) return mk('SRT 字幕', ['srt'], 'application/x-subrip', '序號 + 時間軸');
+    if (t[0] === '{' || t[0] === '[') {
+        try { JSON.parse(text.trim()); return mk('JSON 資料', ['json', 'jsonc', 'map', 'geojson'], 'application/json', 'JSON 解析成功'); }
+        catch (e) { /* 可能被截斷 — 用啟發式 */ }
+        if (/^[\{\[]\s*["\{\[\]0-9tfn-]/.test(t)) return mk('JSON 資料 (可能,前段符合)', ['json'], 'application/json', 'JSON 樣式開頭');
+    }
+    if (/^(from\s+\S+|import\s+\S+|def\s+\w+|class\s+\w+)/.test(t)) return mk('Python 原始碼 (推測)', ['py'], 'text/x-python', '語法特徵');
+    if (/^\s*(function|const|let|var|import|export)\s/.test(t)) return mk('JavaScript 原始碼 (推測)', ['js', 'mjs', 'ts'], 'text/javascript', '語法特徵');
+    if (/^(diff --git|--- |Index: )/.test(t)) return mk('Diff / Patch 檔', ['diff', 'patch'], 'text/x-diff', 'diff 標頭');
+    if (/^(\[[^\]\n]+\]\s*\r?\n)/.test(t) && /=/.test(t)) return mk('INI 設定檔 (推測)', ['ini', 'cfg', 'conf', 'inf'], 'text/plain', '[section] + key=value');
+
+    return { name: '純文字 — ' + enc, exts: TEXT_EXTS, mime: 'text/plain', cat: 'text', score: 1, textLike: true, sigLabel: '無二進位簽章,內容為可讀文字' };
+}
+
+const TEXT_EXTS = ['txt', 'text', 'log', 'md', 'markdown', 'csv', 'tsv', 'ini', 'cfg', 'conf', 'yml', 'yaml', 'toml', 'env', 'gitignore', 'srt', 'nfo', 'lst', 'properties', 'sql', 'bat', 'cmd', 'ps1'];
+
+// 已知「一定是二進位」的副檔名 → 文字內容配上這些副檔名要標警告
+const BINARY_EXTS = new Set();
+DB.forEach(d => { if (d.cat !== 'text') d.exts.forEach(e => BINARY_EXTS.add(e)); });
+['docx', 'xlsx', 'pptx', 'epub', 'apk', 'jar', 'heic', 'avif', 'mov', 'm4a', 'webp', 'wav', 'avi', 'mkv', 'webm', 'opus', 'doc', 'xls', 'ppt', 'msi', 'msg', 'cr3'].forEach(e => BINARY_EXTS.add(e));
+// .ts 常是 TypeScript、.dat/.bin/.db 太泛用 — 文字內容配這些副檔名不視為偽裝
+['ts', 'dat', 'bin', 'db'].forEach(e => BINARY_EXTS.delete(e));
+
+/* ═══════════════ 偵測主流程 ═══════════════ */
+
+function detect(sample) {
+    if (sample.size === 0) {
+        return { best: { name: '空檔案 (0 bytes)', exts: [], mime: '—', cat: 'other', score: 0, empty: true }, others: [] };
+    }
+    const matches = [];
+    for (const entry of DB) {
+        let score = 0, ok = true;
+        if (entry.test) {
+            score = entry.test(sample);
+            ok = score > 0;
+        } else {
+            for (const part of entry.sig) {
+                const off = part[0], needle = hexToBytes(part[1]);
+                const buf = off < 0 ? sample.tail : sample.head;
+                const realOff = off < 0 ? sample.tail.length + off : off;
+                if (!matchAt(buf, realOff, needle)) { ok = false; break; }
+                score += needle.filter(b => b !== -1).length;
+            }
+        }
+        if (ok && entry.verify && !entry.verify(sample)) ok = false;
+        if (!ok) continue;
+        if (entry.weak) score = Math.min(score, 2);
+
+        let result = { name: entry.name, exts: entry.exts, mime: entry.mime, cat: entry.cat, score, note: entry.note, sigLabel: entry.sigLabel, sig: entry.sig };
+        if (entry.refine) {
+            const r = entry.refine(sample);
+            if (r === false) continue;
+            if (r) result = Object.assign(result, r, { note: [result.note, r.note].filter(Boolean).join(' · ') });
+        }
+        matches.push(result);
+    }
+    matches.sort((a, b) => b.score - a.score);
+
+    const textResult = sniffText(sample);
+    // 二進位簽章夠強 → 用它;否則文字判讀優先於 2-byte 弱簽章
+    if (matches.length && matches[0].score >= 3) {
+        return { best: matches[0], others: matches.slice(1, 4), text: null };
+    }
+    if (textResult) {
+        return { best: textResult, others: matches.slice(0, 3) };
+    }
+    if (matches.length) {
+        return { best: matches[0], others: matches.slice(1, 4) };
+    }
+    return { best: { name: '未知的二進位格式', exts: [], mime: 'application/octet-stream', cat: 'other', score: 0, unknown: true }, others: [] };
+}
+
+/* ═══════════════ 檔案讀取 ═══════════════ */
+
+const HEAD_LEN = 262144, TAIL_LEN = 65536;
+
+function readSlice(blob) {
+    return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(new Uint8Array(fr.result));
+        fr.onerror = () => reject(fr.error || new Error('讀取失敗'));
+        fr.readAsArrayBuffer(blob);
+    });
+}
+
+async function makeSample(file) {
+    if (file.size <= HEAD_LEN + TAIL_LEN) {
+        const whole = await readSlice(file);
+        return { head: whole, tail: whole.subarray(Math.max(0, whole.length - TAIL_LEN)), size: file.size };
+    }
+    const [head, tail] = await Promise.all([
+        readSlice(file.slice(0, HEAD_LEN)),
+        readSlice(file.slice(file.size - TAIL_LEN)),
+    ]);
+    return { head, tail, size: file.size };
+}
+
+/* ═══════════════ UI ═══════════════ */
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const resultsEl = document.getElementById('results');
+const emptyHint = document.getElementById('emptyHint');
+const statusPill = document.getElementById('statusPill');
+const statusText = document.getElementById('statusText');
+const hexModal = document.getElementById('hexModal');
+const hexTitle = document.getElementById('hexTitle');
+const hexSub = document.getElementById('hexSub');
+const hexBody = document.getElementById('hexBody');
+
+let analyzed = 0;
+const hexStore = [];   // 每張卡片對應的 head bytes,供 hex modal 使用
+
+function setStatus(cls, msg) {
+    statusPill.className = 'status-pill ' + cls;
+    statusText.textContent = msg;
+}
+
+function claimedExt(name) {
+    const i = name.lastIndexOf('.');
+    if (i <= 0 || i === name.length - 1) return null;
+    const ext = name.slice(i + 1).toLowerCase();
+    return /^[a-z0-9_~-]{1,12}$/.test(ext) ? ext : null;
+}
+
+function verdictFor(det, ext) {
+    const best = det.best;
+    if (best.empty) return { cls: 'unknown', label: '空檔案' };
+    if (best.unknown) return { cls: 'unknown', label: '無法識別' };
+    if (!ext) return { cls: 'noext', label: '無副檔名' };
+    const extMatch = best.exts.some(e => e === ext);
+    if (extMatch) return { cls: 'match', label: '副檔名相符' };
+    if (best.textLike) {
+        if (BINARY_EXTS.has(ext)) return { cls: 'mismatch', label: '不符!內容其實是文字' };
+        return { cls: 'match', label: '文字內容,合理' };
+    }
+    if (best.score < 3) return { cls: 'unknown', label: '低信心,僅供參考' };
+    return { cls: 'mismatch', label: '副檔名不符!' };
+}
+
+function confBadge(score) {
+    if (score >= 6) return '<span class="conf hi">高信心</span>';
+    if (score >= 3) return '<span class="conf mid">中信心</span>';
+    return '<span class="conf lo">低信心</span>';
+}
+
+function hexPreviewHtml(head, best) {
+    const n = Math.min(16, head.length);
+    // 標示簽章命中的位元組（僅處理 head 內、offset ≥ 0 的簽章）
+    const hit = new Set();
+    if (best.sig) {
+        for (const part of best.sig) {
+            if (typeof part[1] !== 'string' || part[0] < 0) continue;
+            const bytes = hexToBytes(part[1]);
+            for (let i = 0; i < bytes.length; i++) if (bytes[i] !== -1) hit.add(part[0] + i);
+        }
+    }
+    let out = [];
+    for (let i = 0; i < n; i++) {
+        const b = head[i].toString(16).toUpperCase().padStart(2, '0');
+        out.push(hit.has(i) ? '<span class="hit">' + b + '</span>' : b);
+    }
+    return out.join(' ') + (head.length > n ? ' …' : '');
+}
+
+function render(file, det, headBytes) {
+    emptyHint.hidden = true;
+    const best = det.best;
+    const ext = claimedExt(file.name);
+    const v = verdictFor(det, ext);
+    const cat = CAT[best.cat] || CAT.other;
+
+    const idx = hexStore.length;
+    hexStore.push({ name: file.name, bytes: headBytes, size: file.size });
+
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.style.setProperty('--cat-color', cat.color);
+
+    const extHtml = ext
+        ? '<span class="ext-chip' + (v.cls === 'mismatch' ? ' bad' : '') + '">.' + esc(ext) + '</span>'
+        : '<span style="color:#94a3b8">（無）</span>';
+    const detectedExts = best.exts.length
+        ? best.exts.map(e => '<span class="ext-chip">.' + esc(e) + '</span>').join(' ')
+        : '<span style="color:#94a3b8">—</span>';
+    const othersHtml = (det.others && det.others.length)
+        ? '<dt>其他可能</dt><dd>' + det.others.map(o => esc(o.name)).join('、') + '</dd>'
+        : '';
+    const sigLabelHtml = best.sigLabel ? ' <span style="color:#94a3b8;font-size:11px">(' + esc(best.sigLabel) + ')</span>' : '';
+
+    card.innerHTML =
+        '<div class="fc-head">' +
+            '<span class="fc-name">' + esc(file.name) + '</span>' +
+            '<span class="fc-size">' + fmtSize(file.size) + '</span>' +
+            '<span class="verdict ' + v.cls + '">' + esc(v.label) + '</span>' +
+        '</div>' +
+        '<dl class="fc-body">' +
+            '<dt>偵測結果</dt><dd><span class="big">' + esc(best.name) + '</span>' + confBadge(best.score) +
+                ' <span style="color:#94a3b8;font-size:11px">' + esc(cat.label) + '</span></dd>' +
+            '<dt>真實副檔名</dt><dd>' + detectedExts + '</dd>' +
+            '<dt>宣告副檔名</dt><dd>' + extHtml + '</dd>' +
+            '<dt>MIME</dt><dd style="font-family:ui-monospace,Consolas,monospace">' + esc(best.mime || '—') + '</dd>' +
+            '<dt>Magic Bytes</dt><dd><span class="magic-hex">' + hexPreviewHtml(headBytes, best) + '</span>' + sigLabelHtml + '</dd>' +
+            othersHtml +
+        '</dl>' +
+        (best.note ? '<div class="fc-note">💡 ' + esc(best.note) + '</div>' : '') +
+        '<div class="fc-actions"><button type="button" class="mini-btn" data-hex="' + idx + '">🔍 Hex 檢視 (前 512 bytes)</button></div>';
+
+    resultsEl.prepend(card);
+}
+
+function renderError(file, msg) {
+    emptyHint.hidden = true;
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.style.setProperty('--cat-color', '#b91c1c');
+    card.innerHTML =
+        '<div class="fc-head">' +
+            '<span class="fc-name">' + esc(file.name) + '</span>' +
+            '<span class="verdict mismatch">讀取失敗</span>' +
+        '</div>' +
+        '<div class="fc-note">' + esc(msg) + '（拖進來的可能是資料夾,或檔案已被移動）</div>';
+    resultsEl.prepend(card);
+}
+
+async function handleFiles(files) {
+    if (!files || !files.length) return;
+    setStatus('busy', '分析中…');
+    for (const file of files) {
+        try {
+            const sample = await makeSample(file);
+            const det = detect(sample);
+            render(file, det, sample.head.subarray(0, 512));
+            analyzed++;
+        } catch (e) {
+            renderError(file, e && e.message ? e.message : '無法讀取檔案');
+        }
+    }
+    setStatus('ok', '已分析 ' + analyzed + ' 個檔案');
+}
+
+/* ── 事件 ── */
+
+dropzone.addEventListener('click', () => fileInput.click());
+document.getElementById('pickBtn').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => { handleFiles([...fileInput.files]); fileInput.value = ''; });
+
+['dragenter', 'dragover'].forEach(ev => {
+    dropzone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover'); });
+});
+['dragleave', 'drop'].forEach(ev => {
+    dropzone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover'); });
+});
+dropzone.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
+
+// 拖到頁面其他地方不要讓瀏覽器直接開檔
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+// Ctrl+V 貼上檔案
+document.addEventListener('paste', e => {
+    const files = [...(e.clipboardData ? e.clipboardData.files : [])];
+    if (files.length) handleFiles(files);
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+    resultsEl.querySelectorAll('.file-card').forEach(el => el.remove());
+    hexStore.length = 0;
+    analyzed = 0;
+    emptyHint.hidden = false;
+    setStatus('idle', '拖曳檔案以偵測');
+});
+
+/* ── Hex modal ── */
+
+resultsEl.addEventListener('click', e => {
+    const btn = e.target.closest('[data-hex]');
+    if (!btn) return;
+    const item = hexStore[+btn.dataset.hex];
+    if (!item) return;
+    hexTitle.textContent = item.name;
+    hexSub.textContent = fmtSize(item.size) + ' · 前 ' + Math.min(512, item.bytes.length) + ' bytes';
+    hexBody.innerHTML = hexDump(item.bytes);
+    hexModal.classList.add('show');
+});
+document.getElementById('hexClose').addEventListener('click', () => hexModal.classList.remove('show'));
+hexModal.addEventListener('click', e => { if (e.target === hexModal) hexModal.classList.remove('show'); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hexModal.classList.remove('show'); });
+
+function hexDump(bytes) {
+    const n = Math.min(512, bytes.length);
+    let lines = [];
+    for (let row = 0; row < n; row += 16) {
+        const off = row.toString(16).toUpperCase().padStart(8, '0');
+        let hex = '', asc = '';
+        for (let i = row; i < row + 16; i++) {
+            if (i < n) {
+                hex += bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';
+                asc += (bytes[i] >= 32 && bytes[i] < 127) ? String.fromCharCode(bytes[i]) : '·';
+            } else {
+                hex += '   ';
+                asc += ' ';
+            }
+            if (i - row === 7) hex += ' ';
+        }
+        lines.push('<span class="off">' + off + '</span>  ' + esc(hex) + ' <span class="asc">' + esc(asc) + '</span>');
+    }
+    return lines.join('\n') || '(空檔案)';
+}
+
+setStatus('idle', '拖曳檔案以偵測');
+</script>
+</body>
+</html>
