@@ -43,7 +43,7 @@
   /* ── 求籤設定 ── */
   .ask-input {
     width: 100%; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; outline: none;
-    margin-bottom: 12px;
+    margin: 12px 0 0;
   }
   .ask-input:focus { border-color: #b91c1c; box-shadow: 0 0 0 3px rgba(185,28,28,.1); }
   .seg { display: flex; background: #f1f5f9; padding: 4px; border-radius: 11px; gap: 4px; }
@@ -55,6 +55,14 @@
   .seg button.on { background: #fff; color: #b91c1c; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
   .seg button:disabled { opacity: .5; cursor: not-allowed; }
   .mode-hint { font-size: 12.5px; color: #64748b; line-height: 1.8; margin-top: 9px; }
+  .topic-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+  .topic-btn {
+    border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px; padding: 10px 6px; cursor: pointer;
+    font-size: 13.5px; font-weight: 600; color: #475569; transition: .13s; text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .topic-btn:hover { border-color: #b91c1c; color: #b91c1c; }
+  .topic-btn.on { background: #b91c1c; border-color: #b91c1c; color: #fff; box-shadow: 0 3px 10px rgba(185,28,28,.3); }
 
   /* ══════════ 舞台 ══════════ */
   .stage {
@@ -224,8 +232,9 @@
     60% { transform: rotateY(-10deg) scale(1.03); opacity: 1; }
     100%{ transform: rotateY(0) scale(1); opacity: 1; }
   }
-  .slip-top { font-size: 12px; color: #fcd34d; letter-spacing: .3em; padding-bottom: 8px; margin-bottom: 10px;
+  .slip-top { font-size: 12px; color: #fcd34d; letter-spacing: .3em; padding-bottom: 8px; margin-bottom: 8px;
     border-bottom: 1px solid rgba(251,191,36,.4); }
+  .slip-ask { font-size: 11px; color: #fcd34d; letter-spacing: .18em; margin-bottom: 6px; opacity: .9; }
   .slip-sym { font-size: 60px; line-height: 1.1; color: #fde68a; text-shadow: 0 0 22px rgba(253,224,71,.6); }
   .slip-name { font-size: 22px; font-weight: 800; color: #fff7ed; margin: 6px 0 8px; letter-spacing: .06em; }
   .slip-lv { display: inline-block; margin-bottom: 9px; }
@@ -266,8 +275,25 @@
   .lv-中下 { background: #fef3c7; color: #b45309; } .lv-下 { background: #ffedd5; color: #c2410c; }
   .lv-下下 { background: #fee2e2; color: #b91c1c; }
 
-  .ask-echo { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 9px 13px;
-    font-size: 13.5px; color: #475569; margin-bottom: 12px; line-height: 1.8; }
+  /* ── 所求焦點解讀 ── */
+  .focus-box { background: linear-gradient(135deg, #fef2f2, #fff7ed); border: 1.5px solid #fca5a5;
+    border-radius: 12px; padding: 13px 16px; margin-bottom: 12px; }
+  .focus-box .fb-q { font-size: 12.5px; color: #9a3412; margin-bottom: 6px; }
+  .focus-box .fb-t { font-size: 13.5px; font-weight: 800; color: #b91c1c; margin-bottom: 7px; }
+  .focus-box .fb-b { font-size: 14.5px; color: #431407; line-height: 2; }
+  .fb-sec { margin-top: 4px; }
+  .fb-lab { display: inline-block; font-size: 11.5px; font-weight: 800; color: #9a3412; background: #ffedd5;
+    border: 1px solid #fed7aa; border-radius: 6px; padding: 1px 9px; margin-bottom: 4px; }
+  .fb-sec.after .fb-lab { color: #3730a3; background: #eef2ff; border-color: #c7d2fe; }
+  .fb-arrow { text-align: center; font-size: 12px; color: #b91c1c; font-weight: 700; margin: 8px 0; }
+  .focus-box .m-trend { margin-top: 10px; }
+  details.others { margin-bottom: 12px; }
+  details.others summary { cursor: pointer; font-size: 13px; color: #64748b; font-weight: 600; background: #f8fafc;
+    border: 1px solid #e2e8f0; border-radius: 9px; padding: 9px 12px; list-style: none;
+    -webkit-tap-highlight-color: transparent; }
+  details.others summary::before { content: "▸ "; color: #b91c1c; }
+  details.others[open] summary::before { content: "▾ "; }
+  details.others .cat-grid { margin-top: 10px; margin-bottom: 0; }
   .guide-box { background: linear-gradient(180deg, #fffbeb, #fef3c7); border: 1px solid #fcd34d; border-radius: 12px;
     padding: 13px 15px; margin-bottom: 12px; }
   .guide-rule { font-size: 13px; font-weight: 700; color: #92400e; line-height: 1.9; }
@@ -276,6 +302,7 @@
   .read.main { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.16); }
   .read .rl { display: block; font-size: 11px; font-weight: 700; color: #b45309; margin-bottom: 2px; letter-spacing: .05em; }
   .read.main .rl::after { content: "（為主）"; color: #d97706; }
+  .guide-sub { font-size: 12px; color: #a16207; margin-top: 5px; line-height: 1.8; }
 
   .ci-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 14px;
     font-size: 15px; color: #78350f; line-height: 1.9; margin-bottom: 12px; }
@@ -323,7 +350,22 @@
   .arrow-line::after { content: ""; position: absolute; right: -9px; top: -5px;
     border: 8px solid transparent; border-left: 11px solid #f59e0b; }
   @keyframes dashFlow { to { background-position: 18px 0; } }
-  .m-ci { font-size: 12.5px; color: #64748b; line-height: 1.8; text-align: center; margin-top: 11px; }
+  .m-exp { margin-top: 13px; border-top: 1px dashed #e2e8f0; padding-top: 12px;
+    display: flex; flex-direction: column; gap: 9px; }
+  .st-block { border-radius: 10px; padding: 10px 13px; font-size: 13px; line-height: 1.9; color: #475569; }
+  .st-before { background: #f8fafc; border: 1px solid #e2e8f0; }
+  .st-after { background: #fffbeb; border: 1px solid #fde68a; }
+  .st-t { display: block; font-weight: 800; font-size: 13px; margin-bottom: 3px; }
+  .st-before .st-t { color: #475569; }
+  .st-after .st-t { color: #b45309; }
+  .st-mean { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #fde68a; color: #57534e; line-height: 1.95; }
+  .st-turn { text-align: center; font-size: 12.5px; color: #b91c1c; font-weight: 700; line-height: 1.8; }
+  .st-turn .dn { display: block; font-size: 15px; animation: turnBounce 1.4s ease-in-out infinite; }
+  @keyframes turnBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+  .m-trend { font-size: 13px; color: #3730a3; background: #eef2ff; border: 1px solid #c7d2fe;
+    border-radius: 9px; padding: 9px 12px; line-height: 1.85; }
+  .m-ci { background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; padding: 8px 12px;
+    font-size: 13px; color: #78350f; line-height: 1.9; }
   .zlink { display: inline-block; font-size: 13px; color: #b91c1c; text-decoration: none; font-weight: 600;
     border: 1px solid #fecaca; border-radius: 8px; padding: 7px 13px; margin-top: 8px; }
   .zlink:hover { background: #fef2f2; }
@@ -339,6 +381,37 @@
   .howto { font-size: 12.5px; color: #475569; line-height: 2; margin-top: 8px; }
   .howto b { color: #1e293b; }
   .howto .hl { background: #fffbeb; border-radius: 5px; padding: 0 5px; }
+
+  /* ── 布幕過場 ── */
+  .curtain { position: fixed; inset: 0; z-index: 100; visibility: hidden; pointer-events: none; }
+  .curtain.act { visibility: visible; pointer-events: all; }
+  .cpanel { position: absolute; top: 0; bottom: 0; width: 51%;
+    background:
+      linear-gradient(rgba(0,0,0,.3), rgba(0,0,0,.04) 16%, rgba(0,0,0,.04) 82%, rgba(0,0,0,.4)),
+      repeating-linear-gradient(90deg, #7a1616 0 18px, #a32222 18px 40px, #7a1616 40px 58px);
+    transition: transform .75s cubic-bezier(.72,0,.28,1);
+    box-shadow: 0 0 40px rgba(0,0,0,.5);
+  }
+  .cpanel.left  { left: 0;  transform: translateX(-101%); border-right: 3px solid #d97706; }
+  .cpanel.right { right: 0; transform: translateX(101%);  border-left: 3px solid #d97706; }
+  .curtain.closed .cpanel.left, .curtain.closed .cpanel.right { transform: translateX(0); }
+  .cemblem { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.82);
+    text-align: center; opacity: 0; transition: .4s .18s; z-index: 2; pointer-events: none; }
+  .curtain.closed .cemblem { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  .cring { width: 76px; height: 76px; border-radius: 50%; border: 3px solid #fbbf24; color: #fde68a;
+    font-size: 34px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px; background: rgba(0,0,0,.28);
+    box-shadow: 0 0 26px rgba(251,191,36,.45), inset 0 0 14px rgba(251,191,36,.25); }
+  .cemblem .ct { color: #fde68a; font-size: 21px; font-weight: 800; letter-spacing: .35em; text-indent: .35em; }
+  .cemblem .cs { color: #fcd34d; font-size: 13px; letter-spacing: .2em; margin-top: 7px; }
+
+  /* ── 求籤場景匾額 ── */
+  .plaque { margin: 0 auto 12px; max-width: 560px; text-align: center;
+    background: linear-gradient(180deg, #3f1d0a, #2a1206); border: 2px solid #b45309; border-radius: 10px;
+    padding: 10px 18px; color: #fde68a; font-weight: 800; font-size: 15.5px; letter-spacing: .18em;
+    box-shadow: inset 0 0 18px rgba(0,0,0,.5), 0 4px 12px rgba(0,0,0,.22); }
+  .plaque small { display: block; font-size: 11.5px; color: #fcd34d; font-weight: 400;
+    letter-spacing: .1em; margin-top: 4px; }
 
   /* ── 手機版 ── */
   @media (max-width: 640px) {
@@ -374,6 +447,9 @@
     .morph-row { gap: 12px; }
     .hexpic.mini .yline { width: 52px; }
     .arrow-line { width: 40px; }
+    .topic-btns { grid-template-columns: repeat(2, 1fr); }
+    .topic-btn { font-size: 13px; padding: 10px 4px; }
+    .focus-box .fb-b { font-size: 13.5px; }
   }
   /* 手機版搖晃幅度小一點（元素已縮放） */
   @keyframes tubeShakeS {
@@ -398,17 +474,29 @@
 
 <div class="page-content">
 
-  <div class="card">
-    <h2><span class="ic">問</span>誠心一問</h2>
-    <input class="ask-input" id="ask" maxlength="60" placeholder="想問的事（可留空）例：這份工作該不該換？" autocomplete="off">
-    <div class="seg">
-      <button id="segStick" class="on">🎋 搖籤筒（快抽一卦）</button>
-      <button id="segCoin">🪙 金錢卦（六擲成卦・有變爻）</button>
+  <section id="scrSetup">
+    <div class="card">
+      <h2><span class="ic">1</span>所求何事<span style="font-size:11.5px;font-weight:400;color:#94a3b8">一籤問一事——先選定，籤才問得準</span></h2>
+      <div class="topic-btns" id="topicBtns"></div>
+      <input class="ask-input" id="ask" maxlength="60" placeholder="補充具體情境（可留空）例：與 A 公司的合作案" autocomplete="off">
     </div>
-    <div class="mode-hint" id="modeHint">默想所問之事，點「開始搖籤」——籤筒將搖出六十四卦靈籤一支。</div>
-  </div>
+    <div class="card">
+      <h2><span class="ic">2</span>求籤方式</h2>
+      <div class="seg">
+        <button id="segStick" class="on">🎋 搖籤筒（快抽一卦）</button>
+        <button id="segCoin">🪙 金錢卦（六擲成卦・有變爻）</button>
+      </div>
+      <div class="mode-hint" id="modeHint">籤筒將搖出六十四卦靈籤一支，以整卦解讀所求之事。</div>
+    </div>
+    <div class="ctrl-row" style="margin:2px 0 6px">
+      <button class="btn-main" id="startBtn" disabled>🙏 開始求籤</button>
+    </div>
+    <div class="cap" id="startHint" style="text-align:center;margin-bottom:10px">請先在上方選擇所求之事</div>
+  </section>
 
+  <section id="scrDraw" hidden>
   <div class="card">
+    <div class="plaque" id="plaque">求問</div>
     <div class="stage" id="stage">
       <span class="wm">䷀</span>
       <div class="amb"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -441,11 +529,12 @@
         <div class="burst" id="burst"></div>
         <div class="slip" id="slip" title="點我看詳解">
           <div class="slip-top" id="slipTop">第 一 籤</div>
+          <div class="slip-ask" id="slipAsk"></div>
           <div class="slip-sym" id="slipSym">䷀</div>
           <div class="slip-name" id="slipName">乾為天</div>
           <div class="slip-lv"><span class="lv" id="slipLv">上上籤</span></div>
           <div class="slip-ci" id="slipCi"></div>
-          <div class="slip-tap">— 點籤紙看詳解 —</div>
+          <div class="slip-tap">— 點籤紙・開籤解籤 —</div>
         </div>
       </div>
     </div>
@@ -453,16 +542,23 @@
     <div class="ctrl-row">
       <button class="btn-main" id="mainBtn">🎋 開始搖籤</button>
       <button class="btn-ghost" id="fastBtn" hidden>⏩ 自動擲完六爻</button>
-      <button class="btn-ghost" id="againBtn" hidden>🔄 再抽一次</button>
-      <button class="btn-ghost" id="detailBtn" hidden>📜 查看解籤 ↓</button>
+      <button class="btn-main" id="openBtn" hidden>📜 開籤解籤</button>
+      <button class="btn-ghost" id="redoBtn" hidden>🔄 重新起卦</button>
     </div>
   </div>
+  </section>
 
+  <section id="scrResult" hidden>
   <div class="card" id="resultCard" hidden>
     <h2><span class="ic">解</span>解籤</h2>
     <div id="result"></div>
   </div>
+  <div class="ctrl-row" style="margin-bottom:14px">
+    <button class="btn-main" id="newBtn">🙏 再求一籤</button>
+  </div>
+  </section>
 
+  <section id="scrInfo">
   <div class="card">
     <details>
       <summary class="howto-sum">📖 兩種抽法差在哪？金錢卦規則（點開）</summary>
@@ -481,7 +577,17 @@
     卦辭爻辭照《周易》原文，解讀資料與 <a href="./index.htm" style="color:#4338ca">六十四卦查表</a> 同源。<br>
     易占為自省與參考之用，重大決定仍請理性判斷——路在自己腳下。
   </div>
+  </section>
 
+</div>
+
+<div class="curtain" id="curtain">
+  <div class="cpanel left"></div><div class="cpanel right"></div>
+  <div class="cemblem">
+    <div class="cring">籤</div>
+    <div class="ct" id="cembTitle">誠心祈願</div>
+    <div class="cs" id="cembSub"></div>
+  </div>
 </div>
 
 <script src="./gua-data.js"></script>
@@ -490,6 +596,11 @@ const $=s=>document.querySelector(s);
 const shortName=g=>g.up===g.down?g.name[0]:g.name.slice(2);
 const symOf=g=>String.fromCodePoint(0x4DC0+g.seq-1);
 const POS=["初","二","三","四","五","上"];
+const TOPICS=[
+  {k:"love",ic:"💘",nm:"愛情婚姻"},{k:"career",ic:"💼",nm:"事業工作"},{k:"study",ic:"📚",nm:"學業考試"},
+  {k:"money",ic:"💰",nm:"財運"},{k:"health",ic:"🩺",nm:"健康"},{k:"travel",ic:"✈️",nm:"出行"},
+  {k:"all",ic:"🔮",nm:"綜合運勢"}];
+const topicOf=()=>TOPICS.find(t=>t.k===topic);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function rnd(n){
   if(window.crypto&&crypto.getRandomValues){const u=new Uint32Array(1);crypto.getRandomValues(u);return u[0]%n;}
@@ -502,8 +613,49 @@ function findByLines(l6){
   return GUA64.find(g=>g.up===up&&g.down===down);
 }
 
-let mode="stick", busy=false, done=false;
+let mode="stick", busy=false, done=false, topic=null, curtainOn=false;
 let lines=[], tossIdx=0, coinDeg=[0,0,0];
+
+/* ── 場景切換與布幕過場 ── */
+function showScreen(s){
+  $("#scrSetup").hidden = s!=="setup";
+  $("#scrInfo").hidden  = s!=="setup";
+  $("#scrDraw").hidden  = s!=="draw";
+  $("#scrResult").hidden= s!=="result";
+  window.scrollTo(0,0);
+}
+function curtainTo(title,sub,midFn){
+  return new Promise(res=>{
+    curtainOn=true;
+    const c=$("#curtain");
+    $("#cembTitle").textContent=title;
+    $("#cembSub").textContent=sub||"";
+    c.classList.add("act");
+    requestAnimationFrame(()=>requestAnimationFrame(()=>c.classList.add("closed")));
+    setTimeout(()=>{ if(midFn) midFn(); },900);
+    setTimeout(()=>{ c.classList.remove("closed"); },1600);
+    setTimeout(()=>{ c.classList.remove("act"); curtainOn=false; res(); },2450);
+  });
+}
+function setPlaque(){
+  const t=topicOf(); if(!t) return;
+  let q=$("#ask").value.trim().replace(/</g,"&lt;");
+  if(q.length>24) q=q.slice(0,24)+"…";
+  $("#plaque").innerHTML=`求問・${t.nm}<small>${mode==="stick"?"搖籤筒抽卦":"金錢卦六擲"}${q?"・"+q:""}</small>`;
+}
+function goDraw(){
+  if(!topic||curtainOn) return;
+  const t=topicOf();
+  curtainTo("誠心祈願",`求問・${t.nm}`,()=>{ showScreen("draw"); reset(); setPlaque(); });
+}
+function goResult(){
+  if(!done||curtainOn) return;
+  curtainTo("開籤",`${topicOf()?topicOf().nm:""}・解曰分明`,()=>{ showScreen("result"); });
+}
+function goSetup(){
+  if(curtainOn) return;
+  curtainTo("再求一籤","心誠則靈",()=>{ showScreen("setup"); reset(); });
+}
 
 /* ── 硬幣 DOM ── */
 function buildCoins(){
@@ -518,15 +670,26 @@ function buildBuilder(){
     <div class="slot" id="slot${i}"><span class="pos">${p}爻</span><span class="bar-empty"></span></div>`).join("");
 }
 
-/* ── 模式切換／重置 ── */
+/* ── 主題／模式選擇 ── */
+function buildTopics(){
+  const box=$("#topicBtns");
+  box.innerHTML=TOPICS.map(t=>`<button class="topic-btn" data-k="${t.k}">${t.ic} ${t.nm}</button>`).join("");
+  box.addEventListener("click",e=>{
+    const b=e.target.closest(".topic-btn"); if(!b||busy||curtainOn) return;
+    topic=b.dataset.k;
+    document.querySelectorAll(".topic-btn").forEach(x=>x.classList.toggle("on",x.dataset.k===topic));
+    $("#startBtn").disabled=false;
+    $("#startHint").textContent=`所求：${topicOf().nm}——準備好就按「開始求籤」`;
+  });
+}
 function setMode(m){
-  if(busy) return;
+  if(busy||curtainOn) return;
   mode=m;
   $("#segStick").classList.toggle("on",m==="stick");
   $("#segCoin").classList.toggle("on",m==="coin");
   $("#modeHint").textContent = m==="stick"
-    ? "默想所問之事，點「開始搖籤」——籤筒將搖出六十四卦靈籤一支。"
-    : "默想所問之事，三枚硬幣共擲六次，由初爻起、由下而上成卦；三枚同面即為動爻。";
+    ? "籤筒將搖出六十四卦靈籤一支，以整卦解讀所求之事。"
+    : "三枚硬幣共擲六次、由下而上成卦；擲出動爻可看出局勢「本來→後來」的變化，解讀更細。";
   reset();
 }
 function reset(){
@@ -535,11 +698,14 @@ function reset(){
   $("#resultCard").hidden=true;
   $("#stage").classList.remove("shaking","lv-good","lv-mid","lv-low");
   $("#chosenStick").classList.remove("rise");
-  $("#stickHint").textContent="默想所問之事，點下方「開始搖籤」";
+  const tn=topic?topicOf().nm:null;
+  $("#stickHint").textContent=tn?`為您求問「${tn}」——默想具體情境，點下方「開始搖籤」`:"默想所問之事，點下方「開始搖籤」";
   $("#sceneStick").hidden = mode!=="stick";
   $("#sceneCoin").hidden = mode!=="coin";
   buildBuilder();
-  $("#tossMsg").innerHTML=`第 <b>1</b> 擲：定<b>初爻</b>——點下方按鈕擲硬幣`;
+  $("#tossMsg").innerHTML=tn
+    ?`為您求問「${tn}」——第 <b>1</b> 擲定<b>初爻</b>，點下方按鈕擲硬幣`
+    :`第 <b>1</b> 擲：定<b>初爻</b>——點下方按鈕擲硬幣`;
   updateButtons();
 }
 function updateButtons(){
@@ -552,8 +718,9 @@ function updateButtons(){
     $("#fastBtn").hidden = done;
     $("#fastBtn").disabled = busy;
   }
-  $("#againBtn").hidden = !done;
-  $("#detailBtn").hidden = !done;
+  $("#openBtn").hidden = !done;
+  $("#redoBtn").hidden = !done;
+  $("#redoBtn").disabled = busy;
 }
 
 /* ── 搖籤筒 ── */
@@ -632,7 +799,6 @@ function finish(g1,g2,movs,how){
   showReveal(g1);
   renderResult(g1,g2,movs,how);
   done=true; busy=false; updateButtons();
-  setTimeout(()=>{ if(done) scrollToResult(); },2200);
 }
 function showReveal(g){
   const stage=$("#stage");
@@ -641,6 +807,7 @@ function showReveal(g){
   stage.classList.remove("lv-good","lv-mid","lv-low");
   stage.classList.add(good?"lv-good":low?"lv-low":"lv-mid");
   $("#slipTop").textContent=`《周易》第 ${g.seq} 卦`;
+  $("#slipAsk").textContent=topic?`問・${topicOf().nm}`:"";
   $("#slipSym").textContent=symOf(g);
   $("#slipName").textContent=g.name;
   const lv=$("#slipLv");
@@ -698,8 +865,39 @@ function morphBoxHTML(g1,g2,movs){
       <div class="morph-col"><span class="mlab">之卦</span>${right}
         <span class="mname">${g2.name} <span class="lv lv-${g2.level}">${g2.level}卦</span></span></div>
     </div>
-    <div class="m-ci">之卦卦辭——${shortName(g2)}：${g2.ci}</div>
-    <div class="more-row"><a class="zlink" href="./index.htm#${g2.seq}">📖 查之卦（${g2.name}）詳解 →</a></div>
+    <div class="m-exp">
+      <div class="st-turn">⚡ ${movs.map(i=>`${POS[i]}爻${lines[i].v?"陽極轉陰":"陰極轉陽"}`).join("、")}——陰陽反轉，本卦變出之卦<span class="dn">▼</span></div>
+      ${topic==="all"?`<div class="st-block st-after"><span class="st-t">之卦白話——${g2.name}（${g2.level}卦）</span>${g2.mean}</div>`:""}
+      <div class="m-ci"><b>之卦卦辭</b>　${shortName(g2)}：${g2.ci}</div>
+    </div>
+    <div class="more-row"><a class="zlink" href="./index.htm#${g2.seq}">📖 查之卦（${g2.name}）完整解讀 →</a></div>
+  </div>`;
+}
+const LV_RANK={"上上":7,"上":6,"中上":5,"中":4,"中下":3,"下":2,"下下":1};
+function trendText(g1,g2){
+  const r1=LV_RANK[g1.level], r2=LV_RANK[g2.level];
+  if(r2>r1) return `📈 籤勢由「${g1.level}」轉「${g2.level}」——漸入佳境：眼前的變動對你有利，別怕局面鬆動，順著動爻指出的方向走，後勢比現在好。`;
+  if(r2<r1) return `📉 籤勢由「${g1.level}」轉「${g2.level}」——先盛後收：現況看似${g1.level==="上上"||g1.level==="上"?"不錯":"尚可"}，但正朝弱處變化；動爻是預警，及早調整、莫戀眼前，替後勢留退路。`;
+  return `➡️ 本卦與之卦同為「${g1.level}」——大格局未變，成敗全繫於動爻那一步：把取斷指引的那段話放在心上。`;
+}
+function focusBoxHTML(g1,g2,movs){
+  const t=topicOf();
+  const q=$("#ask").value.trim().replace(/</g,"&lt;");
+  const qLine=q?`<div class="fb-q">所問：${q}</div>`:"";
+  const key=topic==="all"?null:topic;
+  const now=key?g1[key]:g1.tip;
+  if(!g2||!movs.length){
+    return `<div class="focus-box">${qLine}
+      <div class="fb-t">🎯 針對你所求——${t.ic} ${t.nm}</div>
+      <div class="fb-b">${now}</div></div>`;
+  }
+  const later=key?g2[key]:g2.tip;
+  return `<div class="focus-box">${qLine}
+    <div class="fb-t">🎯 針對你所求——${t.ic} ${t.nm}（有動爻，局面會變）</div>
+    <div class="fb-sec"><span class="fb-lab">本來（本卦 ${g1.name}）</span><div class="fb-b">${now}</div></div>
+    <div class="fb-arrow">動爻牽動，局面轉變 ▼</div>
+    <div class="fb-sec after"><span class="fb-lab">後來走向（之卦 ${g2.name}）</span><div class="fb-b">${later}</div></div>
+    <div class="m-trend">${trendText(g1,g2)}</div>
   </div>`;
 }
 function buildGuidance(g1,g2,movs){
@@ -728,12 +926,12 @@ function buildGuidance(g1,g2,movs){
     else if(g1.seq===2){ rule="六爻全變：坤卦六爻皆動，以「用六」取斷。"; reads=[{label:"本卦 用六",text:g1.yao[6],main:true}]; }
     else{ rule=`六爻全變：以之卦（${g2.name}）卦辭取斷。`; reads=[ciRead(g2,"之卦",true)]; }
   }
-  return `<div class="guide-box"><div class="guide-rule">🧭 取斷指引（朱熹《易學啟蒙》法）——${rule}</div>`+
+  const sub=n>0?`<div class="guide-sub">有動爻＝這一籤是「會變化的局」：本卦說目前的處境、之卦說事情後來的走向——「本來→後來」已依你所求整理在上方；動爻的變化動畫與之卦卦辭見下方變卦區。</div>`:"";
+  return `<div class="guide-box"><div class="guide-rule">🧭 取斷指引（朱熹《易學啟蒙》法）——${rule}</div>${sub}`+
     reads.map(r=>`<div class="read ${r.main?"main":""}"><span class="rl">${r.label}</span>${r.text}</div>`).join("")+`</div>`;
 }
 const CATS=[["💘 愛情婚姻","love"],["💼 事業工作","career"],["📚 學業考試","study"],["💰 財運","money"],["🩺 健康","health"],["✈️ 出行","travel"]];
 function renderResult(g1,g2,movs,how){
-  const q=$("#ask").value.trim();
   const movTxt=mode==="coin" ? "　·　動爻："+(movs.length?movs.map(i=>POS[i]+"爻").join("、"):"無") : "";
   let html=`
     <div class="detail-head">
@@ -744,32 +942,37 @@ function renderResult(g1,g2,movs,how){
         <div class="dh-sub">《周易》第 ${g1.seq} 卦　·　上${g1.up}${TRIG[g1.up].sym}（${TRIG[g1.up].nat}）　下${g1.down}${TRIG[g1.down].sym}（${TRIG[g1.down].nat}）<br>${how}所得${movTxt}</div>
       </div>
     </div>`;
-  if(q) html+=`<div class="ask-echo">🙏 所問：${q.replace(/</g,"&lt;")}</div>`;
+  html+=focusBoxHTML(g1,g2,movs);
   if(mode==="coin") html+=buildGuidance(g1,g2,movs);
   html+=`
     <div class="ci-box"><b>卦辭</b>${shortName(g1)}：${g1.ci}</div>
-    <div class="mean-box">${g1.mean}</div>
-    <div class="cat-grid">${CATS.map(([lb,k])=>`<div class="cat"><div class="ct">${lb}</div><div class="cb">${g1[k]}</div></div>`).join("")}</div>
-    <div class="tip-box">💡 <b>一句話</b>：${g1.tip}</div>`;
+    <div class="mean-box">${g1.mean}</div>`;
+  if(topic==="all"){
+    html+=`<div class="cat-grid">${CATS.map(([lb,k])=>`<div class="cat"><div class="ct">${lb}</div><div class="cb">${g1[k]}</div></div>`).join("")}</div>`;
+  }else{
+    html+=`<details class="others"><summary>其他面向解讀（參考）</summary>
+      <div class="cat-grid">${CATS.filter(([lb,k])=>k!==topic).map(([lb,k])=>`<div class="cat"><div class="ct">${lb}</div><div class="cb">${g1[k]}</div></div>`).join("")}</div>
+    </details>`;
+  }
+  html+=`<div class="tip-box">💡 <b>一句話</b>：${g1.tip}</div>`;
   if(g2) html+=morphBoxHTML(g1,g2,movs);
   html+=`<div class="more-row"><a class="more-link" href="./index.htm#${g1.seq}">📖 查看本卦完整爻辭與傳統像意 →</a></div>`;
   $("#result").innerHTML=html;
   $("#resultCard").hidden=false;
 }
-function scrollToResult(){
-  $("#resultCard").scrollIntoView({behavior:"smooth",block:"start"});
-}
 
 /* ── 事件 ── */
 $("#segStick").onclick=()=>setMode("stick");
 $("#segCoin").onclick=()=>setMode("coin");
-$("#mainBtn").onclick=()=>{ if(busy||done) return; mode==="stick"?doStickDraw():tossOnce(); };
+$("#startBtn").onclick=goDraw;
+$("#mainBtn").onclick=()=>{ if(busy||done||curtainOn) return; mode==="stick"?doStickDraw():tossOnce(); };
 $("#fastBtn").onclick=autoToss;
-$("#againBtn").onclick=()=>reset();
-$("#detailBtn").onclick=scrollToResult;
-$("#slip").onclick=scrollToResult;
+$("#openBtn").onclick=goResult;
+$("#redoBtn").onclick=()=>{ if(busy||curtainOn) return; reset(); };
+$("#newBtn").onclick=goSetup;
+$("#slip").onclick=goResult;
 
-buildCoins(); buildBuilder(); updateButtons();
+buildCoins(); buildBuilder(); buildTopics(); updateButtons();
 </script>
 </body>
 </html>
