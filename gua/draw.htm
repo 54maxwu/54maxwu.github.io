@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>電腦抽籤求卦 · 線上搖籤筒／金錢卦</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="線上電腦抽籤求卦：搖籤筒抽六十四卦靈籤，或依古法金錢卦三枚硬幣六擲成卦，含動爻判讀（朱熹易學啟蒙法）、卦辭白話解與愛情事業財運分類解籤">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+    background: #f1f5f9; color: #2c3e50; min-height: 100vh;
+  }
+  /* 自訂捲軸 */
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: #eef2f7; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .app-header {
+    background: #fff; border-bottom: 1px solid #e2e8f0; padding: 14px 24px; min-height: 60px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); position: sticky; top: 0; z-index: 10;
+  }
+  .app-header .logo { width: 30px; height: 30px; border-radius: 8px; background: #b91c1c; color: #fde68a;
+    display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .app-header h1 { font-size: 16px; font-weight: 600; color: #1e293b; }
+  .app-header .tag { font-size: 12px; color: #64748b; }
+  .app-header .hd-link { margin-left: auto; background: #1e293b; color: #fff; text-decoration: none;
+    font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 9px; white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .app-header .hd-link:hover { background: #334155; }
+
+  .page-content { padding: 14px 20px 40px; max-width: 980px; margin: 0 auto; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .card h2 { font-size: 15px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card h2 .ic { width: 24px; height: 24px; border-radius: 7px; background: #fef2f2; color: #b91c1c;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 auto; }
+  .cap { font-size: 12.5px; color: #64748b; line-height: 1.8; }
+
+  /* ── 求籤設定 ── */
+  .ask-input {
+    width: 100%; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; outline: none;
+    margin-bottom: 12px;
+  }
+  .ask-input:focus { border-color: #b91c1c; box-shadow: 0 0 0 3px rgba(185,28,28,.1); }
+  .seg { display: flex; background: #f1f5f9; padding: 4px; border-radius: 11px; gap: 4px; }
+  .seg button {
+    flex: 1; padding: 10px 14px; border-radius: 8px; border: none; background: transparent; cursor: pointer;
+    font-size: 13.5px; font-weight: 600; color: #64748b; transition: .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .seg button.on { background: #fff; color: #b91c1c; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .seg button:disabled { opacity: .5; cursor: not-allowed; }
+  .mode-hint { font-size: 12.5px; color: #64748b; line-height: 1.8; margin-top: 9px; }
+
+  /* ══════════ 舞台 ══════════ */
+  .stage {
+    position: relative; overflow: hidden; border-radius: 12px; min-height: 380px;
+    background: radial-gradient(120% 90% at 50% -10%, #5b1414 0%, #3a0d0d 45%, #1f0808 100%);
+    box-shadow: inset 0 0 60px rgba(0,0,0,.55);
+  }
+  .stage::before, .stage::after {   /* 兩盞燈籠光暈 */
+    content: ""; position: absolute; width: 240px; height: 240px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(251,191,36,.16), transparent 65%);
+    animation: lampPulse 6s ease-in-out infinite alternate; pointer-events: none;
+  }
+  .stage::before { top: -70px; left: -50px; }
+  .stage::after  { top: -60px; right: -50px; animation-delay: 3s; }
+  @keyframes lampPulse { from { opacity: .5; } to { opacity: 1; } }
+  .stage .wm {   /* 卦符浮水印 */
+    position: absolute; right: 14px; bottom: 4px; font-size: 110px; color: rgba(253,230,138,.05);
+    pointer-events: none; user-select: none; line-height: 1;
+  }
+  /* 飄浮微塵 */
+  .amb i { position: absolute; bottom: -10px; width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(253,230,138,.45); filter: blur(1px); animation: floatUp 12s linear infinite; pointer-events: none; }
+  .amb i:nth-child(1){ left:12%; animation-duration:11s; animation-delay:-2s; }
+  .amb i:nth-child(2){ left:28%; animation-duration:15s; animation-delay:-7s; width:4px;height:4px; }
+  .amb i:nth-child(3){ left:45%; animation-duration:13s; animation-delay:-4s; }
+  .amb i:nth-child(4){ left:62%; animation-duration:16s; animation-delay:-10s; width:3px;height:3px; }
+  .amb i:nth-child(5){ left:76%; animation-duration:12s; animation-delay:-6s; }
+  .amb i:nth-child(6){ left:89%; animation-duration:14s; animation-delay:-1s; width:4px;height:4px; }
+  @keyframes floatUp {
+    0%   { transform: translate(0,0); opacity: 0; }
+    10%  { opacity: .8; }
+    50%  { transform: translate(14px,-210px); }
+    90%  { opacity: .5; }
+    100% { transform: translate(-8px,-430px); opacity: 0; }
+  }
+
+  .stage-hint { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center;
+    font-size: 13px; color: #fcd34d; letter-spacing: .12em; animation: hintPulse 2.4s ease-in-out infinite; pointer-events: none; }
+  @keyframes hintPulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+
+  /* ── 籤筒場景 ── */
+  .scene-stick { position: relative; display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-end; min-height: 380px; padding: 30px 16px 52px; }
+  .tube-wrap { position: relative; width: 150px; height: 250px; transform-origin: 50% 92%; }
+  .shaking .tube-wrap { animation: tubeShake 2s ease-in-out; }
+  @keyframes tubeShake {
+    0% { transform: rotate(0) }
+    6% { transform: rotate(-8deg) translateY(-3px) } 12% { transform: rotate(7deg) }
+    18% { transform: rotate(-10deg) translateY(-5px) } 24% { transform: rotate(9deg) }
+    30% { transform: rotate(-12deg) translateY(-6px) } 36% { transform: rotate(11deg) }
+    42% { transform: rotate(-13deg) translateY(-7px) } 48% { transform: rotate(12deg) }
+    54% { transform: rotate(-13deg) translateY(-6px) } 60% { transform: rotate(12deg) }
+    66% { transform: rotate(-11deg) translateY(-5px) } 72% { transform: rotate(9deg) }
+    78% { transform: rotate(-7deg) translateY(-3px) } 84% { transform: rotate(5deg) }
+    90% { transform: rotate(-3deg) } 96% { transform: rotate(1.5deg) } 100% { transform: rotate(0) }
+  }
+  .rim { position: absolute; top: 56px; left: 14px; width: 122px; height: 26px; border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 40%, #4a2410, #241005 70%);
+    box-shadow: inset 0 3px 6px rgba(0,0,0,.6); border: 2px solid #b45309; z-index: 1; }
+  .sticks { position: absolute; top: -26px; left: 25px; width: 100px; height: 110px; z-index: 2; }
+  .stick { position: absolute; bottom: 0; width: 10px; border-radius: 5px 5px 2px 2px;
+    background: linear-gradient(90deg, rgba(0,0,0,.18), rgba(255,255,255,.25) 45%, rgba(0,0,0,.22)),
+                linear-gradient(#b91c1c 0 14px, #dbb578 14px);
+    transform-origin: 50% 100%; }
+  .stick.s1 { left: 2px;  height: 76px; transform: rotate(-9deg); }
+  .stick.s2 { left: 15px; height: 88px; transform: rotate(-5deg); }
+  .stick.s3 { left: 28px; height: 72px; transform: rotate(-3deg); }
+  .stick.s5 { left: 56px; height: 84px; transform: rotate(3deg); }
+  .stick.s6 { left: 70px; height: 70px; transform: rotate(6deg); }
+  .stick.s7 { left: 84px; height: 80px; transform: rotate(10deg); }
+  .stick.chosen { left: 43px; height: 94px; transform: rotate(-1deg); z-index: 3;
+    transition: transform .85s cubic-bezier(.3,1.4,.4,1), box-shadow .85s; }
+  .stick.chosen.rise { transform: translateY(-118px) rotate(0deg);
+    box-shadow: 0 0 18px rgba(253,224,71,.85), 0 0 44px rgba(251,191,36,.5); }
+  .shaking .stick { animation: stickJig .2s ease-in-out infinite alternate; }
+  .shaking .stick.s1 { animation-delay: 0s; }  .shaking .stick.s2 { animation-delay: .05s; }
+  .shaking .stick.s3 { animation-delay: .09s; } .shaking .stick.chosen { animation-delay: .12s; }
+  .shaking .stick.s5 { animation-delay: .03s; } .shaking .stick.s6 { animation-delay: .07s; }
+  .shaking .stick.s7 { animation-delay: .1s; }
+  @keyframes stickJig { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-9px) rotate(5deg); } }
+  .tube { position: absolute; top: 66px; left: 10px; width: 130px; height: 160px; z-index: 3;
+    border-radius: 8px 8px 18px 18px / 6px 6px 22px 22px;
+    background: linear-gradient(90deg,#6d3410 0%,#a15c1f 12%,#c07a2c 26%,#d99a4b 40%,#eab566 50%,#d99a4b 60%,#c07a2c 74%,#a15c1f 88%,#6d3410 100%);
+    box-shadow: inset 0 -12px 22px rgba(0,0,0,.35), inset 0 6px 8px rgba(255,255,255,.18), 0 16px 32px rgba(0,0,0,.5);
+  }
+  .tube::before, .tube::after { content: ""; position: absolute; left: 2px; right: 2px; height: 7px; border-radius: 4px;
+    background: linear-gradient(90deg,#4a2208,#7c3f10 50%,#4a2208); opacity: .85; }
+  .tube::before { top: 18px; } .tube::after { bottom: 24px; }
+  .tube-label { position: absolute; top: 38px; left: 50%; transform: translateX(-50%);
+    background: #b91c1c; border: 2px solid #fbbf24; border-radius: 8px; padding: 10px 4px;
+    color: #fde68a; writing-mode: vertical-rl; font-weight: 800; letter-spacing: 6px; font-size: 16px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  .floor { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    width: 190px; height: 18px; border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%); }
+
+  /* ── 金錢卦場景 ── */
+  .scene-coin { position: relative; display: flex; align-items: center; justify-content: center;
+    gap: 34px; flex-wrap: wrap; min-height: 380px; padding: 26px 18px 52px; }
+  .coin-col { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .coins { display: flex; gap: 20px; }
+  .coin-box { width: 80px; height: 80px; perspective: 640px; }
+  .coin-box.jump { animation: coinJump 1.2s cubic-bezier(.32,.44,.42,1); }
+  @keyframes coinJump {
+    0%   { transform: translateY(0); }
+    42%  { transform: translateY(-56px); }
+    78%  { transform: translateY(0); }
+    86%  { transform: translateY(0) scale(1.07,.9); }
+    100% { transform: translateY(0) scale(1,1); }
+  }
+  .coin { position: relative; width: 80px; height: 80px; transform-style: preserve-3d; }
+  .face { position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden;
+    -webkit-backface-visibility: hidden; border: 3px solid #92400e;
+    box-shadow: inset 0 3px 8px rgba(255,255,255,.5), inset 0 -4px 8px rgba(0,0,0,.3), 0 8px 18px rgba(0,0,0,.45); }
+  .f-hua { background: radial-gradient(circle at 35% 30%, #fde68a, #f59e0b 62%, #b45309); }
+  .f-zi  { background: radial-gradient(circle at 35% 30%, #fcd34d, #d97706 62%, #92400e); transform: rotateY(180deg); }
+  .face .hole { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%);
+    background: #78350f; border: 2px solid #92400e; box-shadow: inset 0 2px 4px rgba(0,0,0,.55); }
+  .face span { position: absolute; font-size: 13px; font-weight: 700; color: #7c2d12;
+    text-shadow: 0 1px 0 rgba(255,255,255,.35); line-height: 1; }
+  .face .p1, .face .z1 { top: 8px; left: 50%; transform: translateX(-50%); }
+  .face .p2, .face .z2 { right: 8px; top: 50%; transform: translateY(-50%); }
+  .face .p3, .face .z3 { bottom: 8px; left: 50%; transform: translateX(-50%); }
+  .face .p4, .face .z4 { left: 8px; top: 50%; transform: translateY(-50%); }
+  .coin-legend { font-size: 11.5px; color: #fcd34d; opacity: .8; letter-spacing: .08em; }
+  .toss-msg { min-height: 40px; font-size: 14px; color: #fef3c7; text-align: center; line-height: 1.7; }
+  .toss-msg b { color: #fde047; }
+  .toss-msg small { display: block; font-size: 12px; color: #fcd34d; opacity: .8; }
+
+  /* 六爻進度 */
+  .builder { display: flex; flex-direction: column-reverse; gap: 9px; width: 216px; }
+  .slot { display: flex; align-items: center; gap: 9px; height: 22px; }
+  .slot .pos { font-size: 11.5px; color: #fcd34d; width: 30px; flex: 0 0 auto; text-align: right; opacity: .85; }
+  .slot .bar-empty { flex: 1; height: 12px; border: 1.5px dashed rgba(253,230,138,.3); border-radius: 4px; }
+  .slot .bar { flex: 1; height: 12px; display: flex; gap: 11px; animation: popIn .4s cubic-bezier(.3,1.5,.5,1) both; }
+  .slot .bar i { flex: 1; background: #f1f5f9; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  .slot .bar.mov i { background: #fbbf24; box-shadow: 0 0 8px rgba(251,191,36,.8); animation: movPulse 1.6s ease-in-out infinite; }
+  .slot .ln-tag { flex: 0 0 auto; font-style: normal; font-size: 11px; color: #cbd5e1; width: 40px;
+    animation: popIn .4s .1s cubic-bezier(.3,1.5,.5,1) both; }
+  .slot .ln-tag.mv { color: #fde047; font-weight: 700; }
+  @keyframes movPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+  @keyframes popIn { from { transform: scale(.5); opacity: 0; } 70% { transform: scale(1.08); } to { transform: scale(1); opacity: 1; } }
+
+  /* ── 開籤揭曉 ── */
+  .reveal { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+    background: rgba(15,4,4,.68); backdrop-filter: blur(2px); }
+  .rays { position: absolute; left: 50%; top: 50%; width: 620px; height: 620px; transform: translate(-50%,-50%);
+    background: repeating-conic-gradient(from 0deg, rgba(253,224,71,.15) 0 9deg, transparent 9deg 20deg);
+    -webkit-mask-image: radial-gradient(circle, #000 0 44%, transparent 68%);
+    mask-image: radial-gradient(circle, #000 0 44%, transparent 68%);
+    animation: raysSpin 18s linear infinite; pointer-events: none; }
+  .lv-mid .rays { opacity: .5; } .lv-low .rays { opacity: .22; }
+  @keyframes raysSpin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+  .burst i { position: absolute; left: 50%; top: 46%; width: 6px; height: 6px; border-radius: 50%;
+    opacity: 0; animation: burstP .95s ease-out forwards; pointer-events: none; }
+  @keyframes burstP {
+    0%   { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.15); opacity: 0; }
+  }
+  .slip { position: relative; width: 196px; padding: 20px 18px 16px; cursor: pointer; text-align: center;
+    background: linear-gradient(180deg, #c62828, #991b1b 60%, #7f1d1d);
+    border: 3px solid #fbbf24; border-radius: 12px;
+    box-shadow: 0 22px 56px rgba(0,0,0,.6), inset 0 0 0 2px rgba(255,255,255,.14), 0 0 44px rgba(251,191,36,.28);
+    animation: slipIn .8s cubic-bezier(.2,.9,.3,1.12) both; -webkit-tap-highlight-color: transparent; }
+  @keyframes slipIn {
+    0%  { transform: rotateY(95deg) scale(.7); opacity: 0; }
+    60% { transform: rotateY(-10deg) scale(1.03); opacity: 1; }
+    100%{ transform: rotateY(0) scale(1); opacity: 1; }
+  }
+  .slip-top { font-size: 12px; color: #fcd34d; letter-spacing: .3em; padding-bottom: 8px; margin-bottom: 10px;
+    border-bottom: 1px solid rgba(251,191,36,.4); }
+  .slip-sym { font-size: 60px; line-height: 1.1; color: #fde68a; text-shadow: 0 0 22px rgba(253,224,71,.6); }
+  .slip-name { font-size: 22px; font-weight: 800; color: #fff7ed; margin: 6px 0 8px; letter-spacing: .06em; }
+  .slip-lv { display: inline-block; margin-bottom: 9px; }
+  .slip-ci { font-size: 12px; color: #fde68a; line-height: 1.8; border-top: 1px solid rgba(251,191,36,.4); padding-top: 8px; }
+  .slip-tap { margin-top: 9px; font-size: 11px; color: #fcd34d; opacity: .75; animation: hintPulse 2.2s infinite; }
+
+  /* ── 控制列 ── */
+  .ctrl-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .btn-main { padding: 13px 32px; border: none; border-radius: 12px; cursor: pointer; font-size: 15.5px; font-weight: 700;
+    color: #fff; background: linear-gradient(135deg, #b91c1c, #dc2626);
+    box-shadow: 0 4px 14px rgba(185,28,28,.35); transition: .15s; letter-spacing: .05em;
+    -webkit-tap-highlight-color: transparent; }
+  .btn-main:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 7px 18px rgba(185,28,28,.42); }
+  .btn-main:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-ghost { padding: 13px 20px; border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; font-size: 14px;
+    color: #475569; background: #fff; transition: .15s; -webkit-tap-highlight-color: transparent; }
+  .btn-ghost:hover:not(:disabled) { border-color: #b91c1c; color: #b91c1c; }
+  .btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── 解籤結果 ── */
+  .detail-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
+  .hexpic { flex: 0 0 auto; display: flex; flex-direction: column-reverse; gap: 5px; padding: 12px 26px 12px 14px;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+  .hexpic .yline { position: relative; width: 84px; height: 9px; display: flex; gap: 12px; }
+  .hexpic .yline i { flex: 1; background: #1e293b; border-radius: 2px; transform-origin: 50% 50%;
+    animation: lineDraw .5s cubic-bezier(.3,1.3,.5,1) both; }
+  .hexpic .yline.mov i { background: #d97706; box-shadow: 0 0 6px rgba(217,119,6,.55); }
+  .hexpic .yline em { position: absolute; right: -18px; top: -4px; font-style: normal; font-size: 12px;
+    font-weight: 800; color: #d97706; }
+  @keyframes lineDraw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .dh-main { flex: 1 1 200px; }
+  .dh-name { font-size: 26px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dh-name .usym { font-size: 30px; color: #b91c1c; }
+  .dh-sub { font-size: 13px; color: #64748b; margin-top: 6px; line-height: 1.8; }
+  .lv { display: inline-block; padding: 2px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 700; }
+  .lv-上上 { background: #dcfce7; color: #15803d; } .lv-上 { background: #ecfdf5; color: #059669; }
+  .lv-中上 { background: #e0f2fe; color: #0369a1; } .lv-中 { background: #f1f5f9; color: #475569; }
+  .lv-中下 { background: #fef3c7; color: #b45309; } .lv-下 { background: #ffedd5; color: #c2410c; }
+  .lv-下下 { background: #fee2e2; color: #b91c1c; }
+
+  .ask-echo { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 9px 13px;
+    font-size: 13.5px; color: #475569; margin-bottom: 12px; line-height: 1.8; }
+  .guide-box { background: linear-gradient(180deg, #fffbeb, #fef3c7); border: 1px solid #fcd34d; border-radius: 12px;
+    padding: 13px 15px; margin-bottom: 12px; }
+  .guide-rule { font-size: 13px; font-weight: 700; color: #92400e; line-height: 1.9; }
+  .read { background: #fff; border: 1px solid #fde68a; border-radius: 9px; padding: 9px 12px; margin-top: 8px;
+    font-size: 13.5px; color: #78350f; line-height: 1.9; }
+  .read.main { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.16); }
+  .read .rl { display: block; font-size: 11px; font-weight: 700; color: #b45309; margin-bottom: 2px; letter-spacing: .05em; }
+  .read.main .rl::after { content: "（為主）"; color: #d97706; }
+
+  .ci-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 14px;
+    font-size: 15px; color: #78350f; line-height: 1.9; margin-bottom: 12px; }
+  .ci-box b { color: #b45309; margin-right: 8px; }
+  .mean-box { font-size: 14px; color: #334155; line-height: 2; margin-bottom: 14px; }
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .cat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 13px; }
+  .cat .ct { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 5px; }
+  .cat .cb { font-size: 12.5px; color: #475569; line-height: 1.85; }
+  .tip-box { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 11px 14px;
+    font-size: 13px; color: #3730a3; line-height: 1.9; margin-bottom: 12px; }
+
+  .zhi-box { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #f8fafc;
+    border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 15px; margin-bottom: 12px; }
+  .zhi-box .zsym { font-size: 38px; color: #b91c1c; flex: 0 0 auto; }
+  .zhi-box .zmain { flex: 1 1 200px; }
+  .zhi-box .zt { font-size: 14.5px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .zhi-box .zci { font-size: 12.5px; color: #64748b; margin-top: 4px; line-height: 1.8; }
+  .zhi-box .zlink { flex: 0 0 auto; font-size: 13px; color: #b91c1c; text-decoration: none; font-weight: 600;
+    border: 1px solid #fecaca; border-radius: 8px; padding: 7px 13px; }
+  .zhi-box .zlink:hover { background: #fef2f2; }
+  .more-row { text-align: center; }
+  .more-link { display: inline-block; font-size: 13.5px; color: #4338ca; text-decoration: none; font-weight: 600;
+    border: 1px solid #c7d2fe; border-radius: 10px; padding: 10px 20px; }
+  .more-link:hover { background: #eef2ff; }
+
+  /* 規則說明 */
+  .howto-sum { cursor: pointer; font-size: 13px; color: #b91c1c; font-weight: 600;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; padding: 10px 12px;
+    list-style: none; -webkit-tap-highlight-color: transparent; }
+  .howto { font-size: 12.5px; color: #475569; line-height: 2; margin-top: 8px; }
+  .howto b { color: #1e293b; }
+  .howto .hl { background: #fffbeb; border-radius: 5px; padding: 0 5px; }
+
+  /* ── 手機版 ── */
+  @media (max-width: 640px) {
+    .app-header { padding: 10px 14px; min-height: 48px; gap: 8px; }
+    .app-header .tag { display: none; }
+    .app-header .hd-link { font-size: 12px; padding: 7px 11px; }
+    .page-content { padding: 10px 8px 30px; }
+    .card { padding: 13px 12px; border-radius: 12px; margin-bottom: 10px; }
+    .stage { min-height: 330px; }
+    .scene-stick { min-height: 330px; padding-bottom: 44px; }
+    .tube-wrap { transform: scale(.88); transform-origin: 50% 100%; }
+    .shaking .tube-wrap { animation-name: tubeShakeS; }
+    .scene-coin { gap: 18px; min-height: 330px; padding: 20px 12px 46px; }
+    .coin-box, .coin { width: 62px; height: 62px; }
+    .coins { gap: 13px; }
+    .face span { font-size: 11px; }
+    .face .hole { width: 17px; height: 17px; }
+    .builder { width: 190px; }
+    .slip { width: 178px; }
+    .slip-sym { font-size: 52px; }
+    .slip-name { font-size: 20px; }
+    .btn-main { flex: 1 1 100%; }
+    .btn-ghost { flex: 1; }
+    .dh-name { font-size: 20px; gap: 8px; }
+    .dh-name .usym { font-size: 24px; }
+    .dh-sub { font-size: 12px; }
+    .hexpic { padding: 9px 22px 9px 10px; }
+    .hexpic .yline { width: 60px; height: 7px; gap: 9px; }
+    .hexpic .yline em { right: -16px; top: -3px; font-size: 11px; }
+    .ci-box { font-size: 14px; }
+    .mean-box { font-size: 13.5px; }
+    .cat-grid { grid-template-columns: 1fr; gap: 8px; }
+  }
+  /* 手機版搖晃幅度小一點（元素已縮放） */
+  @keyframes tubeShakeS {
+    0% { transform: scale(.88) rotate(0) }
+    12% { transform: scale(.88) rotate(-9deg) } 24% { transform: scale(.88) rotate(8deg) }
+    36% { transform: scale(.88) rotate(-11deg) } 48% { transform: scale(.88) rotate(10deg) }
+    60% { transform: scale(.88) rotate(-10deg) } 72% { transform: scale(.88) rotate(8deg) }
+    84% { transform: scale(.88) rotate(-5deg) } 100% { transform: scale(.88) rotate(0) }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01s !important; transition-duration: .01s !important; }
+  }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="logo">籤</div>
+  <h1>電腦抽籤求卦</h1>
+  <span class="tag">心誠則靈 · 搖籤筒抽卦或依古法金錢卦六擲</span>
+  <a class="hd-link" href="./index.htm">📖 卦意查表</a>
+</header>
+
+<div class="page-content">
+
+  <div class="card">
+    <h2><span class="ic">問</span>誠心一問</h2>
+    <input class="ask-input" id="ask" maxlength="60" placeholder="想問的事（可留空）例：這份工作該不該換？" autocomplete="off">
+    <div class="seg">
+      <button id="segStick" class="on">🎋 搖籤筒（快抽一卦）</button>
+      <button id="segCoin">🪙 金錢卦（六擲成卦・有變爻）</button>
+    </div>
+    <div class="mode-hint" id="modeHint">默想所問之事，點「開始搖籤」——籤筒將搖出六十四卦靈籤一支。</div>
+  </div>
+
+  <div class="card">
+    <div class="stage" id="stage">
+      <span class="wm">䷀</span>
+      <div class="amb"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+      <div class="scene-stick" id="sceneStick">
+        <div class="tube-wrap">
+          <div class="rim"></div>
+          <div class="sticks">
+            <i class="stick s1"></i><i class="stick s2"></i><i class="stick s3"></i>
+            <i class="stick chosen" id="chosenStick"></i>
+            <i class="stick s5"></i><i class="stick s6"></i><i class="stick s7"></i>
+          </div>
+          <div class="tube"><div class="tube-label">靈籤</div></div>
+        </div>
+        <div class="floor"></div>
+        <div class="stage-hint" id="stickHint">默想所問之事，點下方「開始搖籤」</div>
+      </div>
+
+      <div class="scene-coin" id="sceneCoin" hidden>
+        <div class="coin-col">
+          <div class="coins" id="coins"></div>
+          <div class="coin-legend">花＝陽面 · 字＝陰面 · 三枚同面即為動爻</div>
+          <div class="toss-msg" id="tossMsg">第 <b>1</b> 擲：定<b>初爻</b>——點下方按鈕擲硬幣</div>
+        </div>
+        <div class="builder" id="builder"></div>
+      </div>
+
+      <div class="reveal" id="reveal" hidden>
+        <div class="rays"></div>
+        <div class="burst" id="burst"></div>
+        <div class="slip" id="slip" title="點我看詳解">
+          <div class="slip-top" id="slipTop">第 一 籤</div>
+          <div class="slip-sym" id="slipSym">䷀</div>
+          <div class="slip-name" id="slipName">乾為天</div>
+          <div class="slip-lv"><span class="lv" id="slipLv">上上籤</span></div>
+          <div class="slip-ci" id="slipCi"></div>
+          <div class="slip-tap">— 點籤紙看詳解 —</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-row">
+      <button class="btn-main" id="mainBtn">🎋 開始搖籤</button>
+      <button class="btn-ghost" id="fastBtn" hidden>⏩ 自動擲完六爻</button>
+      <button class="btn-ghost" id="againBtn" hidden>🔄 再抽一次</button>
+      <button class="btn-ghost" id="detailBtn" hidden>📜 查看解籤 ↓</button>
+    </div>
+  </div>
+
+  <div class="card" id="resultCard" hidden>
+    <h2><span class="ic">解</span>解籤</h2>
+    <div id="result"></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary class="howto-sum">📖 兩種抽法差在哪？金錢卦規則（點開）</summary>
+      <div class="howto">
+        <b>🎋 搖籤筒</b>：如廟裡抽籤，等機率抽出六十四卦其中一卦，以整卦（卦辭＋白話總解＋分類解籤）解讀，簡單直接。<br>
+        <b>🪙 金錢卦</b>：依古法每擲三枚硬幣、共擲六次，由下而上疊成六爻——
+        <span class="hl">陽面（花）多＝陽爻⚊</span>、<span class="hl">陰面（字）多＝陰爻⚋</span>、
+        <span class="hl">三枚同面＝動爻（三花＝老陽、三字＝老陰）</span>。
+        有動爻時會產生「之卦」，本頁會依朱熹《易學啟蒙》的取斷法，自動告訴你該讀哪段卦辭或爻辭。<br>
+        亂數採用瀏覽器加密級亂數（crypto.getRandomValues），每一擲皆獨立公正。
+      </div>
+    </details>
+  </div>
+
+  <div class="cap" style="text-align:center">
+    卦辭爻辭照《周易》原文，解讀資料與 <a href="./index.htm" style="color:#4338ca">六十四卦查表</a> 同源。<br>
+    易占為自省與參考之用，重大決定仍請理性判斷——路在自己腳下。
+  </div>
+
+</div>
+
+<script src="./gua-data.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const shortName=g=>g.up===g.down?g.name[0]:g.name.slice(2);
+const symOf=g=>String.fromCodePoint(0x4DC0+g.seq-1);
+const POS=["初","二","三","四","五","上"];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function rnd(n){
+  if(window.crypto&&crypto.getRandomValues){const u=new Uint32Array(1);crypto.getRandomValues(u);return u[0]%n;}
+  return Math.floor(Math.random()*n);
+}
+function findByLines(l6){
+  const key=a=>a.join("");
+  const down=Object.keys(TRIG).find(t=>key(TRIG[t].lines)===key(l6.slice(0,3)));
+  const up=Object.keys(TRIG).find(t=>key(TRIG[t].lines)===key(l6.slice(3,6)));
+  return GUA64.find(g=>g.up===up&&g.down===down);
+}
+
+let mode="stick", busy=false, done=false;
+let lines=[], tossIdx=0, coinDeg=[0,0,0];
+
+/* ── 硬幣 DOM ── */
+function buildCoins(){
+  $("#coins").innerHTML=[0,1,2].map(i=>`
+    <div class="coin-box" id="cbox${i}"><div class="coin" id="coin${i}">
+      <div class="face f-hua"><b class="hole"></b><span class="p1">❀</span><span class="p2">❀</span><span class="p3">❀</span><span class="p4">❀</span></div>
+      <div class="face f-zi"><b class="hole"></b><span class="z1">平</span><span class="z2">安</span><span class="z3">吉</span><span class="z4">祥</span></div>
+    </div></div>`).join("");
+}
+function buildBuilder(){
+  $("#builder").innerHTML=POS.map((p,i)=>`
+    <div class="slot" id="slot${i}"><span class="pos">${p}爻</span><span class="bar-empty"></span></div>`).join("");
+}
+
+/* ── 模式切換／重置 ── */
+function setMode(m){
+  if(busy) return;
+  mode=m;
+  $("#segStick").classList.toggle("on",m==="stick");
+  $("#segCoin").classList.toggle("on",m==="coin");
+  $("#modeHint").textContent = m==="stick"
+    ? "默想所問之事，點「開始搖籤」——籤筒將搖出六十四卦靈籤一支。"
+    : "默想所問之事，三枚硬幣共擲六次，由初爻起、由下而上成卦；三枚同面即為動爻。";
+  reset();
+}
+function reset(){
+  busy=false; done=false; lines=[]; tossIdx=0;
+  $("#reveal").hidden=true;
+  $("#resultCard").hidden=true;
+  $("#stage").classList.remove("shaking","lv-good","lv-mid","lv-low");
+  $("#chosenStick").classList.remove("rise");
+  $("#stickHint").textContent="默想所問之事，點下方「開始搖籤」";
+  $("#sceneStick").hidden = mode!=="stick";
+  $("#sceneCoin").hidden = mode!=="coin";
+  buildBuilder();
+  $("#tossMsg").innerHTML=`第 <b>1</b> 擲：定<b>初爻</b>——點下方按鈕擲硬幣`;
+  updateButtons();
+}
+function updateButtons(){
+  const main=$("#mainBtn");
+  main.hidden = done;
+  main.disabled = busy;
+  if(mode==="stick"){ main.textContent="🎋 開始搖籤"; $("#fastBtn").hidden=true; }
+  else{
+    main.textContent=`🪙 擲硬幣（第 ${tossIdx+1}／6 擲・${POS[Math.min(tossIdx,5)]}爻）`;
+    $("#fastBtn").hidden = done;
+    $("#fastBtn").disabled = busy;
+  }
+  $("#againBtn").hidden = !done;
+  $("#detailBtn").hidden = !done;
+}
+
+/* ── 搖籤筒 ── */
+async function doStickDraw(){
+  busy=true; updateButtons();
+  $("#stickHint").textContent="籤筒搖動中……心中默唸所問之事";
+  const stage=$("#stage");
+  stage.classList.add("shaking");
+  await sleep(2050);
+  stage.classList.remove("shaking");
+  $("#chosenStick").classList.add("rise");
+  await sleep(950);
+  const g=GUA64[rnd(64)];
+  finish(g,null,[],"籤筒抽卦");
+}
+
+/* ── 金錢卦 ── */
+async function tossOnce(){
+  if(busy||done||tossIdx>=6) return;
+  busy=true; updateButtons();
+  const faces=[rnd(2),rnd(2),rnd(2)]; // 1=花(陽面) 0=字(陰面)
+  for(let i=0;i<3;i++){
+    const coin=$("#coin"+i), box=$("#cbox"+i);
+    const p=faces[i]?0:180;
+    let end=coinDeg[i]+1440;
+    end+=((p-end%360)+360)%360;
+    coinDeg[i]=end;
+    coin.style.transition=`transform 1.18s cubic-bezier(.18,.72,.24,1) ${i*0.09}s`;
+    coin.style.transform=`rotateY(${end}deg)`;
+    box.classList.remove("jump"); void box.offsetWidth;
+    box.style.animationDelay=(i*0.09)+"s";
+    box.classList.add("jump");
+  }
+  await sleep(1500);
+  const cnt=faces[0]+faces[1]+faces[2];
+  const l = cnt===3?{v:1,m:true, nm:"老陽"}
+          : cnt===2?{v:1,m:false,nm:"少陽"}
+          : cnt===1?{v:0,m:false,nm:"少陰"}
+          :         {v:0,m:true, nm:"老陰"};
+  lines.push(l);
+  fillSlot(tossIdx);
+  const sym=l.v?"⚊":"⚋";
+  let msg=`${cnt}花${3-cnt}字 → <b>${l.nm}</b>${l.m?"（動爻！）":""} ${sym}`;
+  tossIdx++;
+  if(tossIdx<6) msg+=`<small>接著第 ${tossIdx+1} 擲，定${POS[tossIdx]}爻</small>`;
+  else msg+=`<small>六爻已成，開籤——</small>`;
+  $("#tossMsg").innerHTML=msg;
+  if(tossIdx>=6){
+    await sleep(850);
+    const l6=lines.map(x=>x.v);
+    const g1=findByLines(l6);
+    const movs=lines.map((x,i)=>x.m?i:-1).filter(i=>i>=0);
+    const g2=movs.length?findByLines(lines.map(x=>x.m?1-x.v:x.v)):null;
+    finish(g1,g2,movs,"金錢卦六擲");
+    return;
+  }
+  busy=false; updateButtons();
+}
+function fillSlot(i){
+  const l=lines[i];
+  $("#slot"+i).innerHTML=`
+    <span class="pos">${POS[i]}爻</span>
+    <span class="bar ${l.m?"mov":""}">${l.v?"<i></i>":"<i></i><i></i>"}</span>
+    <em class="ln-tag ${l.m?"mv":""}">${l.nm}${l.m?"・動":""}</em>`;
+}
+async function autoToss(){
+  if(busy||mode!=="coin") return;
+  while(tossIdx<6&&!done){
+    await tossOnce();
+    if(tossIdx<6) await sleep(300);
+  }
+}
+
+/* ── 揭曉與解籤 ── */
+function finish(g1,g2,movs,how){
+  showReveal(g1);
+  renderResult(g1,g2,movs,how);
+  done=true; busy=false; updateButtons();
+  setTimeout(()=>{ if(done) scrollToResult(); },2200);
+}
+function showReveal(g){
+  const stage=$("#stage");
+  const good=["上上","上","中上"].includes(g.level);
+  const low=["中下","下","下下"].includes(g.level);
+  stage.classList.remove("lv-good","lv-mid","lv-low");
+  stage.classList.add(good?"lv-good":low?"lv-low":"lv-mid");
+  $("#slipTop").textContent=`《周易》第 ${g.seq} 卦`;
+  $("#slipSym").textContent=symOf(g);
+  $("#slipName").textContent=g.name;
+  const lv=$("#slipLv");
+  lv.className="lv lv-"+g.level;
+  lv.textContent=g.level+"籤";
+  $("#slipCi").textContent=`${shortName(g)}：${g.ci}`;
+  // 粒子
+  const burst=$("#burst"); burst.innerHTML="";
+  const colors= good?["#fde047","#fbbf24","#fca5a5","#ffffff"]
+             : low?["#94a3b8","#cbd5e1"]
+             :      ["#e2e8f0","#fcd34d","#cbd5e1"];
+  const count= good?20 : low?7 : 12;
+  for(let k=0;k<count;k++){
+    const i=document.createElement("i");
+    const ang=rnd(360)*Math.PI/180, dist=70+rnd(95);
+    i.style.setProperty("--dx",Math.cos(ang)*dist+"px");
+    i.style.setProperty("--dy",Math.sin(ang)*dist+"px");
+    const s=4+rnd(5);
+    i.style.width=i.style.height=s+"px";
+    i.style.background=colors[rnd(colors.length)];
+    i.style.animationDelay=rnd(250)+"ms";
+    burst.appendChild(i);
+  }
+  $("#reveal").hidden=false;
+}
+function hexpicHTML(g,movs,linesArr){
+  const l6 = linesArr ? linesArr.map(x=>x.v) : [...TRIG[g.down].lines,...TRIG[g.up].lines];
+  return `<div class="hexpic">`+l6.map((v,i)=>{
+    const mv=movs.includes(i);
+    const mark=mv?`<em>${v?"○":"×"}</em>`:"";
+    return `<div class="yline ${mv?"mov":""}">${v?'<i style="animation-delay:'+(i*0.1)+'s"></i>':'<i style="animation-delay:'+(i*0.1)+'s"></i><i style="animation-delay:'+(i*0.1)+'s"></i>'}${mark}</div>`;
+  }).join("")+`</div>`;
+}
+function buildGuidance(g1,g2,movs){
+  const n=movs.length;
+  const ciRead=(g,label,main)=>({label:`${label}卦辭（${g.name}）`,text:g.ci,main});
+  const yaoRead=(g,p,label,main)=>({label:`${label}${POS[p]}爻爻辭`,text:g.yao[p],main});
+  let rule,reads;
+  if(n===0){ rule="六爻皆靜：以本卦卦辭取斷。"; reads=[ciRead(g1,"本卦",true)]; }
+  else if(n===1){ const p=movs[0];
+    rule=`一爻動（${POS[p]}爻）：以本卦${POS[p]}爻爻辭取斷。`;
+    reads=[yaoRead(g1,p,"本卦",true)]; }
+  else if(n===2){ const [a,b]=movs;
+    rule=`二爻動（${POS[a]}、${POS[b]}爻）：兩爻爻辭同參，以居上的${POS[b]}爻為主。`;
+    reads=[yaoRead(g1,b,"本卦",true),yaoRead(g1,a,"本卦",false)]; }
+  else if(n===3){
+    rule=`三爻動：本卦卦辭為主、之卦（${g2.name}）卦辭為輔。`;
+    reads=[ciRead(g1,"本卦",true),ciRead(g2,"之卦",false)]; }
+  else if(n===4){ const st=[0,1,2,3,4,5].filter(i=>!movs.includes(i));
+    rule=`四爻動：取之卦（${g2.name}）兩個不變爻的爻辭，以下爻（${POS[st[0]]}爻）為主。`;
+    reads=[yaoRead(g2,st[0],"之卦",true),yaoRead(g2,st[1],"之卦",false)]; }
+  else if(n===5){ const s=[0,1,2,3,4,5].find(i=>!movs.includes(i));
+    rule=`五爻動：取之卦（${g2.name}）唯一不變爻（${POS[s]}爻）的爻辭。`;
+    reads=[yaoRead(g2,s,"之卦",true)]; }
+  else{
+    if(g1.seq===1){ rule="六爻全變：乾卦六爻皆動，以「用九」取斷。"; reads=[{label:"本卦 用九",text:g1.yao[6],main:true}]; }
+    else if(g1.seq===2){ rule="六爻全變：坤卦六爻皆動，以「用六」取斷。"; reads=[{label:"本卦 用六",text:g1.yao[6],main:true}]; }
+    else{ rule=`六爻全變：以之卦（${g2.name}）卦辭取斷。`; reads=[ciRead(g2,"之卦",true)]; }
+  }
+  return `<div class="guide-box"><div class="guide-rule">🧭 取斷指引（朱熹《易學啟蒙》法）——${rule}</div>`+
+    reads.map(r=>`<div class="read ${r.main?"main":""}"><span class="rl">${r.label}</span>${r.text}</div>`).join("")+`</div>`;
+}
+const CATS=[["💘 愛情婚姻","love"],["💼 事業工作","career"],["📚 學業考試","study"],["💰 財運","money"],["🩺 健康","health"],["✈️ 出行","travel"]];
+function renderResult(g1,g2,movs,how){
+  const q=$("#ask").value.trim();
+  const movTxt=mode==="coin" ? "　·　動爻："+(movs.length?movs.map(i=>POS[i]+"爻").join("、"):"無") : "";
+  let html=`
+    <div class="detail-head">
+      ${hexpicHTML(g1,movs,mode==="coin"?lines:null)}
+      <div class="dh-main">
+        <div class="dh-name"><span class="usym">${symOf(g1)}</span>${g1.name}
+          <span class="lv lv-${g1.level}">${g1.level}卦</span></div>
+        <div class="dh-sub">《周易》第 ${g1.seq} 卦　·　上${g1.up}${TRIG[g1.up].sym}（${TRIG[g1.up].nat}）　下${g1.down}${TRIG[g1.down].sym}（${TRIG[g1.down].nat}）<br>${how}所得${movTxt}</div>
+      </div>
+    </div>`;
+  if(q) html+=`<div class="ask-echo">🙏 所問：${q.replace(/</g,"&lt;")}</div>`;
+  if(mode==="coin") html+=buildGuidance(g1,g2,movs);
+  html+=`
+    <div class="ci-box"><b>卦辭</b>${shortName(g1)}：${g1.ci}</div>
+    <div class="mean-box">${g1.mean}</div>
+    <div class="cat-grid">${CATS.map(([lb,k])=>`<div class="cat"><div class="ct">${lb}</div><div class="cb">${g1[k]}</div></div>`).join("")}</div>
+    <div class="tip-box">💡 <b>一句話</b>：${g1.tip}</div>`;
+  if(g2) html+=`
+    <div class="zhi-box"><span class="zsym">${symOf(g2)}</span>
+      <div class="zmain">
+        <div class="zt">之卦：${g2.name} <span class="lv lv-${g2.level}">${g2.level}卦</span></div>
+        <div class="zci">動爻變化後之卦。卦辭：${shortName(g2)}：${g2.ci}</div>
+      </div>
+      <a class="zlink" href="./index.htm#${g2.seq}">查此卦 →</a></div>`;
+  html+=`<div class="more-row"><a class="more-link" href="./index.htm#${g1.seq}">📖 查看本卦完整爻辭與傳統像意 →</a></div>`;
+  $("#result").innerHTML=html;
+  $("#resultCard").hidden=false;
+}
+function scrollToResult(){
+  $("#resultCard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+/* ── 事件 ── */
+$("#segStick").onclick=()=>setMode("stick");
+$("#segCoin").onclick=()=>setMode("coin");
+$("#mainBtn").onclick=()=>{ if(busy||done) return; mode==="stick"?doStickDraw():tossOnce(); };
+$("#fastBtn").onclick=autoToss;
+$("#againBtn").onclick=()=>reset();
+$("#detailBtn").onclick=scrollToResult;
+$("#slip").onclick=scrollToResult;
+
+buildCoins(); buildBuilder(); updateButtons();
+</script>
+</body>
+</html>
