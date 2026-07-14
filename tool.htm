@@ -86,6 +86,7 @@ body {
   border: 1px solid transparent;
   border-bottom: none;
   position: relative;
+  touch-action: manipulation; /* 取消雙擊縮放，讓手機雙擊判定即時 */
 }
 .tab:hover { background: #1f2b3e; color: #c9d1d9; }
 .tab.active { background: #0f1117; color: #58a6ff; border-color: #2a3a52; }
@@ -596,6 +597,10 @@ const esc      = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 // ── Render ────────────────────────────────────────────
 function render() { renderTabs(); renderLinks(); renderPanes(); }
 
+// 快點兩下分頁＝在新視窗開啟該工具（畫面太小被擋住時用）
+// 不用原生 dblclick：分頁點一下會重繪 DOM，dblclick 會被吃掉，改用時間差判定
+let lastTabTap = { uid: null, t: 0 };
+
 function renderTabs() {
   const ct = document.getElementById('tabs-container');
   ct.innerHTML = '';
@@ -605,10 +610,18 @@ function renderTabs() {
     el.className = 'tab' + (tab.uid === active ? ' active' : '');
     el.dataset.uid = tab.uid;
     el.draggable = true;
+    el.title = `${tab.name}（快點兩下＝另開新視窗）`;
     el.innerHTML = `<span class="tab-name">${esc(tab.name)}</span><span class="tab-close" title="關閉">×</span>`;
     el.addEventListener('click', e => {
-      if (e.target.classList.contains('tab-close')) closeTab(tab.uid);
-      else activateTab(tab.uid);
+      if (e.target.classList.contains('tab-close')) { closeTab(tab.uid); return; }
+      const now = Date.now();
+      if (lastTabTap.uid === tab.uid && now - lastTabTap.t < 400) {
+        lastTabTap = { uid: null, t: 0 };
+        window.open(tab.url, '_blank');
+        return;
+      }
+      lastTabTap = { uid: tab.uid, t: now };
+      activateTab(tab.uid);
     });
     el.addEventListener('dragstart',  tabDragStart);
     el.addEventListener('dragover',   tabDragOver);
