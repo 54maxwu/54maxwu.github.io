@@ -50,7 +50,6 @@ h2{font-size:20px; font-weight:700; margin-bottom:4px;}
   display:grid; grid-template-columns:minmax(220px,300px) 1fr;
   gap:28px; align-items:start;
 }
-@media(max-width:640px){ #composer{grid-template-columns:1fr;} }
 
 #glyph-box{
   position:relative; aspect-ratio:1; background:var(--card);
@@ -128,7 +127,6 @@ button{font:inherit; cursor:pointer;}
   background:var(--card); border:1px solid var(--line); border-radius:14px;
   padding:28px; display:grid; grid-template-columns:auto 1fr; gap:26px; align-items:center;
 }
-@media(max-width:560px){ #quiz-card{grid-template-columns:1fr;} }
 #quiz-stimulus{
   min-width:140px; min-height:140px; border:1.5px solid var(--ink); border-radius:10px;
   display:flex; align-items:center; justify-content:center; background:var(--paper);
@@ -157,6 +155,71 @@ button{font:inherit; cursor:pointer;}
 .next-btn:focus-visible{outline:3px solid var(--hwang); outline-offset:2px;}
 
 footer{color:var(--ink-soft); font-size:13px; border-top:1px solid var(--line); padding-top:20px;}
+/* 聯想提示列（手機版取代卡片內文字） */
+.grid-hint{
+  display:none; font-size:12px; color:var(--ink-soft);
+  background:var(--card); border:1px dashed var(--line); border-radius:8px;
+  padding:5px 10px; margin:0 0 8px; line-height:1.55;
+}
+.grid-hint b{color:var(--cheong); font-weight:600; font-size:15px; margin-right:4px;}
+
+/* ---------- 手機版：緊湊排版，一屏看到整組 ---------- */
+@media (max-width:640px){
+  body{font-size:15px; line-height:1.55;}
+  main{padding:0 12px 44px;}
+  header{padding:16px 0 2px; gap:8px;}
+  header h1{font-size:20px;}
+  header .sub{font-size:12px;}
+  #voice-bar{font-size:12px; margin:6px 0 16px; gap:8px;}
+  section{margin-bottom:34px;}
+  .eyebrow{font-size:11px; margin-bottom:3px;}
+  h2{font-size:17px;}
+  .desc{font-size:12.5px; margin-bottom:12px; line-height:1.6;}
+
+  /* 拼字盤：音節格縮小、置頂跟隨，選盤緊湊多欄 */
+  #composer{display:block;}
+  #composer>div:first-child{
+    position:sticky; top:0; z-index:5;
+    display:flex; align-items:center; gap:14px;
+    background:var(--paper); padding:8px 0 10px; margin-bottom:8px;
+    border-bottom:1px solid var(--line);
+  }
+  #glyph-box{flex:0 0 106px; width:106px;}
+  #glyph{font-size:64px;}
+  #glyph-info{flex-direction:column; align-items:flex-start; gap:6px; margin-top:0;}
+  .play-btn{padding:7px 16px; font-size:13px;}
+  #glyph-roman{font-size:17px;}
+  #glyph-note{font-size:12px;}
+  .picker-label{font-size:12px; margin-bottom:4px;}
+  .chips{gap:5px; margin-bottom:12px;}
+  .chip{min-width:40px; padding:4px 3px; border-radius:7px;}
+  .chip .kr-c{font-size:16px;}
+  .chip .rm{font-size:10px;}
+
+  /* 字母表：四欄小卡，聯想提示改顯示在網格上方一行 */
+  .grid-title{font-size:13px; margin:14px 0 8px;}
+  .letter-grid{grid-template-columns:repeat(4,1fr); gap:6px;}
+  .letter-card{padding:8px 4px; border-radius:8px;}
+  .letter-card .kr-c{font-size:25px;}
+  .letter-card .rm{font-size:11px;}
+  .letter-card .hint{display:none;}
+  .grid-hint{display:block;}
+
+  /* 測驗：題目格與選項並排 */
+  #quiz-modes{gap:6px; margin-bottom:12px;}
+  .mode-btn{padding:7px 14px; font-size:13px;}
+  #quiz-card{padding:12px; gap:12px; grid-template-columns:92px 1fr; border-radius:12px;}
+  #quiz-stimulus{min-width:92px; min-height:92px;}
+  #quiz-stimulus .kr-c{font-size:44px;}
+  #quiz-stimulus .listen svg{width:30px; height:30px;}
+  #quiz-options{gap:8px;}
+  .opt{padding:10px 6px; font-size:17px;}
+  #quiz-footer{margin-top:10px; gap:10px;}
+  #quiz-feedback{font-size:13px;}
+  #quiz-score{font-size:12px;}
+  .next-btn{padding:8px 18px; font-size:13px;}
+  footer{font-size:12px;}
+}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
 </style>
 </head>
@@ -214,8 +277,10 @@ footer{color:var(--ink-soft); font-size:13px; border-top:1px solid var(--line); 
   <h2>點字母卡片，直接聽發音</h2>
   <p class="desc">每張卡片附「長相聯想」幫你記。注意送氣規律：加一筆＝多一口氣（ㄱ→ㅋ、ㄷ→ㅌ、ㅂ→ㅍ、ㅈ→ㅊ）。</p>
   <p class="grid-title">基本子音 14 個</p>
+  <p class="grid-hint" id="hint-c">👆 點卡片聽發音，這裡會顯示字形聯想</p>
   <div class="letter-grid" id="grid-c"></div>
   <p class="grid-title">基本母音 10 個</p>
+  <p class="grid-hint" id="hint-v">👆 點卡片聽發音，這裡會顯示字形聯想</p>
   <div class="letter-grid" id="grid-v"></div>
 </section>
 
@@ -328,17 +393,20 @@ document.getElementById('glyph-play').onclick = () => speak(document.getElementB
 compose();
 
 /* ---------- 字母表 ---------- */
-function buildGrid(list, box){
+function buildGrid(list, box, hintEl){
   list.forEach(item => {
     const b = document.createElement('button');
     b.className = 'letter-card';
     b.innerHTML = '<span class="kr-c hangul">' + item[0] + '</span><span class="rm">' + item[1] + '</span><span class="hint">' + item[2] + '</span>';
-    b.onclick = () => speak(SOUND[item[0]]);
+    b.onclick = () => {
+      speak(SOUND[item[0]]);
+      if(hintEl) hintEl.innerHTML = '<b class="hangul">' + item[0] + '</b>' + item[1] + '｜' + item[2];
+    };
     box.appendChild(b);
   });
 }
-buildGrid(CONS, document.getElementById('grid-c'));
-buildGrid(VOWS, document.getElementById('grid-v'));
+buildGrid(CONS, document.getElementById('grid-c'), document.getElementById('hint-c'));
+buildGrid(VOWS, document.getElementById('grid-v'), document.getElementById('hint-v'));
 
 /* ---------- 測驗 ---------- */
 const POOL = CONS.filter(c => c[0] !== 'ㅇ').concat(VOWS);
