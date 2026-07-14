@@ -133,10 +133,14 @@
   .stick.s5 { left: 56px; height: 84px; transform: rotate(3deg); }
   .stick.s6 { left: 70px; height: 70px; transform: rotate(6deg); }
   .stick.s7 { left: 84px; height: 80px; transform: rotate(10deg); }
-  .stick.chosen { left: 43px; height: 94px; transform: rotate(-1deg); z-index: 3;
-    transition: transform .85s cubic-bezier(.3,1.4,.4,1), box-shadow .85s; }
-  .stick.chosen.rise { transform: translateY(-118px) rotate(0deg);
-    box-shadow: 0 0 18px rgba(253,224,71,.85), 0 0 44px rgba(251,191,36,.5); }
+  .stick.chosen { left: 68px; bottom: 166px; height: 94px; transform: rotate(-1deg);
+    transform-origin: 50% 50%; z-index: 2;
+    transition: transform .55s cubic-bezier(.3,1.4,.4,1), box-shadow .55s; }
+  .stick.chosen.rise { transform: translateY(-46px) rotate(0deg);
+    box-shadow: 0 0 14px rgba(253,224,71,.8), 0 0 34px rgba(251,191,36,.5); }
+  .stick.chosen.present { z-index: 4; transform: translateY(26px) rotate(8deg) scale(2.3);
+    transition: transform .75s cubic-bezier(.32,1.2,.4,1), box-shadow .75s;
+    box-shadow: 0 0 22px rgba(253,224,71,.95), 0 0 64px rgba(251,191,36,.55), 0 16px 36px rgba(0,0,0,.45); }
   .shaking .stick { animation: stickJig .2s ease-in-out infinite alternate; }
   .shaking .stick.s1 { animation-delay: 0s; }  .shaking .stick.s2 { animation-delay: .05s; }
   .shaking .stick.s3 { animation-delay: .09s; } .shaking .stick.chosen { animation-delay: .12s; }
@@ -506,9 +510,9 @@
           <div class="rim"></div>
           <div class="sticks">
             <i class="stick s1"></i><i class="stick s2"></i><i class="stick s3"></i>
-            <i class="stick chosen" id="chosenStick"></i>
             <i class="stick s5"></i><i class="stick s6"></i><i class="stick s7"></i>
           </div>
+          <i class="stick chosen" id="chosenStick"></i>
           <div class="tube"><div class="tube-label">靈籤</div></div>
         </div>
         <div class="floor"></div>
@@ -697,7 +701,7 @@ function reset(){
   $("#reveal").hidden=true;
   $("#resultCard").hidden=true;
   $("#stage").classList.remove("shaking","lv-good","lv-mid","lv-low");
-  $("#chosenStick").classList.remove("rise");
+  $("#chosenStick").classList.remove("rise","present");
   const tn=topic?topicOf().nm:null;
   $("#stickHint").textContent=tn?`為您求問「${tn}」——默想具體情境，點下方「開始搖籤」`:"默想所問之事，點下方「開始搖籤」";
   $("#sceneStick").hidden = mode!=="stick";
@@ -731,8 +735,13 @@ async function doStickDraw(){
   stage.classList.add("shaking");
   await sleep(2050);
   stage.classList.remove("shaking");
-  $("#chosenStick").classList.add("rise");
-  await sleep(950);
+  const st=$("#chosenStick");
+  st.classList.add("rise");
+  $("#stickHint").textContent="籤筒既定——一籤躍出";
+  await sleep(620);
+  st.classList.add("present");
+  $("#stickHint").textContent="靈籤取出，正為您開示——";
+  await sleep(1050);
   const g=GUA64[rnd(64)];
   finish(g,null,[],"籤筒抽卦");
 }
