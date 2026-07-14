@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かな 拼字盤 · 日文五十音發音練習</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F3EB; --ink:#22201C; --ink-soft:#6B6459;
+  --shu:#BC4034; --shu-light:#F6E4E2;
+  --ai:#275D8C; --ai-light:#E3ECF4;
+  --hwang:#D9A441; --hwang-light:#F7EBD3;
+  --ok:#2F6B4F; --ok-light:#E4EFE7;
+  --line:#DDD5C7; --card:#FFFDF8;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:'Noto Sans TC',sans-serif; font-size:16px; line-height:1.7;
+}
+::-webkit-scrollbar{width:9px; height:9px;}
+::-webkit-scrollbar-track{background:#EFE9DE;}
+::-webkit-scrollbar-thumb{background:#D4C9B6; border-radius:5px;}
+::-webkit-scrollbar-thumb:hover{background:#BFB29A;}
+.jp{font-family:'Noto Serif JP',serif;}
+main{max-width:860px; margin:0 auto; padding:0 20px 80px;}
+
+header{padding:48px 0 8px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;}
+header h1{font-size:26px; font-weight:700; letter-spacing:0.02em;}
+header .sub{color:var(--ink-soft); font-size:14px;}
+
+#voice-bar{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  font-size:13px; color:var(--ink-soft); margin:10px 0 34px;
+}
+#voice-bar select{
+  font:inherit; padding:5px 8px; border:1px solid var(--line);
+  border-radius:6px; background:var(--card); color:var(--ink); max-width:280px;
+}
+#voice-note{color:var(--shu);}
+
+section{margin-bottom:64px;}
+.eyebrow{
+  font-size:13px; letter-spacing:0.18em; color:var(--shu);
+  font-weight:700; margin-bottom:6px;
+}
+h2{font-size:20px; font-weight:700; margin-bottom:4px;}
+.desc{color:var(--ink-soft); font-size:14px; margin-bottom:20px;}
+.desc .kt{color:var(--ai); font-weight:500;}
+
+/* ---------- 拼字盤 hero ---------- */
+#composer{
+  display:grid; grid-template-columns:minmax(220px,300px) 1fr;
+  gap:28px; align-items:start;
+}
+#glyph-box{
+  position:relative; aspect-ratio:1; background:var(--card);
+  border:2px solid var(--ink); border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+}
+#glyph-box::before,#glyph-box::after{
+  content:''; position:absolute; background:var(--line);
+}
+#glyph-box::before{left:50%; top:6%; bottom:6%; width:1px;}
+#glyph-box::after{top:50%; left:6%; right:6%; height:1px;}
+#glyph{font-size:clamp(96px,22vw,150px); font-weight:600; position:relative; z-index:1; line-height:1;}
+#glyph.two{font-size:clamp(60px,14vw,96px);}
+#glyph.none{color:var(--ink-soft); opacity:.55;}
+#glyph-info{display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap;}
+#glyph-roman{font-size:20px; font-weight:500;}
+#glyph-note{font-size:13px; color:var(--ink-soft);}
+#glyph-note .kt{color:var(--ai);}
+
+button{font:inherit; cursor:pointer;}
+.play-btn{
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--shu); color:#fff; border:none; border-radius:999px;
+  padding:10px 22px; font-size:15px; font-weight:500;
+  transition:transform .08s ease, background .15s ease;
+}
+.play-btn:hover{background:#9C3128;}
+.play-btn:active{transform:scale(.97);}
+.play-btn:focus-visible{outline:3px solid var(--hwang); outline-offset:2px;}
+.play-btn svg{width:16px; height:16px; fill:currentColor;}
+
+.picker-label{
+  font-size:13px; color:var(--ink-soft); font-weight:500;
+  margin:0 0 6px; display:flex; align-items:baseline; gap:8px;
+}
+.picker-label .kr{color:var(--shu); font-weight:700;}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px;}
+.chip{
+  min-width:46px; padding:7px 6px; border:1px solid var(--line);
+  border-radius:8px; background:var(--card); text-align:center;
+  transition:border-color .12s, background .12s;
+}
+.chip .kr-c{font-size:19px; display:block; line-height:1.2;}
+.chip .rm{font-size:11px; color:var(--ink-soft); display:block;}
+.chip:hover{border-color:var(--shu);}
+.chip.on{background:var(--shu-light); border-color:var(--shu);}
+.chip.on .kr-c{color:var(--shu); font-weight:600;}
+.chip:focus-visible{outline:3px solid var(--hwang); outline-offset:1px;}
+
+/* ---------- 五十音表 ---------- */
+.letter-grid{
+  display:grid; grid-template-columns:repeat(5,1fr);
+  gap:8px; max-width:520px;
+}
+.col-head{
+  text-align:center; font-size:12px; font-weight:700; color:var(--ink-soft);
+  letter-spacing:.08em; padding-bottom:2px;
+}
+.letter-card{
+  background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:10px 4px; text-align:center;
+  transition:border-color .12s, transform .08s;
+}
+.letter-card:hover{border-color:var(--shu);}
+.letter-card:active{transform:scale(.97);}
+.letter-card:focus-visible{outline:3px solid var(--hwang); outline-offset:1px;}
+.letter-card .kr-c{font-size:26px; line-height:1.25; display:block;}
+.letter-card .kr-c .kata{font-size:16px; color:var(--ai); font-style:normal; margin-left:3px;}
+.letter-card .rm{font-size:12px; color:var(--shu); font-weight:500; display:block;}
+.letter-gap{
+  border:1px dashed var(--line); border-radius:10px; opacity:.45;
+}
+.grid-title{font-size:14px; font-weight:700; margin:22px 0 10px; color:var(--ink);}
+.grid-hint{
+  font-size:12.5px; color:var(--ink-soft);
+  background:var(--card); border:1px dashed var(--line); border-radius:8px;
+  padding:5px 10px; margin:0 0 10px; line-height:1.55; max-width:520px;
+}
+.grid-hint b{color:var(--shu); font-weight:600; font-size:15px; margin-right:4px;}
+.grid-hint .kt{color:var(--ai);}
+
+/* ---------- 測驗 ---------- */
+#quiz-modes{display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap; align-items:center;}
+#quiz-modes .sep{width:1px; height:22px; background:var(--line);}
+.mode-btn{
+  border:1px solid var(--line); background:var(--card); border-radius:999px;
+  padding:8px 18px; font-size:14px;
+}
+.mode-btn.on{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+.mode-btn.on2{background:var(--ai); color:#fff; border-color:var(--ai);}
+.mode-btn:focus-visible{outline:3px solid var(--hwang); outline-offset:2px;}
+
+#quiz-card{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:28px; display:grid; grid-template-columns:auto 1fr; gap:26px; align-items:center;
+}
+#quiz-stimulus{
+  min-width:140px; min-height:140px; border:1.5px solid var(--ink); border-radius:12px;
+  display:flex; align-items:center; justify-content:center; background:var(--paper);
+}
+#quiz-stimulus .kr-c{font-size:72px; font-weight:600;}
+#quiz-stimulus .listen{background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); padding:14px;}
+#quiz-stimulus .listen svg{width:40px; height:40px; fill:var(--shu);}
+#quiz-options{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+.opt{
+  border:1px solid var(--line); background:var(--paper); border-radius:10px;
+  padding:14px 10px; font-size:20px;
+}
+.opt:hover{border-color:var(--shu);}
+.opt:focus-visible{outline:3px solid var(--hwang); outline-offset:1px;}
+.opt.right{background:var(--ok-light); border-color:var(--ok); color:var(--ok); font-weight:700;}
+.opt.wrong{background:var(--shu-light); border-color:var(--shu); color:var(--shu);}
+#quiz-footer{display:flex; align-items:center; gap:14px; margin-top:16px; flex-wrap:wrap;}
+#quiz-feedback{font-size:15px; font-weight:500; min-height:24px;}
+#quiz-feedback.ok{color:var(--ok);}
+#quiz-feedback.no{color:var(--shu);}
+#quiz-score{margin-left:auto; font-size:14px; color:var(--ink-soft);}
+.next-btn{
+  border:1px solid var(--ink); background:var(--ink); color:var(--paper);
+  border-radius:999px; padding:9px 22px; font-size:14px; font-weight:500;
+}
+.next-btn:focus-visible{outline:3px solid var(--hwang); outline-offset:2px;}
+
+footer{color:var(--ink-soft); font-size:13px; border-top:1px solid var(--line); margin-top:60px; padding-top:18px;}
+
+/* ---------- 手機版：緊湊排版，一屏看到整組 ---------- */
+@media (max-width:640px){
+  body{font-size:15px; line-height:1.55;}
+  main{padding:0 12px 44px;}
+  header{padding:16px 0 2px; gap:8px;}
+  header h1{font-size:20px;}
+  header .sub{font-size:12px;}
+  #voice-bar{font-size:12px; margin:6px 0 16px; gap:8px;}
+  #voice-bar select{max-width:170px; font-size:12px; padding:4px 6px;}
+  section{margin-bottom:34px;}
+  .eyebrow{font-size:11px; margin-bottom:3px;}
+  h2{font-size:17px;}
+  .desc{font-size:12.5px; margin-bottom:12px; line-height:1.6;}
+
+  /* 拼字盤：假名格縮小、置頂跟隨，選盤緊湊多欄 */
+  #composer{display:block;}
+  #composer>div:first-child{
+    position:sticky; top:0; z-index:5;
+    display:flex; align-items:center; gap:14px;
+    background:var(--paper); padding:8px 0 10px; margin-bottom:8px;
+    border-bottom:1px solid var(--line);
+  }
+  #glyph-box{flex:0 0 106px; width:106px;}
+  #glyph{font-size:60px;}
+  #glyph.two{font-size:42px;}
+  #glyph-info{flex-direction:column; align-items:flex-start; gap:6px; margin-top:0;}
+  .play-btn{padding:7px 16px; font-size:13px;}
+  #glyph-roman{font-size:17px;}
+  #glyph-note{font-size:12px;}
+  .picker-label{font-size:12px; margin-bottom:4px;}
+  .chips{gap:5px; margin-bottom:12px;}
+  .chip{min-width:40px; padding:4px 3px; border-radius:7px;}
+  .chip .kr-c{font-size:16px;}
+  .chip .rm{font-size:10px;}
+
+  /* 五十音表：五欄小卡 */
+  .grid-title{font-size:13px; margin:14px 0 8px;}
+  .letter-grid{gap:5px;}
+  .letter-card{padding:6px 2px; border-radius:8px;}
+  .letter-card .kr-c{font-size:20px;}
+  .letter-card .kr-c .kata{font-size:12px; margin-left:2px;}
+  .letter-card .rm{font-size:10px;}
+  .grid-hint{font-size:12px;}
+
+  /* 測驗：題目格與選項並排 */
+  #quiz-modes{gap:6px; margin-bottom:12px;}
+  .mode-btn{padding:7px 14px; font-size:13px;}
+  #quiz-card{padding:12px; gap:12px; grid-template-columns:92px 1fr; border-radius:12px;}
+  #quiz-stimulus{min-width:92px; min-height:92px;}
+  #quiz-stimulus .kr-c{font-size:44px;}
+  #quiz-stimulus .listen svg{width:30px; height:30px;}
+  #quiz-options{gap:8px;}
+  .opt{padding:10px 6px; font-size:17px;}
+  #quiz-footer{margin-top:10px; gap:10px;}
+  #quiz-feedback{font-size:13px;}
+  #quiz-score{font-size:12px;}
+  .next-btn{padding:8px 18px; font-size:13px;}
+  footer{font-size:12px; margin-top:36px; padding-top:14px;}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1><span class="jp">かな</span> 拼字盤</h1>
+  <span class="sub">日文五十音發音練習 · 點什麼唸什麼</span>
+</header>
+
+<div id="voice-bar">
+  <span style="display:inline-flex;align-items:center;gap:6px;">
+    <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:var(--shu)" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+    日語語音 <select id="voice"></select>
+  </span>
+  <label style="display:flex;align-items:center;gap:5px;">
+    速度 <input type="range" id="rate" min="0.5" max="1.5" step="0.1" value="0.9" style="width:110px">
+    <span id="rate-out">0.9</span>
+  </label>
+  <span id="voice-note"></span>
+</div>
+
+<!-- ============ 拼字盤 ============ -->
+<section id="sec-composer">
+  <p class="eyebrow">拼字盤 · 組み立て</p>
+  <h2>行（子音）＋ 段（母音）＝ 一個假名</h2>
+  <p class="desc">五十音其實是一張「子音 × 母音」的乘法表。點選下面的行與段，練習格會即時組出假名並發音；<b>拗音</b>＝い段假名＋小寫的ゃ・ゅ・ょ（選了拗音會自動跳到い段）。</p>
+  <div id="composer">
+    <div>
+      <div id="glyph-box" aria-live="polite"><span id="glyph" class="jp">か</span></div>
+      <div id="glyph-info">
+        <button class="play-btn" id="glyph-play">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
+          播放發音
+        </button>
+        <div>
+          <span id="glyph-roman">ka</span>
+          <span id="glyph-note" class="jp"></span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="picker-label"><span class="kr jp">行</span>子音（あ行＝無子音）</p>
+      <div class="chips" id="chips-r" role="group" aria-label="選擇行（子音）"></div>
+      <p class="picker-label"><span class="kr jp">段</span>母音</p>
+      <div class="chips" id="chips-d" role="group" aria-label="選擇段（母音）"></div>
+      <p class="picker-label"><span class="kr jp">拗音</span>小寫ゃゅょ（可不加）</p>
+      <div class="chips" id="chips-y" role="group" aria-label="選擇拗音"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 五十音表 ============ -->
+<section id="sec-letters">
+  <p class="eyebrow">五十音表 · ごじゅうおん</p>
+  <h2>點假名卡片，直接聽發音</h2>
+  <p class="desc">每張卡片：平假名・<span class="kt">片假名</span>・羅馬音。平假名來自漢字<b>草書</b>、片假名取自漢字<b>偏旁</b>——點卡片聽發音，上方會顯示字源聯想。</p>
+  <p class="grid-title">清音 46 個（直行同子音、橫列同母音）</p>
+  <p class="grid-hint" id="hint-s">👆 點卡片聽發音，這裡會顯示字源聯想</p>
+  <div class="letter-grid" id="grid-s"></div>
+  <p class="grid-title">濁音・半濁音 25 個（清音加゛或゜）</p>
+  <p class="grid-hint" id="hint-d">加゛（濁點）＝聲帶振動：k→g、s→z、t→d、h→b；加゜（半濁點）只有 h→p</p>
+  <div class="letter-grid" id="grid-d"></div>
+</section>
+
+<!-- ============ 測驗 ============ -->
+<section id="sec-quiz">
+  <p class="eyebrow">測驗 · テスト</p>
+  <h2>換你了</h2>
+  <p class="desc">「看字選音」練認字，「聽音選字」練耳朵——後者才是真功夫。可切換平／片假名。</p>
+  <div id="quiz-modes">
+    <button class="mode-btn on" id="mode-read">看字選音</button>
+    <button class="mode-btn" id="mode-listen">聽音選字</button>
+    <span class="sep"></span>
+    <button class="mode-btn on2" id="scr-hira">ひらがな</button>
+    <button class="mode-btn" id="scr-kata">カタカナ</button>
+  </div>
+  <div id="quiz-card">
+    <div id="quiz-stimulus"></div>
+    <div id="quiz-options"></div>
+  </div>
+  <div id="quiz-footer">
+    <span id="quiz-feedback" aria-live="polite"></span>
+    <span id="quiz-score">答對 0 / 0</span>
+    <button class="next-btn" id="quiz-next">下一題</button>
+  </div>
+</section>
+
+<footer>
+  發音使用瀏覽器內建的日語語音合成（Web Speech API），手機與電腦皆免下載；若下拉選單找不到日語語音，請在系統設定安裝日文語音資料。練到聽音選字九成正確，就可以開始學單字了。頑張って！
+</footer>
+</main>
+
+<script>
+/* ---------- 資料：五十音 ---------- */
+// 每列＝一行：[hira, kata, romaji]，null＝現代日語沒有這個音
+const ROWS = {
+  a:{head:'あ', rm:'-', c:[['あ','ア','a'],['い','イ','i'],['う','ウ','u'],['え','エ','e'],['お','オ','o']]},
+  k:{head:'か', rm:'k', c:[['か','カ','ka'],['き','キ','ki'],['く','ク','ku'],['け','ケ','ke'],['こ','コ','ko']]},
+  g:{head:'が', rm:'g', c:[['が','ガ','ga'],['ぎ','ギ','gi'],['ぐ','グ','gu'],['げ','ゲ','ge'],['ご','ゴ','go']]},
+  s:{head:'さ', rm:'s', c:[['さ','サ','sa'],['し','シ','shi'],['す','ス','su'],['せ','セ','se'],['そ','ソ','so']]},
+  z:{head:'ざ', rm:'z', c:[['ざ','ザ','za'],['じ','ジ','ji'],['ず','ズ','zu'],['ぜ','ゼ','ze'],['ぞ','ゾ','zo']]},
+  t:{head:'た', rm:'t', c:[['た','タ','ta'],['ち','チ','chi'],['つ','ツ','tsu'],['て','テ','te'],['と','ト','to']]},
+  d:{head:'だ', rm:'d', c:[['だ','ダ','da'],['ぢ','ヂ','ji'],['づ','ヅ','zu'],['で','デ','de'],['ど','ド','do']]},
+  n:{head:'な', rm:'n', c:[['な','ナ','na'],['に','ニ','ni'],['ぬ','ヌ','nu'],['ね','ネ','ne'],['の','ノ','no']]},
+  h:{head:'は', rm:'h', c:[['は','ハ','ha'],['ひ','ヒ','hi'],['ふ','フ','fu'],['へ','ヘ','he'],['ほ','ホ','ho']]},
+  b:{head:'ば', rm:'b', c:[['ば','バ','ba'],['び','ビ','bi'],['ぶ','ブ','bu'],['べ','ベ','be'],['ぼ','ボ','bo']]},
+  p:{head:'ぱ', rm:'p', c:[['ぱ','パ','pa'],['ぴ','ピ','pi'],['ぷ','プ','pu'],['ぺ','ペ','pe'],['ぽ','ポ','po']]},
+  m:{head:'ま', rm:'m', c:[['ま','マ','ma'],['み','ミ','mi'],['む','ム','mu'],['め','メ','me'],['も','モ','mo']]},
+  y:{head:'や', rm:'y', c:[['や','ヤ','ya'],null,['ゆ','ユ','yu'],null,['よ','ヨ','yo']]},
+  r:{head:'ら', rm:'r', c:[['ら','ラ','ra'],['り','リ','ri'],['る','ル','ru'],['れ','レ','re'],['ろ','ロ','ro']]},
+  w:{head:'わ', rm:'w', c:[['わ','ワ','wa'],null,null,null,['を','ヲ','o']]},
+};
+const N_KANA = ['ん','ン','n'];
+const SEION_ORDER = ['a','k','s','t','n','h','m','y','r','w'];
+const DAKUON_ORDER = ['g','z','d','b','p'];
+const COMPOSER_ORDER = ['a','k','g','s','z','t','d','n','h','b','p','m','y','r','w'];
+// 拗音：行 → 羅馬音前綴（きゃ kya…）
+const YOON = {k:'ky',g:'gy',s:'sh',z:'j',t:'ch',d:'j',n:'ny',h:'hy',b:'by',p:'py',m:'my',r:'ry'};
+const YO_SMALL = {'ゃ':['ャ','a'],'ゅ':['ュ','u'],'ょ':['ョ','o']};
+
+/* 字源聯想：[平假名字源, 片假名字源, 補充說明] */
+const HINT = {
+  'あ':['安','阿'],'い':['以','伊'],'う':['宇','宇'],'え':['衣','江'],'お':['於','於'],
+  'か':['加','加'],'き':['幾','幾'],'く':['久','久'],'け':['計','介'],'こ':['己','己'],
+  'さ':['左','散'],'し':['之','之','唸 shi，不是 si'],'す':['寸','須'],'せ':['世','世'],'そ':['曽','曽'],
+  'た':['太','多'],'ち':['知','千','唸 chi，不是 ti'],'つ':['川','川','唸 tsu'],'て':['天','天'],'と':['止','止'],
+  'な':['奈','奈'],'に':['仁','二'],'ぬ':['奴','奴'],'ね':['祢','祢'],'の':['乃','乃'],
+  'は':['波','八','當助詞時唸 wa'],'ひ':['比','比'],'ふ':['不','不','雙唇輕吹氣的 fu'],'へ':['部','部','平片幾乎同形；當助詞唸 e'],'ほ':['保','保'],
+  'ま':['末','万'],'み':['美','三'],'む':['武','牟'],'め':['女','女'],'も':['毛','毛'],
+  'や':['也','也'],'ゆ':['由','由'],'よ':['与','与'],
+  'ら':['良','良'],'り':['利','利','平片同源、長得像'],'る':['留','流'],'れ':['礼','礼'],'ろ':['呂','呂'],
+  'わ':['和','和'],'を':['遠','乎','只當受詞助詞，唸 o'],'ん':['无','尔','唯一不配母音的鼻音'],
+};
+const DAK_NOTE = {'ぢ':'與じ同音，現代極少用','づ':'與ず同音，現代極少用'};
+const SEI_OF = {g:'k', z:'s', d:'t', b:'h', p:'h'};
+
+/* ---------- 語音（Web Speech API） ---------- */
+const voiceSel = document.getElementById('voice');
+const voiceNote = document.getElementById('voice-note');
+const rateInput = document.getElementById('rate');
+const rateOut = document.getElementById('rate-out');
+rateInput.oninput = () => rateOut.textContent = rateInput.value;
+let jaVoices = [];
+function loadVoices(){
+  jaVoices = (speechSynthesis.getVoices() || []).filter(v => /^ja/i.test(v.lang));
+  voiceSel.innerHTML = jaVoices.map((v,i) => `<option value="${i}">${v.name}</option>`).join('');
+  voiceNote.textContent = jaVoices.length ? '' : '⚠ 找不到日語語音，請在系統語音設定安裝日文';
+}
+if('speechSynthesis' in window){
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}else{
+  voiceNote.textContent = '⚠ 此瀏覽器不支援語音合成';
+}
+function speak(txt){
+  if(!txt || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = 'ja-JP';
+  const v = jaVoices[parseInt(voiceSel.value, 10)] || jaVoices[0];
+  if(v) u.voice = v;
+  u.rate = parseFloat(rateInput.value);
+  speechSynthesis.speak(u);
+}
+
+/* ---------- 拼字盤 ---------- */
+let selRow = 'k', selDan = 0, selYo = '';
+const glyphEl = document.getElementById('glyph');
+function compose(){
+  const row = ROWS[selRow];
+  let g = '', roman = '', note = '';
+  if(selYo){
+    if(YOON[selRow]){
+      const base = row.c[1];
+      g = base[0] + selYo;
+      roman = YOON[selRow] + YO_SMALL[selYo][1];
+      note = row.head + '行い段＋' + selYo + '｜片假名 <i class="kt">' + base[1] + YO_SMALL[selYo][0] + '</i>';
+    }else{
+      note = 'あ・や・わ行沒有拗音';
+    }
+  }else{
+    const cell = row.c[selDan];
+    if(cell){
+      g = cell[0];
+      roman = cell[2];
+      note = row.head + '行・' + ['あ','い','う','え','お'][selDan] + '段｜片假名 <i class="kt">' + cell[1] + '</i>';
+    }else{
+      note = '現代日語沒有這個組合';
+    }
+  }
+  glyphEl.textContent = g || '✕';
+  glyphEl.classList.toggle('two', g.length > 1);
+  glyphEl.classList.toggle('none', !g);
+  document.getElementById('glyph-roman').textContent = roman;
+  document.getElementById('glyph-note').innerHTML = note;
+  return g;
+}
+function buildChips(box, items, isOn, onPick){
+  items.forEach(item => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.dataset.key = item.key;
+    b.innerHTML = '<span class="kr-c jp">' + item.big + '</span><span class="rm">' + item.rm + '</span>';
+    b.onclick = () => { onPick(item.key); syncChips(); const s = compose(); if(s) speak(s); };
+    box.appendChild(b);
+  });
+  box.dataset.sync = '1';
+  box._isOn = isOn;
+}
+function syncChips(){
+  document.querySelectorAll('[data-sync]').forEach(box => {
+    box.querySelectorAll('.chip').forEach(ch => ch.classList.toggle('on', box._isOn(ch.dataset.key)));
+  });
+}
+buildChips(document.getElementById('chips-r'),
+  COMPOSER_ORDER.map(k => ({key:k, big:ROWS[k].head, rm:ROWS[k].rm})),
+  k => k === selRow, k => { selRow = k; });
+buildChips(document.getElementById('chips-d'),
+  ['あ','い','う','え','お'].map((v,i) => ({key:String(i), big:v, rm:['a','i','u','e','o'][i]})),
+  k => +k === selDan, k => { selDan = +k; if(selDan !== 1) selYo = ''; });
+buildChips(document.getElementById('chips-y'),
+  [{key:'', big:'×', rm:'無'},{key:'ゃ', big:'ゃ', rm:'ya'},{key:'ゅ', big:'ゅ', rm:'yu'},{key:'ょ', big:'ょ', rm:'yo'}],
+  k => k === selYo, k => { selYo = k; if(selYo) selDan = 1; });
+document.getElementById('glyph-play').onclick = () => speak(compose());
+syncChips(); compose();
+
+/* ---------- 五十音表 ---------- */
+function cardHTML(cell){
+  return '<span class="kr-c jp">' + cell[0] + '<i class="kata">' + cell[1] + '</i></span>' +
+         '<span class="rm">' + cell[2] + '</span>';
+}
+function hintHTML(cell, rowKey){
+  const h = HINT[cell[0]];
+  let t = '<b class="jp">' + cell[0] + '</b>' + cell[2];
+  if(h){
+    t += '　字源：' + h[0] + '→' + cell[0] + '・<span class="kt">' + h[1] + '→' + cell[1] + '</span>';
+    if(h[2]) t += '（' + h[2] + '）';
+  }else if(SEI_OF[rowKey]){
+    const base = ROWS[SEI_OF[rowKey]].c[ROWS[rowKey].c.indexOf(cell)];
+    t += '　＝ ' + base[0] + ' ＋ ' + (rowKey === 'p' ? '半濁點゜' : '濁點゛');
+    if(DAK_NOTE[cell[0]]) t += '（' + DAK_NOTE[cell[0]] + '）';
+  }
+  return t;
+}
+function buildGrid(order, box, hintEl, withHead, withN){
+  if(withHead) ['a','i','u','e','o'].forEach(v => {
+    const s = document.createElement('span');
+    s.className = 'col-head'; s.textContent = v;
+    box.appendChild(s);
+  });
+  const cells = [];
+  order.forEach(k => ROWS[k].c.forEach(c => cells.push(c && {c, k})));
+  if(withN) cells.push({c:N_KANA, k:null}, null, null, null, null);
+  cells.forEach(item => {
+    if(!item){
+      const s = document.createElement('span');
+      s.className = 'letter-gap'; s.setAttribute('aria-hidden', 'true');
+      box.appendChild(s);
+      return;
+    }
+    const b = document.createElement('button');
+    b.className = 'letter-card';
+    b.innerHTML = cardHTML(item.c);
+    b.onclick = () => { speak(item.c[0]); hintEl.innerHTML = hintHTML(item.c, item.k); };
+    box.appendChild(b);
+  });
+}
+buildGrid(SEION_ORDER, document.getElementById('grid-s'), document.getElementById('hint-s'), true, true);
+buildGrid(DAKUON_ORDER, document.getElementById('grid-d'), document.getElementById('hint-d'), false, false);
+
+/* ---------- 測驗 ---------- */
+// を（與お同音）、ぢ・づ（與じ・ず同音）不入題庫，避免聽音無法分辨
+const POOL = [];
+SEION_ORDER.concat(DAKUON_ORDER).forEach(k => ROWS[k].c.forEach(c => {
+  if(c && c[0] !== 'を' && c[0] !== 'ぢ' && c[0] !== 'づ') POOL.push(c);
+}));
+POOL.push(N_KANA);
+let mode = 'read', script = 0, score = 0, total = 0, answer = null, locked = false, curItem = null;
+const stim = document.getElementById('quiz-stimulus');
+const optBox = document.getElementById('quiz-options');
+const fb = document.getElementById('quiz-feedback');
+
+function pick(n, correct){
+  const s = [correct], used = new Set([correct[2]]);
+  while(s.length < n){
+    const c = POOL[Math.floor(Math.random()*POOL.length)];
+    if(!used.has(c[2])){ used.add(c[2]); s.push(c); }
+  }
+  return s.sort(() => Math.random() - 0.5);
+}
+function newQ(){
+  locked = false; fb.textContent = ''; fb.className = '';
+  curItem = POOL[Math.floor(Math.random()*POOL.length)];
+  optBox.innerHTML = ''; stim.innerHTML = '';
+  const choices = pick(4, curItem);
+  if(mode === 'read'){
+    answer = curItem[2];
+    stim.innerHTML = '<span class="kr-c jp">' + curItem[script] + '</span>';
+    choices.forEach(c => addOpt(c[2], c[2] === answer, false));
+  } else {
+    answer = curItem[script];
+    const lb = document.createElement('button');
+    lb.className = 'listen';
+    lb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>再聽一次';
+    lb.onclick = () => speak(curItem[0]);
+    stim.appendChild(lb);
+    choices.forEach(c => addOpt(c[script], c[script] === answer, true));
+    setTimeout(() => speak(curItem[0]), 300);
+  }
+}
+function addOpt(label, isRight, jp){
+  const b = document.createElement('button');
+  b.className = 'opt' + (jp ? ' jp' : '');
+  b.textContent = label;
+  b.onclick = () => {
+    if(locked) return;
+    locked = true; total++;
+    if(isRight){
+      score++; b.classList.add('right');
+      fb.textContent = '答對了！'; fb.className = 'ok';
+    } else {
+      b.classList.add('wrong');
+      fb.textContent = '不對，正確答案是 ' + answer; fb.className = 'no';
+      optBox.querySelectorAll('.opt').forEach(x => { if(x.textContent === answer) x.classList.add('right'); });
+    }
+    document.getElementById('quiz-score').textContent = '答對 ' + score + ' / ' + total;
+    speak(curItem[0]);
+  };
+  optBox.appendChild(b);
+}
+document.getElementById('quiz-next').onclick = newQ;
+document.getElementById('mode-read').onclick = function(){ mode = 'read'; this.classList.add('on'); document.getElementById('mode-listen').classList.remove('on'); newQ(); };
+document.getElementById('mode-listen').onclick = function(){ mode = 'listen'; this.classList.add('on'); document.getElementById('mode-read').classList.remove('on'); newQ(); };
+document.getElementById('scr-hira').onclick = function(){ script = 0; this.classList.add('on2'); document.getElementById('scr-kata').classList.remove('on2'); newQ(); };
+document.getElementById('scr-kata').onclick = function(){ script = 1; this.classList.add('on2'); document.getElementById('scr-hira').classList.remove('on2'); newQ(); };
+newQ();
+</script>
+</body>
+</html>
