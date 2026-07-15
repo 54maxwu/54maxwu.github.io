@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>圖片轉檔工具箱</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+        }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color .2s, color .2s, border-color .2s;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+        .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+        .page-content {
+            padding: 12px 20px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 24px;
+        }
+
+        .field-label {
+            font-size: .78rem;
+            font-weight: 700;
+            color: #059669;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin-bottom: 8px;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: .04em;
+            font-family: inherit;
+            transition: background .15s, box-shadow .15s, transform .08s, color .15s, border-color .15s;
+        }
+        .btn:disabled { opacity: .45; cursor: not-allowed; }
+        .btn-primary {
+            background: linear-gradient(145deg, #10b981, #059669);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(5,150,105,0.35);
+        }
+        .btn-primary:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(5,150,105,0.45); }
+        .btn-primary:active:not(:disabled) { transform: scale(.97); }
+        .btn-secondary {
+            background: #fff;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-secondary:hover:not(:disabled) { background: #f8fafc; color: #059669; border-color: #059669; }
+        .btn-secondary:active:not(:disabled) { transform: scale(.97); }
+        .btn-danger {
+            background: #fff;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+        .btn-danger:hover:not(:disabled) { background: #fef2f2; border-color: #ef4444; }
+
+        /* ── Dropzone ── */
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            background: rgba(255,255,255,.6);
+            text-align: center;
+            padding: 44px 20px;
+            cursor: pointer;
+            transition: border-color .18s, background .18s, padding .25s;
+        }
+        .dropzone:hover, .dropzone.dragging { border-color: #059669; background: #ecfdf5; }
+        .dropzone .dz-icon { font-size: 40px; margin-bottom: 10px; }
+        .dropzone .dz-title { font-size: 15px; font-weight: 700; color: #1e293b; }
+        .dropzone .dz-sub { font-size: 12px; color: #64748b; margin-top: 8px; line-height: 1.7; }
+        .dropzone.compact { padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .dropzone.compact .dz-icon { font-size: 20px; margin: 0; }
+        .dropzone.compact .dz-title { font-size: 13px; }
+        .dropzone.compact .dz-sub { margin: 0; }
+
+        /* ── File strip ── */
+        .file-strip-wrap { margin-top: 16px; display: flex; align-items: flex-start; gap: 10px; }
+        .file-strip {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
+        }
+        .file-strip::-webkit-scrollbar { height: 8px; }
+        .file-strip::-webkit-scrollbar-track { background: transparent; }
+        .file-strip::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .file-strip::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .file-chip {
+            position: relative;
+            flex-shrink: 0;
+            width: 84px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+            padding: 6px;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .file-chip:hover { border-color: #94a3b8; }
+        .file-chip.active { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.15); }
+        .file-chip canvas { display: block; width: 100%; height: 56px; object-fit: contain; border-radius: 6px; }
+        .file-chip .fc-name {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+        }
+        .file-chip .fc-dim { font-size: 9px; color: #94a3b8; text-align: center; }
+        .file-chip .fc-x {
+            position: absolute;
+            top: -7px; right: -7px;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            border: none;
+            background: #ef4444;
+            color: #fff;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-family: inherit;
+        }
+        .file-chip:hover .fc-x { display: flex; }
+
+        /* ── Workspace ── */
+        .ws-grid {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 330px;
+            gap: 18px;
+            align-items: start;
+        }
+        @media (max-width: 980px) {
+            .ws-grid { grid-template-columns: 1fr; }
+        }
+
+        .canvas-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .tool-btn {
+            width: 34px; height: 30px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #fff;
+            color: #475569;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .12s, color .12s, border-color .12s;
+        }
+        .tool-btn:hover { background: #f8fafc; color: #059669; border-color: #059669; }
+        .pick-hint {
+            font-size: 11.5px;
+            color: #b45309;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-weight: 600;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        @media (max-width: 700px) {
+            .preview-grid { grid-template-columns: 1fr; }
+        }
+        .preview-card {
+            background: rgba(255,255,255,0.85);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .pv-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .pv-head .pv-meta { font-weight: 600; color: #64748b; font-size: 11px; font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+        .pv-body {
+            min-height: 200px;
+            max-height: 46vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            overflow: hidden;
+        }
+        .checker {
+            background-color: #fff;
+            background-image: conic-gradient(#e2e8f0 25%, transparent 25% 50%, #e2e8f0 50% 75%, transparent 75%);
+            background-size: 16px 16px;
+        }
+        .pv-body canvas { max-width: 100%; max-height: calc(46vh - 20px); }
+        .pv-body.picking { cursor: crosshair; box-shadow: inset 0 0 0 2px #f59e0b; }
+
+        /* ── Settings panel ── */
+        .settings {
+            background: rgba(255,255,255,0.85);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        }
+        .set-group { padding: 12px 0; border-top: 1px dashed #e2e8f0; }
+        .set-group:first-child { padding-top: 0; border-top: none; }
+        .set-group:last-child { padding-bottom: 0; }
+
+        .chip-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .chip {
+            padding: 7px 2px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+            color: #475569;
+            text-align: center;
+            font-family: inherit;
+            transition: background .13s, color .13s, border-color .13s, box-shadow .13s;
+        }
+        .chip:hover:not(:disabled):not(.active) { border-color: #94a3b8; }
+        .chip.active {
+            background: linear-gradient(145deg, #10b981, #059669);
+            color: #fff;
+            border-color: #059669;
+            box-shadow: 0 2px 8px rgba(5,150,105,.3);
+        }
+        .chip:disabled { opacity: .38; cursor: not-allowed; }
+        .chip.warn.active {
+            background: linear-gradient(145deg, #f59e0b, #d97706);
+            border-color: #d97706;
+            box-shadow: 0 2px 8px rgba(217,119,6,.3);
+        }
+
+        .fmt-note {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.6;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 7px 10px;
+        }
+
+        .slider-row { display: flex; align-items: center; gap: 10px; }
+        .slider-row label { font-size: 12px; color: #475569; font-weight: 600; white-space: nowrap; width: 58px; }
+        .slider-row input[type=range] { flex: 1; accent-color: #059669; min-width: 0; }
+        .slider-row .slider-val {
+            font-size: 12px;
+            font-weight: 700;
+            color: #059669;
+            width: 40px;
+            text-align: right;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        }
+        .slider-row + .slider-row { margin-top: 8px; }
+
+        .size-custom { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+        .size-input {
+            width: 76px;
+            padding: 7px 8px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            color: #1e293b;
+            outline: none;
+            background: #fff;
+            transition: border-color .15s;
+        }
+        .size-input:focus { border-color: #059669; }
+        .size-x { color: #94a3b8; font-size: 12px; font-weight: 700; }
+
+        /* ── Switch ── */
+        .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; user-select: none; }
+        .switch-row .field-label { margin-bottom: 0; }
+        .switch {
+            position: relative;
+            width: 40px; height: 22px;
+            border-radius: 999px;
+            background: #cbd5e1;
+            transition: background .18s;
+            flex-shrink: 0;
+        }
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,.25);
+            transition: left .18s;
+        }
+        .switch.on { background: #059669; }
+        .switch.on::after { left: 20px; }
+
+        .bg-tools { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+        .bg-tools .chip { flex: 1; min-width: 88px; }
+
+        .ops-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .op-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            padding: 3px 6px 3px 9px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        }
+        .op-chip .op-dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); }
+        .op-chip button {
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 1;
+            padding: 2px;
+            font-family: inherit;
+        }
+        .op-chip button:hover { color: #b91c1c; }
+
+        .color-row { display: flex; align-items: center; gap: 10px; }
+        .color-row input[type=color] {
+            width: 44px; height: 30px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #fff;
+            padding: 2px;
+            cursor: pointer;
+        }
+        .color-row .color-hint { font-size: 11px; color: #64748b; line-height: 1.5; flex: 1; }
+
+        .actions { display: flex; flex-direction: column; gap: 8px; }
+        .actions .btn { width: 100%; }
+
+        .out-stat {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #15803d;
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            line-height: 1.6;
+            word-break: break-all;
+        }
+
+        /* ── ICO sizes ── */
+        .ico-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+        /* ── Modal (custom confirm) ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 24px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4);
+            overflow: hidden;
+            animation: pop-in .14s ease-out;
+        }
+        @keyframes pop-in {
+            from { transform: scale(.94); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .modal-close {
+            background: transparent;
+            border: none;
+            width: 28px; height: 28px;
+            border-radius: 6px;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            color: #64748b;
+            font-family: inherit;
+            transition: background .12s, color .12s;
+        }
+        .modal-close:hover { background: #fef2f2; color: #b91c1c; }
+        .modal-body { padding: 18px 16px; font-size: 13px; color: #475569; line-height: 1.6; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 16px 16px; }
+
+        /* ── Toast ── */
+        #toastWrap {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 200;
+            pointer-events: none;
+        }
+        .toast {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 10px 20px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 6px 20px rgba(0,0,0,.3);
+            animation: toast-in .18s ease-out;
+            max-width: 86vw;
+        }
+        @keyframes toast-in {
+            from { transform: translateY(10px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        .toast.fade { transition: opacity .3s; opacity: 0; }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>圖片轉檔工具箱</h1>
+        <div class="header-meta">
+            <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">就緒</span></span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <div class="glass">
+            <div class="dropzone" id="dropzone">
+                <div class="dz-icon">🖼️</div>
+                <div class="dz-title">拖曳圖片到這裡，或點擊選擇檔案</div>
+                <div class="dz-sub">也可直接 Ctrl+V 貼上圖片 · 可一次多張批次處理<br>
+                    輸入：PNG / JPG / WebP / GIF / BMP / ICO / SVG / AVIF　→　輸出：PNG / JPG / WebP / AVIF / GIF / BMP / ICO（去背、縮放、多尺寸圖示）</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*,.ico,.avif" multiple hidden>
+
+            <div id="workspace" hidden>
+                <div class="file-strip-wrap">
+                    <div class="file-strip" id="fileStrip"></div>
+                </div>
+
+                <div class="ws-grid">
+                    <div class="ws-left">
+                        <div class="canvas-toolbar">
+                            <button type="button" class="tool-btn" id="rotCcwBtn" title="逆時針旋轉 90°">↺</button>
+                            <button type="button" class="tool-btn" id="rotCwBtn" title="順時針旋轉 90°">↻</button>
+                            <button type="button" class="tool-btn" id="flipHBtn" title="水平翻轉">⇋</button>
+                            <button type="button" class="tool-btn" id="flipVBtn" title="垂直翻轉">⇵</button>
+                            <span class="pick-hint" id="pickHint" hidden>點擊左側「原圖」上要移除的顏色</span>
+                        </div>
+                        <div class="preview-grid">
+                            <div class="preview-card">
+                                <div class="pv-head"><span>原圖</span><span class="pv-meta" id="srcInfo">—</span></div>
+                                <div class="pv-body checker" id="srcBody"><canvas id="srcCanvasEl"></canvas></div>
+                            </div>
+                            <div class="preview-card">
+                                <div class="pv-head"><span>結果預覽</span><span class="pv-meta" id="outInfo">—</span></div>
+                                <div class="pv-body checker"><canvas id="outCanvasEl"></canvas></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings">
+                        <div class="set-group">
+                            <div class="field-label">輸出格式</div>
+                            <div class="chip-grid" id="fmtChips"></div>
+                            <div class="fmt-note" id="fmtNote" hidden></div>
+                        </div>
+
+                        <div class="set-group" id="qualityGroup">
+                            <div class="field-label">品質</div>
+                            <div class="slider-row">
+                                <label for="qualitySlider">壓縮品質</label>
+                                <input type="range" id="qualitySlider" min="1" max="100" value="90">
+                                <span class="slider-val" id="qualityVal">90</span>
+                            </div>
+                        </div>
+
+                        <div class="set-group" id="icoGroup" hidden>
+                            <div class="field-label">ICO 內含尺寸</div>
+                            <div class="ico-grid" id="icoChips"></div>
+                        </div>
+
+                        <div class="set-group" id="sizeGroup">
+                            <div class="field-label">輸出尺寸</div>
+                            <div class="chip-grid" id="sizeChips"></div>
+                            <div class="size-custom">
+                                <input type="number" class="size-input" id="customW" min="1" max="16384" placeholder="寬 px">
+                                <span class="size-x">×</span>
+                                <input type="number" class="size-input" id="customH" min="1" max="16384" placeholder="高 px">
+                                <button type="button" class="tool-btn" id="lockBtn" title="鎖定等比例">🔒</button>
+                            </div>
+                        </div>
+
+                        <div class="set-group">
+                            <div class="switch-row" id="bgSwitchRow">
+                                <div class="field-label">去背（移除背景）</div>
+                                <div class="switch" id="bgSwitch"></div>
+                            </div>
+                            <div id="bgControls" hidden>
+                                <div class="bg-tools">
+                                    <button type="button" class="chip" id="autoBgBtn">⚡ 自動偵測</button>
+                                    <button type="button" class="chip warn" id="wandBtn">🪄 魔術棒</button>
+                                    <button type="button" class="chip warn" id="keyBtn">🎯 全域色鍵</button>
+                                </div>
+                                <div class="slider-row" style="margin-top:12px">
+                                    <label for="tolSlider">容差</label>
+                                    <input type="range" id="tolSlider" min="0" max="100" value="30">
+                                    <span class="slider-val" id="tolVal">30</span>
+                                </div>
+                                <div class="slider-row">
+                                    <label for="featherSlider">邊緣羽化</label>
+                                    <input type="range" id="featherSlider" min="0" max="10" value="1">
+                                    <span class="slider-val" id="featherVal">1px</span>
+                                </div>
+                                <div class="ops-chips" id="opsChips"></div>
+                            </div>
+                        </div>
+
+                        <div class="set-group" id="fillGroup" hidden>
+                            <div class="field-label">透明區域填色</div>
+                            <div class="color-row">
+                                <input type="color" id="fillColor" value="#ffffff">
+                                <span class="color-hint" id="fillHint">JPEG 不支援透明，透明區域會以此顏色填滿</span>
+                            </div>
+                        </div>
+
+                        <div class="set-group">
+                            <div class="actions">
+                                <button type="button" class="btn btn-primary" id="convertBtn">⬇ 轉換並下載</button>
+                                <button type="button" class="btn btn-secondary" id="convertAllBtn" hidden>📦 全部轉檔（ZIP）</button>
+                                <button type="button" class="btn btn-secondary" id="copyBtn">📋 複製為 PNG</button>
+                                <button type="button" class="btn btn-danger" id="clearBtn">🗑 清除全部圖片</button>
+                            </div>
+                            <div class="out-stat" id="outStat" hidden></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span id="confirmTitle">確認</span>
+                <button type="button" class="modal-close" id="confirmX">&times;</button>
+            </div>
+            <div class="modal-body" id="confirmMsg"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="confirmCancel">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmOk">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastWrap"></div>
+
+    <script>
+    'use strict';
+
+    // ══════════════════════════════════════════════════════════════
+    //  Pure helpers & encoders（無 DOM 依賴，可獨立測試）
+    // ══════════════════════════════════════════════════════════════
+    // ==PURE-BEGIN==
+    function concatBytes(arrays) {
+        let len = 0;
+        for (const a of arrays) len += a.length;
+        const out = new Uint8Array(len);
+        let p = 0;
+        for (const a of arrays) { out.set(a, p); p += a.length; }
+        return out;
+    }
+    const u16le = v => new Uint8Array([v & 255, (v >> 8) & 255]);
+    const u32le = v => new Uint8Array([v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]);
+
+    const CRC_TABLE = (() => {
+        const t = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+            let c = n;
+            for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            t[n] = c >>> 0;
+        }
+        return t;
+    })();
+    function crc32(bytes) {
+        let c = 0xFFFFFFFF;
+        for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+        return (c ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    // store-only ZIP（與 favicon.htm 同款）
+    function buildZip(files) {
+        const enc = new TextEncoder();
+        const now = new Date();
+        const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xFFFF;
+        const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xFFFF;
+        const local = [], central = [];
+        let offset = 0;
+        for (const f of files) {
+            const nameBytes = enc.encode(f.name);
+            const crc = crc32(f.data);
+            const size = f.data.length;
+            const lfh = concatBytes([
+                u32le(0x04034b50), u16le(20), u16le(0x0800), u16le(0), u16le(dosTime), u16le(dosDate),
+                u32le(crc), u32le(size), u32le(size), u16le(nameBytes.length), u16le(0),
+                nameBytes, f.data
+            ]);
+            local.push(lfh);
+            central.push(concatBytes([
+                u32le(0x02014b50), u16le(20), u16le(20), u16le(0x0800), u16le(0), u16le(dosTime), u16le(dosDate),
+                u32le(crc), u32le(size), u32le(size), u16le(nameBytes.length), u16le(0), u16le(0),
+                u16le(0), u16le(0), u32le(0), u32le(offset), nameBytes
+            ]));
+            offset += lfh.length;
+        }
+        let centralSize = 0;
+        central.forEach(c => centralSize += c.length);
+        const eocd = concatBytes([
+            u32le(0x06054b50), u16le(0), u16le(0), u16le(files.length), u16le(files.length),
+            u32le(centralSize), u32le(offset), u16le(0)
+        ]);
+        return new Blob([...local, ...central, eocd], { type: 'application/zip' });
+    }
+
+    // ICO 容器（每個尺寸內嵌一張 PNG）
+    function buildIco(entries) {
+        const count = entries.length;
+        const header = new Uint8Array(6 + count * 16);
+        const dv = new DataView(header.buffer);
+        dv.setUint16(0, 0, true);
+        dv.setUint16(2, 1, true);
+        dv.setUint16(4, count, true);
+        let offset = 6 + count * 16;
+        const parts = [];
+        entries.forEach((e, i) => {
+            const o = 6 + i * 16;
+            dv.setUint8(o,     e.size >= 256 ? 0 : e.size);
+            dv.setUint8(o + 1, e.size >= 256 ? 0 : e.size);
+            dv.setUint8(o + 2, 0);
+            dv.setUint8(o + 3, 0);
+            dv.setUint16(o + 4, 1, true);
+            dv.setUint16(o + 6, 32, true);
+            dv.setUint32(o + 8, e.bytes.length, true);
+            dv.setUint32(o + 12, offset, true);
+            offset += e.bytes.length;
+            parts.push(e.bytes);
+        });
+        return concatBytes([header, ...parts]);
+    }
+
+    // BMP：32-bit BGRA + BITMAPV4HEADER（保留 alpha）
+    function encodeBMP(imgData) {
+        const w = imgData.width, h = imgData.height, data = imgData.data;
+        const pixelBytes = w * h * 4;
+        const headerSize = 14 + 108;
+        const buf = new ArrayBuffer(headerSize + pixelBytes);
+        const dv = new DataView(buf);
+        dv.setUint8(0, 0x42); dv.setUint8(1, 0x4D);
+        dv.setUint32(2, headerSize + pixelBytes, true);
+        dv.setUint32(10, headerSize, true);
+        dv.setUint32(14, 108, true);          // BITMAPV4HEADER
+        dv.setInt32(18, w, true);
+        dv.setInt32(22, h, true);             // 正值 → 由下往上
+        dv.setUint16(26, 1, true);
+        dv.setUint16(28, 32, true);
+        dv.setUint32(30, 3, true);            // BI_BITFIELDS
+        dv.setUint32(34, pixelBytes, true);
+        dv.setInt32(38, 2835, true);
+        dv.setInt32(42, 2835, true);
+        dv.setUint32(54, 0x00FF0000, true);   // R mask
+        dv.setUint32(58, 0x0000FF00, true);   // G mask
+        dv.setUint32(62, 0x000000FF, true);   // B mask
+        dv.setUint32(66, 0xFF000000, true);   // A mask
+        dv.setUint32(70, 0x73524742, true);   // LCS_sRGB
+        const px = new Uint8Array(buf, headerSize);
+        let o = 0;
+        for (let y = h - 1; y >= 0; y--) {
+            let i = y * w * 4;
+            for (let x = 0; x < w; x++) {
+                px[o++] = data[i + 2];
+                px[o++] = data[i + 1];
+                px[o++] = data[i];
+                px[o++] = data[i + 3];
+                i += 4;
+            }
+        }
+        return new Blob([buf], { type: 'image/bmp' });
+    }
+
+    // ── GIF：中位切割量化 + Floyd–Steinberg 抖色 + LZW ──
+    function medianCut(hist, maxColors) {
+        const colors = [];
+        for (const [k, cnt] of hist) colors.push({ r: (k >> 16) & 255, g: (k >> 8) & 255, b: k & 255, cnt });
+        let boxes = [colors];
+        while (boxes.length < maxColors) {
+            let bi = -1, bestRange = 0, bch = 'r';
+            for (let i = 0; i < boxes.length; i++) {
+                const box = boxes[i];
+                if (box.length < 2) continue;
+                for (const ch of ['r', 'g', 'b']) {
+                    let mn = 255, mx = 0;
+                    for (const c of box) { if (c[ch] < mn) mn = c[ch]; if (c[ch] > mx) mx = c[ch]; }
+                    if (mx - mn > bestRange) { bestRange = mx - mn; bi = i; bch = ch; }
+                }
+            }
+            if (bi < 0) break;
+            const box = boxes[bi];
+            box.sort((a, b) => a[bch] - b[bch]);
+            let total = 0;
+            for (const c of box) total += c.cnt;
+            let acc = 0, cut = 1;
+            for (let i = 0; i < box.length; i++) {
+                acc += box[i].cnt;
+                if (acc >= total / 2) { cut = Math.max(1, Math.min(i + 1, box.length - 1)); break; }
+            }
+            boxes.splice(bi, 1, box.slice(0, cut), box.slice(cut));
+        }
+        return boxes.map(box => {
+            let r = 0, g = 0, b = 0, t = 0;
+            for (const c of box) { r += c.r * c.cnt; g += c.g * c.cnt; b += c.b * c.cnt; t += c.cnt; }
+            return [Math.round(r / t), Math.round(g / t), Math.round(b / t)];
+        });
+    }
+
+    function lzwEncode(indices, minCodeSize) {
+        const bytes = [];
+        let acc = 0, nbits = 0;
+        const clear = 1 << minCodeSize, eoi = clear + 1;
+        let codeSize = minCodeSize + 1;
+        let dict = new Map(), next = eoi + 1;
+        const emit = code => {
+            acc |= code << nbits;
+            nbits += codeSize;
+            while (nbits >= 8) { bytes.push(acc & 255); acc >>>= 8; nbits -= 8; }
+        };
+        emit(clear);
+        let prev = indices[0];
+        for (let i = 1; i < indices.length; i++) {
+            const k = indices[i];
+            const key = (prev << 8) | k;
+            const code = dict.get(key);
+            if (code !== undefined) { prev = code; continue; }
+            emit(prev);
+            if (next === 4096) {
+                emit(clear);
+                dict = new Map(); next = eoi + 1; codeSize = minCodeSize + 1;
+            } else {
+                if (next >= (1 << codeSize)) codeSize++;
+                dict.set(key, next++);
+            }
+            prev = k;
+        }
+        emit(prev);
+        emit(eoi);
+        if (nbits > 0) bytes.push(acc & 255);
+        return new Uint8Array(bytes);
+    }
+
+    function encodeGIF(imgData) {
+        const w = imgData.width, h = imgData.height, data = imgData.data, n = w * h;
+        let hasTrans = false;
+        let hist = new Map();
+        for (let i = 0; i < n; i++) {
+            if (data[i * 4 + 3] < 128) { hasTrans = true; continue; }
+            const key = (data[i * 4] << 16) | (data[i * 4 + 1] << 8) | data[i * 4 + 2];
+            hist.set(key, (hist.get(key) || 0) + 1);
+        }
+        if (hist.size === 0) hist.set(0, 1);
+        const maxColors = hasTrans ? 255 : 256;
+        const exact = hist.size <= maxColors;
+        let palette;
+        if (exact) {
+            palette = [];
+            for (const k of hist.keys()) palette.push([(k >> 16) & 255, (k >> 8) & 255, k & 255]);
+        } else {
+            let quantHist = hist;
+            if (hist.size > 32768) {   // 顏色太多先粗量化到 RGB555，避免中位切割過慢
+                quantHist = new Map();
+                for (const [k, cnt] of hist) {
+                    const r5 = (k >> 19) & 31, g5 = (k >> 11) & 31, b5 = (k >> 3) & 31;
+                    const qk = (((r5 << 3) | (r5 >> 2)) << 16) | (((g5 << 3) | (g5 >> 2)) << 8) | ((b5 << 3) | (b5 >> 2));
+                    quantHist.set(qk, (quantHist.get(qk) || 0) + cnt);
+                }
+            }
+            palette = medianCut(quantHist, maxColors);
+        }
+        const transIndex = hasTrans ? palette.length : -1;
+        if (hasTrans) palette.push([0, 0, 0]);
+        let bits = 1;
+        while ((1 << bits) < palette.length) bits++;
+
+        const exactIdx = new Map();
+        if (exact) palette.forEach((p, i) => { if (i !== transIndex) exactIdx.set((p[0] << 16) | (p[1] << 8) | p[2], i); });
+        const cache = new Map();
+        const nearest = (r, g, b) => {
+            const key = (r << 16) | (g << 8) | b;
+            if (exact) { const e = exactIdx.get(key); if (e !== undefined) return e; }
+            let v = cache.get(key);
+            if (v !== undefined) return v;
+            let best = 0, bd = Infinity;
+            for (let i = 0; i < palette.length; i++) {
+                if (i === transIndex) continue;
+                const p = palette[i];
+                const dr = r - p[0], dg = g - p[1], db = b - p[2];
+                const d = dr * dr + dg * dg + db * db;
+                if (d < bd) { bd = d; best = i; }
+            }
+            cache.set(key, best);
+            return best;
+        };
+
+        const indices = new Uint8Array(n);
+        if (exact) {
+            for (let i = 0; i < n; i++) {
+                if (data[i * 4 + 3] < 128) { indices[i] = transIndex; continue; }
+                indices[i] = nearest(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
+            }
+        } else {
+            // Floyd–Steinberg 誤差擴散（兩列誤差緩衝，左右各留 1 格 padding）
+            const ew = w + 2;
+            let cur = new Float32Array(ew * 3), nxt = new Float32Array(ew * 3);
+            for (let y = 0; y < h; y++) {
+                nxt.fill(0);
+                for (let x = 0; x < w; x++) {
+                    const i = y * w + x;
+                    if (data[i * 4 + 3] < 128) { indices[i] = transIndex; continue; }
+                    const ei = (x + 1) * 3;
+                    const r = Math.max(0, Math.min(255, Math.round(data[i * 4]     + cur[ei])));
+                    const g = Math.max(0, Math.min(255, Math.round(data[i * 4 + 1] + cur[ei + 1])));
+                    const b = Math.max(0, Math.min(255, Math.round(data[i * 4 + 2] + cur[ei + 2])));
+                    const idx = nearest(r, g, b);
+                    indices[i] = idx;
+                    const p = palette[idx];
+                    const er = r - p[0], eg = g - p[1], eb = b - p[2];
+                    cur[ei + 3] += er * 7 / 16; cur[ei + 4] += eg * 7 / 16; cur[ei + 5] += eb * 7 / 16;
+                    nxt[ei - 3] += er * 3 / 16; nxt[ei - 2] += eg * 3 / 16; nxt[ei - 1] += eb * 3 / 16;
+                    nxt[ei]     += er * 5 / 16; nxt[ei + 1] += eg * 5 / 16; nxt[ei + 2] += eb * 5 / 16;
+                    nxt[ei + 3] += er * 1 / 16; nxt[ei + 4] += eg * 1 / 16; nxt[ei + 5] += eb * 1 / 16;
+                }
+                const t = cur; cur = nxt; nxt = t;
+            }
+        }
+
+        const out = [];
+        const pushStr = s => { for (let i = 0; i < s.length; i++) out.push(s.charCodeAt(i)); };
+        const push16 = v => { out.push(v & 255, (v >> 8) & 255); };
+        pushStr('GIF89a');
+        push16(w); push16(h);
+        out.push(0xF0 | (bits - 1), 0, 0);   // GCT flag + color res 7 + size；bg=0；aspect=0
+        const palSize = 1 << bits;
+        for (let i = 0; i < palSize; i++) {
+            const p = palette[i] || [0, 0, 0];
+            out.push(p[0], p[1], p[2]);
+        }
+        if (hasTrans) out.push(0x21, 0xF9, 4, 0x01, 0, 0, transIndex, 0);
+        out.push(0x2C); push16(0); push16(0); push16(w); push16(h); out.push(0);
+        const minCode = Math.max(2, bits);
+        out.push(minCode);
+        const lzw = lzwEncode(indices, minCode);
+        for (let i = 0; i < lzw.length; i += 255) {
+            const chunk = lzw.subarray(i, Math.min(i + 255, lzw.length));
+            out.push(chunk.length);
+            for (let j = 0; j < chunk.length; j++) out.push(chunk[j]);
+        }
+        out.push(0, 0x3B);
+        return new Blob([new Uint8Array(out)], { type: 'image/gif' });
+    }
+
+    // ── 去背：洪水填充遮罩 ──
+    // 容差 = RGB 最大歐氏距離（441.67）的百分比，100 可涵蓋任何顏色
+    const tolToThr2 = tol => { const t = tol / 100 * 441.673; return t * t; };
+
+    function bfsRemove(data, w, h, mask, thr2, seeds, initPts) {
+        const visited = new Uint8Array(w * h);
+        const queue = new Int32Array(w * h);
+        let qh = 0, qt = 0;
+        const match = p => {
+            const i = p * 4;
+            for (let s = 0; s < seeds.length; s++) {
+                const c = seeds[s];
+                const dr = data[i] - c[0], dg = data[i + 1] - c[1], db = data[i + 2] - c[2];
+                if (dr * dr + dg * dg + db * db <= thr2) return true;
+            }
+            return false;
+        };
+        for (const p of initPts) {
+            if (!visited[p] && match(p)) { visited[p] = 1; queue[qt++] = p; }
+        }
+        while (qh < qt) {
+            const p = queue[qh++];
+            mask[p] = 0;
+            const x = p % w;
+            if (p >= w)          { const q = p - w; if (!visited[q] && match(q)) { visited[q] = 1; queue[qt++] = q; } }
+            if (p < w * (h - 1)) { const q = p + w; if (!visited[q] && match(q)) { visited[q] = 1; queue[qt++] = q; } }
+            if (x > 0)           { const q = p - 1; if (!visited[q] && match(q)) { visited[q] = 1; queue[qt++] = q; } }
+            if (x < w - 1)       { const q = p + 1; if (!visited[q] && match(q)) { visited[q] = 1; queue[qt++] = q; } }
+        }
+    }
+
+    function opAutoEdges(data, w, h, mask, thr2) {
+        const seeds = [];
+        for (const [x, y] of [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]]) {
+            const i = (y * w + x) * 4;
+            const c = [data[i], data[i + 1], data[i + 2]];
+            let dup = false;
+            for (const s of seeds) {
+                const dr = s[0] - c[0], dg = s[1] - c[1], db = s[2] - c[2];
+                if (dr * dr + dg * dg + db * db <= 900) { dup = true; break; }
+            }
+            if (!dup) seeds.push(c);
+        }
+        const initPts = [];
+        for (let x = 0; x < w; x++) { initPts.push(x, (h - 1) * w + x); }
+        for (let y = 1; y < h - 1; y++) { initPts.push(y * w, y * w + w - 1); }
+        bfsRemove(data, w, h, mask, thr2, seeds, initPts);
+    }
+
+    function opWand(data, w, h, mask, thr2, op) {
+        const cx = Math.round(op.nx * (w - 1)), cy = Math.round(op.ny * (h - 1));
+        const seed = [op.r, op.g, op.b];
+        let start = -1;
+        // 點擊處若因縮放取樣差異對不上顏色，往外找 2px 內最接近的像素
+        outer:
+        for (let rad = 0; rad <= 2; rad++) {
+            for (let dy = -rad; dy <= rad; dy++) {
+                for (let dx = -rad; dx <= rad; dx++) {
+                    const x = cx + dx, y = cy + dy;
+                    if (x < 0 || y < 0 || x >= w || y >= h) continue;
+                    const p = y * w + x, i = p * 4;
+                    const dr = data[i] - seed[0], dg = data[i + 1] - seed[1], db = data[i + 2] - seed[2];
+                    if (dr * dr + dg * dg + db * db <= thr2) { start = p; break outer; }
+                }
+            }
+        }
+        if (start < 0) return;
+        bfsRemove(data, w, h, mask, thr2, [seed], [start]);
+    }
+
+    function opColorKey(data, w, h, mask, thr2, op) {
+        const n = w * h;
+        for (let p = 0; p < n; p++) {
+            const i = p * 4;
+            const dr = data[i] - op.r, dg = data[i + 1] - op.g, db = data[i + 2] - op.b;
+            if (dr * dr + dg * dg + db * db <= thr2) mask[p] = 0;
+        }
+    }
+
+    function computeMask(imgData, ops, tolerance) {
+        const w = imgData.width, h = imgData.height, data = imgData.data;
+        const mask = new Uint8Array(w * h).fill(255);
+        const thr2 = tolToThr2(tolerance);
+        for (const op of ops) {
+            if (op.type === 'auto') opAutoEdges(data, w, h, mask, thr2);
+            else if (op.type === 'wand') opWand(data, w, h, mask, thr2, op);
+            else if (op.type === 'key') opColorKey(data, w, h, mask, thr2, op);
+        }
+        return mask;
+    }
+
+    // 兩段式 box blur；回傳浮點累加後的平均值
+    function blurMask(mask, w, h, r) {
+        const rr = Math.max(1, Math.round(r));
+        const div = rr * 2 + 1;
+        const tmp = new Float32Array(w * h);
+        const out = new Uint8ClampedArray(w * h);
+        for (let y = 0; y < h; y++) {
+            const row = y * w;
+            let sum = 0;
+            for (let k = -rr; k <= rr; k++) sum += mask[row + Math.min(w - 1, Math.max(0, k))];
+            for (let x = 0; x < w; x++) {
+                tmp[row + x] = sum;
+                sum += mask[row + Math.min(w - 1, x + rr + 1)] - mask[row + Math.max(0, x - rr)];
+            }
+        }
+        for (let x = 0; x < w; x++) {
+            let sum = 0;
+            for (let k = -rr; k <= rr; k++) sum += tmp[Math.min(h - 1, Math.max(0, k)) * w + x];
+            for (let y = 0; y < h; y++) {
+                out[y * w + x] = sum / (div * div);
+                sum += tmp[Math.min(h - 1, y + rr + 1) * w + x] - tmp[Math.max(0, y - rr) * w + x];
+            }
+        }
+        return out;
+    }
+
+    // 羽化：模糊後把過渡帶整段折回物件內側（(v-127)*2），
+    // 背景側維持全透明，不會把底色暈染回來
+    function applyMaskToImage(imgData, mask, feather) {
+        const w = imgData.width, h = imgData.height, data = imgData.data, n = w * h;
+        let m = mask;
+        if (feather > 0) {
+            const bl = blurMask(mask, w, h, feather);
+            m = new Uint8Array(n);
+            for (let i = 0; i < n; i++) m[i] = Math.max(0, Math.min(255, (bl[i] - 127) * 2));
+        }
+        for (let i = 0; i < n; i++) {
+            if (m[i] === 255) continue;
+            data[i * 4 + 3] = (data[i * 4 + 3] * m[i] / 255) | 0;
+        }
+    }
+    // ==PURE-END==
+
+    // ══════════════════════════════════════════════════════════════
+    //  DOM refs / state
+    // ══════════════════════════════════════════════════════════════
+    const $ = id => document.getElementById(id);
+    const $dropzone = $('dropzone'), $fileInput = $('fileInput'), $workspace = $('workspace');
+    const $fileStrip = $('fileStrip');
+    const $srcCanvasEl = $('srcCanvasEl'), $outCanvasEl = $('outCanvasEl');
+    const $srcBody = $('srcBody'), $srcInfo = $('srcInfo'), $outInfo = $('outInfo');
+    const $fmtChips = $('fmtChips'), $fmtNote = $('fmtNote');
+    const $qualityGroup = $('qualityGroup'), $qualitySlider = $('qualitySlider'), $qualityVal = $('qualityVal');
+    const $icoGroup = $('icoGroup'), $icoChips = $('icoChips');
+    const $sizeGroup = $('sizeGroup'), $sizeChips = $('sizeChips');
+    const $customW = $('customW'), $customH = $('customH'), $lockBtn = $('lockBtn');
+    const $bgSwitch = $('bgSwitch'), $bgSwitchRow = $('bgSwitchRow'), $bgControls = $('bgControls');
+    const $autoBgBtn = $('autoBgBtn'), $wandBtn = $('wandBtn'), $keyBtn = $('keyBtn');
+    const $tolSlider = $('tolSlider'), $tolVal = $('tolVal');
+    const $featherSlider = $('featherSlider'), $featherVal = $('featherVal');
+    const $opsChips = $('opsChips'), $pickHint = $('pickHint');
+    const $fillGroup = $('fillGroup'), $fillColor = $('fillColor');
+    const $convertBtn = $('convertBtn'), $convertAllBtn = $('convertAllBtn');
+    const $copyBtn = $('copyBtn'), $clearBtn = $('clearBtn'), $outStat = $('outStat');
+    const $statusPill = $('statusPill'), $statusText = $('statusText');
+
+    const PREVIEW_MAX = 1200;
+    const FORMATS = [
+        { key: 'png',  label: 'PNG'  },
+        { key: 'jpeg', label: 'JPG'  },
+        { key: 'webp', label: 'WebP' },
+        { key: 'avif', label: 'AVIF' },
+        { key: 'gif',  label: 'GIF'  },
+        { key: 'bmp',  label: 'BMP'  },
+        { key: 'ico',  label: 'ICO'  },
+    ];
+    const EXT = { png: 'png', jpeg: 'jpg', webp: 'webp', avif: 'avif', gif: 'gif', bmp: 'bmp', ico: 'ico' };
+    const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
+
+    const state = {
+        files: [], activeId: null, nextId: 1,
+        format: 'png',
+        quality: 90,
+        icoSizes: new Set([16, 32, 48, 256]),
+        sizeMode: 'original',   // original | percent | custom
+        percent: 100,
+        lockAspect: true,
+        bgOn: false,
+        tool: null,             // null | 'wand' | 'key'
+        tolerance: 30,
+        feather: 1,
+    };
+    const support = { webp: true, avif: false };
+
+    // ══════════════════════════════════════════════════════════════
+    //  UI 基礎：status / toast / confirm
+    // ══════════════════════════════════════════════════════════════
+    function setStatus(text, kind) {
+        $statusText.textContent = text;
+        $statusPill.classList.remove('idle', 'busy', 'ok', 'err');
+        $statusPill.classList.add(kind || 'idle');
+    }
+
+    function toast(msg, ms = 2600) {
+        const wrap = $('toastWrap');
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.textContent = msg;
+        wrap.appendChild(el);
+        setTimeout(() => {
+            el.classList.add('fade');
+            setTimeout(() => el.remove(), 350);
+        }, ms);
+    }
+
+    const confirmModal = (() => {
+        const overlay = $('confirmModal'), msgEl = $('confirmMsg');
+        const okBtn = $('confirmOk'), cancelBtn = $('confirmCancel'), xBtn = $('confirmX');
+        let resolver = null;
+        function close(result) {
+            overlay.classList.remove('show');
+            document.removeEventListener('keydown', onKey);
+            const r = resolver; resolver = null;
+            if (r) r(result);
+        }
+        function onKey(e) {
+            if (e.key === 'Escape') close(false);
+            else if (e.key === 'Enter') close(true);
+        }
+        okBtn.addEventListener('click', () => close(true));
+        cancelBtn.addEventListener('click', () => close(false));
+        xBtn.addEventListener('click', () => close(false));
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+        return msg => new Promise(resolve => {
+            msgEl.textContent = msg;
+            resolver = resolve;
+            overlay.classList.add('show');
+            document.addEventListener('keydown', onKey);
+            requestAnimationFrame(() => okBtn.focus());
+        });
+    })();
+
+    const nextFrame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+    const fmtBytes = b => b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B';
+    const hexColor = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+
+    // ══════════════════════════════════════════════════════════════
+    //  Canvas helpers
+    // ══════════════════════════════════════════════════════════════
+    function canvasToBlob(cv, type, q) {
+        return new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('編碼失敗：' + type)), type, q));
+    }
+
+    function newCanvas(w, h) {
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        return c;
+    }
+
+    // 逐次減半縮放，避免一次大幅縮小造成鋸齒
+    function resizeCanvas(src, W, H) {
+        let cur = src;
+        while (cur.width >= W * 2 && cur.height >= H * 2) {
+            const c = newCanvas(Math.max(W, cur.width >> 1), Math.max(H, cur.height >> 1));
+            const ctx = c.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(cur, 0, 0, c.width, c.height);
+            cur = c;
+        }
+        if (cur.width === W && cur.height === H) return cur;
+        const c = newCanvas(W, H);
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(cur, 0, 0, W, H);
+        return c;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  檔案載入（點擊 / 拖曳 / 貼上）
+    // ══════════════════════════════════════════════════════════════
+    function loadImageFile(f) {
+        const url = URL.createObjectURL(f);
+        return new Promise((res, rej) => {
+            const im = new Image();
+            im.onload = () => {
+                URL.revokeObjectURL(url);
+                const w = im.naturalWidth || im.width || 512;
+                const h = im.naturalHeight || im.height || 512;
+                const cv = newCanvas(w, h);
+                cv.getContext('2d').drawImage(im, 0, 0, w, h);
+                res(cv);
+            };
+            im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('無法解碼圖片')); };
+            im.src = url;
+        });
+    }
+
+    function makePreview(file) {
+        const scale = Math.min(1, PREVIEW_MAX / Math.max(file.srcW, file.srcH));
+        const pw = Math.max(1, Math.round(file.srcW * scale));
+        const ph = Math.max(1, Math.round(file.srcH * scale));
+        file.previewCanvas = resizeCanvas(file.srcCanvas, pw, ph);
+    }
+
+    function looksLikeImage(f) {
+        return (f.type && f.type.startsWith('image/')) ||
+               /\.(png|jpe?g|jfif|gif|webp|bmp|ico|svg|avif)$/i.test(f.name || '');
+    }
+
+    async function addFiles(fileList) {
+        const arr = [...fileList].filter(looksLikeImage);
+        if (!arr.length) { toast('沒有可辨識的圖片檔'); return; }
+        setStatus('載入圖片中…', 'busy');
+        let ok = 0;
+        for (const f of arr) {
+            try {
+                const cv = await loadImageFile(f);
+                const file = {
+                    id: state.nextId++,
+                    name: f.name || ('pasted-' + Date.now() + '.png'),
+                    base: (f.name || 'image').replace(/\.[^.]+$/, '') || 'image',
+                    size: f.size,
+                    srcCanvas: cv, srcW: cv.width, srcH: cv.height,
+                    ops: state.bgOn ? [{ type: 'auto' }] : [],
+                };
+                makePreview(file);
+                state.files.push(file);
+                state.activeId = file.id;
+                ok++;
+            } catch {
+                toast('✗ 無法載入：' + (f.name || '剪貼簿圖片'));
+            }
+        }
+        if (ok) toast(`已加入 ${ok} 張圖片`);
+        setStatus(state.files.length ? state.files.length + ' 張圖片' : '就緒', state.files.length ? 'ok' : 'idle');
+        renderAll();
+    }
+
+    $dropzone.addEventListener('click', () => $fileInput.click());
+    $fileInput.addEventListener('change', () => { addFiles($fileInput.files); $fileInput.value = ''; });
+
+    window.addEventListener('dragover', e => { e.preventDefault(); $dropzone.classList.add('dragging'); });
+    window.addEventListener('dragleave', e => { if (!e.relatedTarget) $dropzone.classList.remove('dragging'); });
+    window.addEventListener('drop', e => {
+        e.preventDefault();
+        $dropzone.classList.remove('dragging');
+        if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+    });
+    window.addEventListener('paste', e => {
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        const files = [];
+        for (const it of items) {
+            if (it.kind === 'file' && it.type.startsWith('image/')) {
+                const f = it.getAsFile();
+                if (f) files.push(f);
+            }
+        }
+        if (files.length) addFiles(files);
+    });
+
+    // ══════════════════════════════════════════════════════════════
+    //  Render
+    // ══════════════════════════════════════════════════════════════
+    const activeFile = () => state.files.find(f => f.id === state.activeId) || null;
+
+    function renderAll() {
+        const has = state.files.length > 0;
+        $workspace.hidden = !has;
+        $dropzone.classList.toggle('compact', has);
+        if (has) {
+            $dropzone.querySelector('.dz-title').textContent = '＋ 加入更多圖片（點擊 / 拖曳 / 貼上）';
+            $dropzone.querySelector('.dz-sub').textContent = '';
+            $dropzone.querySelector('.dz-icon').textContent = '🖼️';
+        } else {
+            $dropzone.querySelector('.dz-title').textContent = '拖曳圖片到這裡，或點擊選擇檔案';
+            $dropzone.querySelector('.dz-sub').innerHTML = '也可直接 Ctrl+V 貼上圖片 · 可一次多張批次處理<br>輸入：PNG / JPG / WebP / GIF / BMP / ICO / SVG / AVIF　→　輸出：PNG / JPG / WebP / AVIF / GIF / BMP / ICO（去背、縮放、多尺寸圖示）';
+        }
+        renderFileStrip();
+        renderSettings();
+        renderOps();
+        schedulePreview(0);
+    }
+
+    function renderFileStrip() {
+        $fileStrip.innerHTML = '';
+        for (const f of state.files) {
+            const chip = document.createElement('div');
+            chip.className = 'file-chip' + (f.id === state.activeId ? ' active' : '');
+            chip.title = f.name;
+            const th = newCanvas(72, 56);
+            const tctx = th.getContext('2d');
+            const s = Math.min(72 / f.previewCanvas.width, 56 / f.previewCanvas.height);
+            const dw = Math.max(1, Math.round(f.previewCanvas.width * s));
+            const dh = Math.max(1, Math.round(f.previewCanvas.height * s));
+            tctx.imageSmoothingQuality = 'high';
+            tctx.drawImage(f.previewCanvas, (72 - dw) / 2, (56 - dh) / 2, dw, dh);
+            chip.appendChild(th);
+            const nm = document.createElement('div');
+            nm.className = 'fc-name';
+            nm.textContent = f.name;
+            chip.appendChild(nm);
+            const dim = document.createElement('div');
+            dim.className = 'fc-dim';
+            dim.textContent = `${f.srcW}×${f.srcH}`;
+            chip.appendChild(dim);
+            const x = document.createElement('button');
+            x.className = 'fc-x';
+            x.type = 'button';
+            x.textContent = '×';
+            x.title = '移除這張圖片';
+            x.addEventListener('click', e => { e.stopPropagation(); removeFile(f.id); });
+            chip.appendChild(x);
+            chip.addEventListener('click', () => {
+                state.activeId = f.id;
+                $outStat.hidden = true;
+                renderFileStrip();
+                renderOps();
+                schedulePreview(0);
+            });
+            $fileStrip.appendChild(chip);
+        }
+    }
+
+    function removeFile(id) {
+        const idx = state.files.findIndex(f => f.id === id);
+        if (idx === -1) return;
+        state.files.splice(idx, 1);
+        if (state.activeId === id) state.activeId = state.files.length ? state.files[Math.min(idx, state.files.length - 1)].id : null;
+        setStatus(state.files.length ? state.files.length + ' 張圖片' : '就緒', state.files.length ? 'ok' : 'idle');
+        $outStat.hidden = true;
+        renderAll();
+    }
+
+    function renderSettings() {
+        // 格式 chips
+        $fmtChips.innerHTML = '';
+        for (const fmt of FORMATS) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'chip' + (state.format === fmt.key ? ' active' : '');
+            b.textContent = fmt.label;
+            const unsupported = (fmt.key === 'webp' && !support.webp) || (fmt.key === 'avif' && !support.avif);
+            if (unsupported) {
+                b.disabled = true;
+                b.title = '此瀏覽器不支援輸出 ' + fmt.label;
+            }
+            b.addEventListener('click', () => {
+                state.format = fmt.key;
+                $outStat.hidden = true;
+                renderSettings();
+                schedulePreview(0);
+            });
+            $fmtChips.appendChild(b);
+        }
+        // 格式備註
+        const notes = {
+            gif: '動態 GIF 僅取用第一幀；輸出為單幀 GIF（最多 256 色，含抖色與透明支援）。',
+            ico: 'ICO 會依下方勾選的尺寸各內嵌一張 PNG，非正方形圖片會等比置中、透明補邊。',
+            bmp: 'BMP 以 32-bit（BITMAPV4）輸出並保留透明色版，部分舊軟體可能忽略透明。',
+            avif: 'AVIF 壓縮率最高，但僅較新的瀏覽器可開啟。',
+        };
+        if (notes[state.format]) {
+            $fmtNote.textContent = notes[state.format];
+            $fmtNote.hidden = false;
+        } else $fmtNote.hidden = true;
+
+        $qualityGroup.hidden = !['jpeg', 'webp', 'avif'].includes(state.format);
+        $icoGroup.hidden = state.format !== 'ico';
+        $sizeGroup.hidden = state.format === 'ico';
+        $fillGroup.hidden = state.format !== 'jpeg';
+
+        // ICO 尺寸
+        $icoChips.innerHTML = '';
+        for (const s of ICO_SIZES) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'chip' + (state.icoSizes.has(s) ? ' active' : '');
+            b.textContent = s;
+            b.addEventListener('click', () => {
+                if (state.icoSizes.has(s)) state.icoSizes.delete(s);
+                else state.icoSizes.add(s);
+                renderSettings();
+                schedulePreview();
+            });
+            $icoChips.appendChild(b);
+        }
+
+        // 尺寸 chips
+        const sizeOpts = [
+            { key: 'original', label: '原始' },
+            { key: 'p75', label: '75%' },
+            { key: 'p50', label: '50%' },
+            { key: 'p25', label: '25%' },
+        ];
+        $sizeChips.innerHTML = '';
+        for (const o of sizeOpts) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            const isActive = (o.key === 'original' && state.sizeMode === 'original') ||
+                             (o.key !== 'original' && state.sizeMode === 'percent' && state.percent === +o.label.replace('%', ''));
+            b.className = 'chip' + (isActive ? ' active' : '');
+            b.textContent = o.label;
+            b.addEventListener('click', () => {
+                if (o.key === 'original') { state.sizeMode = 'original'; }
+                else { state.sizeMode = 'percent'; state.percent = +o.label.replace('%', ''); }
+                $customW.value = ''; $customH.value = '';
+                renderSettings();
+                schedulePreview(0);
+            });
+            $sizeChips.appendChild(b);
+        }
+        $lockBtn.textContent = state.lockAspect ? '🔒' : '🔓';
+        $lockBtn.title = state.lockAspect ? '等比例縮放（點擊解除）' : '自由縮放，可變形（點擊鎖定）';
+
+        // 去背
+        $bgSwitch.classList.toggle('on', state.bgOn);
+        $bgControls.hidden = !state.bgOn;
+        $wandBtn.classList.toggle('active', state.tool === 'wand');
+        $keyBtn.classList.toggle('active', state.tool === 'key');
+        $pickHint.hidden = !(state.bgOn && state.tool);
+        $srcBody.classList.toggle('picking', !!(state.bgOn && state.tool));
+
+        // 動作按鈕
+        $convertAllBtn.hidden = state.files.length < 2;
+        $convertBtn.textContent = `⬇ 轉換並下載 ${(FORMATS.find(f => f.key === state.format) || {}).label || ''}`;
+    }
+
+    function renderOps() {
+        const f = activeFile();
+        $opsChips.innerHTML = '';
+        if (!f || !f.ops.length) return;
+        f.ops.forEach((op, i) => {
+            const chip = document.createElement('span');
+            chip.className = 'op-chip';
+            const dot = document.createElement('span');
+            dot.className = 'op-dot';
+            let label;
+            if (op.type === 'auto') { dot.style.background = 'linear-gradient(135deg,#e2e8f0,#94a3b8)'; label = '自動'; }
+            else {
+                dot.style.background = hexColor(op.r, op.g, op.b);
+                label = (op.type === 'wand' ? '魔棒 ' : '色鍵 ') + hexColor(op.r, op.g, op.b);
+            }
+            chip.appendChild(dot);
+            chip.appendChild(document.createTextNode(label));
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.textContent = '×';
+            x.title = '移除此去背步驟';
+            x.addEventListener('click', () => {
+                f.ops.splice(i, 1);
+                renderOps();
+                schedulePreview(0);
+            });
+            chip.appendChild(x);
+            $opsChips.appendChild(chip);
+        });
+    }
+
+    // ── 預覽 ──
+    let pvTimer = null;
+    function schedulePreview(delay = 120) {
+        clearTimeout(pvTimer);
+        pvTimer = setTimeout(renderPreview, delay);
+    }
+
+    function buildCutFromCanvas(canvas, file, featherPx) {
+        const w = canvas.width, h = canvas.height;
+        const id = canvas.getContext('2d').getImageData(0, 0, w, h);
+        const mask = computeMask(id, file.ops, state.tolerance);
+        applyMaskToImage(id, mask, featherPx);
+        const out = newCanvas(w, h);
+        out.getContext('2d').putImageData(id, 0, 0);
+        return out;
+    }
+
+    function computeOutSize(f) {
+        const w = f.srcW, h = f.srcH;
+        if (state.sizeMode === 'percent') {
+            const p = state.percent / 100;
+            return [Math.max(1, Math.round(w * p)), Math.max(1, Math.round(h * p))];
+        }
+        if (state.sizeMode === 'custom') {
+            const W = parseInt($customW.value, 10) || 0;
+            const H = parseInt($customH.value, 10) || 0;
+            if (W > 0 && H > 0) {
+                if (state.lockAspect) {
+                    const s = Math.min(W / w, H / h);
+                    return [Math.max(1, Math.round(w * s)), Math.max(1, Math.round(h * s))];
+                }
+                return [W, H];
+            }
+            if (W > 0) return [W, Math.max(1, Math.round(h * W / w))];
+            if (H > 0) return [Math.max(1, Math.round(w * H / h)), H];
+        }
+        return [w, h];
+    }
+
+    function renderPreview() {
+        const f = activeFile();
+        if (!f) return;
+        // 原圖
+        $srcCanvasEl.width = f.previewCanvas.width;
+        $srcCanvasEl.height = f.previewCanvas.height;
+        $srcCanvasEl.getContext('2d').drawImage(f.previewCanvas, 0, 0);
+        $srcInfo.textContent = `${f.srcW}×${f.srcH} · ${fmtBytes(f.size)}`;
+
+        // 結果
+        let cut = f.previewCanvas;
+        if (state.bgOn && f.ops.length) {
+            const pvScale = f.previewCanvas.width / f.srcW;
+            const featherPv = state.feather > 0 ? Math.max(1, Math.round(state.feather * pvScale)) : 0;
+            cut = buildCutFromCanvas(f.previewCanvas, f, featherPv);
+        }
+        const [W, H] = computeOutSize(f);
+        const ps = Math.min(1, PREVIEW_MAX / Math.max(W, H));
+        const dw = Math.max(1, Math.round(W * ps)), dh = Math.max(1, Math.round(H * ps));
+        $outCanvasEl.width = dw;
+        $outCanvasEl.height = dh;
+        const octx = $outCanvasEl.getContext('2d');
+        if (state.format === 'jpeg') {
+            octx.fillStyle = $fillColor.value;
+            octx.fillRect(0, 0, dw, dh);
+        }
+        octx.imageSmoothingEnabled = true;
+        octx.imageSmoothingQuality = 'high';
+        octx.drawImage(cut, 0, 0, dw, dh);
+
+        if (state.format === 'ico') {
+            const sizes = [...state.icoSizes].sort((a, b) => a - b);
+            $outInfo.textContent = sizes.length ? 'ICO：' + sizes.join(' / ') + ' px' : '請勾選 ICO 尺寸';
+        } else {
+            $outInfo.textContent = `${W}×${H}`;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  轉檔
+    // ══════════════════════════════════════════════════════════════
+    function buildCutCanvas(f) {
+        if (!state.bgOn || !f.ops.length) return f.srcCanvas;
+        return buildCutFromCanvas(f.srcCanvas, f, state.feather);
+    }
+
+    async function encodeICO(f) {
+        const sizes = [...state.icoSizes].sort((a, b) => a - b);
+        if (!sizes.length) throw new Error('請至少勾選一個 ICO 尺寸');
+        const cut = buildCutCanvas(f);
+        const entries = [];
+        for (const s of sizes) {
+            const sq = newCanvas(s, s);
+            const ctx = sq.getContext('2d');
+            const scale = Math.min(s / cut.width, s / cut.height);
+            const dw = Math.max(1, Math.round(cut.width * scale));
+            const dh = Math.max(1, Math.round(cut.height * scale));
+            const scaled = resizeCanvas(cut, dw, dh);
+            ctx.drawImage(scaled, Math.round((s - dw) / 2), Math.round((s - dh) / 2));
+            const blob = await canvasToBlob(sq, 'image/png');
+            entries.push({ size: s, bytes: new Uint8Array(await blob.arrayBuffer()) });
+        }
+        return new Blob([buildIco(entries)], { type: 'image/x-icon' });
+    }
+
+    async function encodeFile(f) {
+        const fmt = state.format;
+        const name = f.base + '.' + EXT[fmt];
+        if (fmt === 'ico') return { blob: await encodeICO(f), name };
+
+        const cut = buildCutCanvas(f);
+        const [W, H] = computeOutSize(f);
+        let out = resizeCanvas(cut, W, H);
+        let blob;
+        if (fmt === 'png') {
+            blob = await canvasToBlob(out, 'image/png');
+        } else if (fmt === 'jpeg') {
+            const flat = newCanvas(W, H);
+            const ctx = flat.getContext('2d');
+            ctx.fillStyle = $fillColor.value;
+            ctx.fillRect(0, 0, W, H);
+            ctx.drawImage(out, 0, 0);
+            blob = await canvasToBlob(flat, 'image/jpeg', state.quality / 100);
+        } else if (fmt === 'webp' || fmt === 'avif') {
+            blob = await canvasToBlob(out, 'image/' + fmt, state.quality / 100);
+            if (blob.type !== 'image/' + fmt) throw new Error('此瀏覽器不支援輸出 ' + fmt.toUpperCase());
+        } else if (fmt === 'bmp') {
+            blob = encodeBMP(out.getContext('2d').getImageData(0, 0, W, H));
+        } else if (fmt === 'gif') {
+            blob = encodeGIF(out.getContext('2d').getImageData(0, 0, W, H));
+        } else {
+            throw new Error('未知格式：' + fmt);
+        }
+        return { blob, name };
+    }
+
+    function downloadBlob(blob, name) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+
+    async function convertActive() {
+        const f = activeFile();
+        if (!f) return;
+        setStatus('轉檔中…', 'busy');
+        $convertBtn.disabled = true;
+        try {
+            await nextFrame();
+            const { blob, name } = await encodeFile(f);
+            downloadBlob(blob, name);
+            const pct = f.size ? Math.round((blob.size - f.size) / f.size * -100) : 0;
+            $outStat.textContent = `${name} — ${fmtBytes(f.size)} → ${fmtBytes(blob.size)}` +
+                (f.size ? `（${pct >= 0 ? '−' : '+'}${Math.abs(pct)}%）` : '');
+            $outStat.hidden = false;
+            setStatus('完成', 'ok');
+            toast('✓ 已下載 ' + name);
+        } catch (err) {
+            setStatus('發生錯誤', 'err');
+            toast('✗ ' + err.message);
+        } finally {
+            $convertBtn.disabled = false;
+        }
+    }
+
+    async function convertAll() {
+        if (!state.files.length) return;
+        setStatus('批次轉檔中…', 'busy');
+        $convertAllBtn.disabled = true;
+        try {
+            const outputs = [];
+            const used = new Set();
+            let done = 0;
+            for (const f of state.files) {
+                await nextFrame();
+                setStatus(`批次轉檔中… ${++done}/${state.files.length}`, 'busy');
+                const { blob, name } = await encodeFile(f);
+                let n = name, i = 1;
+                while (used.has(n)) {
+                    const dot = name.lastIndexOf('.');
+                    n = name.slice(0, dot) + '(' + i + ')' + name.slice(dot);
+                    i++;
+                }
+                used.add(n);
+                outputs.push({ name: n, data: new Uint8Array(await blob.arrayBuffer()) });
+            }
+            const zipName = 'images_' + EXT[state.format] + '.zip';
+            downloadBlob(buildZip(outputs), zipName);
+            setStatus('完成', 'ok');
+            toast(`✓ 已打包 ${outputs.length} 張圖片為 ${zipName}`);
+        } catch (err) {
+            setStatus('發生錯誤', 'err');
+            toast('✗ ' + err.message);
+        } finally {
+            $convertAllBtn.disabled = false;
+        }
+    }
+
+    async function copyPng() {
+        const f = activeFile();
+        if (!f) return;
+        try {
+            const cut = buildCutCanvas(f);
+            const [W, H] = computeOutSize(f);
+            const out = resizeCanvas(cut, W, H);
+            const blob = await canvasToBlob(out, 'image/png');
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            toast('✓ 已複製 PNG 到剪貼簿');
+        } catch {
+            toast('✗ 複製失敗，此瀏覽器可能不支援剪貼簿圖片');
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  幾何轉換（旋轉 / 翻轉）
+    // ══════════════════════════════════════════════════════════════
+    function transformActive(kind) {
+        const f = activeFile();
+        if (!f) return;
+        const w = f.srcW, h = f.srcH;
+        const rot = kind === 'cw' || kind === 'ccw';
+        const c = newCanvas(rot ? h : w, rot ? w : h);
+        const ctx = c.getContext('2d');
+        if (kind === 'cw') { ctx.translate(h, 0); ctx.rotate(Math.PI / 2); }
+        else if (kind === 'ccw') { ctx.translate(0, w); ctx.rotate(-Math.PI / 2); }
+        else if (kind === 'fliph') { ctx.translate(w, 0); ctx.scale(-1, 1); }
+        else { ctx.translate(0, h); ctx.scale(1, -1); }
+        ctx.drawImage(f.srcCanvas, 0, 0);
+        f.srcCanvas = c;
+        f.srcW = c.width;
+        f.srcH = c.height;
+        // 魔棒點跟著座標系一起變換
+        for (const op of f.ops) {
+            if (op.type !== 'wand') continue;
+            const { nx, ny } = op;
+            if (kind === 'cw')        { op.nx = 1 - ny; op.ny = nx; }
+            else if (kind === 'ccw')  { op.nx = ny;     op.ny = 1 - nx; }
+            else if (kind === 'fliph') op.nx = 1 - nx;
+            else                       op.ny = 1 - ny;
+        }
+        makePreview(f);
+        $outStat.hidden = true;
+        renderFileStrip();
+        schedulePreview(0);
+    }
+
+    $('rotCwBtn').addEventListener('click', () => transformActive('cw'));
+    $('rotCcwBtn').addEventListener('click', () => transformActive('ccw'));
+    $('flipHBtn').addEventListener('click', () => transformActive('fliph'));
+    $('flipVBtn').addEventListener('click', () => transformActive('flipv'));
+
+    // ══════════════════════════════════════════════════════════════
+    //  去背互動
+    // ══════════════════════════════════════════════════════════════
+    $bgSwitchRow.addEventListener('click', () => {
+        state.bgOn = !state.bgOn;
+        if (state.bgOn) {
+            // 開啟時所有還沒有去背步驟的圖片都先跑一次自動偵測（批次去背）
+            for (const file of state.files) {
+                if (!file.ops.length) file.ops.push({ type: 'auto' });
+            }
+        } else {
+            state.tool = null;
+        }
+        renderSettings();
+        renderOps();
+        schedulePreview(0);
+    });
+
+    $autoBgBtn.addEventListener('click', () => {
+        const f = activeFile();
+        if (!f) return;
+        if (!f.ops.some(op => op.type === 'auto')) f.ops.unshift({ type: 'auto' });
+        renderOps();
+        schedulePreview(0);
+    });
+    $wandBtn.addEventListener('click', () => {
+        state.tool = state.tool === 'wand' ? null : 'wand';
+        renderSettings();
+    });
+    $keyBtn.addEventListener('click', () => {
+        state.tool = state.tool === 'key' ? null : 'key';
+        renderSettings();
+    });
+
+    $srcCanvasEl.addEventListener('click', e => {
+        if (!state.bgOn || !state.tool) return;
+        const f = activeFile();
+        if (!f) return;
+        const rect = $srcCanvasEl.getBoundingClientRect();
+        const x = Math.max(0, Math.min($srcCanvasEl.width - 1, Math.floor((e.clientX - rect.left) * $srcCanvasEl.width / rect.width)));
+        const y = Math.max(0, Math.min($srcCanvasEl.height - 1, Math.floor((e.clientY - rect.top) * $srcCanvasEl.height / rect.height)));
+        const d = $srcCanvasEl.getContext('2d').getImageData(x, y, 1, 1).data;
+        const op = {
+            type: state.tool === 'wand' ? 'wand' : 'key',
+            r: d[0], g: d[1], b: d[2],
+            nx: $srcCanvasEl.width > 1 ? x / ($srcCanvasEl.width - 1) : 0,
+            ny: $srcCanvasEl.height > 1 ? y / ($srcCanvasEl.height - 1) : 0,
+        };
+        f.ops.push(op);
+        toast((state.tool === 'wand' ? '🪄 魔棒移除 ' : '🎯 色鍵移除 ') + hexColor(d[0], d[1], d[2]), 1600);
+        renderOps();
+        schedulePreview(0);
+    });
+
+    $tolSlider.addEventListener('input', () => {
+        state.tolerance = +$tolSlider.value;
+        $tolVal.textContent = state.tolerance;
+        schedulePreview();
+    });
+    $featherSlider.addEventListener('input', () => {
+        state.feather = +$featherSlider.value;
+        $featherVal.textContent = state.feather + 'px';
+        schedulePreview();
+    });
+    $qualitySlider.addEventListener('input', () => {
+        state.quality = +$qualitySlider.value;
+        $qualityVal.textContent = state.quality;
+    });
+
+    // ── 尺寸輸入 ──
+    function onCustomSize() {
+        if ($customW.value || $customH.value) state.sizeMode = 'custom';
+        else state.sizeMode = 'original';
+        renderSettings();
+        schedulePreview();
+    }
+    $customW.addEventListener('input', onCustomSize);
+    $customH.addEventListener('input', onCustomSize);
+    $lockBtn.addEventListener('click', () => {
+        state.lockAspect = !state.lockAspect;
+        renderSettings();
+        schedulePreview(0);
+    });
+
+    // ── 動作 ──
+    $convertBtn.addEventListener('click', convertActive);
+    $convertAllBtn.addEventListener('click', convertAll);
+    $copyBtn.addEventListener('click', copyPng);
+    $clearBtn.addEventListener('click', async () => {
+        if (!state.files.length) return;
+        const ok = await confirmModal(`確定清除全部 ${state.files.length} 張圖片？`);
+        if (!ok) return;
+        state.files = [];
+        state.activeId = null;
+        $outStat.hidden = true;
+        setStatus('就緒', 'idle');
+        renderAll();
+    });
+
+    // ══════════════════════════════════════════════════════════════
+    //  輸出格式支援度偵測（Safari 無 WebP 編碼、多數瀏覽器無 AVIF 編碼）
+    // ══════════════════════════════════════════════════════════════
+    (async () => {
+        const c = newCanvas(1, 1);
+        for (const [key, mime] of [['webp', 'image/webp'], ['avif', 'image/avif']]) {
+            try {
+                const b = await new Promise(r => c.toBlob(r, mime));
+                support[key] = !!b && b.type === mime;
+            } catch {
+                support[key] = false;
+            }
+        }
+        if (state.files.length || !$workspace.hidden) renderSettings();
+    })();
+
+    renderAll();
+    </script>
+</body>
+</html>
