@@ -100,11 +100,18 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   display:flex; align-items:center; gap:7px; background:#fff; border:1.5px solid #e2e8f0;
   border-radius:10px; padding:6px 10px; font-size:12.5px; transition:.18s; position:relative;
 }
-.pchip .avatar{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; background:#f4ead0; border:1px solid #e0cfa0; }
+/* 每位玩家專屬色系（玩家卡背景／日誌行／置中訊息一致） */
+.pchip.p0{ background:#fdf4dd; border-color:#e2cd96; }
+.pchip.p1{ background:#fdeaea; border-color:#f0bcbc; }
+.pchip.p2{ background:#e8f1fe; border-color:#b9d2f5; }
+.pchip.p3{ background:#e4f6f4; border-color:#abdcd5; }
+.pchip .avatar{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.12); }
 .pchip .nm{ font-weight:700; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pchip .sub{ display:flex; gap:5px; align-items:center; color:#64748b; font-size:11px; }
 .pchip .goldn{ color:#b07b10; font-weight:700; }
-.pchip.turn{ border-color:#caa24b; box-shadow:0 0 0 3px rgba(202,162,75,.22); background:#fdf6e3; }
+.pchip.turn{ border-color:#caa24b; box-shadow:0 0 0 3px rgba(202,162,75,.32); }
+.pn{ font-weight:700; }
+.pn.p0{ color:#a06e0d; } .pn.p1{ color:#d03030; } .pn.p2{ color:#2563eb; } .pn.p3{ color:#0d9488; }
 .pchip.turn .avatar{ animation:bob 1.1s infinite ease-in-out; }
 @keyframes bob{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
 .pchip.targetable{ border-color:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.18); cursor:pointer; }
@@ -190,10 +197,14 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 }
 #logPanel .lt{ font-size:11.5px; font-weight:700; color:#8a6524; letter-spacing:.08em; margin-bottom:6px; }
 #log{ flex:1; min-height:0; overflow-y:auto; font-size:12px; color:#475569; line-height:1.75; padding-right:8px; }
-#log .me{ color:#8a6524; font-weight:600; }
+#log .me{ font-weight:700; }
 #log .warn{ color:#b91c1c; }
 #log .good{ color:#15803d; }
-#log div{ border-bottom:1px dashed rgba(100,116,139,.14); padding:2px 0; }
+#log div{ border-bottom:1px dashed rgba(100,116,139,.14); padding:3px 6px; border-radius:6px; margin-bottom:1px; }
+#log div.lp0{ background:rgba(202,162,75,.14); }
+#log div.lp1{ background:rgba(220,70,70,.12); }
+#log div.lp2{ background:rgba(70,120,235,.11); }
+#log div.lp3{ background:rgba(13,148,136,.11); }
 
 /* ── 手牌區 ─────────────────────────────────────────────── */
 #handBar{
@@ -273,13 +284,19 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .toast{
   background:rgba(24,17,10,.9); color:#f0dfae; font-size:14.5px; font-weight:700; letter-spacing:.04em;
   padding:10px 22px; border-radius:11px; border:1px solid rgba(202,162,75,.55);
+  border-left:5px solid rgba(202,162,75,.8);
   box-shadow:0 10px 28px rgba(0,0,0,.4); text-align:center; max-width:86vw;
   animation:toastLife 2.3s ease forwards;
 }
 .toast.big{ font-size:18px; padding:14px 30px; color:#ffd97a; border-color:#caa24b; animation-duration:3.2s; }
-.toast .me{ color:#ffd97a; }
+.toast.tp0{ border-left-color:#ffd97a; }
+.toast.tp1{ border-left-color:#ff8a7a; }
+.toast.tp2{ border-left-color:#7fb2ff; }
+.toast.tp3{ border-left-color:#5fe0cd; }
 .toast .warn{ color:#ff9d8a; }
 .toast .good{ color:#9fe0a0; }
+.toast .pn.p0{ color:#ffd97a; } .toast .pn.p1{ color:#ff8a7a; }
+.toast .pn.p2{ color:#7fb2ff; } .toast .pn.p3{ color:#5fe0cd; }
 @keyframes toastLife{
   0%{ opacity:0; transform:translateY(10px) scale(.94); }
   8%{ opacity:1; transform:translateY(0) scale(1); }
@@ -1463,10 +1480,10 @@ function setStatus(txt, cls){
   $('statusPill').className='status-pill'+(cls?' '+cls:'');
 }
 // 置中浮現的動作訊息：動畫播完自動移除；同時只留最新 4 則
-function announce(html, big){
+function announce(html, big, seat){
   const c=$('toasts'); if(!c) return;
   const d=document.createElement('div');
-  d.className='toast'+(big?' big':'');
+  d.className='toast'+(big?' big':'')+(seat!=null&&seat>=0?' tp'+seat:'');
   d.innerHTML=html;
   c.appendChild(d);
   while(c.children.length>4) c.removeChild(c.firstChild);
@@ -1523,7 +1540,7 @@ function shim(){   // 給引擎驗證函式用的輕量狀態（client 也能算
 }
 function myTurn(){ const st=stview(); return st && st.phase==='play' && st.turn===APP.my; }
 function nmOf(seat){ const st=stview(); const p=st.players[seat]; return p?p.name:'?'; }
-function nmHtml(seat){ return `<span class="${seat===APP.my?'me':''}">${esc(nmOf(seat))}</span>`; }
+function nmHtml(seat){ return `<span class="pn p${seat}${seat===APP.my?' me':''}">${esc(nmOf(seat))}</span>`; }
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ── 棋盤渲染 ─────────────────────────────────────────────── */
@@ -1663,7 +1680,7 @@ function renderChips(){
   const pc=$('pchips'); pc.innerHTML='';
   st.players.forEach(p=>{
     const d=document.createElement('div');
-    d.className='pchip'+(st.phase==='play'&&st.turn===p.seat?' turn':'');
+    d.className='pchip p'+p.seat+(st.phase==='play'&&st.turn===p.seat?' turn':'');
     d.dataset.seat=p.seat;
     d.innerHTML=`
       <span class="avatar">${p.seat===APP.my?'😎':AVATARS[p.seat]}</span>
@@ -1844,7 +1861,11 @@ function narrate(events, seat){
       sfx('flip');
     }
     else if(e.ev==='goldFound') sfx('gold');
-    if(msg){ addLog(msg); announce(msg, big); }
+    if(msg){
+      const actor = e.seat!=null ? e.seat : (e.by!=null ? e.by : -1);
+      addLog(msg, actor>=0 ? 'lp'+actor : '');
+      announce(msg, big, actor);
+    }
   }
 }
 function afterChange(events){
