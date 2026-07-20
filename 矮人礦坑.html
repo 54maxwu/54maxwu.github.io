@@ -83,8 +83,8 @@ button.go{
 }
 button.go:hover:not(:disabled){ background:#6f4f18; }
 button.go:disabled{ opacity:.4; cursor:not-allowed; }
-button.ghost{ background:#fff; color:#475569; border:1px solid #e2e8f0; }
-button.ghost:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; }
+button.ghostbtn{ background:#fff; color:#475569; border:1px solid #e2e8f0; }
+button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; }
 .hint{ font-size:12px; color:#94a3b8; margin-top:10px; line-height:1.7; }
 .hint code{ background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; font-size:11px; }
 .joinlist{ font-size:13px; color:#475569; margin-top:10px; line-height:1.9; }
@@ -325,7 +325,7 @@ button.ghost:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; }
       <div class="row" style="margin-top:16px">
         <button class="go" id="hostBtn">建立房間</button>
         <input class="inp code" id="hostCode" readonly placeholder="——" style="max-width:150px">
-        <button class="go ghost" id="copyBtn" hidden>複製房號</button>
+        <button class="go ghostbtn" id="copyBtn" hidden>複製房號</button>
       </div>
       <div id="hostWait" hidden>
         <div class="joinlist" id="hostJoined">等待玩家加入…</div>
@@ -1582,6 +1582,9 @@ function zoomFit(){
   const ptrs=new Map();
   let dragging=false, sx=0, sy=0, spx=0, spy=0, pinch0=0, zoom0=0;
   vp.addEventListener('pointerdown',e=>{
+    // 點在虛線格/落石紅框/終點藍框/縮放鈕上：不啟動拖曳、不奪取指標，
+    // 否則 setPointerCapture 會把 click 重新導向棋盤，目標元素永遠收不到點擊
+    if(e.target.closest('.ghost,.rocktarget,.goaltarget,.zoombtns')) return;
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(ptrs.size===1){ dragging=true; sx=e.clientX; sy=e.clientY; spx=APP.panX; spy=APP.panY; vp.classList.add('dragging'); }
     else if(ptrs.size===2){
