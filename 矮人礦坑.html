@@ -163,6 +163,11 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 #boardVp.dragging{ cursor:grabbing; }
 #boardIn{ position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; }
 .bcell{ position:absolute; width:98px; height:153px; }
+.bcell .bby{
+  position:absolute; left:7px; top:7px; width:13px; height:13px; border-radius:50%;
+  border:2px solid rgba(10,7,4,.65); box-shadow:0 1px 4px rgba(0,0,0,.6), inset 0 1px 1px rgba(255,255,255,.35);
+  z-index:2; pointer-events:auto;
+}
 .bcell svg.cardsvg{ width:100%; height:100%; display:block; filter:drop-shadow(2px 3px 4px rgba(0,0,0,.55)); }
 .bcell.placed{ animation:drop .3s cubic-bezier(.2,1.6,.45,1); }
 @keyframes drop{ 0%{transform:scale(1.28) translateY(-14px); filter:brightness(1.35);} 100%{transform:scale(1) translateY(0);} }
@@ -1474,6 +1479,7 @@ const APP = {
   aiTimer:null, prevKeys:new Set(), prevGoals:[], prevLogN:0,
 };
 const AVATARS = ['🧔','👷','🧑‍🏭','🧙','🧝','🥷','🧑‍🌾','🦹'];
+const SEAT_COLORS = ['#caa24b','#d03030','#2563eb','#0d9488','#7c3aed','#ea580c','#db2777','#475569'];
 const AI_NAMES = ['紅鬍','石斧','油燈','煤球','銀鎬','火藥','岩爪'];
 const OX=14, OY=11, PX=104, PY=160;
 function npChoice(){ return APP.np || 6; }
@@ -1605,6 +1611,15 @@ function renderBoard(){
     d.className='bcell'+(APP.prevKeys.size && !APP.prevKeys.has(k) ? (pc.card.k==='goal'?' flipping':' placed') : '');
     d.style.left=p.left+'px'; d.style.top=p.top+'px';
     d.innerHTML=CARDS.cardSVG(pc.card, pc.rot);
+    // 鋪牌者標記：左上角顏色圓點（懸停顯示名字；點卡片會置中顯示）
+    if(pc.by!=null && pc.by>=0 && pc.card.k==='path'){
+      d.dataset.by=pc.by;
+      const b=document.createElement('span');
+      b.className='bby';
+      b.style.background=SEAT_COLORS[pc.by%SEAT_COLORS.length];
+      b.title='由 '+nmOf(pc.by)+' 鋪設';
+      d.appendChild(b);
+    }
     bi.appendChild(d);
   }
   for(const g of st.goals){
@@ -1676,14 +1691,15 @@ function zoomFit(){
 (function(){
   const vp=$('boardVp');
   const ptrs=new Map();
-  let dragging=false, sx=0, sy=0, spx=0, spy=0, pinch0=0, zoom0=0;
+  let dragging=false, sx=0, sy=0, spx=0, spy=0, pinch0=0, zoom0=0, moved=false, multi=false;
   vp.addEventListener('pointerdown',e=>{
     // 點在虛線格/落石紅框/終點藍框/縮放鈕上：不啟動拖曳、不奪取指標，
     // 否則 setPointerCapture 會把 click 重新導向棋盤，目標元素永遠收不到點擊
     if(e.target.closest('.ghost,.rocktarget,.goaltarget,.zoombtns')) return;
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(ptrs.size===1){ dragging=true; sx=e.clientX; sy=e.clientY; spx=APP.panX; spy=APP.panY; vp.classList.add('dragging'); }
+    if(ptrs.size===1){ dragging=true; moved=false; multi=false; sx=e.clientX; sy=e.clientY; spx=APP.panX; spy=APP.panY; vp.classList.add('dragging'); }
     else if(ptrs.size===2){
+      multi=true;
       const a=[...ptrs.values()]; pinch0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); zoom0=APP.zoom;
     }
     vp.setPointerCapture(e.pointerId);
@@ -1696,11 +1712,25 @@ function zoomFit(){
       const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
       if(pinch0>0){ APP.zoom=Math.min(1.7,Math.max(.3, zoom0*d/pinch0)); applyPan(); }
     } else if(dragging){
+      if(Math.hypot(e.clientX-sx, e.clientY-sy)>6) moved=true;
       APP.panX=spx+(e.clientX-sx); APP.panY=spy+(e.clientY-sy); applyPan();
     }
   });
-  const up=e=>{ ptrs.delete(e.pointerId); if(ptrs.size===0){ dragging=false; vp.classList.remove('dragging'); } };
-  vp.addEventListener('pointerup',up); vp.addEventListener('pointercancel',up);
+  const up=(e, doHit)=>{
+    // 原地點放（非拖曳、非雙指）→ 查看這張卡是誰鋪的
+    if(doHit && ptrs.has(e.pointerId) && ptrs.size===1 && !moved && !multi){
+      const el=document.elementFromPoint(e.clientX, e.clientY);
+      const cell=el && el.closest ? el.closest('.bcell') : null;
+      if(cell && cell.dataset.by!=null){
+        const s=+cell.dataset.by;
+        announce(`這張通道是 ${nmHtml(s)} 鋪的 ⛏️`, false, s);
+      }
+    }
+    ptrs.delete(e.pointerId);
+    if(ptrs.size===0){ dragging=false; vp.classList.remove('dragging'); }
+  };
+  vp.addEventListener('pointerup',e=>up(e,true));
+  vp.addEventListener('pointercancel',e=>up(e,false));
   vp.addEventListener('wheel',e=>{
     e.preventDefault();
     const r=vp.getBoundingClientRect();
@@ -2155,6 +2185,7 @@ $('btnRules').addEventListener('click',()=>{
   <b>回合結束</b>：挖到金礦→翻「人數」張金塊卡只分給礦工（完成者先拿最大塊）；牌庫抽光沒挖到→破壞者分贓（1 人獨拿 4 金、2-3 人各 3 金）。<br>
   三回合後<b>金塊最多的人</b>獲勝。<br><br>
   <b>操作</b>：點手牌選卡→點棋盤虛線格放置；行動卡選卡後點目標。棋盤可拖曳、滾輪／雙指縮放。<br>
+  每張通道卡左上角的<b>顏色圓點</b>代表鋪牌的人；<b>點一下卡片</b>可查看是誰鋪的。<br>
   <b>連線</b>：最多 4 位真人同房，其餘座位由電腦補。`,
   buttons:[{label:'開挖！', primary:true}] });
 });
