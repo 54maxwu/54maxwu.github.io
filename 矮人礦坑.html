@@ -91,8 +91,11 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .joinlist b{ color:#8a6524; }
 
 /* ── Game layout ────────────────────────────────────────── */
-#game{ max-width:1400px; margin:0 auto; }
-.pchips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center; }
+#game{ max-width:1500px; margin:0 auto; }
+#pchips{
+  width:186px; flex:0 0 186px; display:flex; flex-direction:column; gap:8px;
+  height:64vh; min-height:380px;
+}
 .pchip{
   display:flex; align-items:center; gap:7px; background:#fff; border:1.5px solid #e2e8f0;
   border-radius:10px; padding:6px 10px; font-size:12.5px; transition:.18s; position:relative;
@@ -117,7 +120,11 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 }
 .handn{ display:inline-flex; gap:2px; }
 .handn i{ width:8px; height:12px; border-radius:2px; background:#31405e; border:1px solid #1d2740; }
-.roundinfo{ margin-left:auto; display:flex; gap:8px; align-items:center; font-size:12.5px; color:#64748b; font-weight:600; }
+.roundinfo{
+  margin-top:auto; display:flex; gap:8px; align-items:center; justify-content:space-between;
+  font-size:12.5px; color:#64748b; font-weight:600;
+  background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; padding:8px 10px;
+}
 .roundinfo .deckpile{ display:flex; align-items:center; gap:5px; }
 .deckpile .mini{ width:22px; height:34px; border-radius:3px; overflow:hidden; box-shadow:1px 1px 0 #1d2740, 2px 2px 0 #141b30; }
 .deckpile .mini svg{ width:100%; height:100%; display:block; }
@@ -126,7 +133,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .table-wrap{ display:flex; gap:10px; align-items:stretch; }
 @media(max-width:900px){ .table-wrap{ flex-direction:column; } }
 #boardVp{
-  flex:1; position:relative; height:56vh; min-height:330px; overflow:hidden; border-radius:14px;
+  flex:1; position:relative; height:64vh; min-height:380px; overflow:hidden; border-radius:14px;
   background:
     radial-gradient(90% 70% at 50% 30%, rgba(255,196,110,.10), transparent 60%),
     radial-gradient(120% 120% at 50% 0%, #33281c 0%, #1d1610 55%, #120d09 100%);
@@ -174,9 +181,13 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   width:230px; border-radius:14px; background:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.75);
   border-bottom-color:rgba(40,40,40,.14); border-right-color:rgba(40,40,40,.14);
   box-shadow:rgba(0,0,0,.08) 2px 6px 16px; padding:10px 4px 10px 12px; display:flex; flex-direction:column;
-  height:56vh; min-height:330px;   /* 跟 #boardVp 同高：面板不隨日誌變長，內容在 #log 內捲動 */
+  height:64vh; min-height:380px;   /* 跟 #boardVp 同高：面板不隨日誌變長，內容在 #log 內捲動 */
 }
-@media(max-width:900px){ #logPanel{ width:auto; height:150px; min-height:150px; } }
+@media(max-width:900px){
+  #logPanel{ width:auto; height:150px; min-height:150px; }
+  #pchips{ width:auto; flex:none; height:auto; min-height:0; flex-direction:row; flex-wrap:wrap; }
+  .roundinfo{ margin-top:0; margin-left:auto; }
+}
 #logPanel .lt{ font-size:11.5px; font-weight:700; color:#8a6524; letter-spacing:.08em; margin-bottom:6px; }
 #log{ flex:1; min-height:0; overflow-y:auto; font-size:12px; color:#475569; line-height:1.75; padding-right:8px; }
 #log .me{ color:#8a6524; font-weight:600; }
@@ -253,13 +264,28 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .sharetable th,.sharetable td{ padding:7px 10px; border-bottom:1px solid #eadfc4; text-align:left; }
 .sharetable th{ color:#8a6524; font-size:11.5px; letter-spacing:.06em; }
 .sharetable .g{ color:#b07b10; font-weight:800; }
-.banner{
-  position:fixed; left:50%; top:74px; transform:translateX(-50%); z-index:55;
-  background:rgba(30,22,14,.92); color:#ffd97a; font-weight:800; font-size:15px; letter-spacing:.05em;
-  padding:12px 26px; border-radius:12px; border:1px solid #caa24b; box-shadow:0 10px 30px rgba(0,0,0,.4);
-  opacity:0; pointer-events:none; transition:.3s;
+/* ── 置中動作訊息（浮現後自動消失；完整紀錄在右側日誌）───── */
+#toasts{
+  position:fixed; left:50%; top:34%; transform:translateX(-50%); z-index:55;
+  display:flex; flex-direction:column; gap:8px; align-items:center;
+  pointer-events:none; width:max-content; max-width:86vw;
 }
-.banner.show{ opacity:1; }
+.toast{
+  background:rgba(24,17,10,.9); color:#f0dfae; font-size:14.5px; font-weight:700; letter-spacing:.04em;
+  padding:10px 22px; border-radius:11px; border:1px solid rgba(202,162,75,.55);
+  box-shadow:0 10px 28px rgba(0,0,0,.4); text-align:center; max-width:86vw;
+  animation:toastLife 2.3s ease forwards;
+}
+.toast.big{ font-size:18px; padding:14px 30px; color:#ffd97a; border-color:#caa24b; animation-duration:3.2s; }
+.toast .me{ color:#ffd97a; }
+.toast .warn{ color:#ff9d8a; }
+.toast .good{ color:#9fe0a0; }
+@keyframes toastLife{
+  0%{ opacity:0; transform:translateY(10px) scale(.94); }
+  8%{ opacity:1; transform:translateY(0) scale(1); }
+  80%{ opacity:1; }
+  100%{ opacity:0; transform:translateY(-12px); }
+}
 
 /* ── 圖鑑 ───────────────────────────────────────────────── */
 .gal-sec{ margin:14px 0 6px; font-size:13px; font-weight:800; color:#5b4413; }
@@ -352,8 +378,8 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 
   <!-- ═══ 牌局 ═══ -->
   <div id="game" hidden>
-    <div class="pchips" id="pchips"></div>
     <div class="table-wrap">
+      <div id="pchips"></div>
       <div id="boardVp">
         <div id="boardIn"></div>
         <div class="zoombtns">
@@ -398,7 +424,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   </div>
 </div>
 
-<div class="banner" id="banner"></div>
+<div id="toasts"></div>
 
 <script>
 /* ============================================================
@@ -1436,11 +1462,17 @@ function setStatus(txt, cls){
   $('statusTxt').textContent=txt;
   $('statusPill').className='status-pill'+(cls?' '+cls:'');
 }
-let bannerTimer=null;
-function banner(txt, ms){
-  const b=$('banner'); b.textContent=txt; b.classList.add('show');
-  clearTimeout(bannerTimer); bannerTimer=setTimeout(()=>b.classList.remove('show'), ms||2200);
+// 置中浮現的動作訊息：動畫播完自動移除；同時只留最新 4 則
+function announce(html, big){
+  const c=$('toasts'); if(!c) return;
+  const d=document.createElement('div');
+  d.className='toast'+(big?' big':'');
+  d.innerHTML=html;
+  c.appendChild(d);
+  while(c.children.length>4) c.removeChild(c.firstChild);
+  d.addEventListener('animationend',()=>d.remove());
 }
+function banner(txt){ announce(esc(String(txt))); }
 function addLog(html, cls){
   const d=document.createElement('div'); if(cls) d.className=cls; d.innerHTML=html;
   $('log').appendChild(d); $('log').scrollTop=$('log').scrollHeight;
@@ -1788,17 +1820,18 @@ function doMove(seat, move){
 /* ── 事件敘事與後續 ───────────────────────────────────────── */
 function narrate(events, seat){
   for(const e of events){
+    let msg=null, big=false;
     if(e.ev==='path'){
-      addLog(`${nmHtml(e.seat)} 鋪了通道${e.card.thru?'':'——<span class="warn">是條死路！</span>'}`);
+      msg=`${nmHtml(e.seat)} 鋪了通道${e.card.thru?'':'——<span class="warn">是條死路！</span>'}`;
       sfx('place');
     }
-    else if(e.ev==='discard') addLog(`${nmHtml(e.seat)} 蓋牌棄了一張`);
-    else if(e.ev==='pass') addLog(`${nmHtml(e.seat)} 過牌`);
-    else if(e.ev==='break'){ addLog(`${nmHtml(e.seat)} <span class="warn">弄壞了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`,''); sfx('break'); }
-    else if(e.ev==='repair'){ addLog(`${nmHtml(e.seat)} <span class="good">修好了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`); sfx('repair'); }
-    else if(e.ev==='rock'){ addLog(`${nmHtml(e.seat)} 的<span class="warn">落石</span>炸掉一張通道卡`); sfx('rock'); }
+    else if(e.ev==='discard') msg=`${nmHtml(e.seat)} 蓋牌棄了一張`;
+    else if(e.ev==='pass') msg=`${nmHtml(e.seat)} 過牌`;
+    else if(e.ev==='break'){ msg=`${nmHtml(e.seat)} <span class="warn">弄壞了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`; sfx('break'); }
+    else if(e.ev==='repair'){ msg=`${nmHtml(e.seat)} <span class="good">修好了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`; sfx('repair'); }
+    else if(e.ev==='rock'){ msg=`${nmHtml(e.seat)} 的<span class="warn">落石</span>炸掉一張通道卡`; sfx('rock'); }
     else if(e.ev==='map'){
-      addLog(`${nmHtml(e.seat)} 偷看了終點卡 🗺️`);
+      msg=`${nmHtml(e.seat)} 偷看了終點卡 🗺️`;
       sfx('map');
       if(e.seat===APP.my && e.kind){    // client 收到的是已淨化事件（無 kind），結果由 priv 顯示
         const face = e.kind==='gold' ? CARDS.cardSVG({k:'goal',kind:'gold'}) : CARDS.cardSVG({k:'goal',kind:'stone'},0);
@@ -1806,11 +1839,12 @@ function narrate(events, seat){
       }
     }
     else if(e.ev==='goal'){
+      msg = e.kind==='gold' ? '<span class="good">💰 金礦重見天日！</span>' : '🪨 翻開終點——<span class="warn">只是石頭！</span>';
+      big=true;
       sfx('flip');
-      banner(e.kind==='gold' ? '💰 金礦重見天日！' : '🪨 翻開終點——只是石頭！');
-      addLog(e.kind==='gold' ? `<span class="good">💰 金礦被挖到了！</span>` : `翻開一張終點：<span class="warn">石頭</span>`);
     }
     else if(e.ev==='goldFound') sfx('gold');
+    if(msg){ addLog(msg); announce(msg, big); }
   }
 }
 function afterChange(events){
