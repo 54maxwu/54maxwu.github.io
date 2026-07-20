@@ -1,0 +1,2275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>矮人礦坑 · Saboteur</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+[hidden]{ display:none !important; }
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif;
+  background:#f1f5f9; color:#1e293b; min-height:100vh; font-size:15px; line-height:1.5;
+  -webkit-tap-highlight-color:transparent;
+}
+::-webkit-scrollbar{ width:9px; height:9px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{ background:#c8b98f; border-radius:6px; border:2px solid transparent; background-clip:content-box; }
+::-webkit-scrollbar-thumb:hover{ background:#a8905c; border:2px solid transparent; background-clip:content-box; }
+*{ scrollbar-width:thin; scrollbar-color:#c8b98f transparent; }
+
+/* ── Header ─────────────────────────────────────────────── */
+.app-header{
+  background:#fff; border-bottom:1px solid #e2e8f0; padding:12px 24px; min-height:58px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  box-shadow:0 1px 3px rgba(0,0,0,.06); position:sticky; top:0; z-index:20;
+}
+.app-header h1{ font-size:16px; font-weight:700; color:#1e293b; letter-spacing:.02em; }
+.header-meta{ margin-left:auto; display:flex; align-items:center; gap:8px; }
+.hbtn{
+  font:inherit; font-size:12.5px; font-weight:600; color:#475569; background:#fff;
+  border:1px solid #e2e8f0; border-radius:8px; padding:6px 12px; cursor:pointer; transition:.15s;
+}
+.hbtn:hover{ background:#f8fafc; border-color:#cbd5e1; }
+.status-pill{
+  display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:4px 10px;
+  border-radius:999px; border:1px solid #e2e8f0; background:#f8fafc; color:#64748b; font-weight:600; white-space:nowrap;
+}
+.status-pill .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; }
+.status-pill.busy{ color:#b45309; background:#fffbeb; border-color:#fde68a; }
+.status-pill.busy .dot{ animation:pulse 1s infinite ease-in-out; }
+.status-pill.ok{ color:#15803d; background:#ecfdf5; border-color:#bbf7d0; }
+.status-pill.err{ color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.page-content{ padding:14px 20px 24px; max-width:1400px; margin:0 auto; }
+@media(max-width:640px){ .page-content{ padding:10px 8px 16px; } }
+
+.glass{
+  position:relative; border-radius:14px; backdrop-filter:blur(8px);
+  background-color:rgba(255,255,255,0.55); box-shadow:rgba(0,0,0,0.10) 2px 8px 20px;
+  border:1.5px solid rgba(255,255,255,0.7);
+  border-bottom:1.5px solid rgba(40,40,40,0.15); border-right:1.5px solid rgba(40,40,40,0.15);
+  padding:22px;
+}
+
+/* ── Lobby ──────────────────────────────────────────────── */
+#lobby{ max-width:760px; margin:0 auto; }
+.lob-title{ font-size:15px; font-weight:700; margin-bottom:4px; }
+.lob-sub{ color:#64748b; font-size:12.5px; margin-bottom:16px; }
+.modes{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px; }
+@media(max-width:600px){ .modes{ grid-template-columns:1fr; } }
+.mode{
+  text-align:left; border:1px solid #e2e8f0; background:#fff; border-radius:10px;
+  padding:14px; cursor:pointer; font:inherit; transition:.14s;
+}
+.mode:hover{ border-color:#d6b96a; background:#fdf8ec; }
+.mode.on{ border-color:#caa24b; background:#faf1d9; box-shadow:0 0 0 3px rgba(202,162,75,.15); }
+.mode .ico{ font-size:24px; margin-bottom:6px; }
+.mode .t{ font-weight:700; font-size:14px; }
+.mode .d{ font-size:12px; color:#64748b; margin-top:2px; }
+label.lbl{ font-size:12.5px; color:#64748b; margin:12px 0 6px; display:block; font-weight:600; }
+.row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+input.inp{
+  flex:1; min-width:130px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px;
+  font:inherit; font-size:15px; background:#fff;
+}
+input.inp.code{ letter-spacing:.35em; text-align:center; font-weight:700; }
+input.inp:focus{ outline:none; border-color:#caa24b; box-shadow:0 0 0 3px rgba(202,162,75,.14); }
+button.go{
+  padding:11px 20px; background:#8a6524; color:#fff; border:none; border-radius:8px;
+  font:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:.15s; white-space:nowrap;
+}
+button.go:hover:not(:disabled){ background:#6f4f18; }
+button.go:disabled{ opacity:.4; cursor:not-allowed; }
+button.ghost{ background:#fff; color:#475569; border:1px solid #e2e8f0; }
+button.ghost:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; }
+.hint{ font-size:12px; color:#94a3b8; margin-top:10px; line-height:1.7; }
+.hint code{ background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; font-size:11px; }
+.joinlist{ font-size:13px; color:#475569; margin-top:10px; line-height:1.9; }
+.joinlist b{ color:#8a6524; }
+
+/* ── Game layout ────────────────────────────────────────── */
+#game{ max-width:1400px; margin:0 auto; }
+.pchips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center; }
+.pchip{
+  display:flex; align-items:center; gap:7px; background:#fff; border:1.5px solid #e2e8f0;
+  border-radius:10px; padding:6px 10px; font-size:12.5px; transition:.18s; position:relative;
+}
+.pchip .avatar{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; background:#f4ead0; border:1px solid #e0cfa0; }
+.pchip .nm{ font-weight:700; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pchip .sub{ display:flex; gap:5px; align-items:center; color:#64748b; font-size:11px; }
+.pchip .goldn{ color:#b07b10; font-weight:700; }
+.pchip.turn{ border-color:#caa24b; box-shadow:0 0 0 3px rgba(202,162,75,.22); background:#fdf6e3; }
+.pchip.turn .avatar{ animation:bob 1.1s infinite ease-in-out; }
+@keyframes bob{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+.pchip.targetable{ border-color:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.18); cursor:pointer; }
+.pchip.targetable:hover{ background:#fef2f2; }
+.pchip.targetable.heal{ border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.18); }
+.pchip.targetable.heal:hover{ background:#f0fdf4; }
+.pchip.gone{ opacity:.55; }
+.toolico{ width:17px; height:17px; display:inline-block; position:relative; }
+.toolico svg{ width:100%; height:100%; }
+.toolico.broken::after{
+  content:""; position:absolute; inset:-2px; border:1.6px solid #dc2626; border-radius:50%;
+  background:linear-gradient(45deg,transparent 45%,#dc2626 45%,#dc2626 55%,transparent 55%);
+}
+.handn{ display:inline-flex; gap:2px; }
+.handn i{ width:8px; height:12px; border-radius:2px; background:#31405e; border:1px solid #1d2740; }
+.roundinfo{ margin-left:auto; display:flex; gap:8px; align-items:center; font-size:12.5px; color:#64748b; font-weight:600; }
+.roundinfo .deckpile{ display:flex; align-items:center; gap:5px; }
+.deckpile .mini{ width:22px; height:34px; border-radius:3px; overflow:hidden; box-shadow:1px 1px 0 #1d2740, 2px 2px 0 #141b30; }
+.deckpile .mini svg{ width:100%; height:100%; display:block; }
+
+/* ── 桌面（棋盤）────────────────────────────────────────── */
+.table-wrap{ display:flex; gap:10px; align-items:stretch; }
+@media(max-width:900px){ .table-wrap{ flex-direction:column; } }
+#boardVp{
+  flex:1; position:relative; height:56vh; min-height:330px; overflow:hidden; border-radius:14px;
+  background:
+    radial-gradient(90% 70% at 50% 30%, rgba(255,196,110,.10), transparent 60%),
+    radial-gradient(120% 120% at 50% 0%, #33281c 0%, #1d1610 55%, #120d09 100%);
+  box-shadow:inset 0 2px 18px rgba(0,0,0,.55), 0 8px 26px rgba(0,0,0,.28);
+  border:1px solid #0d0a06;
+  touch-action:none; cursor:grab; user-select:none;
+}
+#boardVp.dragging{ cursor:grabbing; }
+#boardIn{ position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; }
+.bcell{ position:absolute; width:98px; height:153px; }
+.bcell svg.cardsvg{ width:100%; height:100%; display:block; filter:drop-shadow(2px 3px 4px rgba(0,0,0,.55)); }
+.bcell.placed{ animation:drop .3s cubic-bezier(.2,1.6,.45,1); }
+@keyframes drop{ 0%{transform:scale(1.28) translateY(-14px); filter:brightness(1.35);} 100%{transform:scale(1) translateY(0);} }
+.bcell.flipping{ animation:flipIn .55s ease; transform-style:preserve-3d; }
+@keyframes flipIn{ 0%{transform:rotateY(92deg)} 100%{transform:rotateY(0)} }
+.bcell.shake{ animation:shake .45s ease; }
+@keyframes shake{ 0%,100%{transform:translate(0,0)} 20%{transform:translate(-3px,2px) rotate(-2deg)} 45%{transform:translate(3px,-2px) rotate(2deg)} 70%{transform:translate(-2px,-2px)} }
+.ghost{
+  position:absolute; width:98px; height:153px; border:2.5px dashed rgba(255,214,130,.75); border-radius:9px;
+  background:rgba(255,214,130,.10); cursor:pointer; transition:.12s; z-index:5;
+}
+.ghost svg{ width:100%; height:100%; opacity:0; transition:.12s; }
+.ghost:hover{ background:rgba(255,214,130,.16); border-color:#ffd682; }
+.ghost:hover svg{ opacity:.75; }
+.rocktarget{
+  position:absolute; width:98px; height:153px; border:3px solid rgba(239,68,68,.85); border-radius:9px;
+  background:rgba(239,68,68,.16); cursor:pointer; z-index:6; transition:.12s;
+}
+.rocktarget:hover{ background:rgba(239,68,68,.3); }
+.goaltarget{
+  position:absolute; width:98px; height:153px; border:3px solid rgba(56,189,248,.9); border-radius:9px;
+  background:rgba(56,189,248,.14); cursor:pointer; z-index:6; transition:.12s;
+}
+.goaltarget:hover{ background:rgba(56,189,248,.3); }
+.zoombtns{ position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; z-index:8; }
+.zoombtns button{
+  width:34px; height:34px; border-radius:9px; border:1px solid rgba(255,235,190,.25);
+  background:rgba(30,22,14,.72); color:#e8d9a8; font-size:17px; font-weight:700; cursor:pointer; backdrop-filter:blur(3px);
+}
+.zoombtns button:hover{ background:rgba(60,45,26,.85); }
+.compass{ position:absolute; left:10px; top:10px; z-index:8; font-size:11px; color:#c8b98f; background:rgba(30,22,14,.6); padding:4px 9px; border-radius:8px; border:1px solid rgba(255,235,190,.18); }
+
+/* ── 日誌 ───────────────────────────────────────────────── */
+#logPanel{
+  width:230px; border-radius:14px; background:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.75);
+  border-bottom-color:rgba(40,40,40,.14); border-right-color:rgba(40,40,40,.14);
+  box-shadow:rgba(0,0,0,.08) 2px 6px 16px; padding:10px 4px 10px 12px; display:flex; flex-direction:column;
+}
+@media(max-width:900px){ #logPanel{ width:auto; max-height:150px; } }
+#logPanel .lt{ font-size:11.5px; font-weight:700; color:#8a6524; letter-spacing:.08em; margin-bottom:6px; }
+#log{ flex:1; overflow-y:auto; font-size:12px; color:#475569; line-height:1.75; padding-right:8px; }
+#log .me{ color:#8a6524; font-weight:600; }
+#log .warn{ color:#b91c1c; }
+#log .good{ color:#15803d; }
+#log div{ border-bottom:1px dashed rgba(100,116,139,.14); padding:2px 0; }
+
+/* ── 手牌區 ─────────────────────────────────────────────── */
+#handBar{
+  margin-top:10px; border-radius:14px; padding:10px 14px;
+  background:linear-gradient(180deg, #3a2d1e, #241a10);
+  box-shadow:inset 0 1px 0 rgba(255,220,150,.12), 0 6px 18px rgba(0,0,0,.25);
+  border:1px solid #171009;
+}
+.hb-top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; min-height:30px; }
+.hb-top .who{ color:#f0dfae; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px; }
+.rolebadge{
+  font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; letter-spacing:.06em;
+  background:#5b4413; color:#ffd97a; border:1px solid #8a6524;
+}
+.rolebadge.sab{ background:#4a1414; color:#ff9d8a; border-color:#7c2d2d; }
+.mytools{ display:flex; gap:6px; align-items:center; }
+.mytools .toolico{ width:22px; height:22px; background:rgba(255,235,190,.08); border-radius:6px; padding:2px; }
+.knowngoals{ display:flex; gap:4px; margin-left:4px; }
+.kg{ font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:6px; background:rgba(255,235,190,.1); color:#c8b98f; border:1px solid rgba(255,235,190,.2); }
+.kg.gold{ color:#ffd97a; border-color:#caa24b; }
+.kg.stone{ color:#b6aea0; }
+.turnhint{ margin-left:auto; font-size:12.5px; font-weight:700; color:#c8b98f; }
+.turnhint.yours{ color:#ffd97a; animation:pulse 1.4s infinite; }
+#hand{ display:flex; gap:9px; align-items:flex-end; overflow-x:auto; padding:6px 2px 4px; min-height:132px; }
+.hcard{
+  width:82px; flex:0 0 82px; cursor:pointer; transition:transform .16s, filter .16s; position:relative;
+  filter:drop-shadow(1px 2px 3px rgba(0,0,0,.5));
+}
+.hcard svg{ width:100%; display:block; border-radius:7px; }
+.hcard:hover{ transform:translateY(-8px); }
+.hcard.sel{ transform:translateY(-13px) scale(1.06); filter:drop-shadow(0 0 9px rgba(255,214,130,.85)); }
+.hcard.dis{ opacity:.45; cursor:not-allowed; }
+.hcard.dis:hover{ transform:none; }
+.hb-actions{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+.abtn{
+  font:inherit; font-size:13px; font-weight:700; padding:9px 16px; border-radius:9px; cursor:pointer;
+  border:1px solid #6b5427; background:#4a3a1c; color:#f0dfae; transition:.15s;
+}
+.abtn:hover:not(:disabled){ background:#5d4a24; }
+.abtn:disabled{ opacity:.35; cursor:not-allowed; }
+.abtn.warn{ background:#4a1f1c; border-color:#7c3a34; color:#ffb4a4; }
+.abtn.warn:hover:not(:disabled){ background:#5d2a24; }
+.abtn.primary{ background:#8a6524; border-color:#caa24b; color:#fff7e0; }
+.abtn.primary:hover:not(:disabled){ background:#a07a2e; }
+.acthint{ font-size:12.5px; color:#e8d9a8; font-weight:600; }
+
+/* ── Modal（自訂，不用原生 alert/confirm）────────────────── */
+.overlay{
+  position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(3px);
+  display:none; align-items:center; justify-content:center; z-index:60; padding:18px;
+}
+.overlay.show{ display:flex; }
+.mbox{
+  background:#fffdf6; border-radius:16px; max-width:560px; width:100%; max-height:86vh; overflow-y:auto;
+  box-shadow:0 22px 60px rgba(0,0,0,.4); border:1px solid #e4d9bd;
+  padding:22px; animation:mpop .22s cubic-bezier(.2,1.4,.5,1);
+}
+.mbox.wide{ max-width:960px; }
+@keyframes mpop{ 0%{transform:scale(.92); opacity:0} 100%{transform:scale(1); opacity:1} }
+.mbox h3{ font-size:16px; font-weight:800; color:#5b4413; margin-bottom:12px; letter-spacing:.03em; }
+.mbox .mbody{ font-size:13.5px; color:#374151; line-height:1.8; }
+.mbox .mbtns{ display:flex; gap:8px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap; }
+.cardshow{ display:flex; gap:14px; justify-content:center; margin:10px 0 6px; flex-wrap:wrap; }
+.cardshow .cs{ width:120px; animation:flipIn .55s ease; }
+.cardshow .cs svg{ width:100%; border-radius:9px; box-shadow:0 8px 22px rgba(0,0,0,.3); }
+.cardshow .cslabel{ text-align:center; font-size:12px; font-weight:700; color:#5b4413; margin-top:6px; }
+.sharetable{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+.sharetable th,.sharetable td{ padding:7px 10px; border-bottom:1px solid #eadfc4; text-align:left; }
+.sharetable th{ color:#8a6524; font-size:11.5px; letter-spacing:.06em; }
+.sharetable .g{ color:#b07b10; font-weight:800; }
+.banner{
+  position:fixed; left:50%; top:74px; transform:translateX(-50%); z-index:55;
+  background:rgba(30,22,14,.92); color:#ffd97a; font-weight:800; font-size:15px; letter-spacing:.05em;
+  padding:12px 26px; border-radius:12px; border:1px solid #caa24b; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  opacity:0; pointer-events:none; transition:.3s;
+}
+.banner.show{ opacity:1; }
+
+/* ── 圖鑑 ───────────────────────────────────────────────── */
+.gal-sec{ margin:14px 0 6px; font-size:13px; font-weight:800; color:#5b4413; }
+.gal-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:10px; }
+.gal-grid .gc svg{ width:100%; border-radius:7px; box-shadow:0 3px 10px rgba(0,0,0,.22); }
+.gal-grid .gc .cap{ font-size:10.5px; color:#64748b; text-align:center; margin-top:3px; font-weight:600; }
+
+/* ── 手機緊湊 ───────────────────────────────────────────── */
+@media(max-width:640px){
+  #boardVp{ height:46vh; min-height:270px; }
+  .hcard{ width:64px; flex-basis:64px; }
+  #hand{ min-height:104px; }
+  .pchip .nm{ max-width:64px; }
+  .abtn{ padding:8px 12px; font-size:12px; }
+  .glass{ padding:14px; }
+}
+</style>
+</head>
+<body>
+<svg id="svgdefs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs></defs></svg>
+
+<header class="app-header">
+  <h1>⛏️ 矮人礦坑</h1>
+  <div class="header-meta">
+    <button class="hbtn" id="btnGallery">🃏 卡片圖鑑</button>
+    <button class="hbtn" id="btnRules">📜 規則</button>
+    <button class="hbtn" id="btnSound">🔊</button>
+    <button class="hbtn" id="btnLeave" hidden>離開牌局</button>
+    <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusTxt">單機待命</span></span>
+  </div>
+</header>
+
+<div class="page-content">
+
+  <!-- ═══ 大廳 ═══ -->
+  <div id="lobby" class="glass">
+    <div class="lob-title">開一局礦坑（4 人）</div>
+    <div class="lob-sub">1 位破壞者可能潛伏在 4 名礦工之中——挖到金礦前，先想清楚誰在搞鬼。空位一律由電腦礦工補上。</div>
+
+    <div class="modes" id="modes">
+      <button class="mode on" data-mode="local">
+        <div class="ico">🤖</div><div class="t">單機對戰</div><div class="d">你 + 3 個電腦礦工，離線可玩</div>
+      </button>
+      <button class="mode" data-mode="host">
+        <div class="ico">🏠</div><div class="t">開房連線</div><div class="d">建房拿 6 位數房號給朋友</div>
+      </button>
+      <button class="mode" data-mode="join">
+        <div class="ico">🔑</div><div class="t">加入房間</div><div class="d">輸入朋友給你的房號</div>
+      </button>
+    </div>
+
+    <label class="lbl">你的暱稱</label>
+    <div class="row">
+      <input class="inp" id="nameInp" maxlength="10" placeholder="礦工阿福">
+    </div>
+
+    <div id="opt-local">
+      <div class="row" style="margin-top:16px">
+        <button class="go" id="startLocal">⛏️ 開挖！（單機）</button>
+      </div>
+    </div>
+
+    <div id="opt-host" hidden>
+      <div class="row" style="margin-top:16px">
+        <button class="go" id="hostBtn">建立房間</button>
+        <input class="inp code" id="hostCode" readonly placeholder="——" style="max-width:150px">
+        <button class="go ghost" id="copyBtn" hidden>複製房號</button>
+      </div>
+      <div id="hostWait" hidden>
+        <div class="joinlist" id="hostJoined">等待玩家加入…</div>
+        <div class="row" style="margin-top:10px">
+          <button class="go" id="hostStart">🚀 開始遊戲（空位補電腦）</button>
+        </div>
+      </div>
+      <div class="hint">連線透過 Cloudflare Worker（<code>bomb-signal</code>）房間中轉，每房最多 4 人。房間坐滿會自動開局。</div>
+    </div>
+
+    <div id="opt-join" hidden>
+      <div class="row" style="margin-top:16px">
+        <input class="inp code" id="joinCode" maxlength="6" inputmode="numeric" placeholder="6 位數房號" style="max-width:200px">
+        <button class="go" id="joinBtn">加入</button>
+      </div>
+      <div class="joinlist" id="joinState"></div>
+    </div>
+
+    <div class="hint" style="margin-top:16px">
+      🏆 三回合制：礦工挖通金礦一起分金塊；破壞者拖到牌庫抽光就獨吞。最終金塊最多的人獲勝。
+    </div>
+  </div>
+
+  <!-- ═══ 牌局 ═══ -->
+  <div id="game" hidden>
+    <div class="pchips" id="pchips"></div>
+    <div class="table-wrap">
+      <div id="boardVp">
+        <div id="boardIn"></div>
+        <div class="zoombtns">
+          <button id="zin" title="放大">＋</button>
+          <button id="zout" title="縮小">－</button>
+          <button id="zfit" title="回中心">◎</button>
+        </div>
+        <div class="compass">起點在左・終點在右（挖 8 格）</div>
+      </div>
+      <div id="logPanel">
+        <div class="lt">⛏ 礦坑日誌</div>
+        <div id="log"></div>
+      </div>
+    </div>
+
+    <div id="handBar">
+      <div class="hb-top">
+        <span class="who" id="meName"></span>
+        <span class="rolebadge" id="meRole" hidden></span>
+        <span class="mytools" id="meTools"></span>
+        <span class="knowngoals" id="meKnown"></span>
+        <span class="turnhint" id="turnHint"></span>
+      </div>
+      <div id="hand"></div>
+      <div class="hb-actions">
+        <button class="abtn" id="btnRotate" disabled>🔄 旋轉 180°</button>
+        <button class="abtn warn" id="btnDiscard" disabled>🂠 蓋牌棄掉</button>
+        <button class="abtn" id="btnCancel" disabled>✖ 取消選取</button>
+        <button class="abtn primary" id="btnPass" hidden>⏭ 過牌</button>
+        <span class="acthint" id="actHint"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 通用 modal ═══ -->
+<div class="overlay" id="modal">
+  <div class="mbox" id="mbox">
+    <h3 id="mtitle"></h3>
+    <div class="mbody" id="mbody"></div>
+    <div class="mbtns" id="mbtns"></div>
+  </div>
+</div>
+
+<div class="banner" id="banner"></div>
+
+<script>
+/* ============================================================
+   規則引擎（純邏輯、無 DOM）：牌組、棋盤、擺放驗證、連通 BFS、
+   行動卡、回合流程、計分、AI。可被 Node 抽出無頭測試。
+   ============================================================ */
+/*==ENGINE-START==*/
+const SAB = (() => {
+'use strict';
+
+// ── 亂數（可播種，測試重現用）──────────────────────────────
+function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+
+// ── 通道卡型錄：e=[北,東,南,西] 開口，thru=中心連通(死路=0)，n=張數 ──
+// 原版 Saboteur 抽牌堆共 40 張通道卡（31 通行 + 9 死路），另有起點 1、終點 3。
+const PATH_TYPES = [
+  { id:'x',      e:[1,1,1,1], thru:1, n:5 },  // 十字
+  { id:'t_nse',  e:[1,1,1,0], thru:1, n:5 },  // T：北東南
+  { id:'t_esw',  e:[0,1,1,1], thru:1, n:5 },  // T：東南西
+  { id:'ns',     e:[1,0,1,0], thru:1, n:4 },  // 直：南北
+  { id:'ew',     e:[0,1,0,1], thru:1, n:3 },  // 直：東西
+  { id:'c_sw',   e:[0,0,1,1], thru:1, n:4 },  // 彎：南西
+  { id:'c_se',   e:[0,1,1,0], thru:1, n:5 },  // 彎：南東
+  { id:'d_x',    e:[1,1,1,1], thru:0, n:1 },  // 死路：十字
+  { id:'d_nse',  e:[1,1,1,0], thru:0, n:1 },  // 死路：T 北東南
+  { id:'d_esw',  e:[0,1,1,1], thru:0, n:1 },  // 死路：T 東南西
+  { id:'d_ns',   e:[1,0,1,0], thru:0, n:1 },  // 死路：直南北
+  { id:'d_ew',   e:[0,1,0,1], thru:0, n:1 },  // 死路：直東西
+  { id:'d_sw',   e:[0,0,1,1], thru:0, n:1 },  // 死路：彎南西
+  { id:'d_se',   e:[0,1,1,0], thru:0, n:1 },  // 死路：彎南東
+  { id:'d_n',    e:[1,0,0,0], thru:0, n:1 },  // 死路：單北
+  { id:'d_s',    e:[0,0,1,0], thru:0, n:1 },  // 死路：單南
+];
+
+// ── 行動卡型錄（共 27 張）──────────────────────────────────
+const TOOLS = ['pick','lamp','cart'];   // 鶴嘴鎬、提燈、礦車
+const TOOL_NAME = { pick:'鶴嘴鎬', lamp:'提燈', cart:'礦車' };
+const ACTION_TYPES = [
+  { id:'b_pick', a:'break',  tools:['pick'],        n:3 },
+  { id:'b_lamp', a:'break',  tools:['lamp'],        n:3 },
+  { id:'b_cart', a:'break',  tools:['cart'],        n:3 },
+  { id:'r_pick', a:'repair', tools:['pick'],        n:2 },
+  { id:'r_lamp', a:'repair', tools:['lamp'],        n:2 },
+  { id:'r_cart', a:'repair', tools:['cart'],        n:2 },
+  { id:'r_pl',   a:'repair', tools:['pick','lamp'], n:1 },
+  { id:'r_pc',   a:'repair', tools:['pick','cart'], n:1 },
+  { id:'r_lc',   a:'repair', tools:['lamp','cart'], n:1 },
+  { id:'rock',   a:'rock',   tools:[],              n:3 },
+  { id:'map',    a:'map',    tools:[],              n:6 },
+];
+
+// 金塊卡：1×16、2×8、3×4（共 28 張、44 塊金）
+const GOLD_CARDS = [].concat(Array(16).fill(1), Array(8).fill(2), Array(4).fill(3));
+
+// ── 座標 / 方向 ────────────────────────────────────────────
+const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];      // N E S W（y 向下為正）
+const OPP  = d => (d+2)%4;
+const K    = (x,y) => x+','+y;
+const START = { x:0, y:0 };
+const GOALS_POS = [ {x:8,y:-2}, {x:8,y:0}, {x:8,y:2} ];
+const BOUND = { minX:-14, maxX:22, minY:-11, maxY:11 };   // 棋盤合理範圍（UI/效能保護）
+
+// 旋轉後某方向的開口：順時針轉 rot*90°，新方向 d 的邊 = 原 e[(d+3*rot)%4]
+function edgeAt(e, rot, d){ return e[(d + 3*rot) % 4]; }
+function edgesOf(e, rot){ return [0,1,2,3].map(d => edgeAt(e, rot, d)); }
+
+// ── 建牌組 ─────────────────────────────────────────────────
+function buildDeck(rng){
+  const deck = [];
+  let uid = 0;
+  for(const t of PATH_TYPES) for(let i=0;i<t.n;i++)
+    deck.push({ uid:'p'+(uid++), k:'path', t:t.id, e:t.e, thru:t.thru });
+  for(const t of ACTION_TYPES) for(let i=0;i<t.n;i++)
+    deck.push({ uid:'a'+(uid++), k:'act', t:t.id, a:t.a, tools:t.tools });
+  shuffle(deck, rng);
+  return deck;
+}
+function shuffle(arr, rng){
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+
+// ── 建一局（4 人、3 回合）───────────────────────────────────
+function newGame(names, aiSeats, seed){
+  const rng = mulberry32(seed>>>0);
+  const G = {
+    seed: seed>>>0, rng,
+    nP: 4,
+    players: names.map((nm,i)=>({
+      seat:i, name:nm, ai:!!aiSeats[i],
+      role:null, hand:[], broken:{pick:false,lamp:false,cart:false},
+      gold:0, goldCards:[], known:{},           // known[goalIdx] = 'gold' | 'stone'
+      mind:{ susp:[0,0,0,0], contrib:[0,0,0,0] } // AI 觀察：嫌疑值 / 貢獻度
+    })),
+    round:0, turn:0, phase:'lobby',             // lobby | play | roundEnd | end
+    deck:[], discard:[], board:new Map(), goals:[],
+    passStreak:0, log:[], lastResult:null,
+    goldPile: GOLD_CARDS.slice(),
+  };
+  return G;
+}
+
+function newRound(G){
+  G.round++;
+  G.phase='play';
+  G.passStreak=0;
+  G.deck = buildDeck(G.rng);
+  G.discard=[];
+  G.board = new Map();
+  G.board.set(K(0,0), { card:{ uid:'start', k:'start', e:[1,1,1,1], thru:1 }, rot:0 });
+  // 終點：1 金 2 石，洗位置
+  const kinds = shuffle(['gold','stone','stone'], G.rng);
+  G.goals = GOALS_POS.map((p,i)=>({ idx:i, x:p.x, y:p.y, kind:kinds[i], revealed:false, rot:0 }));
+  // 角色：4 人局用 1 破壞者 + 4 金礦工，發 4 蓋 1
+  const roles = shuffle(['sab','dig','dig','dig','dig'], G.rng);
+  for(const p of G.players){
+    p.role = roles[p.seat];
+    p.hand = [];
+    p.broken = { pick:false, lamp:false, cart:false };
+    p.known = {};
+    p.mind = { susp:[0,0,0,0], contrib:[0,0,0,0] };
+  }
+  G.setAside = roles[4];
+  for(let c=0;c<6;c++) for(const p of G.players) p.hand.push(G.deck.pop());
+  G.turn = (G.round-1) % G.nP;
+  G.lastResult = null;
+  return G;
+}
+
+// ── 連通性：從起點 BFS ─────────────────────────────────────
+// 回傳 { reach:Set(cellKey 可通行到達), sockets:Map(emptyKey -> [可供連接的方向...]) }
+// reach 只收錄「通行卡」(thru=1)；死路卡接上網路但不延伸。
+function reachInfo(board){
+  const reach = new Set([K(0,0)]);
+  const q = [[0,0]];
+  const sockets = new Map();
+  while(q.length){
+    const [x,y] = q.pop();
+    const pc = board.get(K(x,y));
+    const ed = edgesOf(pc.card.e, pc.rot);
+    for(let d=0; d<4; d++){
+      if(!ed[d]) continue;
+      const nx=x+DIRS[d][0], ny=y+DIRS[d][1], nk=K(nx,ny);
+      const npc = board.get(nk);
+      if(!npc){
+        if(!sockets.has(nk)) sockets.set(nk, []);
+        const arr = sockets.get(nk);
+        if(!arr.includes(OPP(d))) arr.push(OPP(d));  // 新卡在該格朝 OPP(d) 需開口
+      } else if(npc.card.thru && !reach.has(nk) && edgeAt(npc.card.e, npc.rot, OPP(d))){
+        reach.add(nk); q.push([nx,ny]);
+      }
+    }
+  }
+  return { reach, sockets };
+}
+
+// 未揭示終點所在格（不可放牌、旁邊放牌不檢查對邊）
+function hiddenGoalAt(G,x,y){ return G.goals.find(g=>!g.revealed && g.x===x && g.y===y) || null; }
+
+// ── 擺放驗證 ───────────────────────────────────────────────
+function canPlace(G, card, rot, x, y, ri){
+  if(card.k!=='path') return false;
+  if(x<BOUND.minX||x>BOUND.maxX||y<BOUND.minY||y>BOUND.maxY) return false;
+  const k = K(x,y);
+  if(G.board.has(k)) return false;
+  if(hiddenGoalAt(G,x,y)) return false;
+  ri = ri || reachInfo(G.board);
+  const need = ri.sockets.get(k);
+  if(!need) return false;                                  // 必須接上既有通路
+  const my = edgesOf(card.e, rot);
+  if(!need.some(d=>my[d])) return false;                   // 朝通路方向要有開口
+  for(let d=0; d<4; d++){                                  // 與所有鄰卡開口/牆一致
+    const nx=x+DIRS[d][0], ny=y+DIRS[d][1];
+    if(hiddenGoalAt(G,nx,ny)) continue;
+    const npc = G.board.get(K(nx,ny));
+    if(!npc) continue;
+    if(my[d] !== edgeAt(npc.card.e, npc.rot, OPP(d))) return false;
+  }
+  return true;
+}
+
+// 一張手牌所有合法擺放（rot 僅 0/2＝原樣或轉 180°）
+function legalPlacements(G, card){
+  const out = [];
+  if(card.k!=='path') return out;
+  const ri = reachInfo(G.board);
+  for(const [k] of ri.sockets){
+    const [x,y] = k.split(',').map(Number);
+    for(const rot of [0,2]){
+      if(canPlace(G, card, rot, x, y, ri)) out.push({x,y,rot});
+    }
+  }
+  return out;
+}
+
+// ── 終點揭示（可能連鎖）────────────────────────────────────
+// 回傳事件列表；金礦被接到 → {goldFound:true, by:seat}
+function checkGoalReveals(G, bySeat){
+  const events = [];
+  let again = true;
+  while(again){
+    again = false;
+    const ri = reachInfo(G.board);
+    for(const g of G.goals){
+      if(g.revealed) continue;
+      let hit = -1;
+      for(let d=0; d<4; d++){
+        const nx=g.x+DIRS[d][0], ny=g.y+DIRS[d][1];
+        const npc = G.board.get(K(nx,ny));
+        if(npc && ri.reach.has(K(nx,ny)) && edgeAt(npc.card.e, npc.rot, OPP(d))){ hit=d; break; }
+      }
+      if(hit<0) continue;
+      g.revealed = true;
+      if(g.kind==='gold'){
+        g.rot = 0;
+        G.board.set(K(g.x,g.y), { card:{ uid:'goal'+g.idx, k:'goal', kind:'gold', e:[1,1,1,1], thru:1 }, rot:0 });
+        events.push({ ev:'goal', idx:g.idx, kind:'gold', by:bySeat });
+        events.push({ ev:'goldFound', by:bySeat });
+        return events;                                   // 回合立即結束
+      }
+      // 石頭：彎道 e=[0,1,1,0]（南東），自動轉向讓「被接到的那側」開口，且不與鄰卡衝突
+      const e = [0,1,1,0];
+      let rot = 0;
+      for(let r=0;r<4;r++){
+        if(!edgeAt(e,r,hit)) continue;
+        let ok = true;
+        for(let d=0; d<4; d++){
+          const nx=g.x+DIRS[d][0], ny=g.y+DIRS[d][1];
+          if(hiddenGoalAt(G,nx,ny)) continue;
+          const npc = G.board.get(K(nx,ny));
+          if(npc && edgeAt(e,r,d) !== edgeAt(npc.card.e,npc.rot,OPP(d))){ ok=false; break; }
+        }
+        if(ok){ rot=r; break; }
+        rot = r;                                          // 退而求其次：至少朝連接側開口
+      }
+      g.rot = rot;
+      G.board.set(K(g.x,g.y), { card:{ uid:'goal'+g.idx, k:'goal', kind:'stone', e, thru:1 }, rot });
+      events.push({ ev:'goal', idx:g.idx, kind:'stone', by:bySeat });
+      again = true;                                       // 石頭併入通路後可能連鎖揭示
+      break;
+    }
+  }
+  return events;
+}
+
+// ── 行動卡合法性 ───────────────────────────────────────────
+function legalActionTargets(G, seat, card){
+  const me = G.players[seat];
+  if(card.a==='break'){
+    return G.players.filter(p=>p.seat!==seat && !p.broken[card.tools[0]]).map(p=>p.seat);
+  }
+  if(card.a==='repair'){
+    return G.players.filter(p=>card.tools.some(t=>p.broken[t])).map(p=>p.seat);
+  }
+  if(card.a==='rock'){
+    const out=[];
+    for(const [k,pc] of G.board){
+      if(pc.card.k==='path') out.push(k);                 // 起點/終點不可炸
+    }
+    return out;
+  }
+  if(card.a==='map'){
+    return G.goals.filter(g=>!g.revealed && me.known[g.idx]==null).map(g=>g.idx);
+  }
+  return [];
+}
+
+// ── 套用一手（回傳 {ok, err?, events[]}）────────────────────
+// move: {type:'path',hi,rot,x,y} | {type:'break',hi,target} | {type:'repair',hi,target,tool}
+//       {type:'rock',hi,x,y} | {type:'map',hi,goal} | {type:'discard',hi} | {type:'pass'}
+function applyMove(G, seat, move){
+  if(G.phase!=='play') return { ok:false, err:'not-playing' };
+  if(G.turn!==seat)    return { ok:false, err:'not-your-turn' };
+  const P = G.players[seat];
+  const events = [];
+  const hasBroken = TOOLS.some(t=>P.broken[t]);
+
+  if(move.type==='pass'){
+    if(P.hand.length>0 && G.deck.length>0) return { ok:false, err:'must-act' };
+    G.passStreak++;
+    events.push({ ev:'pass', seat });
+  } else {
+    const card = P.hand[move.hi];
+    if(!card) return { ok:false, err:'no-card' };
+
+    if(move.type==='discard'){
+      P.hand.splice(move.hi,1);
+      G.discard.push(card);
+      G.passStreak=0;
+      events.push({ ev:'discard', seat });
+    }
+    else if(move.type==='path'){
+      if(card.k!=='path') return { ok:false, err:'not-path' };
+      if(hasBroken) return { ok:false, err:'tool-broken' };
+      const rot = move.rot===2 ? 2 : 0;
+      if(!canPlace(G, card, rot, move.x, move.y)) return { ok:false, err:'bad-place' };
+      P.hand.splice(move.hi,1);
+      G.board.set(K(move.x,move.y), { card, rot, by:seat });
+      G.passStreak=0;
+      events.push({ ev:'path', seat, card, rot, x:move.x, y:move.y });
+      events.push(...checkGoalReveals(G, seat));
+    }
+    else if(move.type==='break'){
+      if(card.k!=='act'||card.a!=='break') return { ok:false, err:'not-break' };
+      const T = G.players[move.target];
+      const tool = card.tools[0];
+      if(!T || T.seat===seat || T.broken[tool]) return { ok:false, err:'bad-target' };
+      T.broken[tool]=true;
+      P.hand.splice(move.hi,1); G.discard.push(card); G.passStreak=0;
+      events.push({ ev:'break', seat, target:T.seat, tool });
+    }
+    else if(move.type==='repair'){
+      if(card.k!=='act'||card.a!=='repair') return { ok:false, err:'not-repair' };
+      const T = G.players[move.target];
+      const tool = move.tool && card.tools.includes(move.tool) ? move.tool
+                 : card.tools.find(t=>T && T.broken[t]);
+      if(!T || !tool || !T.broken[tool]) return { ok:false, err:'bad-target' };
+      T.broken[tool]=false;
+      P.hand.splice(move.hi,1); G.discard.push(card); G.passStreak=0;
+      events.push({ ev:'repair', seat, target:T.seat, tool });
+    }
+    else if(move.type==='rock'){
+      if(card.k!=='act'||card.a!=='rock') return { ok:false, err:'not-rock' };
+      const k = K(move.x,move.y);
+      const pc = G.board.get(k);
+      if(!pc || pc.card.k!=='path') return { ok:false, err:'bad-target' };
+      G.board.delete(k);
+      G.discard.push(pc.card);
+      P.hand.splice(move.hi,1); G.discard.push(card); G.passStreak=0;
+      events.push({ ev:'rock', seat, x:move.x, y:move.y, was:pc.card });
+    }
+    else if(move.type==='map'){
+      if(card.k!=='act'||card.a!=='map') return { ok:false, err:'not-map' };
+      const g = G.goals[move.goal];
+      if(!g || g.revealed) return { ok:false, err:'bad-target' };
+      P.known[g.idx] = g.kind;
+      P.hand.splice(move.hi,1); G.discard.push(card); G.passStreak=0;
+      events.push({ ev:'map', seat, goal:g.idx, kind:g.kind });   // kind 僅本人/主機可見
+    }
+    else return { ok:false, err:'bad-move' };
+
+    if(move.type!=='pass' && G.deck.length>0) P.hand.push(G.deck.pop());
+  }
+
+  observeMove(G, seat, move, events);
+
+  // 回合結束判定
+  const goldEv = events.find(e=>e.ev==='goldFound');
+  if(goldEv){ endRound(G, 'gold', goldEv.by); events.push({ ev:'roundEnd', result:G.lastResult }); return { ok:true, events }; }
+  const allEmpty = G.players.every(p=>p.hand.length===0);
+  if((G.deck.length===0 && allEmpty) || G.passStreak>=G.nP){
+    endRound(G, 'exhaust', -1);
+    events.push({ ev:'roundEnd', result:G.lastResult });
+    return { ok:true, events };
+  }
+  G.turn = (G.turn+1)%G.nP;
+  return { ok:true, events };
+}
+
+// ── 回合結束與分金 ─────────────────────────────────────────
+function endRound(G, why, winnerSeat){
+  const sabs = G.players.filter(p=>p.role==='sab');
+  const digs = G.players.filter(p=>p.role==='dig');
+  const res = { why, winnerSeat, side: why==='gold' ? 'dig':'sab', shares:[], roles:G.players.map(p=>p.role) };
+  const draw = n => { const out=[]; while(out.length<n && G.goldPile.length){ out.push(G.goldPile.pop()); } return out; };
+
+  if(why==='gold'){
+    // 礦工勝：抽 4 張金塊卡，由完成者開始逆時針只發給礦工（最高面額優先給先拿的人）
+    const cards = draw(4).sort((a,b)=>b-a);
+    const order = [];
+    for(let i=0;i<G.nP && order.length<digs.length;i++){
+      const s = (winnerSeat - i + G.nP) % G.nP;             // 逆時針 = 座位遞減
+      if(G.players[s].role==='dig') order.push(s);
+    }
+    if(order.length){
+      cards.forEach((v,i)=>{
+        const s = order[i % order.length];
+        G.players[s].gold += v; G.players[s].goldCards.push(v);
+        const sh = res.shares.find(x=>x.seat===s);
+        sh ? sh.gold += v : res.shares.push({ seat:s, gold:v });
+      });
+    }
+  } else if(sabs.length){
+    // 破壞者勝：每位破壞者拿 4 金（1 人時）／依原版人數表
+    const per = sabs.length===1 ? 4 : 3;
+    for(const p of sabs){
+      let got=0;
+      // 從金堆湊出 per（面額大優先）
+      G.goldPile.sort((a,b)=>a-b);
+      while(got<per && G.goldPile.length){
+        let idx = G.goldPile.findIndex(v=>v<=per-got);
+        if(idx<0) idx=0;
+        // 取不超過剩餘需求的最大面額
+        for(let i=G.goldPile.length-1;i>=0;i--){ if(G.goldPile[i]<=per-got){ idx=i; break; } }
+        const v = G.goldPile.splice(idx,1)[0];
+        got+=v;
+      }
+      p.gold += got; p.goldCards.push(got);
+      res.shares.push({ seat:p.seat, gold:got });
+    }
+  }
+  G.lastResult = res;
+  G.phase = G.round>=3 ? 'end' : 'roundEnd';
+  return res;
+}
+
+// ── 公開觀察 → 更新所有 AI 的嫌疑/貢獻 ─────────────────────
+function observeMove(G, seat, move, events){
+  for(const ob of G.players){
+    const m = ob.mind; if(!m) continue;
+    for(const e of events){
+      if(e.ev==='path'){
+        if(!e.card.thru){ m.susp[e.seat]+=3; }
+        else{
+          const d0 = goalDistFrom(G, ob, e.x, e.y);
+          if(d0<=9){ m.contrib[e.seat]+=1; m.susp[e.seat]=Math.max(0,m.susp[e.seat]-0.5); }
+        }
+      }
+      else if(e.ev==='break'){ if(m.susp[e.target]<3) m.susp[e.seat]+=2; }
+      else if(e.ev==='repair'){ m.susp[e.seat]=Math.max(0,m.susp[e.seat]-1); }
+      else if(e.ev==='rock'){ e.was.thru ? m.susp[e.seat]+=3 : m.susp[e.seat]=Math.max(0,m.susp[e.seat]-1); }
+    }
+  }
+}
+
+// ── AI ─────────────────────────────────────────────────────
+function believedGoalYs(G, P){
+  // 回傳（AI 視角）仍可能是金礦的終點 y 值們
+  const ys=[];
+  for(const g of G.goals){
+    if(g.revealed){ if(g.kind==='gold') return [g.y]; continue; }
+    const k = P.known[g.idx];
+    if(k==='gold') return [g.y];
+    if(k!=='stone') ys.push(g.y);
+  }
+  return ys.length?ys:[0];
+}
+function goalDistFrom(G, P, x, y){
+  const ys = believedGoalYs(G,P);
+  return Math.min(...ys.map(gy=>Math.abs(8-x)+Math.abs(gy-y)));
+}
+
+function aiChooseMove(G, seat){
+  const P = G.players[seat];
+  const rng = G.rng;
+  const sab = P.role==='sab';
+  const progress = 1 - G.deck.length/40;                    // 0 開局 → 1 尾聲
+  const camo = sab && progress < 0.3;                       // 破壞者前期偽裝
+  const hasBroken = TOOLS.some(t=>P.broken[t]);
+  const cand = [];                                          // {score, move, di?}
+
+  const ri = reachInfo(G.board);
+  const curDist = Math.min(9999, ...[...ri.sockets.keys()].map(k=>{ const [x,y]=k.split(',').map(Number); return goalDistFrom(G,P,x,y); }));
+
+  P.hand.forEach((card, hi)=>{
+    if(card.k==='path'){
+      if(hasBroken){ return; }
+      for(const pl of legalPlacements(G, card)){
+        const d = goalDistFrom(G, P, pl.x, pl.y);
+        let s;
+        if(!card.thru){                                     // 死路
+          s = sab ? (camo ? -2 : 16 - d*1.4) : -8;
+        } else if(sab){
+          s = camo ? 3 - Math.max(0,(curDist-d))*1.5 : -2 - (curDist-d)*3;
+        } else {
+          const my = edgesOf(card.e, pl.rot);
+          const openOut = my.reduce((a,b,di)=>{
+            const nx=pl.x+DIRS[di][0], ny=pl.y+DIRS[di][1];
+            return a + (b && !G.board.get(K(nx,ny)) ? 1 : 0);
+          },0);
+          s = 10 + (curDist - d)*4 + openOut*1.2 - d*0.6;
+        }
+        cand.push({ s: s + rng()*1.5, move:{ type:'path', hi, rot:pl.rot, x:pl.x, y:pl.y } });
+      }
+    } else if(card.a==='map'){
+      const ts = legalActionTargets(G, seat, card);
+      if(ts.length){
+        const unknown = ts.length;
+        const s = (sab?8:12) - progress*7 + unknown;
+        const goal = ts[Math.floor(rng()*ts.length)];
+        cand.push({ s: s + rng(), move:{ type:'map', hi, goal } });
+      }
+    } else if(card.a==='break'){
+      const ts = legalActionTargets(G, seat, card);
+      for(const t of ts){
+        let s;
+        if(sab){
+          s = 6 + progress*6 + P.mind.contrib[t]*1.2 - (camo?4:0);
+        } else {
+          const susp = P.mind.susp[t];
+          s = susp>=5 ? 4 + susp : -3;
+        }
+        cand.push({ s: s + rng()*1.5, move:{ type:'break', hi, target:t } });
+      }
+    } else if(card.a==='repair'){
+      for(const t of legalActionTargets(G, seat, card)){
+        const T = G.players[t];
+        const tool = card.tools.find(tl=>T.broken[tl]);
+        let s;
+        if(t===seat) s = 14;
+        else if(sab) s = camo ? 4 : -4;
+        else s = P.mind.susp[t]<4 ? 8 : -2;
+        cand.push({ s: s + rng(), move:{ type:'repair', hi, target:t, tool } });
+      }
+    } else if(card.a==='rock'){
+      const ts = legalActionTargets(G, seat, card);
+      let best=null, bs=-99;
+      for(const k of ts){
+        const [x,y]=k.split(',').map(Number);
+        const pc = G.board.get(k);
+        const d = goalDistFrom(G,P,x,y);
+        let s;
+        if(sab) s = pc.card.thru ? (camo? -3 : 9 - d*0.8) : -6;
+        else    s = !pc.card.thru ? 8 - d*0.7 : -6;
+        if(s>bs){ bs=s; best={x,y}; }
+      }
+      if(best) cand.push({ s: bs + rng(), move:{ type:'rock', hi, x:best.x, y:best.y } });
+    }
+  });
+
+  // 棄牌備案：礦工棄死路/最差牌；破壞者偷偷棄好牌
+  if(P.hand.length){
+    let di=0, worst=1e9;
+    P.hand.forEach((c,hi)=>{
+      let v;
+      if(c.k==='path') v = sab ? (c.thru?-2:8) : (c.thru?6:-4);
+      else v = 3;
+      if(v<worst){ worst=v; di=hi; }
+    });
+    cand.push({ s: 0.5 + rng()*0.5, move:{ type:'discard', hi:di } });
+  }
+  if(!cand.length) return { type:'pass' };
+  cand.sort((a,b)=>b.s-a.s);
+  return cand[0].move;
+}
+
+// ── 序列化（連線同步用）────────────────────────────────────
+function pubState(G){
+  return {
+    round:G.round, phase:G.phase, turn:G.turn, deckN:G.deck.length,
+    board:[...G.board.entries()].map(([k,pc])=>({ k, t:pc.card.t||pc.card.k, kind:pc.card.kind||null, e:pc.card.e, thru:pc.card.thru?1:0, rot:pc.rot, by:pc.by==null?-1:pc.by })),
+    goals:G.goals.map(g=>({ idx:g.idx, x:g.x, y:g.y, revealed:g.revealed, kind:g.revealed?g.kind:null, rot:g.rot })),
+    players:G.players.map(p=>({ seat:p.seat, name:p.name, ai:p.ai, handN:p.hand.length, broken:p.broken, gold:p.gold })),
+    lastResult:G.lastResult, setAsideKnown:false,
+  };
+}
+function privState(G, seat){
+  const p = G.players[seat];
+  return { seat, role:p.role, hand:p.hand, known:p.known };
+}
+
+return {
+  PATH_TYPES, ACTION_TYPES, TOOLS, TOOL_NAME, GOLD_CARDS, DIRS, OPP, K, GOALS_POS, START, BOUND,
+  mulberry32, shuffle, buildDeck, edgeAt, edgesOf,
+  newGame, newRound, reachInfo, canPlace, legalPlacements, hiddenGoalAt,
+  legalActionTargets, applyMove, endRound, aiChooseMove, goalDistFrom,
+  pubState, privState,
+};
+})();
+/*==ENGINE-END==*/
+if(typeof module!=='undefined' && module.exports) module.exports = SAB;
+/* ============================================================
+   卡面渲染：全部 inline SVG 手繪（feTurbulence 岩壁、木紋樑柱、
+   光暈、位移粗糙邊），零外部圖檔，file:// 可用。
+   ============================================================ */
+const CARDS = (() => {
+'use strict';
+
+// ── 全域 <defs>（濾鏡/漸層/符號），開站時注入一次 ──────────
+const DEFS = `
+<linearGradient id="g_rock" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#7a6a58"/><stop offset=".55" stop-color="#5d4f41"/><stop offset="1" stop-color="#453a2f"/>
+</linearGradient>
+<radialGradient id="g_tunnel" cx=".5" cy=".5" r=".75">
+  <stop offset="0" stop-color="#221a12"/><stop offset=".7" stop-color="#171006"/><stop offset="1" stop-color="#0d0a05"/>
+</radialGradient>
+<linearGradient id="g_floor" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#9a8c74"/><stop offset="1" stop-color="#6e5f4c"/>
+</linearGradient>
+<linearGradient id="g_wood" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0" stop-color="#9a6a33"/><stop offset=".5" stop-color="#7c4f22"/><stop offset="1" stop-color="#5a3617"/>
+</linearGradient>
+<linearGradient id="g_woodD" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#7c5426"/><stop offset="1" stop-color="#4a2f13"/>
+</linearGradient>
+<linearGradient id="g_metal" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#e8edf2"/><stop offset=".45" stop-color="#9aa7b2"/><stop offset="1" stop-color="#525f6a"/>
+</linearGradient>
+<linearGradient id="g_iron" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#6a7580"/><stop offset="1" stop-color="#39424b"/>
+</linearGradient>
+<radialGradient id="g_flame" cx=".5" cy=".55" r=".6">
+  <stop offset="0" stop-color="#fffbe0"/><stop offset=".35" stop-color="#ffd23e"/><stop offset=".75" stop-color="#ff8c1a"/><stop offset="1" stop-color="#ff8c1a" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="g_glow" cx=".5" cy=".5" r=".5">
+  <stop offset="0" stop-color="#ffdf8a" stop-opacity=".95"/><stop offset=".6" stop-color="#ffb340" stop-opacity=".35"/><stop offset="1" stop-color="#ffb340" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="g_gold" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#ffe795"/><stop offset=".5" stop-color="#f2b32c"/><stop offset="1" stop-color="#a86a10"/>
+</linearGradient>
+<linearGradient id="g_goldT" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#caa348"/>
+</linearGradient>
+<linearGradient id="g_paper" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#f4e6c0"/><stop offset=".6" stop-color="#e5cd96"/><stop offset="1" stop-color="#c9ab6f"/>
+</linearGradient>
+<linearGradient id="g_back" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#2c3552"/><stop offset="1" stop-color="#141a2e"/>
+</linearGradient>
+<linearGradient id="g_slate" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#4c464a"/><stop offset="1" stop-color="#2a262b"/>
+</linearGradient>
+<linearGradient id="g_redbg" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#4a2020"/><stop offset="1" stop-color="#230d0d"/>
+</linearGradient>
+<radialGradient id="g_vign" cx=".5" cy=".5" r=".72">
+  <stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/>
+</radialGradient>
+<radialGradient id="g_stone" cx=".38" cy=".32" r=".8">
+  <stop offset="0" stop-color="#b7b3ab"/><stop offset=".55" stop-color="#847f77"/><stop offset="1" stop-color="#4e4a44"/>
+</radialGradient>
+
+<filter id="f_rock" x="-5%" y="-5%" width="110%" height="110%">
+  <feTurbulence type="fractalNoise" baseFrequency="0.42" numOctaves="4" seed="11" result="n"/>
+  <feDiffuseLighting in="n" lighting-color="#fff" surfaceScale="2.6" result="lt">
+    <feDistantLight azimuth="235" elevation="52"/>
+  </feDiffuseLighting>
+  <feComposite in="lt" in2="SourceGraphic" operator="arithmetic" k1="1.05" k2="0" k3="0.18" k4="0" result="m"/>
+  <feComposite in="m" in2="SourceGraphic" operator="in"/>
+</filter>
+<filter id="f_wood" x="-5%" y="-5%" width="110%" height="110%">
+  <feTurbulence type="fractalNoise" baseFrequency="0.02 0.35" numOctaves="3" seed="7" result="n"/>
+  <feDiffuseLighting in="n" lighting-color="#fff" surfaceScale="1.1" result="lt">
+    <feDistantLight azimuth="120" elevation="62"/>
+  </feDiffuseLighting>
+  <feComposite in="lt" in2="SourceGraphic" operator="arithmetic" k1="0.9" k2="0" k3="0.22" k4="0" result="m"/>
+  <feComposite in="m" in2="SourceGraphic" operator="in"/>
+</filter>
+<filter id="f_paperT" x="-5%" y="-5%" width="110%" height="110%">
+  <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="n"/>
+  <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.4 0.4 0.4 0 0" result="a"/>
+  <feComposite in="a" in2="SourceGraphic" operator="in" result="tex"/>
+  <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="tex"/></feMerge>
+</filter>
+<filter id="f_rough" x="-15%" y="-15%" width="130%" height="130%">
+  <feTurbulence type="fractalNoise" baseFrequency="0.14" numOctaves="3" seed="5" result="n"/>
+  <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+</filter>
+<filter id="f_rough2" x="-15%" y="-15%" width="130%" height="130%">
+  <feTurbulence type="fractalNoise" baseFrequency="0.22" numOctaves="2" seed="9" result="n"/>
+  <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+</filter>
+<filter id="f_blur1"><feGaussianBlur stdDeviation="1.1"/></filter>
+<filter id="f_blur3"><feGaussianBlur stdDeviation="3"/></filter>
+
+<symbol id="sym_pick" viewBox="-40 -40 80 80">
+  <rect x="-3.4" y="-26" width="6.8" height="58" rx="3" fill="url(#g_wood)" filter="url(#f_wood)" transform="rotate(0)"/>
+  <path d="M-30,-14 Q0,-34 30,-14 L27,-8 Q0,-26 -27,-8 Z" fill="url(#g_metal)" stroke="#39424b" stroke-width="1.2"/>
+  <path d="M-30,-14 Q0,-34 30,-14" fill="none" stroke="#f2f6fa" stroke-width="1.4" opacity=".7"/>
+  <rect x="-4.6" y="-22" width="9.2" height="8" rx="2" fill="url(#g_iron)"/>
+</symbol>
+<symbol id="sym_lamp" viewBox="-40 -40 80 80">
+  <ellipse cx="0" cy="4" rx="26" ry="26" fill="url(#g_glow)"/>
+  <rect x="-7" y="-30" width="14" height="5" rx="2.5" fill="url(#g_iron)"/>
+  <path d="M-4,-25 L4,-25 L4,-20 L-4,-20 Z" fill="url(#g_iron)"/>
+  <path d="M-13,-20 L13,-20 L10,14 L-10,14 Z" fill="#ffe9b0" opacity=".45" stroke="url(#g_iron)" stroke-width="2.4"/>
+  <line x1="0" y1="-20" x2="0" y2="14" stroke="url(#g_iron)" stroke-width="1.6" opacity=".8"/>
+  <ellipse cx="0" cy="1" rx="5.5" ry="9" fill="url(#g_flame)"/>
+  <path d="M-11,14 L11,14 L13,20 L-13,20 Z" fill="url(#g_iron)"/>
+  <path d="M-7,-30 C-7,-38 7,-38 7,-30" fill="none" stroke="url(#g_iron)" stroke-width="2.6"/>
+</symbol>
+<symbol id="sym_cart" viewBox="-40 -40 80 80">
+  <path d="M-26,-12 L26,-12 L19,14 L-19,14 Z" fill="url(#g_woodD)" filter="url(#f_wood)" stroke="#3a2410" stroke-width="1.4"/>
+  <path d="M-26,-12 L26,-12 L24.5,-6.5 L-24.5,-6.5 Z" fill="url(#g_iron)"/>
+  <line x1="-13" y1="-12" x2="-10" y2="14" stroke="#3a2410" stroke-width="1.2" opacity=".8"/>
+  <line x1="0" y1="-12" x2="0" y2="14" stroke="#3a2410" stroke-width="1.2" opacity=".8"/>
+  <line x1="13" y1="-12" x2="10" y2="14" stroke="#3a2410" stroke-width="1.2" opacity=".8"/>
+  <path d="M-20,-15 Q-10,-24 0,-16 Q10,-25 20,-15 L20,-12 L-20,-12 Z" fill="url(#g_gold)"/>
+  <circle cx="-13" cy="18" r="7" fill="url(#g_iron)" stroke="#20262c" stroke-width="1.6"/>
+  <circle cx="13" cy="18" r="7" fill="url(#g_iron)" stroke="#20262c" stroke-width="1.6"/>
+  <circle cx="-13" cy="18" r="2.2" fill="#9aa7b2"/><circle cx="13" cy="18" r="2.2" fill="#9aa7b2"/>
+  <line x1="-30" y1="26" x2="30" y2="26" stroke="url(#g_iron)" stroke-width="2.4"/>
+</symbol>
+<symbol id="sym_nugget" viewBox="-20 -20 40 40">
+  <path d="M-14,4 L-9,-9 L2,-14 L12,-7 L14,5 L5,13 L-7,12 Z" fill="url(#g_gold)" stroke="#8a5c10" stroke-width="1"/>
+  <path d="M-9,-9 L2,-14 L4,-4 L-5,0 Z" fill="#ffefad" opacity=".85"/>
+  <path d="M4,-4 L12,-7 L14,5 L5,3 Z" fill="#d99b1d" opacity=".8"/>
+  <path d="M-5,0 L4,-4 L5,3 L-2,8 Z" fill="#f7c94d"/>
+</symbol>
+<symbol id="sym_wrench" viewBox="-20 -20 40 40">
+  <g transform="rotate(40)">
+    <path fill-rule="evenodd" d="M-2.8,17 L-2.8,-2.5 L-7.2,-5.5 A8.6,8.6 0 1 1 7.2,-5.5 L2.8,-2.5 L2.8,17 Z
+      M-3.4,-14.5 L3.4,-14.5 L3.4,-6 L-3.4,-6 Z" fill="url(#g_metal)" stroke="#39424b" stroke-width="1.1"/>
+    <path d="M-2.8,17 L-2.8,-2.5" stroke="#eef2f6" stroke-width="1" opacity=".6"/>
+  </g>
+</symbol>
+<symbol id="sym_skull" viewBox="-10 -10 20 20">
+  <circle cx="0" cy="-1.5" r="5.4" fill="#cfc6b4"/>
+  <rect x="-3.4" y="2" width="6.8" height="4.4" rx="1.4" fill="#cfc6b4"/>
+  <circle cx="-2.1" cy="-2" r="1.5" fill="#2a241c"/><circle cx="2.1" cy="-2" r="1.5" fill="#2a241c"/>
+  <path d="M-1,1.2 L0,-0.4 L1,1.2 Z" fill="#2a241c"/>
+</symbol>`;
+
+const NS = 'http://www.w3.org/2000/svg';
+function h32(s){ let x=2166136261>>>0; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return x>>>0; }
+
+// ── 小工具 ────────────────────────────────────────────────
+const W=120, H=187, CX=60, CY=93, AW=38;          // 卡寬高、中心、隧道寬
+function wrap(inner, cls){
+  return `<svg class="cardsvg ${cls||''}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${inner}</svg>`;
+}
+function frame(){
+  return `<rect x="1.2" y="1.2" width="${W-2.4}" height="${H-2.4}" rx="9" fill="none" stroke="#120d08" stroke-width="2.4"/>
+  <rect x="3.6" y="3.6" width="${W-7.2}" height="${H-7.2}" rx="7" fill="none" stroke="rgba(255,225,160,.14)" stroke-width="1"/>
+  <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="url(#g_vign)"/>`;
+}
+function base(fill, filt){
+  return `<rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="${fill}" ${filt?`filter="url(#${filt})"`:''}/>
+          <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="${fill}" opacity=".15"/>`;
+}
+function label(txt, y, size, color){
+  return `<text x="${CX}" y="${y}" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-weight="700"
+    font-size="${size||13}" fill="${color||'#f3cd7a'}" stroke="#140d05" stroke-width="2.6" paint-order="stroke">${txt}</text>`;
+}
+
+// ── 通道卡 ────────────────────────────────────────────────
+// e=[N,E,S,W]（已含旋轉）；thru=0 → 各臂止於中心前並以碎石封death
+function tunnelArt(e, thru, seedStr){
+  const rnd = SAB.mulberry32(h32(seedStr||'x'));
+  const half = AW/2;
+  let tun='', floor='', beams='', rubble='';
+  const armLen = thru ? null : 22;                 // 死路臂長縮短（距中心 22 停）
+  const seg = (d)=>{
+    // 回傳 [隧道 path, 地板 path]（方向 d）
+    const stop = thru ? 0 : armLen;
+    if(d===0) return [`M${CX-half},0 L${CX+half},0 L${CX+half},${CY-stop} L${CX-half},${CY-stop} Z`];
+    if(d===2) return [`M${CX-half},${H} L${CX+half},${H} L${CX+half},${CY+stop} L${CX-half},${CY+stop} Z`];
+    if(d===1) return [`M${W},${CY-half} L${W},${CY+half} L${CX+stop},${CY+half} L${CX+stop},${CY-half} Z`];
+    return [`M0,${CY-half} L0,${CY+half} L${CX-stop},${CY+half} L${CX-stop},${CY-half} Z`];
+  };
+  let d0='';
+  for(let d=0;d<4;d++) if(e[d]) d0 += seg(d)[0]+' ';
+  if(thru) d0 += `M${CX-half},${CY-half} h${AW} v${AW} h-${AW} Z `;
+  tun = `<path d="${d0}" fill="url(#g_tunnel)" filter="url(#f_rough)"/>`;
+  // 地板（內縮 6）
+  const half2 = half-6;
+  let d1='';
+  for(let d=0;d<4;d++){
+    if(!e[d]) continue;
+    const stop = thru ? 0 : armLen+3;
+    if(d===0) d1+=`M${CX-half2},0 L${CX+half2},0 L${CX+half2},${CY-stop} L${CX-half2},${CY-stop} Z `;
+    if(d===2) d1+=`M${CX-half2},${H} L${CX+half2},${H} L${CX+half2},${CY+stop} L${CX-half2},${CY+stop} Z `;
+    if(d===1) d1+=`M${W},${CY-half2} L${W},${CY+half2} L${CX+stop},${CY+half2} L${CX+stop},${CY-half2} Z `;
+    if(d===3) d1+=`M0,${CY-half2} L0,${CY+half2} L${CX-stop},${CY+half2} L${CX-stop},${CY-half2} Z `;
+  }
+  if(thru) d1 += `M${CX-half2},${CY-half2} h${half2*2} v${half2*2} h-${half2*2} Z `;
+  floor = `<path d="${d1}" fill="url(#g_floor)" opacity=".92" filter="url(#f_rough2)"/>`;
+  // 碎石地板點
+  let dots='';
+  for(let i=0;i<26;i++){
+    const d = [0,1,2,3].filter(x=>e[x])[Math.floor(rnd()*e.filter(Boolean).length)];
+    let px,py;
+    if(d===0){ px=CX-half2+rnd()*half2*2; py=rnd()*(CY-(thru?0:armLen)); }
+    else if(d===2){ px=CX-half2+rnd()*half2*2; py=H-rnd()*(H-CY-(thru?0:armLen)); }
+    else if(d===1){ px=W-rnd()*(W-CX-(thru?0:armLen)); py=CY-half2+rnd()*half2*2; }
+    else { px=rnd()*(CX-(thru?0:armLen)); py=CY-half2+rnd()*half2*2; }
+    const r=.8+rnd()*1.6;
+    dots += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(1)}" fill="${rnd()<.5?'#3b332a':'#7d7160'}" opacity=".55"/>`;
+  }
+  // 木樑：每個開口一組（雙柱+橫樑）
+  const beam = (d)=>{
+    const g=[];
+    const rot = d===0?0 : d===1?90 : d===2?180 : 270;
+    g.push(`<g transform="rotate(${rot} ${CX} ${CY})">`);
+    g.push(`<rect x="${CX-half-5}" y="1" width="6.5" height="30" rx="1.6" fill="url(#g_wood)" filter="url(#f_wood)" stroke="#2e1c0c" stroke-width=".8"/>`);
+    g.push(`<rect x="${CX+half-1.5}" y="1" width="6.5" height="30" rx="1.6" fill="url(#g_wood)" filter="url(#f_wood)" stroke="#2e1c0c" stroke-width=".8"/>`);
+    g.push(`<rect x="${CX-half-8}" y="0" width="${AW+16}" height="7" rx="2" fill="url(#g_woodD)" filter="url(#f_wood)" stroke="#2e1c0c" stroke-width=".8"/>`);
+    g.push(`</g>`);
+    return g.join('');
+  };
+  for(let d=0;d<4;d++) if(e[d]) beams += beam(d);
+  // 死路：臂端碎石堆 + 偶爾骷髏
+  if(!thru){
+    const plug = (d)=>{
+      const rot = d===0?0 : d===1?90 : d===2?180 : 270;
+      let s = `<g transform="rotate(${rot} ${CX} ${CY})">`;
+      for(let i=0;i<6;i++){
+        const px=CX-14+rnd()*28, py=CY-armLen-6+rnd()*10, r=3.5+rnd()*4;
+        s+=`<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${r.toFixed(1)}" ry="${(r*.8).toFixed(1)}" fill="url(#g_stone)" stroke="#26221d" stroke-width=".8"/>`;
+      }
+      s+='</g>';
+      return s;
+    };
+    for(let d=0;d<4;d++) if(e[d]) rubble += plug(d);
+    if(rnd()<.45) rubble += `<use href="#sym_skull" x="${CX-8}" y="${CY-8}" width="16" height="16" opacity=".9"/>`;
+  }
+  return tun+floor+dots+rubble+beams;
+}
+
+function pathCardFace(card, rot){
+  const e = SAB.edgesOf(card.e, rot||0);
+  return wrap(base('url(#g_rock)','f_rock') + tunnelArt(e, card.thru, card.uid||card.t) + frame());
+}
+
+// ── 起點 / 終點 ───────────────────────────────────────────
+function startCardFace(){
+  const ladder = `<g>
+    <rect x="${CX-11}" y="${CY-24}" width="4.6" height="48" rx="2" fill="url(#g_wood)" filter="url(#f_wood)"/>
+    <rect x="${CX+6.4}" y="${CY-24}" width="4.6" height="48" rx="2" fill="url(#g_wood)" filter="url(#f_wood)"/>
+    ${[-16,-6,4,14].map(y=>`<rect x="${CX-12}" y="${CY+y}" width="24" height="3.8" rx="1.8" fill="url(#g_woodD)" filter="url(#f_wood)"/>`).join('')}
+  </g>`;
+  return wrap(base('url(#g_rock)','f_rock') + tunnelArt([1,1,1,1],1,'start') + ladder + label('起點',176,11) + frame());
+}
+function goalBackFace(){
+  return wrap(base('url(#g_back)','f_rock') + `
+    <rect x="8" y="8" width="${W-16}" height="${H-16}" rx="7" fill="none" stroke="#c9a75a" stroke-width="1.6" opacity=".8"/>
+    <rect x="12" y="12" width="${W-24}" height="${H-24}" rx="5" fill="none" stroke="#c9a75a" stroke-width=".8" opacity=".5"/>
+    <circle cx="${CX}" cy="${CY-8}" r="30" fill="none" stroke="#c9a75a" stroke-width="1.6" opacity=".8"/>
+    <text x="${CX}" y="${CY+8}" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="46" fill="url(#g_goldT)" stroke="#0e0a14" stroke-width="2" paint-order="stroke">?</text>
+    ${label('終 點', 165, 14)}` + frame(), 'cardback');
+}
+function goalGoldFace(){
+  const pile = `<ellipse cx="${CX}" cy="${CY+10}" rx="26" ry="10" fill="#1c1610"/>
+    <use href="#sym_nugget" x="${CX-26}" y="${CY-12}" width="26" height="26"/>
+    <use href="#sym_nugget" x="${CX-2}" y="${CY-14}" width="24" height="24"/>
+    <use href="#sym_nugget" x="${CX-14}" y="${CY-2}" width="30" height="30"/>
+    <circle cx="${CX}" cy="${CY}" r="30" fill="url(#g_glow)" opacity=".8"/>
+    ${[[-20,-18],[24,-8],[8,-26],[-28,6]].map(([dx,dy])=>`<path d="M${CX+dx},${CY+dy} l2,0 M${CX+dx+1},${CY+dy-1} l0,2" stroke="#fff3c2" stroke-width="1.4"/>`).join('')}`;
+  return wrap(base('url(#g_rock)','f_rock') + tunnelArt([1,1,1,1],1,'gold') + pile + label('金礦！',176,11,'#ffe08a') + frame());
+}
+function goalStoneFace(rot){
+  const e = SAB.edgesOf([0,1,1,0], rot||0);
+  const boulder = `<ellipse cx="${CX}" cy="${CY}" rx="17" ry="15" fill="url(#g_stone)" stroke="#221e19" stroke-width="1.2"/>
+    <path d="M${CX-8},${CY-6} q4,-5 10,-3" stroke="#d8d4cb" stroke-width="1.6" fill="none" opacity=".7"/>`;
+  return wrap(base('url(#g_rock)','f_rock') + tunnelArt(e,1,'stone'+rot) + boulder + label('石頭',176,11,'#cfc9bd') + frame());
+}
+
+// ── 行動卡 ────────────────────────────────────────────────
+function actionFrame(bg, art, txt, txtColor){
+  const fr = `
+  <rect x="4" y="4" width="${W-8}" height="${H-8}" rx="8" fill="${bg}" filter="url(#f_rock)"/>
+  <rect x="4" y="4" width="${W-8}" height="${H-8}" rx="8" fill="${bg}" opacity=".4"/>
+  <rect x="4" y="4" width="${W-8}" height="10" fill="url(#g_woodD)" filter="url(#f_wood)"/>
+  <rect x="4" y="${H-14}" width="${W-8}" height="10" fill="url(#g_woodD)" filter="url(#f_wood)"/>
+  <rect x="4" y="4" width="9" height="${H-8}" fill="url(#g_wood)" filter="url(#f_wood)"/>
+  <rect x="${W-13}" y="4" width="9" height="${H-8}" fill="url(#g_wood)" filter="url(#f_wood)"/>
+  ${[[8.5,8.5],[W-8.5,8.5],[8.5,H-8.5],[W-8.5,H-8.5]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.6" fill="url(#g_iron)" stroke="#1c130a" stroke-width=".7"/>`).join('')}
+  <rect x="13" y="14" width="${W-26}" height="${H-28}" rx="4" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.4"/>`;
+  const band = `<rect x="13" y="${H-40}" width="${W-26}" height="22" rx="3" fill="rgba(12,8,4,.72)" stroke="rgba(240,205,130,.35)" stroke-width=".8"/>
+  ${label(txt, H-24.5, 12.5, txtColor)}`;
+  return fr + art + band;
+}
+function toolUse(tool, x, y, s, extra){
+  return `<use href="#sym_${tool}" x="${x-s/2}" y="${y-s/2}" width="${s}" height="${s}" ${extra||''}/>`;
+}
+function crackOverlay(x,y){
+  return `<path d="M${x-16},${y-14} l9,8 l-5,7 l11,9 M${x+14},${y-18} l-7,10 l6,6" stroke="#1a1108" stroke-width="2" fill="none" opacity=".85"/>`;
+}
+function banOverlay(x,y,r){
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#e02f2f" stroke-width="5.5" opacity=".92"/>
+  <line x1="${x-r*0.71}" y1="${y+r*0.71}" x2="${x+r*0.71}" y2="${y-r*0.71}" stroke="#e02f2f" stroke-width="5.5" opacity=".92"/>`;
+}
+function breakFace(tool){
+  const art = toolUse(tool, CX, 82, 78) + crackOverlay(CX,82) + banOverlay(CX,82,34);
+  return wrap(actionFrame('url(#g_redbg)', art, '破壞・'+SAB.TOOL_NAME[tool], '#ff9d8a') + frame());
+}
+function repairFace(tools){
+  let art;
+  if(tools.length===1){
+    art = `<ellipse cx="${CX}" cy="82" rx="34" ry="34" fill="#2e5e33" opacity=".5" filter="url(#f_blur3)"/>`
+        + toolUse(tools[0], CX, 80, 72)
+        + `<use href="#sym_wrench" x="${CX+2}" y="96" width="34" height="34"/>`;
+  } else {
+    art = `<ellipse cx="${CX}" cy="82" rx="38" ry="34" fill="#2e5e33" opacity=".5" filter="url(#f_blur3)"/>`
+        + toolUse(tools[0], CX-21, 74, 48) + toolUse(tools[1], CX+21, 74, 48)
+        + `<use href="#sym_wrench" x="${CX-15}" y="96" width="30" height="30"/>`;
+  }
+  const nm = tools.map(t=>SAB.TOOL_NAME[t]).join('＋');
+  return wrap(actionFrame('url(#g_slate)', art, '修復・'+nm, '#9fe0a0') + frame());
+}
+function rockfallFace(){
+  const art = `
+    ${[[42,52,13],[74,44,10],[60,72,15],[86,70,9],[38,80,8]].map(([x,y,r])=>
+      `<g><ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r*.85}" fill="url(#g_stone)" stroke="#221e19" stroke-width="1"/>
+       <line x1="${x-2}" y1="${y-r-9}" x2="${x-5}" y2="${y-r-2}" stroke="#b9b2a5" stroke-width="1.6" opacity=".7"/>
+       <line x1="${x+5}" y1="${y-r-12}" x2="${x+3}" y2="${y-r-3}" stroke="#b9b2a5" stroke-width="1.4" opacity=".55"/></g>`).join('')}
+    <ellipse cx="${CX}" cy="106" rx="34" ry="8" fill="#8d8271" opacity=".5" filter="url(#f_blur3)"/>
+    <ellipse cx="${CX-24}" cy="100" rx="12" ry="5" fill="#a99d89" opacity=".4" filter="url(#f_blur3)"/>
+    <ellipse cx="${CX+22}" cy="102" rx="14" ry="6" fill="#a99d89" opacity=".4" filter="url(#f_blur3)"/>`;
+  return wrap(actionFrame('url(#g_slate)', art, '落　石', '#e8c9a0') + frame());
+}
+function mapFace(){
+  const art = `
+    <g filter="url(#f_paperT)">
+      <path d="M22,44 q-6,4 -2,10 l0,52 q-4,6 2,10 l74,0 q6,-4 2,-10 l0,-52 q4,-6 -2,-10 Z" fill="url(#g_paper)" stroke="#8a6b35" stroke-width="1.6"/>
+    </g>
+    <path d="M22,44 q-8,2 -8,8 q0,6 8,6" fill="#c9ab6f" stroke="#8a6b35" stroke-width="1.2"/>
+    <path d="M98,102 q8,2 8,8 q0,6 -8,6" fill="#c9ab6f" stroke="#8a6b35" stroke-width="1.2"/>
+    <path d="M32,96 Q44,70 58,80 T88,58" fill="none" stroke="#7a3b1d" stroke-width="2" stroke-dasharray="4 3.2" stroke-linecap="round"/>
+    <path d="M84,52 l9,9 M93,52 l-9,9" stroke="#a32222" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="33" cy="97" r="3.4" fill="none" stroke="#5c451f" stroke-width="1.6"/>
+    <g transform="translate(38,56)"><circle r="7.5" fill="none" stroke="#5c451f" stroke-width="1.2"/><path d="M0,-6 L1.8,0 L0,6 L-1.8,0 Z" fill="#a32222"/></g>`;
+  return wrap(actionFrame('url(#g_slate)', art, '祕密地圖', '#e8d9a8') + frame());
+}
+
+// ── 角色卡 ────────────────────────────────────────────────
+function roleDigFace(){
+  const art = `
+    <circle cx="${CX}" cy="80" r="42" fill="url(#g_glow)" opacity=".65"/>
+    <g transform="rotate(-46 ${CX} 88)">${toolUse('pick',CX,88,108)}</g>
+    <g transform="rotate(46 ${CX} 88)">${toolUse('pick',CX,88,108)}</g>
+    <ellipse cx="${CX}" cy="118" rx="26" ry="7" fill="#1c1610" opacity=".6"/>
+    <path d="M${CX-19},80 A19,18 0 0 1 ${CX+19},80 L${CX+23},86 L${CX-23},86 Z" fill="#d9a441" stroke="#7a5410" stroke-width="1.6"/>
+    <path d="M${CX-17},76 A19,16 0 0 1 ${CX+17},76" fill="none" stroke="#f5d98a" stroke-width="1.6" opacity=".8"/>
+    <circle cx="${CX}" cy="72" r="6" fill="url(#g_iron)" stroke="#20262c" stroke-width="1"/>
+    <circle cx="${CX}" cy="72" r="3.2" fill="url(#g_flame)"/>`;
+  return wrap(actionFrame('url(#g_rock)', art, '金 礦 工', '#ffd97a') + frame());
+}
+function roleSabFace(){
+  const art = `
+    <ellipse cx="${CX}" cy="86" rx="34" ry="40" fill="#0c0a0e"/>
+    <path d="M${CX-30},112 Q${CX-32},60 ${CX},48 Q${CX+32},60 ${CX+30},112 Z" fill="#191521" stroke="#000" stroke-width="1.4"/>
+    <path d="M${CX-16},80 Q${CX},72 ${CX+16},80 Q${CX},92 ${CX-16},80 Z" fill="#05040a"/>
+    <ellipse cx="${CX-8}" cy="80" rx="3.2" ry="2" fill="#ffb54a"/>
+    <ellipse cx="${CX+8}" cy="80" rx="3.2" ry="2" fill="#ffb54a"/>
+    <g transform="translate(${CX+18},108) rotate(18)">
+      <rect x="-14" y="-6" width="28" height="5.6" rx="2.6" fill="#b3272a" stroke="#5e0f11" stroke-width=".8"/>
+      <rect x="-14" y="0.4" width="28" height="5.6" rx="2.6" fill="#cf3134" stroke="#5e0f11" stroke-width=".8"/>
+      <path d="M14,-3 q8,-6 12,-14" stroke="#c9a75a" stroke-width="1.6" fill="none"/>
+      <circle cx="26.5" cy="-17.5" r="2.6" fill="url(#g_flame)"/>
+    </g>`;
+  return wrap(actionFrame('url(#g_redbg)', art, '破 壞 者', '#ff8f7d') + frame());
+}
+
+// ── 金塊卡 / 卡背 ─────────────────────────────────────────
+function goldCardFace(v){
+  const pos = v===1 ? [[CX,86,46]] : v===2 ? [[CX-16,72,38],[CX+15,98,40]] : [[CX-18,66,34],[CX+18,80,36],[CX-4,104,38]];
+  const art = `<circle cx="${CX}" cy="88" r="36" fill="url(#g_glow)" opacity=".55"/>`
+    + pos.map(([x,y,s])=>`<use href="#sym_nugget" x="${x-s/2}" y="${y-s/2}" width="${s}" height="${s}"/>`).join('')
+    + [[30,52],[92,60],[84,116],[36,112]].map(([x,y])=>`<path d="M${x-3},${y} h6 M${x},${y-3} v6" stroke="#fff3c2" stroke-width="1.3" opacity=".9"/>`).join('');
+  return wrap(actionFrame('url(#g_back)', art, '金塊 × '+v, '#ffe08a') + frame());
+}
+function backFace(){
+  return wrap(base('url(#g_back)','f_rock') + `
+    <rect x="7" y="7" width="${W-14}" height="${H-14}" rx="7" fill="none" stroke="#c9a75a" stroke-width="1.8" opacity=".85"/>
+    <rect x="11" y="11" width="${W-22}" height="${H-22}" rx="5" fill="none" stroke="#c9a75a" stroke-width=".8" opacity=".45"/>
+    <circle cx="${CX}" cy="${CY}" r="34" fill="rgba(201,167,90,.08)" stroke="#c9a75a" stroke-width="1.6"/>
+    <circle cx="${CX}" cy="${CY}" r="29.5" fill="none" stroke="#c9a75a" stroke-width=".7" opacity=".6"/>
+    <g transform="rotate(-40 ${CX} ${CY})">${toolUse('pick',CX,CY,52)}</g>
+    <g transform="rotate(40 ${CX} ${CY})">${toolUse('pick',CX,CY,52)}</g>
+    <text x="${CX}" y="34" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-weight="700" font-size="13" fill="#e3c67f" letter-spacing="4">矮人礦坑</text>
+    <text x="${CX}" y="${H-24}" text-anchor="middle" font-family="Georgia,serif" font-size="8.5" fill="#a08948" letter-spacing="2">DWARF&#160;MINE</text>` + frame(), 'cardback');
+}
+
+// ── 對外：依卡片物件產生 SVG ───────────────────────────────
+function cardSVG(card, rot){
+  if(!card) return backFace();
+  if(card.k==='start') return startCardFace();
+  if(card.k==='goal')  return card.kind==='gold' ? goalGoldFace() : goalStoneFace(rot||0);
+  if(card.k==='path')  return pathCardFace(card, rot||0);
+  if(card.k==='act'){
+    if(card.a==='break')  return breakFace(card.tools[0]);
+    if(card.a==='repair') return repairFace(card.tools);
+    if(card.a==='rock')   return rockfallFace();
+    if(card.a==='map')    return mapFace();
+  }
+  return backFace();
+}
+
+return { DEFS, cardSVG, backFace, goalBackFace, goldCardFace, roleDigFace, roleSabFace, startCardFace };
+})();
+/* ============================================================
+   UI 層：大廳、棋盤（拖曳/縮放）、手牌、目標選取、動畫、
+   音效、日誌、自訂 modal、卡片圖鑑。
+   ============================================================ */
+'use strict';
+const $ = id => document.getElementById(id);
+
+const APP = {
+  mode:null,            // 'local' | 'host' | 'client'
+  G:null, my:0,
+  sel:null,             // {hi, card, rot}
+  targeting:null,       // {kind, hi, card}
+  CG:null, priv:null,   // client 端鏡像（公開盤面 / 私有手牌）
+  zoom:.8, panX:0, panY:0,
+  aiTimer:null, prevKeys:new Set(), prevGoals:[], prevLogN:0,
+};
+const AVATARS = ['🧔','👷','🧑‍🏭','🧙'];
+const OX=14, OY=11, PX=104, PY=160;
+
+/* ── 音效（WebAudio 合成，無外部音檔）───────────────────── */
+const SND = { ctx:null, on:(function(){ try{ return localStorage.getItem('sab_snd')!=='0'; }catch(e){ return true; } })() };
+function actx(){ if(!SND.ctx){ try{ SND.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return SND.ctx; }
+function tone(f0,f1,dur,type,vol,when){
+  const c=actx(); if(!c) return;
+  const t=c.currentTime+(when||0);
+  const o=c.createOscillator(), g=c.createGain();
+  o.type=type||'triangle'; o.frequency.setValueAtTime(f0,t);
+  if(f1) o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime((vol||.16),t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t+dur+.02);
+}
+function noise(dur,freq,vol,when){
+  const c=actx(); if(!c) return;
+  const t=c.currentTime+(when||0);
+  const n=c.createBufferSource(), buf=c.createBuffer(1,c.sampleRate*dur,c.sampleRate);
+  const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  n.buffer=buf;
+  const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=freq;
+  const g=c.createGain(); g.gain.setValueAtTime(vol||.2,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  n.connect(f).connect(g).connect(c.destination); n.start(t);
+}
+function sfx(name){
+  if(!SND.on) return;
+  try{
+    if(name==='place'){ tone(170,85,.1,'triangle',.2); noise(.07,1400,.12); }
+    else if(name==='flip'){ tone(420,860,.16,'sine',.12); }
+    else if(name==='gold'){ [523,659,784,1047].forEach((f,i)=>tone(f,0,.32,'triangle',.15,i*.11)); noise(.4,6000,.05,.1); }
+    else if(name==='break'){ noise(.16,900,.3); tone(220,90,.18,'sawtooth',.1); }
+    else if(name==='repair'){ tone(392,523,.12,'triangle',.13); tone(523,659,.12,'triangle',.13,.1); }
+    else if(name==='rock'){ tone(90,42,.5,'sine',.32); noise(.4,420,.28); }
+    else if(name==='turn'){ tone(660,0,.09,'sine',.09); }
+    else if(name==='lose'){ tone(330,262,.4,'triangle',.14); tone(262,196,.5,'triangle',.14,.28); }
+    else if(name==='map'){ noise(.18,2600,.08); tone(740,880,.14,'sine',.08); }
+  }catch(e){}
+}
+$('btnSound').textContent = SND.on ? '🔊' : '🔇';
+$('btnSound').addEventListener('click',()=>{
+  SND.on=!SND.on; try{ localStorage.setItem('sab_snd', SND.on?'1':'0'); }catch(e){}
+  $('btnSound').textContent = SND.on ? '🔊' : '🔇';
+});
+
+/* ── 狀態列 / 橫幅 / 日誌 ─────────────────────────────────── */
+function setStatus(txt, cls){
+  $('statusTxt').textContent=txt;
+  $('statusPill').className='status-pill'+(cls?' '+cls:'');
+}
+let bannerTimer=null;
+function banner(txt, ms){
+  const b=$('banner'); b.textContent=txt; b.classList.add('show');
+  clearTimeout(bannerTimer); bannerTimer=setTimeout(()=>b.classList.remove('show'), ms||2200);
+}
+function addLog(html, cls){
+  const d=document.createElement('div'); if(cls) d.className=cls; d.innerHTML=html;
+  $('log').appendChild(d); $('log').scrollTop=$('log').scrollHeight;
+}
+
+/* ── 自訂 modal ───────────────────────────────────────────── */
+function showModal(o){
+  $('mtitle').textContent=o.title||'';
+  $('mbody').innerHTML=o.body||'';
+  $('mbox').classList.toggle('wide', !!o.wide);
+  const bt=$('mbtns'); bt.innerHTML='';
+  (o.buttons||[{label:'知道了',primary:true}]).forEach(b=>{
+    const el=document.createElement('button');
+    el.className='abtn'+(b.primary?' primary':'')+(b.warn?' warn':'');
+    el.style.borderColor = b.primary?'':'#d6cbb0';
+    el.textContent=b.label;
+    el.addEventListener('click',()=>{ closeModal(); if(b.cb) b.cb(); });
+    bt.appendChild(el);
+  });
+  $('modal').classList.add('show');
+}
+function closeModal(){ $('modal').classList.remove('show'); }
+
+/* ── 讀取渲染用統一狀態 ───────────────────────────────────── */
+function stview(){
+  if(APP.mode==='client'){
+    const cg=APP.CG, pv=APP.priv;
+    if(!cg) return null;
+    return {
+      board:cg.board, goals:cg.goals, players:cg.players, round:cg.round, turn:cg.turn,
+      deckN:cg.deckN, phase:cg.phase, lastResult:cg.lastResult,
+      myHand: pv?pv.hand:[], myRole: pv?pv.role:null, myKnown: pv?pv.known:{},
+    };
+  }
+  const G=APP.G; if(!G) return null;
+  const me=G.players[APP.my];
+  return {
+    board:G.board, goals:G.goals,
+    players:G.players.map(p=>({seat:p.seat,name:p.name,ai:p.ai,handN:p.hand.length,broken:p.broken,gold:p.gold})),
+    round:G.round, turn:G.turn, deckN:G.deck.length, phase:G.phase, lastResult:G.lastResult,
+    myHand:me.hand, myRole:me.role, myKnown:me.known,
+  };
+}
+function shim(){   // 給引擎驗證函式用的輕量狀態（client 也能算合法位置）
+  const st=stview();
+  return { board:st.board, goals:st.goals,
+    players:st.players.map(p=>({seat:p.seat, broken:p.broken, known:p.seat===APP.my?st.myKnown:{}})) };
+}
+function myTurn(){ const st=stview(); return st && st.phase==='play' && st.turn===APP.my; }
+function nmOf(seat){ const st=stview(); const p=st.players[seat]; return p?p.name:'?'; }
+function nmHtml(seat){ return `<span class="${seat===APP.my?'me':''}">${esc(nmOf(seat))}</span>`; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ── 棋盤渲染 ─────────────────────────────────────────────── */
+function cellPos(x,y){ return { left:(x+OX)*PX, top:(y+OY)*PY }; }
+function renderBoard(){
+  const st=stview(); if(!st) return;
+  const bi=$('boardIn'); bi.innerHTML='';
+  bi.style.width=((OX+SAB.BOUND.maxX+1)*PX+PX)+'px';
+  bi.style.height=((OY+SAB.BOUND.maxY+1)*PY+PY)+'px';
+  const newKeys=new Set();
+  for(const [k,pc] of st.board){
+    newKeys.add(k);
+    const [x,y]=k.split(',').map(Number);
+    const p=cellPos(x,y);
+    const d=document.createElement('div');
+    d.className='bcell'+(APP.prevKeys.size && !APP.prevKeys.has(k) ? (pc.card.k==='goal'?' flipping':' placed') : '');
+    d.style.left=p.left+'px'; d.style.top=p.top+'px';
+    d.innerHTML=CARDS.cardSVG(pc.card, pc.rot);
+    bi.appendChild(d);
+  }
+  for(const g of st.goals){
+    if(g.revealed) continue;
+    const p=cellPos(g.x,g.y);
+    const d=document.createElement('div');
+    d.className='bcell';
+    d.style.left=p.left+'px'; d.style.top=p.top+'px';
+    d.innerHTML=CARDS.goalBackFace();
+    d.dataset.goal=g.idx;
+    bi.appendChild(d);
+  }
+  APP.prevKeys=newKeys;
+  renderOverlays();
+  applyPan();
+}
+function renderOverlays(){
+  const st=stview(); if(!st) return;
+  const bi=$('boardIn');
+  bi.querySelectorAll('.ghost,.rocktarget,.goaltarget').forEach(e=>e.remove());
+  if(!myTurn()) return;
+  const sm=shim();
+  if(APP.sel && APP.sel.card.k==='path' && !toolsBrokenMine()){
+    for(const pl of SAB.legalPlacements(sm, APP.sel.card)){
+      if(pl.rot!==APP.sel.rot) continue;
+      const p=cellPos(pl.x,pl.y);
+      const d=document.createElement('div');
+      d.className='ghost'; d.style.left=p.left+'px'; d.style.top=p.top+'px';
+      d.innerHTML=CARDS.cardSVG(APP.sel.card, pl.rot);
+      d.addEventListener('click',ev=>{ ev.stopPropagation(); submitMove({type:'path', hi:APP.sel.hi, uid:APP.sel.card.uid, rot:pl.rot, x:pl.x, y:pl.y}); });
+      bi.appendChild(d);
+    }
+  }
+  if(APP.targeting && APP.targeting.kind==='rock'){
+    for(const [k,pc] of st.board){
+      if(pc.card.k!=='path') continue;
+      const [x,y]=k.split(',').map(Number);
+      const p=cellPos(x,y);
+      const d=document.createElement('div');
+      d.className='rocktarget'; d.style.left=p.left+'px'; d.style.top=p.top+'px';
+      d.title='落石炸掉這張';
+      d.addEventListener('click',ev=>{ ev.stopPropagation(); submitMove({type:'rock', hi:APP.targeting.hi, uid:APP.targeting.card.uid, x, y}); });
+      bi.appendChild(d);
+    }
+  }
+  if(APP.targeting && APP.targeting.kind==='map'){
+    for(const g of st.goals){
+      if(g.revealed || stview().myKnown[g.idx]!=null) continue;
+      const p=cellPos(g.x,g.y);
+      const d=document.createElement('div');
+      d.className='goaltarget'; d.style.left=p.left+'px'; d.style.top=p.top+'px';
+      d.title='偷看這張終點';
+      d.addEventListener('click',ev=>{ ev.stopPropagation(); submitMove({type:'map', hi:APP.targeting.hi, uid:APP.targeting.card.uid, goal:g.idx}); });
+      bi.appendChild(d);
+    }
+  }
+}
+
+/* ── 拖曳 / 縮放 ─────────────────────────────────────────── */
+function applyPan(){ $('boardIn').style.transform=`translate(${APP.panX}px,${APP.panY}px) scale(${APP.zoom})`; }
+function zoomFit(){
+  const vp=$('boardVp');
+  APP.zoom = Math.min(1, Math.max(.42, (vp.clientWidth<640?.5:.78)));
+  const c=cellPos(4,0);
+  APP.panX = vp.clientWidth/2 - (c.left+49)*APP.zoom;
+  APP.panY = vp.clientHeight/2 - (c.top+76)*APP.zoom;
+  applyPan();
+}
+(function(){
+  const vp=$('boardVp');
+  const ptrs=new Map();
+  let dragging=false, sx=0, sy=0, spx=0, spy=0, pinch0=0, zoom0=0;
+  vp.addEventListener('pointerdown',e=>{
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===1){ dragging=true; sx=e.clientX; sy=e.clientY; spx=APP.panX; spy=APP.panY; vp.classList.add('dragging'); }
+    else if(ptrs.size===2){
+      const a=[...ptrs.values()]; pinch0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); zoom0=APP.zoom;
+    }
+    vp.setPointerCapture(e.pointerId);
+  });
+  vp.addEventListener('pointermove',e=>{
+    if(!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===2){
+      const a=[...ptrs.values()];
+      const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+      if(pinch0>0){ APP.zoom=Math.min(1.7,Math.max(.3, zoom0*d/pinch0)); applyPan(); }
+    } else if(dragging){
+      APP.panX=spx+(e.clientX-sx); APP.panY=spy+(e.clientY-sy); applyPan();
+    }
+  });
+  const up=e=>{ ptrs.delete(e.pointerId); if(ptrs.size===0){ dragging=false; vp.classList.remove('dragging'); } };
+  vp.addEventListener('pointerup',up); vp.addEventListener('pointercancel',up);
+  vp.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const r=vp.getBoundingClientRect();
+    const mx=e.clientX-r.left, my=e.clientY-r.top;
+    const z0=APP.zoom;
+    APP.zoom=Math.min(1.7,Math.max(.3, APP.zoom*(e.deltaY<0?1.12:0.89)));
+    APP.panX = mx-(mx-APP.panX)*APP.zoom/z0;
+    APP.panY = my-(my-APP.panY)*APP.zoom/z0;
+    applyPan();
+  },{passive:false});
+  $('zin').addEventListener('click',()=>{ APP.zoom=Math.min(1.7,APP.zoom*1.18); applyPan(); });
+  $('zout').addEventListener('click',()=>{ APP.zoom=Math.max(.3,APP.zoom/1.18); applyPan(); });
+  $('zfit').addEventListener('click',zoomFit);
+})();
+
+/* ── 玩家籤 / 回合資訊 ────────────────────────────────────── */
+function miniTool(t, broken){
+  return `<span class="toolico ${broken?'broken':''}" title="${SAB.TOOL_NAME[t]}${broken?'（損壞）':''}">
+    <svg viewBox="0 0 20 20"><use href="#sym_${t}" width="20" height="20"/></svg></span>`;
+}
+function renderChips(){
+  const st=stview(); if(!st) return;
+  const pc=$('pchips'); pc.innerHTML='';
+  st.players.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='pchip'+(st.phase==='play'&&st.turn===p.seat?' turn':'');
+    d.dataset.seat=p.seat;
+    d.innerHTML=`
+      <span class="avatar">${p.seat===APP.my?'😎':AVATARS[p.seat]}</span>
+      <span>
+        <div class="nm">${esc(p.name)}${p.ai?' 🤖':''}${p.seat===APP.my?'（你）':''}</div>
+        <div class="sub">
+          <span class="handn">${'<i></i>'.repeat(Math.min(6,p.handN))}</span>
+          ${SAB.TOOLS.map(t=>miniTool(t,p.broken[t])).join('')}
+          <span class="goldn">⛁${p.gold}</span>
+        </div>
+      </span>`;
+    pc.appendChild(d);
+  });
+  const info=document.createElement('div');
+  info.className='roundinfo';
+  info.innerHTML=`<span>回合 ${st.round}/3</span>
+    <span class="deckpile"><span class="mini">${CARDS.backFace()}</span>×${st.deckN}</span>`;
+  pc.appendChild(info);
+  updateTargetables();
+}
+function updateTargetables(){
+  const st=stview(); if(!st) return;
+  document.querySelectorAll('.pchip').forEach(el=>{
+    el.classList.remove('targetable','heal');
+    el.onclick=null;
+  });
+  if(!myTurn() || !APP.targeting) return;
+  const tg=APP.targeting;
+  if(tg.kind!=='break' && tg.kind!=='repair') return;
+  const targets=SAB.legalActionTargets(shim(), APP.my, tg.card);
+  document.querySelectorAll('.pchip').forEach(el=>{
+    const seat=Number(el.dataset.seat);
+    if(isNaN(seat) || !targets.includes(seat)) return;
+    el.classList.add('targetable');
+    if(tg.kind==='repair') el.classList.add('heal');
+    el.onclick=()=>{
+      if(tg.kind==='break'){ submitMove({type:'break', hi:tg.hi, uid:tg.card.uid, target:seat}); return; }
+      const p=st.players[seat];
+      const both=tg.card.tools.filter(t=>p.broken[t]);
+      if(both.length>1){
+        showModal({ title:'修復哪個工具？',
+          body:`<div style="text-align:center">${esc(p.name)} 的 ${both.map(t=>SAB.TOOL_NAME[t]).join('、')} 都壞了。</div>`,
+          buttons: both.map(t=>({label:'修 '+SAB.TOOL_NAME[t], primary:true, cb:()=>submitMove({type:'repair', hi:tg.hi, uid:tg.card.uid, target:seat, tool:t})}))
+        });
+      } else submitMove({type:'repair', hi:tg.hi, uid:tg.card.uid, target:seat, tool:both[0]});
+    };
+  });
+}
+
+/* ── 手牌區 ───────────────────────────────────────────────── */
+function toolsBrokenMine(){
+  const st=stview(); const me=st.players[APP.my];
+  return SAB.TOOLS.some(t=>me.broken[t]);
+}
+function renderHand(){
+  const st=stview(); if(!st) return;
+  $('meName').textContent=nmOf(APP.my);
+  const rb=$('meRole');
+  if(st.myRole){ rb.hidden=false; rb.textContent=st.myRole==='sab'?'破壞者':'金礦工'; rb.className='rolebadge'+(st.myRole==='sab'?' sab':''); }
+  else rb.hidden=true;
+  const me=st.players[APP.my];
+  $('meTools').innerHTML=SAB.TOOLS.map(t=>miniTool(t,me.broken[t])).join('');
+  $('meKnown').innerHTML=st.goals.map(g=>{
+    const kn=st.myKnown[g.idx];
+    const pos=['上','中','下'][g.idx];
+    if(g.revealed) return `<span class="kg ${g.kind==='gold'?'gold':'stone'}">${pos}:${g.kind==='gold'?'金':'石'}</span>`;
+    if(kn) return `<span class="kg ${kn==='gold'?'gold':'stone'}">${pos}:${kn==='gold'?'金!':'石'}</span>`;
+    return `<span class="kg">${pos}:?</span>`;
+  }).join('');
+  const mine=myTurn();
+  $('turnHint').textContent = st.phase!=='play' ? '' : mine ? '👉 輪到你了' : `等待 ${nmOf(st.turn)}…`;
+  $('turnHint').className='turnhint'+(mine?' yours':'');
+
+  const hd=$('hand'); hd.innerHTML='';
+  st.myHand.forEach((c,hi)=>{
+    const d=document.createElement('div');
+    const selOn = APP.sel && APP.sel.hi===hi;
+    d.className='hcard'+(selOn?' sel':'')+(!mine?' dis':'');
+    d.innerHTML=CARDS.cardSVG(c, selOn && c.k==='path' ? APP.sel.rot : 0);
+    d.addEventListener('click',()=>{ if(mine) selectCard(hi); });
+    hd.appendChild(d);
+  });
+  const showPass = mine && (st.myHand.length===0 || st.deckN===0);
+  $('btnPass').hidden=!showPass;
+  $('btnPass').disabled=!(mine && (st.myHand.length===0 || st.deckN===0));
+  updateActionBtns();
+}
+function updateActionBtns(){
+  const mine=myTurn();
+  $('btnRotate').disabled = !(mine && APP.sel && APP.sel.card.k==='path');
+  $('btnDiscard').disabled = !(mine && APP.sel);
+  $('btnCancel').disabled = !(APP.sel || APP.targeting);
+  const h=$('actHint');
+  if(!mine){ h.textContent=''; return; }
+  if(APP.targeting){
+    const k=APP.targeting.kind;
+    h.textContent = k==='break' ? '👉 點上方玩家：破壞他的工具'
+      : k==='repair' ? '👉 點要修復的玩家（含自己）'
+      : k==='rock' ? '👉 點棋盤上紅框的通道卡炸掉'
+      : '👉 點棋盤上藍框的終點卡偷看';
+  } else if(APP.sel && APP.sel.card.k==='path'){
+    h.textContent = toolsBrokenMine() ? '⚠️ 工具損壞中，不能鋪路（可棄牌）' : '👉 點棋盤上的虛線格放置';
+  } else if(APP.sel){ h.textContent=''; }
+  else h.textContent='選一張手牌出牌，或蓋牌棄掉';
+}
+function selectCard(hi){
+  const st=stview();
+  const c=st.myHand[hi];
+  if(!c) return;
+  if(APP.sel && APP.sel.hi===hi){ clearSel(); return; }
+  APP.sel={hi, card:c, rot:0};
+  APP.targeting=null;
+  if(c.k==='act'){
+    if(c.a==='break'||c.a==='repair') APP.targeting={kind:c.a, hi, card:c};
+    else if(c.a==='rock') APP.targeting={kind:'rock', hi, card:c};
+    else if(c.a==='map') APP.targeting={kind:'map', hi, card:c};
+    const targets=SAB.legalActionTargets(shim(), APP.my, c);
+    if(!targets.length){ banner('這張卡目前沒有合法目標，只能棄掉'); APP.targeting=null; }
+  }
+  renderHand(); renderOverlays(); updateTargetables();
+}
+function clearSel(){ APP.sel=null; APP.targeting=null; renderHand(); renderOverlays(); updateTargetables(); }
+$('btnRotate').addEventListener('click',()=>{ if(APP.sel){ APP.sel.rot=APP.sel.rot===0?2:0; renderHand(); renderOverlays(); } });
+$('btnCancel').addEventListener('click',clearSel);
+$('btnDiscard').addEventListener('click',()=>{
+  if(!APP.sel) return;
+  submitMove({type:'discard', hi:APP.sel.hi, uid:APP.sel.card.uid});
+});
+$('btnPass').addEventListener('click',()=>submitMove({type:'pass'}));
+
+/* ── 出手（本機直接套用；client 送給房主）─────────────────── */
+function submitMove(move){
+  if(!myTurn()){ banner('還沒輪到你'); return; }
+  if(APP.mode==='client'){ NET.sendAct(move); clearSel(); return; }
+  doMove(APP.my, move);
+}
+function doMove(seat, move){
+  const G=APP.G;
+  const res=SAB.applyMove(G, seat, move);
+  if(!res.ok){
+    if(seat===APP.my){ banner('不能這樣出：'+(res.err||'')); return false; }
+    // AI／遠端出招異常的保險：改棄牌或過牌，避免卡死
+    const fb = G.players[seat].hand.length ? {type:'discard', hi:0} : {type:'pass'};
+    const r2 = SAB.applyMove(G, seat, fb);
+    if(r2.ok){ narrate(r2.events, seat); afterChange(r2.events); }
+    return false;
+  }
+  clearSel();
+  narrate(res.events, seat);
+  afterChange(res.events);
+  return true;
+}
+
+/* ── 事件敘事與後續 ───────────────────────────────────────── */
+function narrate(events, seat){
+  for(const e of events){
+    if(e.ev==='path'){
+      addLog(`${nmHtml(e.seat)} 鋪了通道${e.card.thru?'':'——<span class="warn">是條死路！</span>'}`);
+      sfx('place');
+    }
+    else if(e.ev==='discard') addLog(`${nmHtml(e.seat)} 蓋牌棄了一張`);
+    else if(e.ev==='pass') addLog(`${nmHtml(e.seat)} 過牌`);
+    else if(e.ev==='break'){ addLog(`${nmHtml(e.seat)} <span class="warn">弄壞了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`,''); sfx('break'); }
+    else if(e.ev==='repair'){ addLog(`${nmHtml(e.seat)} <span class="good">修好了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`); sfx('repair'); }
+    else if(e.ev==='rock'){ addLog(`${nmHtml(e.seat)} 的<span class="warn">落石</span>炸掉一張通道卡`); sfx('rock'); }
+    else if(e.ev==='map'){
+      addLog(`${nmHtml(e.seat)} 偷看了終點卡 🗺️`);
+      sfx('map');
+      if(e.seat===APP.my && e.kind){    // client 收到的是已淨化事件（無 kind），結果由 priv 顯示
+        const face = e.kind==='gold' ? CARDS.cardSVG({k:'goal',kind:'gold'}) : CARDS.cardSVG({k:'goal',kind:'stone'},0);
+        showModal({ title:'祕密地圖', body:`<div class="cardshow"><div class="cs">${face}<div class="cslabel">${['上','中','下'][e.goal]}方終點：${e.kind==='gold'?'💰 就是金礦！':'只是石頭…'}</div></div></div>` });
+      }
+    }
+    else if(e.ev==='goal'){
+      sfx('flip');
+      banner(e.kind==='gold' ? '💰 金礦重見天日！' : '🪨 翻開終點——只是石頭！');
+      addLog(e.kind==='gold' ? `<span class="good">💰 金礦被挖到了！</span>` : `翻開一張終點：<span class="warn">石頭</span>`);
+    }
+    else if(e.ev==='goldFound') sfx('gold');
+  }
+}
+function afterChange(events){
+  renderAll();
+  if(APP.mode==='host') NET.broadcast(events);
+  const st=stview();
+  if(st.phase==='roundEnd' || st.phase==='end'){
+    clearTimeout(APP.aiTimer);
+    setTimeout(()=>showRoundEnd(), events && events.some(e=>e.ev==='goldFound') ? 1300 : 700);
+  } else scheduleAI();
+  if(myTurn()) sfx('turn');
+}
+function renderAll(){ renderChips(); renderBoard(); renderHand(); }
+
+/* ── AI 排程（local / host）──────────────────────────────── */
+function scheduleAI(){
+  if(APP.mode==='client') return;
+  clearTimeout(APP.aiTimer);
+  const G=APP.G;
+  if(!G || G.phase!=='play') return;
+  const P=G.players[G.turn];
+  if(!P.ai) return;
+  APP.aiTimer=setTimeout(()=>{
+    const mv=SAB.aiChooseMove(G, G.turn);
+    doMove(G.turn, mv);
+  }, 800+Math.random()*700);
+}
+
+/* ── 回合開始 / 結束 ─────────────────────────────────────── */
+function startRound(){
+  const G=APP.G;
+  SAB.newRound(G);
+  APP.prevKeys=new Set();
+  $('log').innerHTML='';
+  addLog(`—— 第 ${G.round} 回合開始 ——`);
+  renderAll(); zoomFit();
+  if(APP.mode==='host') NET.broadcast();
+  showRoleModal(G.players[APP.my].role, ()=>{ scheduleAI(); });
+}
+function showRoleModal(role, cb){
+  const face = role==='sab' ? CARDS.roleSabFace() : CARDS.roleDigFace();
+  showModal({
+    title:'你的秘密身分',
+    body:`<div class="cardshow"><div class="cs">${face}</div></div>
+      <div style="text-align:center;font-weight:700;margin-top:6px">
+      ${role==='sab' ? '你是<span style="color:#b91c1c">破壞者</span>！暗中搞破壞，拖到牌庫抽光金礦就是你的。'
+                     : '你是<span style="color:#8a6524">金礦工</span>！和夥伴合力挖通金礦——但當心有內鬼。'}</div>
+      <div style="text-align:center;color:#94a3b8;font-size:12px;margin-top:4px">（4 人中最多 1 位破壞者，也可能一個都沒有）</div>`,
+    buttons:[{label:'開挖 ⛏️', primary:true, cb}]
+  });
+}
+function showRoundEnd(){
+  const st=stview(); const r=st.lastResult;
+  if(!r) return;
+  const roleName = s=>r.roles[s]==='sab'?'💣 破壞者':'⛏️ 金礦工';
+  const rows = st.players.map(p=>{
+    const share=(r.shares||[]).find(x=>x.seat===p.seat);
+    return `<tr><td>${esc(p.name)}${p.seat===APP.my?'（你）':''}</td><td>${roleName(p.seat)}</td>
+      <td class="g">${share?'+'+share.gold:'—'}</td><td class="g">⛁ ${p.gold}</td></tr>`;
+  }).join('');
+  const title = r.side==='dig' ? '⛏️ 礦工陣營獲勝！' : '💣 破壞者陣營獲勝！';
+  const sub = r.why==='gold' ? `${esc(nmOf(r.winnerSeat))} 挖通了金礦！礦工們分金塊。`
+            : (r.roles.includes('sab') ? '牌庫抽光了還沒挖到金礦，破壞者獨吞金塊！' : '牌庫抽光了……這回合其實沒有破壞者，大家空手而歸。');
+  const isEnd = st.phase==='end';
+  const btns=[];
+  if(!isEnd){
+    if(APP.mode==='client') btns.push({label:'等待房主開下一回合…', primary:false});
+    else btns.push({label:'下一回合 ▶', primary:true, cb:()=>startRound()});
+  } else btns.push({label:'看最終結果 🏆', primary:true, cb:showFinal});
+  if(r.side==='sab' && st.players[APP.my] && r.roles[APP.my]!=='sab') sfx('lose');
+  showModal({ title, body:`<div style="margin-bottom:6px">${sub}</div>
+    <table class="sharetable"><tr><th>玩家</th><th>身分</th><th>本回合</th><th>累計</th></tr>${rows}</table>`, buttons:btns });
+}
+function showFinal(){
+  const st=stview();
+  const rank=[...st.players].sort((a,b)=>b.gold-a.gold);
+  const top=rank[0].gold;
+  const winners=rank.filter(p=>p.gold===top);
+  const rows=rank.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}${p.seat===APP.my?'（你）':''}</td><td class="g">⛁ ${p.gold}</td></tr>`).join('');
+  const iWon=winners.some(p=>p.seat===APP.my);
+  if(iWon) sfx('gold'); else sfx('lose');
+  const btns=[];
+  if(APP.mode==='client') btns.push({label:'請房主再開一場 🙏', primary:false, cb:()=>NET.reqRestart()},{label:'離開', warn:true, cb:leaveToLobby});
+  else btns.push({label:'再來一場 🔁', primary:true, cb:()=>{ rebuildGame(); }},{label:'返回大廳', warn:true, cb:leaveToLobby});
+  showModal({ title: iWon?'🏆 你贏了！三回合金塊最多！':'🏁 牌局結束', wide:false,
+    body:`<div style="text-align:center;font-weight:800;font-size:15px;margin-bottom:8px">👑 ${winners.map(p=>esc(p.name)).join('、')}</div>
+    <table class="sharetable"><tr><th>#</th><th>玩家</th><th>金塊</th></tr>${rows}</table>`, buttons:btns });
+}
+function rebuildGame(){
+  const G=APP.G;
+  const names=G.players.map(p=>p.name), ai=G.players.map(p=>p.ai);
+  APP.G=SAB.newGame(names, ai, (Math.random()*0xffffffff)>>>0);
+  startRound();
+}
+function leaveToLobby(){
+  clearTimeout(APP.aiTimer);
+  NET.teardown();
+  APP.G=null; APP.CG=null; APP.priv=null; APP.mode=null; APP.sel=null; APP.targeting=null;
+  $('game').hidden=true; $('lobby').hidden=false; $('btnLeave').hidden=true;
+  setStatus('單機待命');
+}
+$('btnLeave').addEventListener('click',()=>{
+  showModal({ title:'離開牌局？', body:'牌局將中斷（連線對手會由電腦接手）。',
+    buttons:[{label:'留下', primary:true},{label:'離開', warn:true, cb:leaveToLobby}] });
+});
+
+/* ── client 端：套用房主同步狀態 ──────────────────────────── */
+function applyPub(pub){
+  const firstTime = !APP.CG;
+  const prevRound = APP.CG ? APP.CG.round : 0;
+  const prevPhase = APP.CG ? APP.CG.phase : 'play';
+  const board=new Map();
+  for(const c of pub.board){
+    board.set(c.k, { card:{ uid:'n'+c.k, k:(c.t==='start'?'start':(c.kind?'goal':'path')), kind:c.kind||undefined, t:c.t, e:c.e, thru:!!c.thru }, rot:c.rot, by:c.by });
+  }
+  APP.CG={ board, goals:pub.goals, players:pub.players, round:pub.round, turn:pub.turn,
+           deckN:pub.deckN, phase:pub.phase, lastResult:pub.lastResult };
+  if(pub.round!==prevRound){ APP.prevKeys=new Set(); $('log').innerHTML=''; addLog(`—— 第 ${pub.round} 回合開始 ——`); }
+  renderAll();
+  if(firstTime || pub.round!==prevRound) zoomFit();
+  if((pub.phase==='roundEnd'||pub.phase==='end') && prevPhase==='play') setTimeout(showRoundEnd, 900);
+  if(myTurn()) sfx('turn');
+}
+function applyPriv(priv, round){
+  const prevKnown = (APP.priv && APP.lastPrivRound===round) ? Object.keys(APP.priv.known||{}).length : -1;
+  APP.priv=priv; APP.my=priv.seat;
+  if(APP.lastPrivRound!==round){
+    APP.lastPrivRound=round;
+    showRoleModal(priv.role, ()=>{});
+  } else if(prevKnown>=0){
+    const entries=Object.entries(priv.known||{});
+    if(entries.length>prevKnown){
+      const [gi,kind]=entries[entries.length-1];
+      const face = CARDS.cardSVG({k:'goal',kind}, 0);
+      showModal({ title:'祕密地圖', body:`<div class="cardshow"><div class="cs">${face}<div class="cslabel">${['上','中','下'][Number(gi)]}方終點：${kind==='gold'?'💰 就是金礦！':'只是石頭…'}</div></div></div>` });
+      sfx('map');
+    }
+  }
+  renderHand();
+}
+
+/* ── 開局（單機）─────────────────────────────────────────── */
+function myName(){
+  const v=($('nameInp').value||'').trim();
+  return v||'礦工阿福';
+}
+$('startLocal').addEventListener('click',()=>{
+  APP.mode='local'; APP.my=0;
+  const names=[myName(),'電腦・紅鬍','電腦・石斧','電腦・油燈'];
+  APP.G=SAB.newGame(names,[false,true,true,true],(Math.random()*0xffffffff)>>>0);
+  enterGame();
+  startRound();
+  setStatus('單機對戰中','ok');
+});
+function enterGame(){
+  $('lobby').hidden=true; $('game').hidden=false; $('btnLeave').hidden=false;
+  APP.prevLogN=0;
+  requestAnimationFrame(zoomFit);
+}
+
+/* ── 大廳模式切換 ─────────────────────────────────────────── */
+$('modes').addEventListener('click',e=>{
+  const b=e.target.closest('.mode'); if(!b) return;
+  document.querySelectorAll('.mode').forEach(m=>m.classList.remove('on'));
+  b.classList.add('on');
+  const m=b.dataset.mode;
+  $('opt-local').hidden=m!=='local';
+  $('opt-host').hidden=m!=='host';
+  $('opt-join').hidden=m!=='join';
+});
+try{
+  $('nameInp').value=localStorage.getItem('sab_name')||'';
+  $('nameInp').addEventListener('change',()=>localStorage.setItem('sab_name',$('nameInp').value.trim()));
+}catch(e){}
+
+/* ── 卡片圖鑑 ─────────────────────────────────────────────── */
+$('btnGallery').addEventListener('click',()=>{
+  let html='';
+  const gc=(svg,cap)=>`<div class="gc">${svg}<div class="cap">${cap}</div></div>`;
+  html+='<div class="gal-sec">起點與終點</div><div class="gal-grid">';
+  html+=gc(CARDS.startCardFace(),'起點');
+  html+=gc(CARDS.goalBackFace(),'終點（蓋著）');
+  html+=gc(CARDS.cardSVG({k:'goal',kind:'gold'}),'金礦');
+  html+=gc(CARDS.cardSVG({k:'goal',kind:'stone'},0),'石頭');
+  html+='</div>';
+  html+='<div class="gal-sec">通道卡（40 張）</div><div class="gal-grid">';
+  for(const t of SAB.PATH_TYPES){
+    html+=gc(CARDS.cardSVG({k:'path',t:t.id,e:t.e,thru:t.thru,uid:t.id}),
+      `${t.thru?'通道':'死路'} ×${t.n}`);
+  }
+  html+='</div>';
+  html+='<div class="gal-sec">行動卡（27 張）</div><div class="gal-grid">';
+  for(const t of SAB.ACTION_TYPES){
+    html+=gc(CARDS.cardSVG({k:'act',t:t.id,a:t.a,tools:t.tools}), `×${t.n}`);
+  }
+  html+='</div>';
+  html+='<div class="gal-sec">角色與金塊</div><div class="gal-grid">';
+  html+=gc(CARDS.roleDigFace(),'金礦工 ×4');
+  html+=gc(CARDS.roleSabFace(),'破壞者 ×1');
+  html+=gc(CARDS.goldCardFace(1),'金塊1 ×16');
+  html+=gc(CARDS.goldCardFace(2),'金塊2 ×8');
+  html+=gc(CARDS.goldCardFace(3),'金塊3 ×4');
+  html+=gc(CARDS.backFace(),'卡背');
+  html+='</div>';
+  showModal({ title:'🃏 卡片圖鑑', body:html, wide:true, buttons:[{label:'關閉', primary:true}] });
+});
+
+/* ── 規則 ─────────────────────────────────────────────────── */
+$('btnRules').addEventListener('click',()=>{
+  showModal({ title:'📜 規則（4 人・三回合）', wide:true, body:`
+  <b>身分</b>：每回合暗發身分——4 位中<b>最多 1 位破壞者</b>（5 張身分卡發 4 張，也可能整場沒有內鬼）。<br>
+  <b>目標</b>：礦工把通道從「起點」一路接到右邊 8 格外的三張終點之一（其中 1 張是金礦）；破壞者要拖到牌庫抽光。<br><br>
+  <b>你的回合</b>：出 1 張牌（鋪通道／行動卡）或蓋牌棄 1 張，然後補 1 張。<br>
+  ・<b>通道卡</b>：必須和既有通路相連且開口對開口、牆對牆（可按「旋轉 180°」）。<b>死路卡</b>外觀相似但中央不通！<br>
+  ・<b>破壞</b>：弄壞別人的鎬／燈／礦車——工具壞了不能鋪路。<b>修復</b>可救自己或別人。<br>
+  ・<b>落石</b>：炸掉場上任一張通道卡（起點終點除外）。<b>祕密地圖</b>：偷看一張終點。<br><br>
+  <b>回合結束</b>：挖到金礦→礦工翻 4 張金塊卡分（完成者先拿）；牌庫抽光沒挖到→破壞者獨拿 4 金。<br>
+  三回合後<b>金塊最多的人</b>獲勝。<br><br>
+  <b>操作</b>：點手牌選卡→點棋盤虛線格放置；行動卡選卡後點目標。棋盤可拖曳、滾輪／雙指縮放。`,
+  buttons:[{label:'開挖！', primary:true}] });
+});
+
+/* ── 啟動 ─────────────────────────────────────────────────── */
+document.querySelector('#svgdefs defs').innerHTML=CARDS.DEFS;
+setStatus('單機待命');
+/* ============================================================
+   連線層：沿用 bomb-signal Cloudflare Worker（WebSocket 房間中轉，
+   每房 4 人）。房號加 sab- 前綴避免與炸彈人房間互撞。
+   主機權威：所有規則在房主端跑，client 只送出手、收快照。
+   ============================================================ */
+const NET = (() => {
+'use strict';
+const WORKER_URL = 'wss://bomb-signal.54maxwu.workers.dev';
+const ROOM_PREFIX = 'sab-';
+
+let ws=null, active=false, isHost=false, started=false;
+let roomCode=null, myCid=null, seq=0, lastSeq=-1;
+let cidSeat={}, seatInfo={};        // seatInfo[seat]={cid,name,lastSeen}
+let joinedN=0, hbTimer=null, watchTimer=null, hostSeen=0, evLog=[];
+
+function openSignal(id){
+  return new WebSocket(WORKER_URL.replace(/\/$/,'')+'/room/'+id);
+}
+function randomCode(){ const b=new Uint32Array(1); crypto.getRandomValues(b); return (100000+(b[0]%900000)).toString(); }
+function send(o){ if(ws && ws.readyState===1){ o.g='sab'; try{ ws.send(JSON.stringify(o)); }catch(e){} } }
+
+function teardown(){
+  active=false; started=false; clearInterval(hbTimer); clearInterval(watchTimer);
+  if(ws){ try{ ws.onopen=ws.onmessage=ws.onerror=ws.onclose=null; ws.close(); }catch(e){} }
+  ws=null; cidSeat={}; seatInfo={}; joinedN=0; seq=0; lastSeq=-1; evLog=[];
+}
+
+function connect(code, host){
+  teardown();
+  active=true; isHost=host; roomCode=code;
+  if(!host) myCid='c'+Math.random().toString(36).slice(2,10);
+  ws=openSignal(ROOM_PREFIX+code);
+  ws.onopen=()=>{ setStatus(host?'房間已開，等待礦工…':'連線中…','busy'); };
+  ws.onmessage=ev=>{
+    let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
+    if(m.type==='room-full'){ setStatus('房間已滿','err'); banner('房間已滿'); return; }
+    if(m.type==='room-state'){
+      if(m.peerCount>0) hail();
+      return;
+    }
+    if(m.type==='peer-joined'){ hail(); return; }
+    if(m.type==='peer-left'){ return; }   // 不帶身分，斷線靠心跳偵測
+    if(m.g!=='sab') return;
+    handleMsg(m);
+  };
+  ws.onerror=()=>setStatus('連線錯誤','err');
+  ws.onclose=()=>{ if(active) setStatus('連線中斷','err'); };
+  hbTimer=setInterval(()=>{
+    if(isHost) send({t:'hb'});
+    else if(APP.my!=null && started) send({t:'hbc', cid:myCid});
+  },4000);
+  if(host){
+    watchTimer=setInterval(checkClients, 5000);
+  } else {
+    hostSeen=Date.now();
+    watchTimer=setInterval(()=>{
+      if(started && Date.now()-hostSeen>20000){
+        clearInterval(watchTimer);
+        showModal({ title:'房主失聯', body:'和房主的連線中斷了，牌局無法繼續。',
+          buttons:[{label:'返回大廳', primary:true, cb:leaveToLobby}] });
+      }
+    },5000);
+  }
+}
+function hail(){
+  if(isHost) send({t:'host-here'});
+  else if(APP.my==null || !started) send({t:'hello', cid:myCid, name:myName()});
+}
+
+/* ── 房主端 ───────────────────────────────────────────────── */
+function updateHostLobby(){
+  const names=[myName()+'（你）'];
+  for(let s=1;s<4;s++) names.push(seatInfo[s]?seatInfo[s].name:'（電腦候補）');
+  $('hostJoined').innerHTML='目前座位：'+names.map((n,i)=>`<b>${i+1}.</b> ${esc(n)}`).join('　');
+}
+function checkClients(){
+  if(!isHost || !started || !APP.G) return;
+  let changed=false;
+  for(let s=1;s<4;s++){
+    const si=seatInfo[s];
+    if(si && !APP.G.players[s].ai && Date.now()-si.lastSeen>15000){
+      APP.G.players[s].ai=true; changed=true;
+      addLog(`<span class="warn">${esc(APP.G.players[s].name)} 斷線，改由電腦接手</span>`);
+      banner(APP.G.players[s].name+' 斷線，由電腦接手');
+    }
+  }
+  if(changed){ broadcast(); scheduleAI(); renderAll(); }
+}
+function handleMsg(m){
+  if(isHost){
+    if(m.t==='hello'){
+      if(started){ send({t:'roomfull', cid:m.cid}); return; }
+      let seat=cidSeat[m.cid];
+      if(seat==null){
+        if(joinedN>=3){ send({t:'roomfull', cid:m.cid}); return; }
+        seat=++joinedN;
+        cidSeat[m.cid]=seat;
+        seatInfo[seat]={cid:m.cid, name:(m.name||'礦工'+seat).slice(0,10), lastSeen:Date.now()};
+      }
+      send({t:'welcome', cid:m.cid, seat});
+      updateHostLobby();
+      setStatus(`已加入 ${joinedN}/3 位礦工`,'ok');
+      if(joinedN>=3) startOnline();
+      return;
+    }
+    if(m.t==='hbc'){ const s=cidSeat[m.cid]; if(s!=null&&seatInfo[s]) seatInfo[s].lastSeen=Date.now(); return; }
+    if(m.t==='act'){
+      const s=cidSeat[m.cid];
+      if(s==null || !APP.G || APP.G.phase!=='play' || APP.G.turn!==s) return;
+      const mv=m.move||{};
+      if(mv.uid!=null && mv.hi!=null){
+        const hand=APP.G.players[s].hand;
+        if(!hand[mv.hi] || hand[mv.hi].uid!==mv.uid){
+          const fix=hand.findIndex(c=>c.uid===mv.uid);
+          if(fix<0) return;
+          mv.hi=fix;
+        }
+      }
+      seatInfo[s] && (seatInfo[s].lastSeen=Date.now());
+      doMove(s, mv);
+      return;
+    }
+    if(m.t==='req-restart'){
+      if(APP.G && APP.G.phase==='end'){ rebuildGame(); }
+      return;
+    }
+  } else {
+    if(m.t==='hb'){ hostSeen=Date.now(); return; }
+    if(m.t==='welcome'){
+      if(m.cid!==myCid) return;
+      APP.my=m.seat; APP.mode='client';
+      hostSeen=Date.now();
+      setStatus('已入座 · 座位 '+(m.seat+1)+' · 等待開局…','ok');
+      $('joinState').innerHTML=`✅ 已加入房間 <b>${esc(roomCode)}</b>，你是 <b>${m.seat+1} 號礦工</b>，等房主開始…`;
+      return;
+    }
+    if(m.t==='roomfull'){ if(m.cid===myCid){ setStatus('房間已滿','err'); $('joinState').textContent='❌ 房間已滿或已開局'; } return; }
+    if(m.t==='begin'){
+      started=true; hostSeen=Date.now();
+      if($('game').hidden) enterGame();
+      setStatus('連線對戰中','ok');
+      return;
+    }
+    if(m.t==='pub'){
+      hostSeen=Date.now();
+      if(m.seq<=lastSeq) return;
+      lastSeq=m.seq;
+      started=true;
+      if($('game').hidden) enterGame();
+      if(m.evs && m.evs.length) narrate(m.evs, -1);
+      applyPub(m.pub);
+      return;
+    }
+    if(m.t==='priv'){
+      if(m.cid!==myCid) return;
+      hostSeen=Date.now();
+      applyPriv(m.priv, m.round);
+      return;
+    }
+  }
+}
+
+function startOnline(){
+  if(started || !isHost) return;
+  started=true;
+  APP.mode='host'; APP.my=0;
+  const names=[myName(),0,0,0].map((v,s)=> s===0? myName() : (seatInfo[s]?seatInfo[s].name:'電腦・'+['紅鬍','石斧','油燈'][s-1]));
+  const ai=[false,1,2,3].map((v,s)=> s===0?false : !seatInfo[s]);
+  APP.G=SAB.newGame(names, ai, (Math.random()*0xffffffff)>>>0);
+  send({t:'begin'});
+  enterGame();
+  startRound();
+  setStatus('連線對戰中（你是房主）','ok');
+}
+
+/* ── 廣播（房主）─────────────────────────────────────────── */
+function sanitizeEvents(events){
+  return (events||[]).map(e=>{
+    if(e.ev==='map') return { ev:'map', seat:e.seat, goal:e.goal };  // 不外洩偷看結果
+    if(e.ev==='roundEnd') return { ev:'roundEnd' };
+    return e;
+  });
+}
+function broadcast(events){
+  if(!isHost || !ws || !APP.G) return;
+  seq++;
+  const pub=SAB.pubState(APP.G);
+  send({t:'pub', seq, pub, evs:sanitizeEvents(events)});
+  for(let s=1;s<4;s++){
+    if(seatInfo[s] && !APP.G.players[s].ai)
+      send({t:'priv', cid:seatInfo[s].cid, round:APP.G.round, priv:SAB.privState(APP.G, s)});
+  }
+}
+function sendAct(move){ send({t:'act', cid:myCid, move}); }
+
+/* ── 大廳按鈕 ─────────────────────────────────────────────── */
+$('hostBtn').addEventListener('click',()=>{
+  const code=randomCode();
+  $('hostCode').value=code;
+  $('copyBtn').hidden=false;
+  $('hostWait').hidden=false;
+  APP.mode='host'; APP.my=0;
+  connect(code, true);
+  updateHostLobby();
+});
+$('copyBtn').addEventListener('click',()=>{
+  const code=$('hostCode').value;
+  const done=()=>banner('已複製房號 '+code);
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done,()=>{});
+  else { $('hostCode').select(); try{ document.execCommand('copy'); done(); }catch(e){} }
+});
+$('hostStart').addEventListener('click',()=>{
+  if(!active){ banner('請先建立房間'); return; }
+  startOnline();
+});
+$('joinBtn').addEventListener('click',()=>{
+  const code=($('joinCode').value||'').trim();
+  if(!/^\d{6}$/.test(code)){ banner('請輸入 6 位數房號'); return; }
+  $('joinState').textContent='連線中…';
+  APP.mode='client'; APP.my=null;
+  connect(code, false);
+});
+
+return { connect, teardown, broadcast, sendAct, get isHost(){return isHost;}, get started(){return started;},
+         reqRestart(){ send({t:'req-restart'}); } };
+})();
+
+/* 測試便利：?auto=1 自動開單機局、?auto=g 開圖鑑（截圖/煙霧測試用） */
+(function(){
+  const a=new URLSearchParams(location.search).get('auto');
+  if(a==='1'){
+    setTimeout(()=>{ $('startLocal').click(); },150);
+    setTimeout(()=>{ const b=document.querySelector('#mbtns .abtn'); if(b) b.click(); },900);
+  } else if(a==='g'){
+    setTimeout(()=>{ $('btnGallery').click(); },200);
+  }
+})();
+
+</script>
+</body>
+</html>
