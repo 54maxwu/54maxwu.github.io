@@ -89,12 +89,19 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .hint code{ background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; font-size:11px; }
 .joinlist{ font-size:13px; color:#475569; margin-top:10px; line-height:1.9; }
 .joinlist b{ color:#8a6524; }
+.seg{ display:flex; gap:6px; flex-wrap:wrap; }
+.seg button{
+  min-width:46px; padding:9px 12px; border:1px solid #e2e8f0; background:#fff; border-radius:8px;
+  cursor:pointer; font:inherit; font-size:14px; font-weight:700; color:#475569; transition:.12s;
+}
+.seg button:hover{ border-color:#d6b96a; background:#fdf8ec; }
+.seg button.on{ background:#faf1d9; color:#8a6524; border-color:#caa24b; box-shadow:0 0 0 2px rgba(202,162,75,.18); }
 
 /* ── Game layout ────────────────────────────────────────── */
 #game{ max-width:1500px; margin:0 auto; }
 #pchips{
   width:186px; flex:0 0 186px; display:flex; flex-direction:column; gap:8px;
-  height:64vh; min-height:380px;
+  height:64vh; min-height:380px; overflow-y:auto; padding-right:2px;
 }
 .pchip{
   display:flex; align-items:center; gap:7px; background:#fff; border:1.5px solid #e2e8f0;
@@ -105,6 +112,10 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .pchip.p1{ background:#fdeaea; border-color:#f0bcbc; }
 .pchip.p2{ background:#e8f1fe; border-color:#b9d2f5; }
 .pchip.p3{ background:#e4f6f4; border-color:#abdcd5; }
+.pchip.p4{ background:#f1eafd; border-color:#d3bef2; }
+.pchip.p5{ background:#fdefe3; border-color:#f2cba4; }
+.pchip.p6{ background:#fde9f2; border-color:#f2b8d2; }
+.pchip.p7{ background:#eceff3; border-color:#c3ccd6; }
 .pchip .avatar{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.12); }
 .pchip .nm{ font-weight:700; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pchip .sub{ display:flex; gap:5px; align-items:center; color:#64748b; font-size:11px; }
@@ -112,6 +123,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .pchip.turn{ border-color:#caa24b; box-shadow:0 0 0 3px rgba(202,162,75,.32); }
 .pn{ font-weight:700; }
 .pn.p0{ color:#a06e0d; } .pn.p1{ color:#d03030; } .pn.p2{ color:#2563eb; } .pn.p3{ color:#0d9488; }
+.pn.p4{ color:#7c3aed; } .pn.p5{ color:#ea580c; } .pn.p6{ color:#db2777; } .pn.p7{ color:#475569; }
 .pchip.turn .avatar{ animation:bob 1.1s infinite ease-in-out; }
 @keyframes bob{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
 .pchip.targetable{ border-color:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.18); cursor:pointer; }
@@ -205,6 +217,10 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 #log div.lp1{ background:rgba(220,70,70,.12); }
 #log div.lp2{ background:rgba(70,120,235,.11); }
 #log div.lp3{ background:rgba(13,148,136,.11); }
+#log div.lp4{ background:rgba(124,58,237,.10); }
+#log div.lp5{ background:rgba(234,88,12,.11); }
+#log div.lp6{ background:rgba(219,39,119,.10); }
+#log div.lp7{ background:rgba(71,85,105,.12); }
 
 /* ── 手牌區 ─────────────────────────────────────────────── */
 #handBar{
@@ -293,10 +309,16 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .toast.tp1{ border-left-color:#ff8a7a; }
 .toast.tp2{ border-left-color:#7fb2ff; }
 .toast.tp3{ border-left-color:#5fe0cd; }
+.toast.tp4{ border-left-color:#c4a5ff; }
+.toast.tp5{ border-left-color:#ffb26e; }
+.toast.tp6{ border-left-color:#ff9ecb; }
+.toast.tp7{ border-left-color:#b9c5d4; }
 .toast .warn{ color:#ff9d8a; }
 .toast .good{ color:#9fe0a0; }
 .toast .pn.p0{ color:#ffd97a; } .toast .pn.p1{ color:#ff8a7a; }
 .toast .pn.p2{ color:#7fb2ff; } .toast .pn.p3{ color:#5fe0cd; }
+.toast .pn.p4{ color:#c4a5ff; } .toast .pn.p5{ color:#ffb26e; }
+.toast .pn.p6{ color:#ff9ecb; } .toast .pn.p7{ color:#b9c5d4; }
 @keyframes toastLife{
   0%{ opacity:0; transform:translateY(10px) scale(.94); }
   8%{ opacity:1; transform:translateY(0) scale(1); }
@@ -339,8 +361,8 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 
   <!-- ═══ 大廳 ═══ -->
   <div id="lobby" class="glass">
-    <div class="lob-title">開一局礦坑（4 人）</div>
-    <div class="lob-sub">1 位破壞者可能潛伏在 4 名礦工之中——挖到金礦前，先想清楚誰在搞鬼。空位一律由電腦礦工補上。</div>
+    <div class="lob-title">開一局礦坑（4–8 人）</div>
+    <div class="lob-sub">破壞者潛伏在礦工之中——挖到金礦前，先想清楚誰在搞鬼。空位一律由電腦礦工補上。</div>
 
     <div class="modes" id="modes">
       <button class="mode on" data-mode="local">
@@ -357,6 +379,15 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
     <label class="lbl">你的暱稱</label>
     <div class="row">
       <input class="inp" id="nameInp" maxlength="10" placeholder="礦工阿福">
+    </div>
+
+    <label class="lbl">牌局人數（真人不足由電腦補；內鬼數：4人→1、5-6人→2、7-8人→3）</label>
+    <div class="seg" id="npSeg">
+      <button data-n="4">4 人</button>
+      <button data-n="5">5 人</button>
+      <button data-n="6" class="on">6 人</button>
+      <button data-n="7">7 人</button>
+      <button data-n="8">8 人</button>
     </div>
 
     <div id="opt-local">
@@ -377,7 +408,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
           <button class="go" id="hostStart">🚀 開始遊戲（空位補電腦）</button>
         </div>
       </div>
-      <div class="hint">連線透過 Cloudflare Worker（<code>bomb-signal</code>）房間中轉，每房最多 4 人。房間坐滿會自動開局。</div>
+      <div class="hint">連線透過 Cloudflare Worker（<code>bomb-signal</code>）房間中轉，最多 <b>4 位真人</b>（你＋3 位朋友），其餘座位由電腦補。真人坐滿會自動開局。</div>
     </div>
 
     <div id="opt-join" hidden>
@@ -524,17 +555,27 @@ function shuffle(arr, rng){
   return arr;
 }
 
-// ── 建一局（4 人、3 回合）───────────────────────────────────
+// ── 人數對應表（照原版 Saboteur）──────────────────────────
+// 身分卡＝人數+1 張（多 1 張蓋掉）；破壞者數：≤4人1、5-6人2、7-8人3、9-10人4
+function roleSetFor(n){
+  const sab = n<=4?1 : n<=6?2 : n<=8?3 : 4;
+  return { sab, dig: (n+1)-sab };
+}
+// 手牌：3-5 人 6 張、6-7 人 5 張、8+ 人 4 張
+function handSizeFor(n){ return n<=5?6 : n<=7?5 : 4; }
+
+// ── 建一局（4-10 人、3 回合）────────────────────────────────
 function newGame(names, aiSeats, seed){
   const rng = mulberry32(seed>>>0);
+  const nP = names.length;
   const G = {
     seed: seed>>>0, rng,
-    nP: 4,
+    nP,
     players: names.map((nm,i)=>({
       seat:i, name:nm, ai:!!aiSeats[i],
       role:null, hand:[], broken:{pick:false,lamp:false,cart:false},
       gold:0, goldCards:[], known:{},           // known[goalIdx] = 'gold' | 'stone'
-      mind:{ susp:[0,0,0,0], contrib:[0,0,0,0] } // AI 觀察：嫌疑值 / 貢獻度
+      mind:{ susp:Array(nP).fill(0), contrib:Array(nP).fill(0) } // AI 觀察：嫌疑值 / 貢獻度
     })),
     round:0, turn:0, phase:'lobby',             // lobby | play | roundEnd | end
     deck:[], discard:[], board:new Map(), goals:[],
@@ -555,17 +596,20 @@ function newRound(G){
   // 終點：1 金 2 石，洗位置
   const kinds = shuffle(['gold','stone','stone'], G.rng);
   G.goals = GOALS_POS.map((p,i)=>({ idx:i, x:p.x, y:p.y, kind:kinds[i], revealed:false, rot:0 }));
-  // 角色：4 人局用 1 破壞者 + 4 金礦工，發 4 蓋 1
-  const roles = shuffle(['sab','dig','dig','dig','dig'], G.rng);
+  // 角色：人數+1 張身分卡，發完蓋 1 張
+  const rs = roleSetFor(G.nP);
+  const roles = shuffle([].concat(Array(rs.sab).fill('sab'), Array(rs.dig).fill('dig')), G.rng);
   for(const p of G.players){
     p.role = roles[p.seat];
     p.hand = [];
     p.broken = { pick:false, lamp:false, cart:false };
     p.known = {};
-    p.mind = { susp:[0,0,0,0], contrib:[0,0,0,0] };
+    p.mind = { susp:Array(G.nP).fill(0), contrib:Array(G.nP).fill(0) };
   }
-  G.setAside = roles[4];
-  for(let c=0;c<6;c++) for(const p of G.players) p.hand.push(G.deck.pop());
+  G.setAside = roles[G.nP];
+  const hs = handSizeFor(G.nP);
+  for(let c=0;c<hs;c++) for(const p of G.players) p.hand.push(G.deck.pop());
+  G.deckStart = G.deck.length;
   G.turn = (G.round-1) % G.nP;
   G.lastResult = null;
   return G;
@@ -809,8 +853,8 @@ function endRound(G, why, winnerSeat){
   const draw = n => { const out=[]; while(out.length<n && G.goldPile.length){ out.push(G.goldPile.pop()); } return out; };
 
   if(why==='gold'){
-    // 礦工勝：抽 4 張金塊卡，由完成者開始逆時針只發給礦工（最高面額優先給先拿的人）
-    const cards = draw(4).sort((a,b)=>b-a);
+    // 礦工勝：抽「人數」張金塊卡（上限 9），由完成者開始逆時針只發給礦工（最高面額優先給先拿的人）
+    const cards = draw(Math.min(G.nP,9)).sort((a,b)=>b-a);
     const order = [];
     for(let i=0;i<G.nP && order.length<digs.length;i++){
       const s = (winnerSeat - i + G.nP) % G.nP;             // 逆時針 = 座位遞減
@@ -825,8 +869,8 @@ function endRound(G, why, winnerSeat){
       });
     }
   } else if(sabs.length){
-    // 破壞者勝：每位破壞者拿 4 金（1 人時）／依原版人數表
-    const per = sabs.length===1 ? 4 : 3;
+    // 破壞者勝（原版表）：1 人獨拿 4 金、2-3 人各 3 金、4 人各 2 金
+    const per = sabs.length===1 ? 4 : (sabs.length<=3 ? 3 : 2);
     for(const p of sabs){
       let got=0;
       // 從金堆湊出 per（面額大優先）
@@ -888,7 +932,7 @@ function aiChooseMove(G, seat){
   const P = G.players[seat];
   const rng = G.rng;
   const sab = P.role==='sab';
-  const progress = 1 - G.deck.length/40;                    // 0 開局 → 1 尾聲
+  const progress = G.deckStart ? 1 - G.deck.length/G.deckStart : 1;   // 0 開局 → 1 尾聲
   const camo = sab && progress < 0.3;                       // 破壞者前期偽裝
   const hasBroken = TOOLS.some(t=>P.broken[t]);
   const cand = [];                                          // {score, move, di?}
@@ -996,7 +1040,7 @@ function privState(G, seat){
 return {
   PATH_TYPES, ACTION_TYPES, TOOLS, TOOL_NAME, GOLD_CARDS, DIRS, OPP, K, GOALS_POS, START, BOUND,
   mulberry32, shuffle, buildDeck, edgeAt, edgesOf,
-  newGame, newRound, reachInfo, canPlace, legalPlacements, hiddenGoalAt,
+  newGame, newRound, reachInfo, canPlace, legalPlacements, hiddenGoalAt, roleSetFor, handSizeFor,
   legalActionTargets, applyMove, endRound, aiChooseMove, goalDistFrom,
   pubState, privState,
 };
@@ -1429,8 +1473,10 @@ const APP = {
   zoom:.8, panX:0, panY:0,
   aiTimer:null, prevKeys:new Set(), prevGoals:[], prevLogN:0,
 };
-const AVATARS = ['🧔','👷','🧑‍🏭','🧙'];
+const AVATARS = ['🧔','👷','🧑‍🏭','🧙','🧝','🥷','🧑‍🌾','🦹'];
+const AI_NAMES = ['紅鬍','石斧','油燈','煤球','銀鎬','火藥','岩爪'];
 const OX=14, OY=11, PX=104, PY=160;
+function npChoice(){ return APP.np || 6; }
 
 /* ── 音效（WebAudio 合成，無外部音檔）───────────────────── */
 const SND = { ctx:null, on:(function(){ try{ return localStorage.getItem('sab_snd')!=='0'; }catch(e){ return true; } })() };
@@ -1683,7 +1729,7 @@ function renderChips(){
     d.className='pchip p'+p.seat+(st.phase==='play'&&st.turn===p.seat?' turn':'');
     d.dataset.seat=p.seat;
     d.innerHTML=`
-      <span class="avatar">${p.seat===APP.my?'😎':AVATARS[p.seat]}</span>
+      <span class="avatar">${p.seat===APP.my?'😎':AVATARS[p.seat%AVATARS.length]}</span>
       <span>
         <div class="nm">${esc(p.name)}${p.ai?' 🤖':''}${p.seat===APP.my?'（你）':''}</div>
         <div class="sub">
@@ -1907,13 +1953,16 @@ function startRound(){
 }
 function showRoleModal(role, cb){
   const face = role==='sab' ? CARDS.roleSabFace() : CARDS.roleDigFace();
+  const st=stview();
+  const n = st ? st.players.length : npChoice();
+  const rs = SAB.roleSetFor(n);
   showModal({
     title:'你的秘密身分',
     body:`<div class="cardshow"><div class="cs">${face}</div></div>
       <div style="text-align:center;font-weight:700;margin-top:6px">
       ${role==='sab' ? '你是<span style="color:#b91c1c">破壞者</span>！暗中搞破壞，拖到牌庫抽光金礦就是你的。'
                      : '你是<span style="color:#8a6524">金礦工</span>！和夥伴合力挖通金礦——但當心有內鬼。'}</div>
-      <div style="text-align:center;color:#94a3b8;font-size:12px;margin-top:4px">（4 人中最多 1 位破壞者，也可能一個都沒有）</div>`,
+      <div style="text-align:center;color:#94a3b8;font-size:12px;margin-top:4px">（${n} 人中最多 ${rs.sab} 位破壞者，實際數量可能更少）</div>`,
     buttons:[{label:'開挖 ⛏️', primary:true, cb}]
   });
 }
@@ -2014,11 +2063,13 @@ function myName(){
 }
 $('startLocal').addEventListener('click',()=>{
   APP.mode='local'; APP.my=0;
-  const names=[myName(),'電腦・紅鬍','電腦・石斧','電腦・油燈'];
-  APP.G=SAB.newGame(names,[false,true,true,true],(Math.random()*0xffffffff)>>>0);
+  const n=npChoice();
+  const names=[myName()], ai=[false];
+  for(let s=1;s<n;s++){ names.push('電腦・'+AI_NAMES[s-1]); ai.push(true); }
+  APP.G=SAB.newGame(names, ai, (Math.random()*0xffffffff)>>>0);
   enterGame();
   startRound();
-  setStatus('單機對戰中','ok');
+  setStatus('單機對戰中（'+n+' 人）','ok');
 });
 function enterGame(){
   $('lobby').hidden=true; $('game').hidden=false; $('btnLeave').hidden=false;
@@ -2040,6 +2091,24 @@ try{
   $('nameInp').value=localStorage.getItem('sab_name')||'';
   $('nameInp').addEventListener('change',()=>localStorage.setItem('sab_name',$('nameInp').value.trim()));
 }catch(e){}
+
+// 人數選擇（預設 6，記住上次選擇）
+try{
+  const saved=+localStorage.getItem('sab_np');
+  APP.np = (saved>=4 && saved<=8) ? saved : 6;
+}catch(e){ APP.np=6; }
+(function(){
+  const seg=$('npSeg');
+  seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on', +b.dataset.n===APP.np));
+  seg.addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    APP.np=+b.dataset.n;
+    seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+    try{ localStorage.setItem('sab_np', String(APP.np)); }catch(err){}
+    if(typeof NET!=='undefined' && NET.isHost && !NET.started) updateHostLobbyHook();
+  });
+})();
+function updateHostLobbyHook(){ if(window.NET && NET.refreshLobby) NET.refreshLobby(); }
 
 /* ── 卡片圖鑑 ─────────────────────────────────────────────── */
 $('btnGallery').addEventListener('click',()=>{
@@ -2075,16 +2144,18 @@ $('btnGallery').addEventListener('click',()=>{
 
 /* ── 規則 ─────────────────────────────────────────────────── */
 $('btnRules').addEventListener('click',()=>{
-  showModal({ title:'📜 規則（4 人・三回合）', wide:true, body:`
-  <b>身分</b>：每回合暗發身分——4 位中<b>最多 1 位破壞者</b>（5 張身分卡發 4 張，也可能整場沒有內鬼）。<br>
+  showModal({ title:'📜 規則（4–8 人・三回合）', wide:true, body:`
+  <b>身分</b>：每回合暗發身分卡（人數+1 張、蓋掉 1 張）——內鬼數上限：4 人→1、5-6 人→2、7-8 人→3，實際可能更少。<br>
+  <b>手牌</b>：4-5 人 6 張、6-7 人 5 張、8 人 4 張。<br>
   <b>目標</b>：礦工把通道從「起點」一路接到右邊 8 格外的三張終點之一（其中 1 張是金礦）；破壞者要拖到牌庫抽光。<br><br>
   <b>你的回合</b>：出 1 張牌（鋪通道／行動卡）或蓋牌棄 1 張，然後補 1 張。<br>
   ・<b>通道卡</b>：必須和既有通路相連且開口對開口、牆對牆（可按「旋轉 180°」）。<b>死路卡</b>外觀相似但中央不通！<br>
   ・<b>破壞</b>：弄壞別人的鎬／燈／礦車——工具壞了不能鋪路。<b>修復</b>可救自己或別人。<br>
   ・<b>落石</b>：炸掉場上任一張通道卡（起點終點除外）。<b>祕密地圖</b>：偷看一張終點。<br><br>
-  <b>回合結束</b>：挖到金礦→礦工翻 4 張金塊卡分（完成者先拿）；牌庫抽光沒挖到→破壞者獨拿 4 金。<br>
+  <b>回合結束</b>：挖到金礦→翻「人數」張金塊卡只分給礦工（完成者先拿最大塊）；牌庫抽光沒挖到→破壞者分贓（1 人獨拿 4 金、2-3 人各 3 金）。<br>
   三回合後<b>金塊最多的人</b>獲勝。<br><br>
-  <b>操作</b>：點手牌選卡→點棋盤虛線格放置；行動卡選卡後點目標。棋盤可拖曳、滾輪／雙指縮放。`,
+  <b>操作</b>：點手牌選卡→點棋盤虛線格放置；行動卡選卡後點目標。棋盤可拖曳、滾輪／雙指縮放。<br>
+  <b>連線</b>：最多 4 位真人同房，其餘座位由電腦補。`,
   buttons:[{label:'開挖！', primary:true}] });
 });
 
@@ -2161,15 +2232,16 @@ function hail(){
 }
 
 /* ── 房主端 ───────────────────────────────────────────────── */
+function humanCap(){ return Math.min(3, npChoice()-1); }   // worker 每房 4 連線：房主+3 真人
 function updateHostLobby(){
   const names=[myName()+'（你）'];
-  for(let s=1;s<4;s++) names.push(seatInfo[s]?seatInfo[s].name:'（電腦候補）');
-  $('hostJoined').innerHTML='目前座位：'+names.map((n,i)=>`<b>${i+1}.</b> ${esc(n)}`).join('　');
+  for(let s=1;s<npChoice();s++) names.push(seatInfo[s]?seatInfo[s].name:(s<=humanCap()?'（等真人／電腦候補）':'（電腦）'));
+  $('hostJoined').innerHTML=`目前座位（${npChoice()} 人局）：`+names.map((n,i)=>`<b>${i+1}.</b> ${esc(n)}`).join('　');
 }
 function checkClients(){
   if(!isHost || !started || !APP.G) return;
   let changed=false;
-  for(let s=1;s<4;s++){
+  for(let s=1;s<APP.G.nP;s++){
     const si=seatInfo[s];
     if(si && !APP.G.players[s].ai && Date.now()-si.lastSeen>15000){
       APP.G.players[s].ai=true; changed=true;
@@ -2185,15 +2257,15 @@ function handleMsg(m){
       if(started){ send({t:'roomfull', cid:m.cid}); return; }
       let seat=cidSeat[m.cid];
       if(seat==null){
-        if(joinedN>=3){ send({t:'roomfull', cid:m.cid}); return; }
+        if(joinedN>=humanCap()){ send({t:'roomfull', cid:m.cid}); return; }
         seat=++joinedN;
         cidSeat[m.cid]=seat;
         seatInfo[seat]={cid:m.cid, name:(m.name||'礦工'+seat).slice(0,10), lastSeen:Date.now()};
       }
       send({t:'welcome', cid:m.cid, seat});
       updateHostLobby();
-      setStatus(`已加入 ${joinedN}/3 位礦工`,'ok');
-      if(joinedN>=3) startOnline();
+      setStatus(`已加入 ${joinedN}/${humanCap()} 位真人`,'ok');
+      if(joinedN>=humanCap()) startOnline();
       return;
     }
     if(m.t==='hbc'){ const s=cidSeat[m.cid]; if(s!=null&&seatInfo[s]) seatInfo[s].lastSeen=Date.now(); return; }
@@ -2257,8 +2329,12 @@ function startOnline(){
   if(started || !isHost) return;
   started=true;
   APP.mode='host'; APP.my=0;
-  const names=[myName(),0,0,0].map((v,s)=> s===0? myName() : (seatInfo[s]?seatInfo[s].name:'電腦・'+['紅鬍','石斧','油燈'][s-1]));
-  const ai=[false,1,2,3].map((v,s)=> s===0?false : !seatInfo[s]);
+  const n=npChoice();
+  const names=[myName()], ai=[false];
+  for(let s=1;s<n;s++){
+    names.push(seatInfo[s] ? seatInfo[s].name : '電腦・'+AI_NAMES[(s-1)%AI_NAMES.length]);
+    ai.push(!seatInfo[s]);
+  }
   APP.G=SAB.newGame(names, ai, (Math.random()*0xffffffff)>>>0);
   send({t:'begin'});
   enterGame();
@@ -2279,7 +2355,7 @@ function broadcast(events){
   seq++;
   const pub=SAB.pubState(APP.G);
   send({t:'pub', seq, pub, evs:sanitizeEvents(events)});
-  for(let s=1;s<4;s++){
+  for(let s=1;s<APP.G.nP;s++){
     if(seatInfo[s] && !APP.G.players[s].ai)
       send({t:'priv', cid:seatInfo[s].cid, round:APP.G.round, priv:SAB.privState(APP.G, s)});
   }
@@ -2315,7 +2391,7 @@ $('joinBtn').addEventListener('click',()=>{
 });
 
 return { connect, teardown, broadcast, sendAct, get isHost(){return isHost;}, get started(){return started;},
-         reqRestart(){ send({t:'req-restart'}); } };
+         reqRestart(){ send({t:'req-restart'}); }, refreshLobby(){ if(isHost && !started) updateHostLobby(); } };
 })();
 
 /* 測試便利：?auto=1 自動開單機局、?auto=g 開圖鑑（截圖/煙霧測試用） */
