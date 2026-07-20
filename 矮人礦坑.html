@@ -1137,7 +1137,7 @@ const DEFS = `
 </filter>
 <filter id="f_rough" x="-15%" y="-15%" width="130%" height="130%">
   <feTurbulence type="fractalNoise" baseFrequency="0.14" numOctaves="3" seed="5" result="n"/>
-  <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+  <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G"/>
 </filter>
 <filter id="f_rough2" x="-15%" y="-15%" width="130%" height="130%">
   <feTurbulence type="fractalNoise" baseFrequency="0.22" numOctaves="2" seed="9" result="n"/>
@@ -1221,33 +1221,25 @@ function label(txt, y, size, color){
 function tunnelArt(e, thru, seedStr){
   const rnd = SAB.mulberry32(h32(seedStr||'x'));
   const half = AW/2;
+  const half2 = half-6;                            // 地板半寬
+  const hD = half2+3;                              // 坑壁層只比地板寬 3px：位移後不會咬出大缺口
   let tun='', floor='', beams='', rubble='';
   const armLen = thru ? null : 22;                 // 死路臂長縮短（距中心 22 停）
-  const seg = (d)=>{
-    // 回傳 [隧道 path, 地板 path]（方向 d）
-    const stop = thru ? 0 : armLen;
-    if(d===0) return [`M${CX-half},0 L${CX+half},0 L${CX+half},${CY-stop} L${CX-half},${CY-stop} Z`];
-    if(d===2) return [`M${CX-half},${H} L${CX+half},${H} L${CX+half},${CY+stop} L${CX-half},${CY+stop} Z`];
-    if(d===1) return [`M${W},${CY-half} L${W},${CY+half} L${CX+stop},${CY+half} L${CX+stop},${CY-half} Z`];
-    return [`M0,${CY-half} L0,${CY+half} L${CX-stop},${CY+half} L${CX-stop},${CY-half} Z`];
+  // 所有子路徑一律「順時針」繞向：nonzero 填色下重疊區才會相加成聯集，
+  // 繞向混用會讓重疊區抵銷成洞，通道中央就出現像斷路的缺口
+  const rect = (x0,y0,x1,y1)=>`M${x0},${y0} L${x1},${y0} L${x1},${y1} L${x0},${y1} Z `;
+  const armsPath = (w, stop)=>{
+    let s='';
+    if(e[0]) s+=rect(CX-w, 0,       CX+w, CY-stop);
+    if(e[1]) s+=rect(CX+stop, CY-w, W,    CY+w);
+    if(e[2]) s+=rect(CX-w, CY+stop, CX+w, H);
+    if(e[3]) s+=rect(0,    CY-w,    CX-stop, CY+w);
+    if(thru) s+=rect(CX-w, CY-w, CX+w, CY+w);
+    return s;
   };
-  let d0='';
-  for(let d=0;d<4;d++) if(e[d]) d0 += seg(d)[0]+' ';
-  if(thru) d0 += `M${CX-half},${CY-half} h${AW} v${AW} h-${AW} Z `;
-  tun = `<path d="${d0}" fill="url(#g_tunnel)" filter="url(#f_rough)"/>`;
-  // 地板（內縮 6）
-  const half2 = half-6;
-  let d1='';
-  for(let d=0;d<4;d++){
-    if(!e[d]) continue;
-    const stop = thru ? 0 : armLen+3;
-    if(d===0) d1+=`M${CX-half2},0 L${CX+half2},0 L${CX+half2},${CY-stop} L${CX-half2},${CY-stop} Z `;
-    if(d===2) d1+=`M${CX-half2},${H} L${CX+half2},${H} L${CX+half2},${CY+stop} L${CX-half2},${CY+stop} Z `;
-    if(d===1) d1+=`M${W},${CY-half2} L${W},${CY+half2} L${CX+stop},${CY+half2} L${CX+stop},${CY-half2} Z `;
-    if(d===3) d1+=`M0,${CY-half2} L0,${CY+half2} L${CX-stop},${CY+half2} L${CX-stop},${CY-half2} Z `;
-  }
-  if(thru) d1 += `M${CX-half2},${CY-half2} h${half2*2} v${half2*2} h-${half2*2} Z `;
-  floor = `<path d="${d1}" fill="url(#g_floor)" opacity=".92" filter="url(#f_rough2)"/>`;
+  tun = `<path d="${armsPath(hD, thru?0:armLen)}" fill="url(#g_tunnel)" filter="url(#f_rough)"/>`;
+  // 地板：乾淨連續面（不做位移粗糙，粗糙感由外圍坑壁層提供）
+  floor = `<path d="${armsPath(half2, thru?0:armLen+3)}" fill="url(#g_floor)" opacity=".95"/>`;
   // 碎石地板點
   let dots='';
   for(let i=0;i<26;i++){
@@ -1257,8 +1249,8 @@ function tunnelArt(e, thru, seedStr){
     else if(d===2){ px=CX-half2+rnd()*half2*2; py=H-rnd()*(H-CY-(thru?0:armLen)); }
     else if(d===1){ px=W-rnd()*(W-CX-(thru?0:armLen)); py=CY-half2+rnd()*half2*2; }
     else { px=rnd()*(CX-(thru?0:armLen)); py=CY-half2+rnd()*half2*2; }
-    const r=.8+rnd()*1.6;
-    dots += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(1)}" fill="${rnd()<.5?'#3b332a':'#7d7160'}" opacity=".55"/>`;
+    const r=.8+rnd()*1.4;
+    dots += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(1)}" fill="${rnd()<.5?'#6b5f4e':'#8a7d68'}" opacity=".45"/>`;
   }
   // 木樑：每個開口一組（雙柱+橫樑）
   const beam = (d)=>{
