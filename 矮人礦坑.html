@@ -339,12 +339,66 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 
 /* ── 手機緊湊 ───────────────────────────────────────────── */
 @media(max-width:640px){
-  #boardVp{ height:46vh; min-height:270px; }
-  .hcard{ width:64px; flex-basis:64px; }
-  #hand{ min-height:104px; }
-  .pchip .nm{ max-width:64px; }
-  .abtn{ padding:8px 12px; font-size:12px; }
   .glass{ padding:14px; }
+}
+
+/* ── 手機 App 式一屏佈局（≤700px）──────────────────────────
+   玩家列＝一條橫向滑動窄條、棋盤吃掉剩餘高度、手牌固定底部、
+   日誌縮成小面板；遊戲中鎖住頁面捲動（body.ingame）。 */
+@media(max-width:700px){
+  body.ingame{ overflow:hidden; }
+  .app-header{ padding:8px 10px; min-height:46px; gap:6px; }
+  .app-header h1{ font-size:14px; }
+  .hbtn{ font-size:11px; padding:4px 8px; border-radius:7px; }
+  .status-pill{ font-size:10px; padding:3px 8px; }
+  #statusTxt{ max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .page-content{ padding:6px 6px 8px; }
+
+  #game{ display:flex; flex-direction:column; gap:6px; }   /* 高度由 JS 依視窗實測設定 */
+  .table-wrap{ display:contents; }                          /* 讓子元素直接參與 #game 直欄排序 */
+
+  #pchips{
+    order:0; width:auto; flex:0 0 auto; height:auto; min-height:0;
+    flex-direction:row; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+    gap:6px; padding:2px 2px 4px;
+  }
+  .pchip{ flex:0 0 auto; padding:4px 8px; gap:5px; border-radius:9px; }
+  .pchip .avatar{ width:20px; height:20px; font-size:12px; }
+  .pchip .nm{ max-width:58px; font-size:10.5px; }
+  .pchip .sub{ gap:3px; font-size:9px; }
+  .handn{ display:none; }
+  .toolico{ width:13px; height:13px; }
+  .roundinfo{ margin:0; flex:0 0 auto; padding:4px 8px; font-size:10.5px; gap:5px; }
+  .deckpile .mini{ width:14px; height:22px; }
+
+  #boardVp{ order:1; flex:1 1 auto; height:auto; min-height:0; }
+  .compass{ display:none; }
+  .zoombtns button{ width:30px; height:30px; font-size:15px; }
+
+  #handBar{ order:2; flex:0 0 auto; margin-top:0; padding:6px 8px; border-radius:12px; }
+  .hb-top{ margin-bottom:4px; min-height:0; gap:6px; }
+  .hb-top .who{ font-size:11px; }
+  .rolebadge{ font-size:9.5px; padding:2px 7px; }
+  .mytools .toolico{ width:16px; height:16px; }
+  .kg{ font-size:9px; padding:1px 5px; }
+  .turnhint{ font-size:10.5px; }
+  #hand{ min-height:0; gap:6px; padding:4px 2px 2px; }
+  .hcard{ width:56px; flex-basis:56px; }
+  .hcard:hover{ transform:none; }
+  .hcard.sel{ transform:translateY(-8px) scale(1.05); }
+  .hb-actions{ gap:5px; margin-top:5px; }
+  .abtn{ padding:6px 9px; font-size:11px; border-radius:7px; }
+  .acthint{ font-size:10px; }
+
+  #logPanel{ order:3; flex:0 0 auto; width:auto; height:80px; min-height:80px; padding:5px 4px 5px 8px; }
+  #logPanel .lt{ font-size:10px; margin-bottom:3px; }
+  #log{ font-size:10.5px; line-height:1.6; }
+
+  #toasts{ top:26%; gap:6px; }
+  .toast{ font-size:12px; padding:7px 14px; border-radius:9px; }
+  .toast.big{ font-size:14px; padding:10px 20px; }
+  .mbox{ padding:14px; }
+  .cardshow .cs{ width:96px; }
 }
 </style>
 </head>
@@ -1674,7 +1728,9 @@ function renderOverlays(){
 function applyPan(){ $('boardIn').style.transform=`translate(${APP.panX}px,${APP.panY}px) scale(${APP.zoom})`; }
 function zoomFit(){
   const vp=$('boardVp');
-  APP.zoom = Math.min(1, Math.max(.42, (vp.clientWidth<640?.5:.78)));
+  // 縮放以「起點到終點整段（約 9.8 格寬）」能入鏡為準，窄螢幕自動縮小
+  const fitW=(vp.clientWidth-16)/(9.8*PX);
+  APP.zoom = Math.min(.78, Math.max(.3, fitW));
   const c=cellPos(4,0);
   APP.panX = vp.clientWidth/2 - (c.left+49)*APP.zoom;
   APP.panY = vp.clientHeight/2 - (c.top+76)*APP.zoom;
@@ -2036,6 +2092,7 @@ function leaveToLobby(){
   NET.teardown();
   APP.G=null; APP.CG=null; APP.priv=null; APP.mode=null; APP.sel=null; APP.targeting=null;
   $('game').hidden=true; $('lobby').hidden=false; $('btnLeave').hidden=true;
+  fitGameHeight();
   setStatus('單機待命');
 }
 $('btnLeave').addEventListener('click',()=>{
@@ -2096,8 +2153,23 @@ $('startLocal').addEventListener('click',()=>{
 function enterGame(){
   $('lobby').hidden=true; $('game').hidden=false; $('btnLeave').hidden=false;
   APP.prevLogN=0;
+  fitGameHeight();
   requestAnimationFrame(zoomFit);
 }
+// 手機（≤700px）：#game 高度＝視窗高－頁首，整局一屏內完成、鎖住頁面捲動
+function fitGameHeight(){
+  const g=$('game');
+  if(g.hidden){ document.body.classList.remove('ingame'); g.style.height=''; return; }
+  if(window.innerWidth<=700){
+    const hdr=document.querySelector('.app-header');
+    g.style.height=(window.innerHeight-(hdr?hdr.offsetHeight:48)-14)+'px';
+    document.body.classList.add('ingame');
+  } else {
+    g.style.height='';
+    document.body.classList.remove('ingame');
+  }
+}
+window.addEventListener('resize', ()=>{ fitGameHeight(); });
 
 /* ── 大廳模式切換 ─────────────────────────────────────────── */
 $('modes').addEventListener('click',e=>{
