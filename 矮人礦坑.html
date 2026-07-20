@@ -174,10 +174,11 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   width:230px; border-radius:14px; background:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.75);
   border-bottom-color:rgba(40,40,40,.14); border-right-color:rgba(40,40,40,.14);
   box-shadow:rgba(0,0,0,.08) 2px 6px 16px; padding:10px 4px 10px 12px; display:flex; flex-direction:column;
+  height:56vh; min-height:330px;   /* 跟 #boardVp 同高：面板不隨日誌變長，內容在 #log 內捲動 */
 }
-@media(max-width:900px){ #logPanel{ width:auto; max-height:150px; } }
+@media(max-width:900px){ #logPanel{ width:auto; height:150px; min-height:150px; } }
 #logPanel .lt{ font-size:11.5px; font-weight:700; color:#8a6524; letter-spacing:.08em; margin-bottom:6px; }
-#log{ flex:1; overflow-y:auto; font-size:12px; color:#475569; line-height:1.75; padding-right:8px; }
+#log{ flex:1; min-height:0; overflow-y:auto; font-size:12px; color:#475569; line-height:1.75; padding-right:8px; }
 #log .me{ color:#8a6524; font-weight:600; }
 #log .warn{ color:#b91c1c; }
 #log .good{ color:#15803d; }
