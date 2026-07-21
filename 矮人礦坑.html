@@ -116,12 +116,23 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .pchip.p5{ background:#fdefe3; border-color:#f2cba4; }
 .pchip.p6{ background:#fde9f2; border-color:#f2b8d2; }
 .pchip.p7{ background:#eceff3; border-color:#c3ccd6; }
-.pchip .avatar{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.12); }
+/* 玩家色點：與棋盤卡片左上角鋪牌者標記（.bby）同色同樣式 */
+.pchip .avatar{
+  width:15px; height:15px; border-radius:50%; flex:0 0 auto;
+  border:2px solid rgba(10,7,4,.65);
+  box-shadow:0 1px 4px rgba(0,0,0,.35), inset 0 1px 1px rgba(255,255,255,.35);
+}
 .pchip .nm{ font-weight:700; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pchip .sub{ display:flex; gap:5px; align-items:center; color:#64748b; font-size:11px; }
 .pchip .goldn{ color:#b07b10; font-weight:700; }
 .pchip.turn{ border-color:#caa24b; box-shadow:0 0 0 3px rgba(202,162,75,.32); }
 .pn{ font-weight:700; }
+/* 名字前的玩家色圈：日誌/置中訊息/結算表與棋盤鋪牌者標記同色 */
+.pdot{
+  display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:3px;
+  border:1.5px solid rgba(10,7,4,.45); vertical-align:-1px;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.35);
+}
 .pn.p0{ color:#a06e0d; } .pn.p1{ color:#d03030; } .pn.p2{ color:#2563eb; } .pn.p3{ color:#0d9488; }
 .pn.p4{ color:#7c3aed; } .pn.p5{ color:#ea580c; } .pn.p6{ color:#db2777; } .pn.p7{ color:#475569; }
 .pchip.turn .avatar{ animation:bob 1.1s infinite ease-in-out; }
@@ -363,7 +374,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
     gap:6px; padding:2px 2px 4px;
   }
   .pchip{ flex:0 0 auto; padding:4px 8px; gap:5px; border-radius:9px; }
-  .pchip .avatar{ width:20px; height:20px; font-size:12px; }
+  .pchip .avatar{ width:12px; height:12px; }
   .pchip .nm{ max-width:58px; font-size:10.5px; }
   .pchip .sub{ gap:3px; font-size:9px; }
   .handn{ display:none; }
@@ -1534,7 +1545,6 @@ const APP = {
   zoom:.8, panX:0, panY:0,
   aiTimer:null, cellEls:new Map(), handSig:'',
 };
-const AVATARS = ['🧔','👷','🧑‍🏭','🧙','🧝','🥷','🧑‍🌾','🦹'];
 const SEAT_COLORS = ['#caa24b','#d03030','#2563eb','#0d9488','#7c3aed','#ea580c','#db2777','#475569'];
 const AI_NAMES = ['紅鬍','石斧','油燈','煤球','銀鎬','火藥','岩爪'];
 const OX=14, OY=11, PX=104, PY=160;
@@ -1648,7 +1658,9 @@ function shim(){   // 給引擎驗證函式用的輕量狀態（client 也能算
 }
 function myTurn(){ const st=stview(); return st && st.phase==='play' && st.turn===APP.my; }
 function nmOf(seat){ const st=stview(); const p=st.players[seat]; return p?p.name:'?'; }
-function nmHtml(seat){ return `<span class="pn p${seat}${seat===APP.my?' me':''}">${esc(nmOf(seat))}</span>`; }
+function pdot(seat){ return `<i class="pdot" style="background:${SEAT_COLORS[seat%SEAT_COLORS.length]}"></i>`; }
+// 日誌/置中訊息各玩家端各自渲染：自己顯示「你」，其他人顯示名字（都帶色圈）
+function nmHtml(seat){ return `<span class="pn p${seat}${seat===APP.my?' me':''}">${pdot(seat)}${seat===APP.my?'你':esc(nmOf(seat))}</span>`; }
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ── 棋盤渲染（增量：只動有變化的格，避免每手全盤重建 SVG 濾鏡）── */
@@ -1855,7 +1867,7 @@ function renderChips(){
     d.className='pchip p'+p.seat+(st.phase==='play'&&st.turn===p.seat?' turn':'');
     d.dataset.seat=p.seat;
     d.innerHTML=`
-      <span class="avatar">${p.seat===APP.my?'😎':AVATARS[p.seat%AVATARS.length]}</span>
+      <span class="avatar" style="background:${SEAT_COLORS[p.seat%SEAT_COLORS.length]}"></span>
       <span>
         <div class="nm">${esc(p.name)}${p.ai?' 🤖':''}${p.seat===APP.my?'（你）':''}</div>
         <div class="sub">
@@ -1909,7 +1921,7 @@ function toolsBrokenMine(){
 }
 function renderHand(){
   const st=stview(); if(!st) return;
-  $('meName').textContent=nmOf(APP.my);
+  $('meName').innerHTML=pdot(APP.my)+esc(nmOf(APP.my));
   const rb=$('meRole');
   if(st.myRole){ rb.hidden=false; rb.textContent=st.myRole==='sab'?'破壞者':'金礦工'; rb.className='rolebadge'+(st.myRole==='sab'?' sab':''); }
   else rb.hidden=true;
@@ -2107,7 +2119,7 @@ function showRoundEnd(){
   const roleName = s=>r.roles[s]==='sab'?'💣 破壞者':'⛏️ 金礦工';
   const rows = st.players.map(p=>{
     const share=(r.shares||[]).find(x=>x.seat===p.seat);
-    return `<tr><td>${esc(p.name)}${p.seat===APP.my?'（你）':''}</td><td>${roleName(p.seat)}</td>
+    return `<tr><td>${pdot(p.seat)}${esc(p.name)}${p.seat===APP.my?'（你）':''}</td><td>${roleName(p.seat)}</td>
       <td class="g">${share?'+'+share.gold:'—'}</td><td class="g">⛁ ${p.gold}</td></tr>`;
   }).join('');
   const hasSab = r.roles.includes('sab');
@@ -2129,7 +2141,7 @@ function showFinal(){
   const rank=[...st.players].sort((a,b)=>b.gold-a.gold);
   const top=rank[0].gold;
   const winners=rank.filter(p=>p.gold===top);
-  const rows=rank.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}${p.seat===APP.my?'（你）':''}</td><td class="g">⛁ ${p.gold}</td></tr>`).join('');
+  const rows=rank.map((p,i)=>`<tr><td>${i+1}</td><td>${pdot(p.seat)}${esc(p.name)}${p.seat===APP.my?'（你）':''}</td><td class="g">⛁ ${p.gold}</td></tr>`).join('');
   const iWon=winners.some(p=>p.seat===APP.my);
   if(iWon) sfx('gold'); else sfx('lose');
   const btns=[];
@@ -2206,7 +2218,7 @@ $('startLocal').addEventListener('click',()=>{
   APP.mode='local'; APP.my=0;
   const n=npChoice();
   const names=[myName()], ai=[false];
-  for(let s=1;s<n;s++){ names.push('電腦・'+AI_NAMES[s-1]); ai.push(true); }
+  for(let s=1;s<n;s++){ names.push(AI_NAMES[s-1]); ai.push(true); }   // 🤖 標記已足夠，不加「電腦・」前綴
   APP.G=SAB.newGame(names, ai, (Math.random()*0xffffffff)>>>0);
   enterGame();
   startRound();
@@ -2626,7 +2638,7 @@ function startOnline(){
   const n=npChoice();
   const names=[myName()], ai=[false];
   for(let s=1;s<n;s++){
-    names.push(seatInfo[s] ? seatInfo[s].name : '電腦・'+AI_NAMES[(s-1)%AI_NAMES.length]);
+    names.push(seatInfo[s] ? seatInfo[s].name : AI_NAMES[(s-1)%AI_NAMES.length]);
     ai.push(!seatInfo[s]);
   }
   APP.G=SAB.newGame(names, ai, (Math.random()*0xffffffff)>>>0);
