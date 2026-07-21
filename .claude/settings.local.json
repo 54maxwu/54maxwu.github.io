@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(node \"C:\\\\Users\\\\54max\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--54maxwu-github-io\\\\c21bb45d-7417-45b5-96dd-47fe31b34d68\\\\scratchpad\\\\realfiles.js\")",
+      "PowerShell(node --version)",
+      "PowerShell(node -e \"const vm=require\\('vm'\\);const fs=require\\('fs'\\);const sb={};vm.createContext\\(sb\\);vm.runInContext\\(fs.readFileSync\\('d:/54maxwu.github.io/gua/gua-data.js','utf8'\\)+';this.a=GUA64.find\\(g=>g.name==='������'\\).level;this.b=GUA64.find\\(g=>g.name==='�[���a'\\).level;',sb\\);console.log\\('������:',sb.a,'�[���a:',sb.b\\)\")",
+      "PowerShell(node \"C:\\\\Users\\\\54max\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--54maxwu-github-io\\\\88ecb5bc-4f5e-4ebf-8d62-ae961c09992a\\\\scratchpad\\\\verify-final.js\")",
+      "Bash(node -e ' *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat\\(imgconv\\): 新增圖片轉檔工具箱（轉檔/去背/ICO）並加入 Tool Hub 清單 *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "/private/tmp"

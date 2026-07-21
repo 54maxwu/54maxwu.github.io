@@ -211,6 +211,17 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .zoombtns button:hover{ background:rgba(60,45,26,.85); }
 .compass{ position:absolute; left:10px; top:10px; z-index:8; font-size:11px; color:#c8b98f; background:rgba(30,22,14,.6); padding:4px 9px; border-radius:8px; border:1px solid rgba(255,235,190,.18); }
 
+/* ── 手機邊緣把手（玩家抽屜/日誌抽屜/頁首開合；僅 ≤700px 遊戲中顯示）── */
+.edgetab{
+  display:none; position:fixed; z-index:46; width:30px; height:58px;
+  align-items:center; justify-content:center; font-size:15px; padding:0; cursor:pointer;
+  border:1px solid rgba(255,235,190,.3); background:rgba(30,22,14,.78); color:#e8d9a8;
+  backdrop-filter:blur(3px);
+}
+.edgetab.left{ left:0; top:36%; border-left:none; border-radius:0 10px 10px 0; }
+.edgetab.right{ right:0; top:36%; border-right:none; border-radius:10px 0 0 10px; }
+#hdrTab{ left:auto; right:6px; top:6px; width:36px; height:30px; border-radius:8px; font-size:14px; }
+
 /* ── 日誌 ───────────────────────────────────────────────── */
 #logPanel{
   width:230px; border-radius:14px; background:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.75);
@@ -368,19 +379,22 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   #game{ display:flex; flex-direction:column; gap:6px; }   /* 高度由 JS 依視窗實測設定 */
   .table-wrap{ display:contents; }                          /* 讓子元素直接參與 #game 直欄排序 */
 
+  /* 頁首預設收起（☰ 展開）：棋盤吃掉整個上方空間 */
+  body.ingame .app-header{ display:none; }
+  body.ingame.hdr-open .app-header{ display:flex; padding-right:48px; }
+  body.ingame .edgetab{ display:flex; }
+
+  /* 玩家資訊＝左抽屜、日誌＝右抽屜；把手展開，破壞/修復選目標時自動打開玩家抽屜 */
   #pchips{
-    order:0; width:auto; flex:0 0 auto; height:auto; min-height:0;
-    flex-direction:row; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
-    gap:6px; padding:2px 2px 4px;
+    position:fixed; left:0; top:0; bottom:0; z-index:45; width:200px;
+    flex-direction:column; flex-wrap:nowrap; overflow-y:auto; overflow-x:hidden;
+    gap:8px; padding:12px 10px; height:auto; min-height:0;
+    background:rgba(247,244,238,.97); border-right:1px solid rgba(0,0,0,.12);
+    box-shadow:6px 0 22px rgba(0,0,0,.25);
+    transform:translateX(-103%); transition:transform .22s ease;
   }
-  .pchip{ flex:0 0 auto; padding:4px 8px; gap:5px; border-radius:9px; }
-  .pchip .avatar{ width:12px; height:12px; }
-  .pchip .nm{ max-width:58px; font-size:10.5px; }
-  .pchip .sub{ gap:3px; font-size:9px; }
-  .handn{ display:none; }
-  .toolico{ width:13px; height:13px; }
-  .roundinfo{ margin:0; flex:0 0 auto; padding:4px 8px; font-size:10.5px; gap:5px; }
-  .deckpile .mini{ width:14px; height:22px; }
+  body.chips-open #pchips{ transform:none; }
+  .roundinfo{ margin-top:auto; }
 
   #boardVp{ order:1; flex:1 1 auto; height:auto; min-height:0; }
   .compass{ display:none; }
@@ -401,9 +415,14 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   .abtn{ padding:6px 9px; font-size:11px; border-radius:7px; }
   .acthint{ font-size:10px; }
 
-  #logPanel{ order:3; flex:0 0 auto; width:auto; height:80px; min-height:80px; padding:5px 4px 5px 8px; }
-  #logPanel .lt{ font-size:10px; margin-bottom:3px; }
-  #log{ font-size:10.5px; line-height:1.6; }
+  #logPanel{
+    position:fixed; right:0; top:0; bottom:0; z-index:45; width:232px;
+    height:auto; min-height:0; padding:12px 6px 12px 12px; border-radius:0;
+    background:rgba(252,250,245,.97); border-left:1px solid rgba(0,0,0,.12);
+    box-shadow:-6px 0 22px rgba(0,0,0,.25);
+    transform:translateX(103%); transition:transform .22s ease;
+  }
+  body.log-open #logPanel{ transform:none; }
 
   #toasts{ top:26%; gap:6px; }
   .toast{ font-size:12px; padding:7px 14px; border-radius:9px; }
@@ -532,6 +551,11 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
     </div>
   </div>
 </div>
+
+<!-- 手機邊緣把手：玩家抽屜 / 日誌抽屜 / 展開頁首 -->
+<button class="edgetab left" id="chipsTab" title="玩家資訊">👥</button>
+<button class="edgetab right" id="logTab" title="礦坑日誌">📜</button>
+<button class="edgetab" id="hdrTab" title="選單">☰</button>
 
 <!-- ═══ 通用 modal ═══ -->
 <div class="overlay" id="modal">
@@ -1549,6 +1573,10 @@ const SEAT_COLORS = ['#caa24b','#d03030','#2563eb','#0d9488','#7c3aed','#ea580c'
 const AI_NAMES = ['紅鬍','石斧','油燈','煤球','銀鎬','火藥','岩爪'];
 const OX=14, OY=11, PX=104, PY=160;
 function npChoice(){ return APP.np || 6; }
+// 手機直版：礦坑改「由上往下挖」。純顯示層旋轉（座標轉置＋卡面轉 90°），
+// 引擎座標不動，桌機/手機混連完全相容。
+function isVert(){ return window.innerWidth<=700; }
+const vrot = r => (r + (isVert()?1:0)) % 4;   // 渲染用旋轉（順時針 90°）
 
 /* ── 音效（WebAudio 合成，無外部音檔）───────────────────── */
 const SND = { ctx:null, on:(function(){ try{ return localStorage.getItem('sab_snd')!=='0'; }catch(e){ return true; } })() };
@@ -1664,7 +1692,11 @@ function nmHtml(seat){ return `<span class="pn p${seat}${seat===APP.my?' me':''}
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ── 棋盤渲染（增量：只動有變化的格，避免每手全盤重建 SVG 濾鏡）── */
-function cellPos(x,y){ return { left:(x+OX)*PX, top:(y+OY)*PY }; }
+function cellPos(x,y){
+  return isVert()
+    ? { left:(SAB.BOUND.maxY-y)*PX, top:(x-SAB.BOUND.minX)*PY }   // 棋盤 +x（挖礦方向）→ 畫面往下
+    : { left:(x+OX)*PX, top:(y+OY)*PY };
+}
 function resetBoardDom(){          // 換回合／進新局時整盤重來
   APP.cellEls=new Map();
   APP.handSig='';
@@ -1673,10 +1705,11 @@ function resetBoardDom(){          // 換回合／進新局時整盤重來
 function renderBoard(){
   const st=stview(); if(!st) return;
   const bi=$('boardIn');
-  const wantW=((OX+SAB.BOUND.maxX+1)*PX+PX)+'px';
+  const vert=isVert();
+  const wantW=(((vert?SAB.BOUND.maxY-SAB.BOUND.minY:OX+SAB.BOUND.maxX)+2)*PX)+'px';
   if(bi.style.width!==wantW){
     bi.style.width=wantW;
-    bi.style.height=((OY+SAB.BOUND.maxY+1)*PY+PY)+'px';
+    bi.style.height=(((vert?SAB.BOUND.maxX-SAB.BOUND.minX:OY+SAB.BOUND.maxY)+2)*PY)+'px';
   }
   const cells=APP.cellEls;
   const fresh=cells.size===0;      // 初盤整批出現：不播放置動畫
@@ -1696,7 +1729,7 @@ function renderBoard(){
     }
     el.dataset.sig=sig;
     el.className='bcell'+(isNew && !fresh ? (pc.card.k==='goal'?' flipping':' placed') : '');
-    el.innerHTML=CARDS.cardSVG(pc.card, pc.rot);
+    el.innerHTML=CARDS.cardSVG(pc.card, vrot(pc.rot));
     // 鋪牌者標記：左上角顏色圓點（懸停顯示名字；點卡片會置中顯示）
     if(pc.by!=null && pc.by>=0 && pc.card.k==='path'){
       el.dataset.by=pc.by;
@@ -1738,7 +1771,7 @@ function renderOverlays(){
       const p=cellPos(pl.x,pl.y);
       const d=document.createElement('div');
       d.className='ghost'; d.style.left=p.left+'px'; d.style.top=p.top+'px';
-      d.innerHTML=CARDS.cardSVG(APP.sel.card, pl.rot);
+      d.innerHTML=CARDS.cardSVG(APP.sel.card, vrot(pl.rot));
       d.addEventListener('click',ev=>{ ev.stopPropagation(); submitMove({type:'path', hi:APP.sel.hi, uid:APP.sel.card.uid, rot:pl.rot, x:pl.x, y:pl.y}); });
       bi.appendChild(d);
     }
@@ -1772,10 +1805,10 @@ function renderOverlays(){
 function applyPan(){ $('boardIn').style.transform=`translate(${APP.panX}px,${APP.panY}px) scale(${APP.zoom})`; }
 function zoomFit(){
   const vp=$('boardVp');
-  // 縮放以「起點到終點整段（約 9.8 格寬）」能入鏡為準，窄螢幕自動縮小
-  const fitW=(vp.clientWidth-16)/(9.8*PX);
-  APP.zoom = Math.min(.78, Math.max(.3, fitW));
-  const c=cellPos(4,0);
+  // 縮放以「起點到終點整段（約 9.8 格）」入鏡為準：橫版比寬度、直版（往下挖）比高度
+  const fit=((isVert()?vp.clientHeight:vp.clientWidth)-16)/(9.8*(isVert()?PY:PX));
+  APP.zoom = Math.min(.78, Math.max(.3, fit));
+  const c=cellPos(4,0);                       // 起點與終點的中間格置中（cellPos 已含方向）
   APP.panX = vp.clientWidth/2 - (c.left+49)*APP.zoom;
   APP.panY = vp.clientHeight/2 - (c.top+76)*APP.zoom;
   applyPan();
@@ -1940,7 +1973,7 @@ function renderHand(){
 
   // 手牌沒變化（含選取/旋轉/可動狀態）就不重建，省掉整排 SVG 濾鏡重繪
   const hd=$('hand');
-  const hsig=st.round+'|'+st.myHand.map(c=>c.uid).join(',')+'|'+(APP.sel?APP.sel.hi+':'+APP.sel.rot:'-')+'|'+(mine?1:0);
+  const hsig=st.round+'|'+st.myHand.map(c=>c.uid).join(',')+'|'+(APP.sel?APP.sel.hi+':'+APP.sel.rot:'-')+'|'+(mine?1:0)+'|'+(isVert()?'V':'H');
   if(APP.handSig!==hsig){
     APP.handSig=hsig;
     hd.innerHTML='';
@@ -1948,7 +1981,7 @@ function renderHand(){
       const d=document.createElement('div');
       const selOn = APP.sel && APP.sel.hi===hi;
       d.className='hcard'+(selOn?' sel':'')+(!mine?' dis':'');
-      d.innerHTML=CARDS.cardSVG(c, selOn && c.k==='path' ? APP.sel.rot : 0);
+      d.innerHTML=CARDS.cardSVG(c, vrot(selOn && c.k==='path' ? APP.sel.rot : 0));   // 直版手牌同步轉向，跟棋盤一致
       d.addEventListener('click',()=>{ if(mine) selectCard(hi); });
       hd.appendChild(d);
     });
@@ -1992,10 +2025,16 @@ function selectCard(hi){
     else if(c.a==='map') APP.targeting={kind:'map', hi, card:c};
     const targets=SAB.legalActionTargets(shim(), APP.my, c);
     if(!targets.length){ banner('這張卡目前沒有合法目標，只能棄掉'); APP.targeting=null; }
+    else if(isVert() && (c.a==='break'||c.a==='repair'))
+      document.body.classList.add('chips-open');            // 手機：目標在玩家抽屜裡，自動打開
   }
   renderHand(); renderOverlays(); updateTargetables();
 }
-function clearSel(){ APP.sel=null; APP.targeting=null; renderHand(); renderOverlays(); updateTargetables(); }
+function clearSel(){
+  APP.sel=null; APP.targeting=null;
+  if(isVert()) document.body.classList.remove('chips-open');
+  renderHand(); renderOverlays(); updateTargetables();
+}
 $('btnRotate').addEventListener('click',()=>{ if(APP.sel){ APP.sel.rot=APP.sel.rot===0?2:0; renderHand(); renderOverlays(); } });
 $('btnCancel').addEventListener('click',clearSel);
 $('btnDiscard').addEventListener('click',()=>{
@@ -2163,6 +2202,7 @@ function leaveToLobby(){
   keepAwake(false);
   APP.G=null; APP.CG=null; APP.priv=null; APP.mode=null; APP.sel=null; APP.targeting=null;
   $('game').hidden=true; $('lobby').hidden=false; $('btnLeave').hidden=true;
+  document.body.classList.remove('hdr-open','chips-open','log-open');
   fitGameHeight();
   setStatus('單機待命');
 }
@@ -2226,6 +2266,8 @@ $('startLocal').addEventListener('click',()=>{
 });
 function enterGame(){
   $('lobby').hidden=true; $('game').hidden=false; $('btnLeave').hidden=false;
+  document.body.classList.remove('hdr-open','chips-open','log-open');
+  APP.lastVert=isVert();
   fitGameHeight();
   keepAwake(true);
   requestAnimationFrame(zoomFit);
@@ -2255,7 +2297,14 @@ function fitGameHeight(){
     document.body.classList.remove('ingame');
   }
 }
-window.addEventListener('resize', ()=>{ fitGameHeight(); });
+window.addEventListener('resize', ()=>{
+  fitGameHeight();
+  const v=isVert();                            // 跨越 700px（轉向/縮放視窗）→ 挖礦方向改變，整盤重繪
+  if(APP.lastVert!==undefined && v!==APP.lastVert && !$('game').hidden){
+    resetBoardDom(); renderAll(); zoomFit();
+  }
+  APP.lastVert=v;
+});
 
 /* ── 大廳模式切換 ─────────────────────────────────────────── */
 $('modes').addEventListener('click',e=>{
@@ -2327,7 +2376,7 @@ $('btnRules').addEventListener('click',()=>{
   showModal({ title:'📜 規則（4–8 人・三回合）', wide:true, body:`
   <b>身分</b>：每回合暗發身分卡（人數+1 張、蓋掉 1 張）——內鬼數上限：4 人→1、5-6 人→2、7-8 人→3，實際可能更少。<br>
   <b>手牌</b>：4-5 人 6 張、6-7 人 5 張、8 人 4 張。<br>
-  <b>目標</b>：礦工把通道從「起點」一路接到右邊 8 格外的三張終點之一（其中 1 張是金礦）；破壞者要拖到牌庫抽光。<br><br>
+  <b>目標</b>：礦工把通道從「起點」一路接到 8 格外的三張終點之一（電腦往右挖、手機直版往下挖；其中 1 張是金礦）；破壞者要拖到牌庫抽光。<br><br>
   <b>你的回合</b>：出 1 張牌（鋪通道／行動卡）或蓋牌棄 1 張，然後補 1 張。<br>
   ・<b>通道卡</b>：必須和既有通路相連且開口對開口、牆對牆（可按「旋轉 180°」）。<b>死路卡</b>外觀相似但中央不通！<br>
   ・<b>破壞</b>：弄壞別人的鎬／燈／礦車——工具壞了不能鋪路。<b>修復</b>可救自己或別人。<br>
@@ -2338,6 +2387,20 @@ $('btnRules').addEventListener('click',()=>{
   每張通道卡左上角的<b>顏色圓點</b>代表鋪牌的人；<b>點一下卡片</b>可查看是誰鋪的。<br>
   <b>連線</b>：最多 4 位真人同房，其餘座位由電腦補。斷線超過 15 秒改由電腦代打；用<b>同一裝置重新加入同房號</b>即可接回座位。`,
   buttons:[{label:'開挖！', primary:true}] });
+});
+
+/* ── 手機把手：玩家抽屜 / 日誌抽屜（互斥）、頁首開合 ───────── */
+$('chipsTab').addEventListener('click',()=>{
+  document.body.classList.toggle('chips-open');
+  document.body.classList.remove('log-open');
+});
+$('logTab').addEventListener('click',()=>{
+  document.body.classList.toggle('log-open');
+  document.body.classList.remove('chips-open');
+});
+$('hdrTab').addEventListener('click',()=>{
+  document.body.classList.toggle('hdr-open');
+  fitGameHeight();                              // 頁首佔位改變 → 重算 #game 高度
 });
 
 /* ── 啟動 ─────────────────────────────────────────────────── */
