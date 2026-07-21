@@ -59,7 +59,17 @@ body{
 .lob-title{ font-size:15px; font-weight:700; margin-bottom:4px; }
 .lob-sub{ color:#64748b; font-size:12.5px; margin-bottom:16px; }
 .modes{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px; }
-@media(max-width:600px){ .modes{ grid-template-columns:1fr; } }
+/* 手機：三種模式改正方形併排 */
+@media(max-width:600px){
+  .modes{ gap:8px; }
+  .mode{
+    aspect-ratio:1; padding:8px 6px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  }
+  .mode .ico{ font-size:26px; margin-bottom:4px; }
+  .mode .t{ font-size:12.5px; }
+  .mode .d{ font-size:9.5px; line-height:1.35; margin-top:3px; color:#94a3b8; }
+}
 .mode{
   text-align:left; border:1px solid #e2e8f0; background:#fff; border-radius:10px;
   padding:14px; cursor:pointer; font:inherit; transition:.14s;
@@ -395,9 +405,15 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   }
   body.chips-open #pchips{ transform:none; }
   .roundinfo{ margin-top:auto; }
+  /* 抽屜打開時，把手跟著滑到抽屜外緣（不遮內容，也就是關閉鈕） */
+  #chipsTab{ transition:left .22s ease; }
+  #logTab{ transition:right .22s ease; }
+  body.chips-open #chipsTab{ left:200px; }
+  body.log-open #logTab{ right:232px; }
 
   #boardVp{ order:1; flex:1 1 auto; height:auto; min-height:0; }
   .compass{ display:none; }
+  .zoombtns{ top:44px; }                                    /* 讓開右上角 ☰ 把手 */
   .zoombtns button{ width:30px; height:30px; font-size:15px; }
 
   #handBar{ order:2; flex:0 0 auto; margin-top:0; padding:6px 8px; border-radius:12px; }
@@ -2025,14 +2041,17 @@ function selectCard(hi){
     else if(c.a==='map') APP.targeting={kind:'map', hi, card:c};
     const targets=SAB.legalActionTargets(shim(), APP.my, c);
     if(!targets.length){ banner('這張卡目前沒有合法目標，只能棄掉'); APP.targeting=null; }
-    else if(isVert() && (c.a==='break'||c.a==='repair'))
+    else if(isVert() && (c.a==='break'||c.a==='repair') && !document.body.classList.contains('chips-open')){
       document.body.classList.add('chips-open');            // 手機：目標在玩家抽屜裡，自動打開
+      APP.autoChips=true;                                   // 記下是自動開的，之後才自動關
+    }
   }
   renderHand(); renderOverlays(); updateTargetables();
 }
 function clearSel(){
   APP.sel=null; APP.targeting=null;
-  if(isVert()) document.body.classList.remove('chips-open');
+  // 只自動關「因選目標而自動開」的抽屜；手動打開的不動（AI 出牌也會走到這裡）
+  if(APP.autoChips){ document.body.classList.remove('chips-open'); APP.autoChips=false; }
   renderHand(); renderOverlays(); updateTargetables();
 }
 $('btnRotate').addEventListener('click',()=>{ if(APP.sel){ APP.sel.rot=APP.sel.rot===0?2:0; renderHand(); renderOverlays(); } });
@@ -2289,14 +2308,18 @@ function fitGameHeight(){
   const g=$('game');
   if(g.hidden){ document.body.classList.remove('ingame'); g.style.height=''; return; }
   if(window.innerWidth<=700){
-    const hdr=document.querySelector('.app-header');
-    g.style.height=(window.innerHeight-(hdr?hdr.offsetHeight:48)-14)+'px';
+    // 先套 ingame（頁首因此隱藏）再量高度，否則初次計算會多扣一截已隱藏的頁首
     document.body.classList.add('ingame');
+    const hdr=document.querySelector('.app-header');
+    const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+    g.style.height=(vh-(hdr?hdr.offsetHeight:0)-14)+'px';
   } else {
     g.style.height='';
     document.body.classList.remove('ingame');
   }
 }
+// iOS 網址列伸縮／鍵盤開合也會改變可視高度：跟著重算，隨時保持一屏擠滿
+if(window.visualViewport) window.visualViewport.addEventListener('resize', ()=>fitGameHeight());
 window.addEventListener('resize', ()=>{
   fitGameHeight();
   const v=isVert();                            // 跨越 700px（轉向/縮放視窗）→ 挖礦方向改變，整盤重繪
@@ -2393,6 +2416,7 @@ $('btnRules').addEventListener('click',()=>{
 $('chipsTab').addEventListener('click',()=>{
   document.body.classList.toggle('chips-open');
   document.body.classList.remove('log-open');
+  APP.autoChips=false;                          // 手動開關後，這扇門就歸使用者管
 });
 $('logTab').addEventListener('click',()=>{
   document.body.classList.toggle('log-open');
