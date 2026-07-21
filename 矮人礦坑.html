@@ -1351,7 +1351,8 @@ function startCardFace(){
   return wrap(base('url(#g_rock)','f_rock') + tunnelArt([1,1,1,1],1,'start') + ladder + label('起點',176,11) + frame());
 }
 function goalBackFace(){
-  return wrap(base('url(#g_back)','f_rock') + `
+  if(goalBackFace._c) return goalBackFace._c;
+  return goalBackFace._c = wrap(base('url(#g_back)','f_rock') + `
     <rect x="8" y="8" width="${W-16}" height="${H-16}" rx="7" fill="none" stroke="#c9a75a" stroke-width="1.6" opacity=".8"/>
     <rect x="12" y="12" width="${W-24}" height="${H-24}" rx="5" fill="none" stroke="#c9a75a" stroke-width=".8" opacity=".5"/>
     <circle cx="${CX}" cy="${CY-8}" r="30" fill="none" stroke="#c9a75a" stroke-width="1.6" opacity=".8"/>
@@ -1480,7 +1481,8 @@ function goldCardFace(v){
   return wrap(actionFrame('url(#g_back)', art, '金塊 × '+v, '#ffe08a') + frame());
 }
 function backFace(){
-  return wrap(base('url(#g_back)','f_rock') + `
+  if(backFace._c) return backFace._c;
+  return backFace._c = wrap(base('url(#g_back)','f_rock') + `
     <rect x="7" y="7" width="${W-14}" height="${H-14}" rx="7" fill="none" stroke="#c9a75a" stroke-width="1.8" opacity=".85"/>
     <rect x="11" y="11" width="${W-22}" height="${H-22}" rx="5" fill="none" stroke="#c9a75a" stroke-width=".8" opacity=".45"/>
     <circle cx="${CX}" cy="${CY}" r="34" fill="rgba(201,167,90,.08)" stroke="#c9a75a" stroke-width="1.6"/>
@@ -1492,8 +1494,7 @@ function backFace(){
 }
 
 // ── 對外：依卡片物件產生 SVG ───────────────────────────────
-function cardSVG(card, rot){
-  if(!card) return backFace();
+function buildCard(card, rot){
   if(card.k==='start') return startCardFace();
   if(card.k==='goal')  return card.kind==='gold' ? goalGoldFace() : goalStoneFace(rot||0);
   if(card.k==='path')  return pathCardFace(card, rot||0);
@@ -1504,6 +1505,15 @@ function cardSVG(card, rot){
     if(card.a==='map')    return mapFace();
   }
   return backFace();
+}
+// 同一張卡面會被重複產生非常多次（手牌重繪、連線快照重建）：以特徵鍵快取字串
+const svgCache=new Map();
+function cardSVG(card, rot){
+  if(!card) return backFace();
+  const key=(card.k||'')+'|'+(card.t||'')+'|'+(card.kind||'')+'|'+(card.uid||'')+'|'+(rot||0);
+  let s=svgCache.get(key);
+  if(s==null){ s=buildCard(card, rot); svgCache.set(key, s); }
+  return s;
 }
 
 return { DEFS, cardSVG, backFace, goalBackFace, goldCardFace, roleDigFace, roleSabFace, startCardFace };
@@ -1522,7 +1532,7 @@ const APP = {
   targeting:null,       // {kind, hi, card}
   CG:null, priv:null,   // client 端鏡像（公開盤面 / 私有手牌）
   zoom:.8, panX:0, panY:0,
-  aiTimer:null, prevKeys:new Set(), prevGoals:[], prevLogN:0,
+  aiTimer:null, cellEls:new Map(), handSig:'',
 };
 const AVATARS = ['🧔','👷','🧑‍🏭','🧙','🧝','🥷','🧑‍🌾','🦹'];
 const SEAT_COLORS = ['#caa24b','#d03030','#2563eb','#0d9488','#7c3aed','#ea580c','#db2777','#475569'];
@@ -1641,44 +1651,66 @@ function nmOf(seat){ const st=stview(); const p=st.players[seat]; return p?p.nam
 function nmHtml(seat){ return `<span class="pn p${seat}${seat===APP.my?' me':''}">${esc(nmOf(seat))}</span>`; }
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-/* ── 棋盤渲染 ─────────────────────────────────────────────── */
+/* ── 棋盤渲染（增量：只動有變化的格，避免每手全盤重建 SVG 濾鏡）── */
 function cellPos(x,y){ return { left:(x+OX)*PX, top:(y+OY)*PY }; }
+function resetBoardDom(){          // 換回合／進新局時整盤重來
+  APP.cellEls=new Map();
+  APP.handSig='';
+  const bi=$('boardIn'); if(bi) bi.innerHTML='';
+}
 function renderBoard(){
   const st=stview(); if(!st) return;
-  const bi=$('boardIn'); bi.innerHTML='';
-  bi.style.width=((OX+SAB.BOUND.maxX+1)*PX+PX)+'px';
-  bi.style.height=((OY+SAB.BOUND.maxY+1)*PY+PY)+'px';
-  const newKeys=new Set();
+  const bi=$('boardIn');
+  const wantW=((OX+SAB.BOUND.maxX+1)*PX+PX)+'px';
+  if(bi.style.width!==wantW){
+    bi.style.width=wantW;
+    bi.style.height=((OY+SAB.BOUND.maxY+1)*PY+PY)+'px';
+  }
+  const cells=APP.cellEls;
+  const fresh=cells.size===0;      // 初盤整批出現：不播放置動畫
+  const seen=new Set();
   for(const [k,pc] of st.board){
-    newKeys.add(k);
-    const [x,y]=k.split(',').map(Number);
-    const p=cellPos(x,y);
-    const d=document.createElement('div');
-    d.className='bcell'+(APP.prevKeys.size && !APP.prevKeys.has(k) ? (pc.card.k==='goal'?' flipping':' placed') : '');
-    d.style.left=p.left+'px'; d.style.top=p.top+'px';
-    d.innerHTML=CARDS.cardSVG(pc.card, pc.rot);
+    seen.add(k);
+    const sig=(pc.card.uid||'')+'|'+(pc.card.t||pc.card.k)+'|'+(pc.card.kind||'')+'|'+pc.rot+'|'+(pc.by==null?-1:pc.by);
+    let el=cells.get(k);
+    if(el && el.dataset.sig===sig) continue;
+    const isNew=!el;
+    if(isNew){
+      el=document.createElement('div');
+      const [x,y]=k.split(',').map(Number);
+      const p=cellPos(x,y);
+      el.style.left=p.left+'px'; el.style.top=p.top+'px';
+      bi.appendChild(el); cells.set(k,el);
+    }
+    el.dataset.sig=sig;
+    el.className='bcell'+(isNew && !fresh ? (pc.card.k==='goal'?' flipping':' placed') : '');
+    el.innerHTML=CARDS.cardSVG(pc.card, pc.rot);
     // 鋪牌者標記：左上角顏色圓點（懸停顯示名字；點卡片會置中顯示）
     if(pc.by!=null && pc.by>=0 && pc.card.k==='path'){
-      d.dataset.by=pc.by;
+      el.dataset.by=pc.by;
       const b=document.createElement('span');
       b.className='bby';
       b.style.background=SEAT_COLORS[pc.by%SEAT_COLORS.length];
       b.title='由 '+nmOf(pc.by)+' 鋪設';
-      d.appendChild(b);
-    }
-    bi.appendChild(d);
+      el.appendChild(b);
+    } else delete el.dataset.by;
   }
   for(const g of st.goals){
     if(g.revealed) continue;
-    const p=cellPos(g.x,g.y);
-    const d=document.createElement('div');
-    d.className='bcell';
-    d.style.left=p.left+'px'; d.style.top=p.top+'px';
-    d.innerHTML=CARDS.goalBackFace();
-    d.dataset.goal=g.idx;
-    bi.appendChild(d);
+    const k='G'+g.idx;
+    seen.add(k);
+    if(!cells.has(k)){
+      const el=document.createElement('div');
+      el.className='bcell';
+      const p=cellPos(g.x,g.y);
+      el.style.left=p.left+'px'; el.style.top=p.top+'px';
+      el.innerHTML=CARDS.goalBackFace();
+      bi.appendChild(el); cells.set(k,el);
+    }
   }
-  APP.prevKeys=newKeys;
+  for(const [k,el] of cells){      // 落石清格／終點翻開撤蓋牌
+    if(!seen.has(k)){ el.remove(); cells.delete(k); }
+  }
   renderOverlays();
   applyPan();
 }
@@ -1713,7 +1745,7 @@ function renderOverlays(){
   }
   if(APP.targeting && APP.targeting.kind==='map'){
     for(const g of st.goals){
-      if(g.revealed || stview().myKnown[g.idx]!=null) continue;
+      if(g.revealed || st.myKnown[g.idx]!=null) continue;
       const p=cellPos(g.x,g.y);
       const d=document.createElement('div');
       d.className='goaltarget'; d.style.left=p.left+'px'; d.style.top=p.top+'px';
@@ -1739,7 +1771,12 @@ function zoomFit(){
 (function(){
   const vp=$('boardVp');
   const ptrs=new Map();
-  let dragging=false, sx=0, sy=0, spx=0, spy=0, pinch0=0, zoom0=0, moved=false, multi=false;
+  let dragging=false, sx=0, sy=0, spx=0, spy=0, moved=false, multi=false;
+  let pinch0=0, zoom0=0, pm0x=0, pm0y=0, ppx0=0, ppy0=0;   // 雙指手勢起始：距離/縮放/中點/平移
+  const mid=()=>{
+    const a=[...ptrs.values()], r=vp.getBoundingClientRect();
+    return { x:(a[0].x+a[1].x)/2-r.left, y:(a[0].y+a[1].y)/2-r.top, d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y) };
+  };
   vp.addEventListener('pointerdown',e=>{
     // 點在虛線格/落石紅框/終點藍框/縮放鈕上：不啟動拖曳、不奪取指標，
     // 否則 setPointerCapture 會把 click 重新導向棋盤，目標元素永遠收不到點擊
@@ -1748,7 +1785,7 @@ function zoomFit(){
     if(ptrs.size===1){ dragging=true; moved=false; multi=false; sx=e.clientX; sy=e.clientY; spx=APP.panX; spy=APP.panY; vp.classList.add('dragging'); }
     else if(ptrs.size===2){
       multi=true;
-      const a=[...ptrs.values()]; pinch0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); zoom0=APP.zoom;
+      const m=mid(); pinch0=m.d; zoom0=APP.zoom; pm0x=m.x; pm0y=m.y; ppx0=APP.panX; ppy0=APP.panY;
     }
     vp.setPointerCapture(e.pointerId);
   });
@@ -1756,9 +1793,15 @@ function zoomFit(){
     if(!ptrs.has(e.pointerId)) return;
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
     if(ptrs.size===2){
-      const a=[...ptrs.values()];
-      const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
-      if(pinch0>0){ APP.zoom=Math.min(1.7,Math.max(.3, zoom0*d/pinch0)); applyPan(); }
+      if(pinch0>0){
+        // 錨定兩指中點：中點下的世界座標縮放前後不動，並跟著中點移動（雙指平移）
+        const m=mid();
+        const z=Math.min(1.7,Math.max(.3, zoom0*m.d/pinch0));
+        APP.panX = m.x - (pm0x-ppx0)*(z/zoom0);
+        APP.panY = m.y - (pm0y-ppy0)*(z/zoom0);
+        APP.zoom=z; applyPan();
+      }
+      moved=true;
     } else if(dragging){
       if(Math.hypot(e.clientX-sx, e.clientY-sy)>6) moved=true;
       APP.panX=spx+(e.clientX-sx); APP.panY=spy+(e.clientY-sy); applyPan();
@@ -1775,6 +1818,11 @@ function zoomFit(){
       }
     }
     ptrs.delete(e.pointerId);
+    if(ptrs.size===1){
+      // 雙指收回單指：以剩下的手指重定拖曳基準，避免畫面跳動
+      const a=[...ptrs.values()][0];
+      sx=a.x; sy=a.y; spx=APP.panX; spy=APP.panY; dragging=true;
+    }
     if(ptrs.size===0){ dragging=false; vp.classList.remove('dragging'); }
   };
   vp.addEventListener('pointerup',e=>up(e,true));
@@ -1878,15 +1926,21 @@ function renderHand(){
   $('turnHint').textContent = st.phase!=='play' ? '' : mine ? '👉 輪到你了' : `等待 ${nmOf(st.turn)}…`;
   $('turnHint').className='turnhint'+(mine?' yours':'');
 
-  const hd=$('hand'); hd.innerHTML='';
-  st.myHand.forEach((c,hi)=>{
-    const d=document.createElement('div');
-    const selOn = APP.sel && APP.sel.hi===hi;
-    d.className='hcard'+(selOn?' sel':'')+(!mine?' dis':'');
-    d.innerHTML=CARDS.cardSVG(c, selOn && c.k==='path' ? APP.sel.rot : 0);
-    d.addEventListener('click',()=>{ if(mine) selectCard(hi); });
-    hd.appendChild(d);
-  });
+  // 手牌沒變化（含選取/旋轉/可動狀態）就不重建，省掉整排 SVG 濾鏡重繪
+  const hd=$('hand');
+  const hsig=st.round+'|'+st.myHand.map(c=>c.uid).join(',')+'|'+(APP.sel?APP.sel.hi+':'+APP.sel.rot:'-')+'|'+(mine?1:0);
+  if(APP.handSig!==hsig){
+    APP.handSig=hsig;
+    hd.innerHTML='';
+    st.myHand.forEach((c,hi)=>{
+      const d=document.createElement('div');
+      const selOn = APP.sel && APP.sel.hi===hi;
+      d.className='hcard'+(selOn?' sel':'')+(!mine?' dis':'');
+      d.innerHTML=CARDS.cardSVG(c, selOn && c.k==='path' ? APP.sel.rot : 0);
+      d.addEventListener('click',()=>{ if(mine) selectCard(hi); });
+      hd.appendChild(d);
+    });
+  }
   const showPass = mine && (st.myHand.length===0 || st.deckN===0);
   $('btnPass').hidden=!showPass;
   $('btnPass').disabled=!(mine && (st.myHand.length===0 || st.deckN===0));
@@ -1894,7 +1948,10 @@ function renderHand(){
 }
 function updateActionBtns(){
   const mine=myTurn();
-  $('btnRotate').disabled = !(mine && APP.sel && APP.sel.card.k==='path');
+  const sc=APP.sel && APP.sel.card;
+  const sym=sc && sc.k==='path' && sc.e[0]===sc.e[2] && sc.e[1]===sc.e[3];   // 轉 180° 無差別
+  $('btnRotate').disabled = !(mine && sc && sc.k==='path' && !sym);
+  $('btnRotate').title = sym ? '這張卡上下左右對稱，旋轉沒有差別' : '';
   $('btnDiscard').disabled = !(mine && APP.sel);
   $('btnCancel').disabled = !(APP.sel || APP.targeting);
   const h=$('actHint');
@@ -2022,7 +2079,7 @@ function scheduleAI(){
 function startRound(){
   const G=APP.G;
   SAB.newRound(G);
-  APP.prevKeys=new Set();
+  resetBoardDom();
   $('log').innerHTML='';
   addLog(`—— 第 ${G.round} 回合開始 ——`);
   renderAll(); zoomFit();
@@ -2053,7 +2110,8 @@ function showRoundEnd(){
     return `<tr><td>${esc(p.name)}${p.seat===APP.my?'（你）':''}</td><td>${roleName(p.seat)}</td>
       <td class="g">${share?'+'+share.gold:'—'}</td><td class="g">⛁ ${p.gold}</td></tr>`;
   }).join('');
-  const title = r.side==='dig' ? '⛏️ 礦工陣營獲勝！' : '💣 破壞者陣營獲勝！';
+  const hasSab = r.roles.includes('sab');
+  const title = r.side==='dig' ? '⛏️ 礦工陣營獲勝！' : hasSab ? '💣 破壞者陣營獲勝！' : '🪨 沒挖到金礦……';
   const sub = r.why==='gold' ? `${esc(nmOf(r.winnerSeat))} 挖通了金礦！礦工們分金塊。`
             : (r.roles.includes('sab') ? '牌庫抽光了還沒挖到金礦，破壞者獨吞金塊！' : '牌庫抽光了……這回合其實沒有破壞者，大家空手而歸。');
   const isEnd = st.phase==='end';
@@ -2090,6 +2148,7 @@ function rebuildGame(){
 function leaveToLobby(){
   clearTimeout(APP.aiTimer);
   NET.teardown();
+  keepAwake(false);
   APP.G=null; APP.CG=null; APP.priv=null; APP.mode=null; APP.sel=null; APP.targeting=null;
   $('game').hidden=true; $('lobby').hidden=false; $('btnLeave').hidden=true;
   fitGameHeight();
@@ -2111,22 +2170,25 @@ function applyPub(pub){
   }
   APP.CG={ board, goals:pub.goals, players:pub.players, round:pub.round, turn:pub.turn,
            deckN:pub.deckN, phase:pub.phase, lastResult:pub.lastResult };
-  if(pub.round!==prevRound){ APP.prevKeys=new Set(); $('log').innerHTML=''; addLog(`—— 第 ${pub.round} 回合開始 ——`); }
+  if(firstTime || pub.round!==prevRound) resetBoardDom();
+  if(pub.round!==prevRound){ $('log').innerHTML=''; addLog(`—— 第 ${pub.round} 回合開始 ——`); }
   renderAll();
   if(firstTime || pub.round!==prevRound) zoomFit();
   if((pub.phase==='roundEnd'||pub.phase==='end') && prevPhase==='play') setTimeout(showRoundEnd, 900);
   if(myTurn()) sfx('turn');
 }
 function applyPriv(priv, round){
-  const prevKnown = (APP.priv && APP.lastPrivRound===round) ? Object.keys(APP.priv.known||{}).length : -1;
+  // known 的 key 是終點 index，Object.keys 會照數字排序——
+  // 必須取「這次快照才新增」的那筆，不能拿最後一項（那是 index 最大的）
+  const prevKeys = (APP.priv && APP.lastPrivRound===round) ? Object.keys(APP.priv.known||{}) : null;
   APP.priv=priv; APP.my=priv.seat;
   if(APP.lastPrivRound!==round){
     APP.lastPrivRound=round;
     showRoleModal(priv.role, ()=>{});
-  } else if(prevKnown>=0){
-    const entries=Object.entries(priv.known||{});
-    if(entries.length>prevKnown){
-      const [gi,kind]=entries[entries.length-1];
+  } else if(prevKeys){
+    const freshKeys=Object.keys(priv.known||{}).filter(k=>!prevKeys.includes(k));
+    if(freshKeys.length){
+      const gi=freshKeys[freshKeys.length-1], kind=priv.known[gi];
       const face = CARDS.cardSVG({k:'goal',kind}, 0);
       showModal({ title:'祕密地圖', body:`<div class="cardshow"><div class="cs">${face}<div class="cslabel">${['上','中','下'][Number(gi)]}方終點：${kind==='gold'?'💰 就是金礦！':'只是石頭…'}</div></div></div>` });
       sfx('map');
@@ -2152,9 +2214,21 @@ $('startLocal').addEventListener('click',()=>{
 });
 function enterGame(){
   $('lobby').hidden=true; $('game').hidden=false; $('btnLeave').hidden=false;
-  APP.prevLogN=0;
   fitGameHeight();
+  keepAwake(true);
   requestAnimationFrame(zoomFit);
+}
+/* ── 螢幕常亮：等待他人回合時不熄屏（切出去系統會自動釋放）── */
+let wakeLock=null;
+function keepAwake(on){
+  try{
+    if(on && 'wakeLock' in navigator){
+      if(!wakeLock) navigator.wakeLock.request('screen').then(wl=>{
+        wakeLock=wl;
+        wl.addEventListener('release',()=>{ wakeLock=null; });
+      }).catch(()=>{});
+    } else if(!on && wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
+  }catch(e){}
 }
 // 手機（≤700px）：#game 高度＝視窗高－頁首，整局一屏內完成、鎖住頁面捲動
 function fitGameHeight(){
@@ -2202,7 +2276,7 @@ try{
     if(typeof NET!=='undefined' && NET.isHost && !NET.started) updateHostLobbyHook();
   });
 })();
-function updateHostLobbyHook(){ if(window.NET && NET.refreshLobby) NET.refreshLobby(); }
+function updateHostLobbyHook(){ if(typeof NET!=='undefined' && NET.refreshLobby) NET.refreshLobby(); }
 
 /* ── 卡片圖鑑 ─────────────────────────────────────────────── */
 $('btnGallery').addEventListener('click',()=>{
@@ -2250,7 +2324,7 @@ $('btnRules').addEventListener('click',()=>{
   三回合後<b>金塊最多的人</b>獲勝。<br><br>
   <b>操作</b>：點手牌選卡→點棋盤虛線格放置；行動卡選卡後點目標。棋盤可拖曳、滾輪／雙指縮放。<br>
   每張通道卡左上角的<b>顏色圓點</b>代表鋪牌的人；<b>點一下卡片</b>可查看是誰鋪的。<br>
-  <b>連線</b>：最多 4 位真人同房，其餘座位由電腦補。`,
+  <b>連線</b>：最多 4 位真人同房，其餘座位由電腦補。斷線超過 15 秒改由電腦代打；用<b>同一裝置重新加入同房號</b>即可接回座位。`,
   buttons:[{label:'開挖！', primary:true}] });
 });
 
@@ -2268,66 +2342,178 @@ const WORKER_URL = 'wss://bomb-signal.54maxwu.workers.dev';
 const ROOM_PREFIX = 'sab-';
 
 let ws=null, active=false, isHost=false, started=false;
-let roomCode=null, myCid=null, seq=0, lastSeq=-1;
-let cidSeat={}, seatInfo={};        // seatInfo[seat]={cid,name,lastSeen}
-let joinedN=0, hbTimer=null, watchTimer=null, hostSeen=0, evLog=[];
+let roomCode=null, myCid=null, seq=0, lastSeq=-1, lastPrivSeq=-1;
+let cidSeat={}, seatInfo={};        // seatInfo[seat]={cid,name,lastSeen,keyP}
+let hbTimer=null, watchTimer=null, reconTimer=null, hostSeen=0;
+let needResync=false, hostKeyP=null, lostShown=false, myPubB64=null;
 
 function openSignal(id){
   return new WebSocket(WORKER_URL.replace(/\/$/,'')+'/room/'+id);
 }
 function randomCode(){ const b=new Uint32Array(1); crypto.getRandomValues(b); return (100000+(b[0]%900000)).toString(); }
 function send(o){ if(ws && ws.readyState===1){ o.g='sab'; try{ ws.send(JSON.stringify(o)); }catch(e){} } }
+// 同一分頁固定 cid：重新整理／斷線重連時房主認得你，能把座位接回來
+function persistentCid(){
+  try{
+    let c=sessionStorage.getItem('sab_cid');
+    if(!c){ c='c'+Math.random().toString(36).slice(2,10); sessionStorage.setItem('sab_cid',c); }
+    return c;
+  }catch(e){ return 'c'+Math.random().toString(36).slice(2,10); }
+}
+
+/* ── 端對端加密（ECDH → AES-GCM）：priv（手牌/身分/地圖結果）經房間中轉
+   是廣播給整房的，加密後其他玩家開 devtools 也讀不到；不支援時退回明文。── */
+const CRY={
+  supported: !!(window.crypto && crypto.subtle),
+  keysP:null,
+  init(){
+    if(!this.supported) return Promise.resolve(null);
+    if(!this.keysP) this.keysP=crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveKey'])
+      .catch(()=>{ CRY.supported=false; return null; });
+    return this.keysP;
+  },
+  async pubB64(){
+    const ks=await this.init(); if(!ks) return undefined;
+    return b64(await crypto.subtle.exportKey('raw', ks.publicKey));
+  },
+  async derive(peerB64){
+    const ks=await this.init(); if(!ks) return null;
+    const peer=await crypto.subtle.importKey('raw', unb64(peerB64), {name:'ECDH',namedCurve:'P-256'}, false, []);
+    return crypto.subtle.deriveKey({name:'ECDH',public:peer}, ks.privateKey, {name:'AES-GCM',length:128}, false, ['encrypt','decrypt']);
+  },
+  async enc(key,obj){
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(JSON.stringify(obj)));
+    return { iv:b64(iv), ct:b64(ct) };
+  },
+  async dec(key,e){
+    const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(e.iv)}, key, unb64(e.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  },
+};
+function b64(buf){ let s=''; const u=new Uint8Array(buf); for(let i=0;i<u.length;i++) s+=String.fromCharCode(u[i]); return btoa(s); }
+function unb64(str){ const s=atob(str); const u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
 
 function teardown(){
-  active=false; started=false; clearInterval(hbTimer); clearInterval(watchTimer);
+  active=false; started=false;
+  clearInterval(hbTimer); clearInterval(watchTimer); clearTimeout(reconTimer); reconTimer=null;
   if(ws){ try{ ws.onopen=ws.onmessage=ws.onerror=ws.onclose=null; ws.close(); }catch(e){} }
-  ws=null; cidSeat={}; seatInfo={}; joinedN=0; seq=0; lastSeq=-1; evLog=[];
+  ws=null; cidSeat={}; seatInfo={}; seq=0; lastSeq=-1; lastPrivSeq=-1;
+  needResync=false; hostKeyP=null; lostShown=false;
 }
 
 function connect(code, host){
   teardown();
   active=true; isHost=host; roomCode=code;
-  if(!host) myCid='c'+Math.random().toString(36).slice(2,10);
-  ws=openSignal(ROOM_PREFIX+code);
-  ws.onopen=()=>{ setStatus(host?'房間已開，等待礦工…':'連線中…','busy'); };
+  if(!host) myCid=persistentCid();
+  CRY.pubB64().then(p=>{ myPubB64=p; });
+  hostSeen=Date.now();
+  openWs();
+  hbTimer=setInterval(()=>{
+    if(!active || !ws || ws.readyState!==1) return;
+    if(isHost) send({t:'hb'});
+    else if(APP.my!=null) send({t:'hbc', cid:myCid});   // 開局前也送：大廳才能偵測默默離開的人
+  },4000);
+  watchTimer=setInterval(()=>{
+    if(!active) return;
+    if(isHost){ if(started) checkClients(); else pruneLobby(); }
+    else checkHost();
+  },5000);
+}
+function openWs(){
+  if(ws){ try{ ws.onopen=ws.onmessage=ws.onerror=ws.onclose=null; ws.close(); }catch(e){} }
+  ws=openSignal(ROOM_PREFIX+roomCode);
+  ws.onopen=()=>{
+    if(started){ setStatus(isHost?'重新連上訊號伺服器':'重新連上，同步中…','ok'); if(!isHost) needResync=true; }
+    else setStatus(isHost?'房間已開，等待礦工…':'連線中…','busy');
+    hail();
+  };
   ws.onmessage=ev=>{
     let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
     if(m.type==='room-full'){ setStatus('房間已滿','err'); banner('房間已滿'); return; }
-    if(m.type==='room-state'){
-      if(m.peerCount>0) hail();
-      return;
-    }
+    if(m.type==='room-state'){ if(m.peerCount>0) hail(); return; }
     if(m.type==='peer-joined'){ hail(); return; }
     if(m.type==='peer-left'){ return; }   // 不帶身分，斷線靠心跳偵測
     if(m.g!=='sab') return;
     handleMsg(m);
   };
-  ws.onerror=()=>setStatus('連線錯誤','err');
-  ws.onclose=()=>{ if(active) setStatus('連線中斷','err'); };
-  hbTimer=setInterval(()=>{
-    if(isHost) send({t:'hb'});
-    else if(APP.my!=null && started) send({t:'hbc', cid:myCid});
-  },4000);
-  if(host){
-    watchTimer=setInterval(checkClients, 5000);
-  } else {
-    hostSeen=Date.now();
-    watchTimer=setInterval(()=>{
-      if(started && Date.now()-hostSeen>20000){
-        clearInterval(watchTimer);
-        showModal({ title:'房主失聯', body:'和房主的連線中斷了，牌局無法繼續。',
-          buttons:[{label:'返回大廳', primary:true, cb:leaveToLobby}] });
-      }
-    },5000);
+  ws.onerror=()=>{ if(active) setStatus('連線錯誤','err'); };
+  ws.onclose=()=>{ if(!active) return; setStatus('連線中斷，重連中…','err'); scheduleReconnect(); };
+}
+function scheduleReconnect(){
+  if(!active || reconTimer) return;
+  reconTimer=setTimeout(()=>{ reconTimer=null; if(active && (!ws || ws.readyState>1)) openWs(); },1500);
+}
+// 回到前景：計時器被節流／頁面被凍結後，立即補心跳或重連
+function onVisible(){
+  if(!active) return;
+  hostSeen=Date.now();                                  // 緩衝一下，別一回前景就判房主失聯
+  if(!ws || ws.readyState>1){ clearTimeout(reconTimer); reconTimer=null; openWs(); return; }
+  if(ws.readyState===1){
+    if(!isHost && started) needResync=true;
+    hail();
+    if(isHost && started){ send({t:'hb'}); broadcast(); }
+  }
+}
+function checkHost(){
+  if(!started || lostShown) return;
+  if(Date.now()-hostSeen>20000){
+    lostShown=true;
+    showModal({ title:'房主失聯', body:'超過 20 秒沒收到房主訊號。房主若只是暫時切出去，可以再等等看。',
+      buttons:[{label:'再等 20 秒', primary:true, cb:()=>{ hostSeen=Date.now(); lostShown=false; }},
+               {label:'返回大廳', warn:true, cb:leaveToLobby}] });
   }
 }
 function hail(){
   if(isHost) send({t:'host-here'});
-  else if(APP.my==null || !started) send({t:'hello', cid:myCid, name:myName()});
+  else if(APP.my==null || !started || needResync) send({t:'hello', cid:myCid, name:myName(), pub:myPubB64});
 }
 
 /* ── 房主端 ───────────────────────────────────────────────── */
 function humanCap(){ return Math.min(3, npChoice()-1); }   // worker 每房 4 連線：房主+3 真人
+function humanN(){ return Object.keys(seatInfo).length; }
+function pruneLobby(){                                     // 開局前：默默離開的人釋出座位
+  let changed=false;
+  for(const s of Object.keys(seatInfo)){
+    if(Date.now()-seatInfo[s].lastSeen>12000){
+      delete cidSeat[seatInfo[s].cid]; delete seatInfo[s]; changed=true;
+    }
+  }
+  if(changed){
+    updateHostLobby();
+    setStatus(humanN()?`已加入 ${humanN()}/${humanCap()} 位真人`:'房間已開，等待礦工…', humanN()?'ok':'busy');
+  }
+}
+function welcome(cid, seat){ send({t:'welcome', cid, seat, pub:myPubB64}); }
+// 開局後收到 hello＝重連：同 cid 直接接回；新 cid（換了分頁）比對名字認領已被電腦接手的座位
+function reclaimSeat(m){
+  if(!APP.G){ send({t:'roomfull', cid:m.cid}); return; }
+  let seat=cidSeat[m.cid];
+  if(seat==null){
+    const nm=String(m.name||'').slice(0,10);
+    for(let s=1;s<APP.G.nP;s++){
+      const si=seatInfo[s];
+      if(APP.G.players[s].ai && si && si.name===nm && Date.now()-si.lastSeen>8000){
+        delete cidSeat[si.cid]; cidSeat[m.cid]=seat=s; si.cid=m.cid; break;
+      }
+    }
+  }
+  if(seat==null || !APP.G.players[seat]){ send({t:'roomfull', cid:m.cid}); return; }
+  const si=seatInfo[seat] || (seatInfo[seat]={cid:m.cid, name:APP.G.players[seat].name, lastSeen:0});
+  si.cid=m.cid; si.lastSeen=Date.now();
+  if(m.pub && CRY.supported && myPubB64) si.keyP=CRY.derive(m.pub).catch(()=>null);
+  const wasAI=APP.G.players[seat].ai;
+  APP.G.players[seat].ai=false;
+  welcome(m.cid, seat);
+  send({t:'begin'});
+  broadcast();          // 補上斷線期間錯過的狀態
+  if(wasAI){
+    scheduleAI();       // 取消可能已排定要幫這個座位出手的 AI 計時器
+    addLog(`<span class="good">${esc(APP.G.players[seat].name)} 重新連線，接回座位</span>`);
+    banner(APP.G.players[seat].name+' 重新連線');
+    renderAll();
+  }
+}
 function updateHostLobby(){
   const names=[myName()+'（你）'];
   for(let s=1;s<npChoice();s++) names.push(seatInfo[s]?seatInfo[s].name:(s<=humanCap()?'（等真人／電腦候補）':'（電腦）'));
@@ -2349,18 +2535,22 @@ function checkClients(){
 function handleMsg(m){
   if(isHost){
     if(m.t==='hello'){
-      if(started){ send({t:'roomfull', cid:m.cid}); return; }
+      if(started){ reclaimSeat(m); return; }
       let seat=cidSeat[m.cid];
       if(seat==null){
-        if(joinedN>=humanCap()){ send({t:'roomfull', cid:m.cid}); return; }
-        seat=++joinedN;
+        for(let s=1;s<=humanCap();s++) if(!seatInfo[s]){ seat=s; break; }   // 用第一個空位（可回收）
+        if(seat==null){ send({t:'roomfull', cid:m.cid}); return; }
         cidSeat[m.cid]=seat;
         seatInfo[seat]={cid:m.cid, name:(m.name||'礦工'+seat).slice(0,10), lastSeen:Date.now()};
+      } else if(seatInfo[seat]){
+        seatInfo[seat].lastSeen=Date.now();
+        if(m.name) seatInfo[seat].name=String(m.name).slice(0,10);
       }
-      send({t:'welcome', cid:m.cid, seat});
+      if(m.pub && CRY.supported && myPubB64) seatInfo[seat].keyP=CRY.derive(m.pub).catch(()=>null);
+      welcome(m.cid, seat);
       updateHostLobby();
-      setStatus(`已加入 ${joinedN}/${humanCap()} 位真人`,'ok');
-      if(joinedN>=humanCap()) startOnline();
+      setStatus(`已加入 ${humanN()}/${humanCap()} 位真人`,'ok');
+      if(humanN()>=humanCap()) startOnline();
       return;
     }
     if(m.t==='hbc'){ const s=cidSeat[m.cid]; if(s!=null&&seatInfo[s]) seatInfo[s].lastSeen=Date.now(); return; }
@@ -2390,8 +2580,12 @@ function handleMsg(m){
       if(m.cid!==myCid) return;
       APP.my=m.seat; APP.mode='client';
       hostSeen=Date.now();
-      setStatus('已入座 · 座位 '+(m.seat+1)+' · 等待開局…','ok');
-      $('joinState').innerHTML=`✅ 已加入房間 <b>${esc(roomCode)}</b>，你是 <b>${m.seat+1} 號礦工</b>，等房主開始…`;
+      if(m.pub && CRY.supported) hostKeyP=CRY.derive(m.pub).catch(()=>null);
+      if(started) setStatus('已接回座位 '+(m.seat+1),'ok');
+      else{
+        setStatus('已入座 · 座位 '+(m.seat+1)+' · 等待開局…','ok');
+        $('joinState').innerHTML=`✅ 已加入房間 <b>${esc(roomCode)}</b>，你是 <b>${m.seat+1} 號礦工</b>，等房主開始…`;
+      }
       return;
     }
     if(m.t==='roomfull'){ if(m.cid===myCid){ setStatus('房間已滿','err'); $('joinState').textContent='❌ 房間已滿或已開局'; } return; }
@@ -2402,7 +2596,7 @@ function handleMsg(m){
       return;
     }
     if(m.t==='pub'){
-      hostSeen=Date.now();
+      hostSeen=Date.now(); lostShown=false; needResync=false;
       if(m.seq<=lastSeq) return;
       lastSeq=m.seq;
       started=true;
@@ -2414,7 +2608,12 @@ function handleMsg(m){
     if(m.t==='priv'){
       if(m.cid!==myCid) return;
       hostSeen=Date.now();
-      applyPriv(m.priv, m.round);
+      const apply=p=>{                       // 解密是非同步的，pseq 防止舊快照蓋掉新的
+        if(m.pseq!=null){ if(m.pseq<=lastPrivSeq) return; lastPrivSeq=m.pseq; }
+        applyPriv(p, m.round);
+      };
+      if(m.enc){ if(hostKeyP) hostKeyP.then(k=>k?CRY.dec(k,m.enc):null).then(p=>{ if(p) apply(p); }).catch(()=>{}); }
+      else if(m.priv) apply(m.priv);
       return;
     }
   }
@@ -2450,9 +2649,15 @@ function broadcast(events){
   seq++;
   const pub=SAB.pubState(APP.G);
   send({t:'pub', seq, pub, evs:sanitizeEvents(events)});
+  const pseq=seq, rnd=APP.G.round;
   for(let s=1;s<APP.G.nP;s++){
-    if(seatInfo[s] && !APP.G.players[s].ai)
-      send({t:'priv', cid:seatInfo[s].cid, round:APP.G.round, priv:SAB.privState(APP.G, s)});
+    const si=seatInfo[s];
+    if(!si || APP.G.players[s].ai) continue;
+    const priv=SAB.privState(APP.G, s);
+    if(si.keyP){
+      si.keyP.then(k=> k ? CRY.enc(k, priv).then(enc=>send({t:'priv', cid:si.cid, round:rnd, pseq, enc}))
+                         : send({t:'priv', cid:si.cid, round:rnd, pseq, priv})).catch(()=>{});
+    } else send({t:'priv', cid:si.cid, round:rnd, pseq, priv});
   }
 }
 function sendAct(move){ send({t:'act', cid:myCid, move}); }
@@ -2485,9 +2690,17 @@ $('joinBtn').addEventListener('click',()=>{
   connect(code, false);
 });
 
-return { connect, teardown, broadcast, sendAct, get isHost(){return isHost;}, get started(){return started;},
+return { connect, teardown, broadcast, sendAct, onVisible,
+         get isHost(){return isHost;}, get started(){return started;},
          reqRestart(){ send({t:'req-restart'}); }, refreshLobby(){ if(isHost && !started) updateHostLobby(); } };
 })();
+
+/* 回前景：計時器被節流／頁面被凍結後補心跳或重連，並重新取得螢幕常亮 */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  if(!$('game').hidden) keepAwake(true);
+  NET.onVisible();
+});
 
 /* 測試便利：?auto=1 自動開單機局、?auto=g 開圖鑑（截圖/煙霧測試用） */
 (function(){
