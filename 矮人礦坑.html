@@ -166,7 +166,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; padding:8px 10px;
 }
 .roundinfo .deckpile{ display:flex; align-items:center; gap:5px; }
-.deckpile .mini{ width:22px; height:34px; border-radius:3px; overflow:hidden; box-shadow:1px 1px 0 #1d2740, 2px 2px 0 #141b30; }
+.deckpile .mini{ width:22px; height:34px; border-radius:3px; overflow:hidden; box-shadow:1px 1px 0 #2a323c, 2px 2px 0 #1a2027; }
 .deckpile .mini svg{ width:100%; height:100%; display:block; }
 
 /* ── 桌面（棋盤）────────────────────────────────────────── */
@@ -174,11 +174,14 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 @media(max-width:900px){ .table-wrap{ flex-direction:column; } }
 #boardVp{
   flex:1; position:relative; height:64vh; min-height:380px; overflow:hidden; border-radius:14px;
+  /* 淺色木桌面（仿實體桌遊照片） */
   background:
-    radial-gradient(90% 70% at 50% 30%, rgba(255,196,110,.10), transparent 60%),
-    radial-gradient(120% 120% at 50% 0%, #33281c 0%, #1d1610 55%, #120d09 100%);
-  box-shadow:inset 0 2px 18px rgba(0,0,0,.55), 0 8px 26px rgba(0,0,0,.28);
-  border:1px solid #0d0a06;
+    radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.30), transparent 55%),
+    repeating-linear-gradient(90deg, rgba(112,74,36,.13) 0 1.5px, transparent 1.5px 92px),
+    repeating-linear-gradient(90deg, #ebcf9f 0 24px, #e4c48c 24px 47px, #efd5a8 47px 70px, #e1bf85 70px 92px),
+    linear-gradient(180deg,#ecd2a4,#dcb984);
+  box-shadow:inset 0 2px 16px rgba(96,64,26,.30), 0 8px 26px rgba(0,0,0,.18);
+  border:1px solid #b3915e;
   touch-action:none; cursor:grab; user-select:none;
 }
 #boardVp.dragging{ cursor:grabbing; }
@@ -189,7 +192,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
   border:2px solid rgba(10,7,4,.65); box-shadow:0 1px 4px rgba(0,0,0,.6), inset 0 1px 1px rgba(255,255,255,.35);
   z-index:2; pointer-events:auto;
 }
-.bcell svg.cardsvg{ width:100%; height:100%; display:block; filter:drop-shadow(2px 3px 4px rgba(0,0,0,.55)); }
+.bcell svg.cardsvg{ width:100%; height:100%; display:block; filter:drop-shadow(2px 3px 4px rgba(70,45,15,.4)); }
 .bcell.placed{ animation:drop .3s cubic-bezier(.2,1.6,.45,1); }
 @keyframes drop{ 0%{transform:scale(1.28) translateY(-14px); filter:brightness(1.35);} 100%{transform:scale(1) translateY(0);} }
 .bcell.flipping{ animation:flipIn .55s ease; transform-style:preserve-3d; }
@@ -197,12 +200,27 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 .bcell.shake{ animation:shake .45s ease; }
 @keyframes shake{ 0%,100%{transform:translate(0,0)} 20%{transform:translate(-3px,2px) rotate(-2deg)} 45%{transform:translate(3px,-2px) rotate(2deg)} 70%{transform:translate(-2px,-2px)} }
 .ghost{
-  position:absolute; width:98px; height:153px; border:2.5px dashed rgba(255,214,130,.75); border-radius:9px;
-  background:rgba(255,214,130,.10); cursor:pointer; transition:.12s; z-index:5;
+  position:absolute; width:98px; height:153px; border:2.5px dashed rgba(96,72,38,.6); border-radius:9px;
+  background:rgba(255,251,240,.28); cursor:pointer; transition:.12s; z-index:5;
 }
 .ghost svg{ width:100%; height:100%; opacity:0; transition:.12s; }
-.ghost:hover{ background:rgba(255,214,130,.16); border-color:#ffd682; }
-.ghost:hover svg{ opacity:.75; }
+.ghost:hover{ background:rgba(255,251,240,.5); border-color:#6d4f22; }
+.ghost:hover svg{ opacity:.8; }
+/* 可接牌位置常駐角框標記（仿 BGA：預示接下來能出牌的位置） */
+.slotmark{
+  position:absolute; width:98px; height:153px; z-index:1; pointer-events:none; opacity:.8;
+  --bk:rgba(74,60,38,.6);
+  background:
+    linear-gradient(var(--bk),var(--bk)) left top/16px 2.5px,
+    linear-gradient(var(--bk),var(--bk)) left top/2.5px 16px,
+    linear-gradient(var(--bk),var(--bk)) right top/16px 2.5px,
+    linear-gradient(var(--bk),var(--bk)) right top/2.5px 16px,
+    linear-gradient(var(--bk),var(--bk)) left bottom/16px 2.5px,
+    linear-gradient(var(--bk),var(--bk)) left bottom/2.5px 16px,
+    linear-gradient(var(--bk),var(--bk)) right bottom/16px 2.5px,
+    linear-gradient(var(--bk),var(--bk)) right bottom/2.5px 16px;
+  background-repeat:no-repeat;
+}
 .rocktarget{
   position:absolute; width:98px; height:153px; border:3px solid rgba(239,68,68,.85); border-radius:9px;
   background:rgba(239,68,68,.16); cursor:pointer; z-index:6; transition:.12s;
@@ -250,6 +268,7 @@ button.ghostbtn:hover:not(:disabled){ background:#f8fafc; border-color:#cbd5e1; 
 #log .warn{ color:#b91c1c; }
 #log .good{ color:#15803d; }
 #log div{ border-bottom:1px dashed rgba(100,116,139,.14); padding:3px 6px; border-radius:6px; margin-bottom:1px; }
+#log div.logtime{ text-align:center; color:#94a3b8; font-size:10.5px; font-weight:700; background:transparent; border-bottom:none; padding:4px 0 1px; }
 #log div.lp0{ background:rgba(202,162,75,.14); }
 #log div.lp1{ background:rgba(220,70,70,.12); }
 #log div.lp2{ background:rgba(70,120,235,.11); }
@@ -618,8 +637,8 @@ const PATH_TYPES = [
 ];
 
 // ── 行動卡型錄（共 27 張）──────────────────────────────────
-const TOOLS = ['pick','lamp','cart'];   // 鶴嘴鎬、提燈、礦車
-const TOOL_NAME = { pick:'鶴嘴鎬', lamp:'提燈', cart:'礦車' };
+const TOOLS = ['pick','lamp','cart'];   // 十字鎬、煤油燈、推車
+const TOOL_NAME = { pick:'十字鎬', lamp:'煤油燈', cart:'推車' };
 const ACTION_TYPES = [
   { id:'b_pick', a:'break',  tools:['pick'],        n:3 },
   { id:'b_lamp', a:'break',  tools:['lamp'],        n:3 },
@@ -1223,13 +1242,10 @@ const CARDS = (() => {
 // ── 全域 <defs>（濾鏡/漸層/符號），開站時注入一次 ──────────
 const DEFS = `
 <linearGradient id="g_rock" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#7a6a58"/><stop offset=".55" stop-color="#5d4f41"/><stop offset="1" stop-color="#453a2f"/>
+  <stop offset="0" stop-color="#a9c1ba"/><stop offset=".5" stop-color="#7b988f"/><stop offset="1" stop-color="#54726c"/>
 </linearGradient>
-<radialGradient id="g_tunnel" cx=".5" cy=".5" r=".75">
-  <stop offset="0" stop-color="#221a12"/><stop offset=".7" stop-color="#171006"/><stop offset="1" stop-color="#0d0a05"/>
-</radialGradient>
-<linearGradient id="g_floor" x1="0" y1="0" x2="0" y2="1">
-  <stop offset="0" stop-color="#9a8c74"/><stop offset="1" stop-color="#6e5f4c"/>
+<linearGradient id="g_path" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#fdfaf1"/><stop offset=".55" stop-color="#f6efdc"/><stop offset="1" stop-color="#eadfc2"/>
 </linearGradient>
 <linearGradient id="g_wood" x1="0" y1="0" x2="1" y2="0">
   <stop offset="0" stop-color="#9a6a33"/><stop offset=".5" stop-color="#7c4f22"/><stop offset="1" stop-color="#5a3617"/>
@@ -1256,30 +1272,36 @@ const DEFS = `
   <stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#caa348"/>
 </linearGradient>
 <linearGradient id="g_paper" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#f4e6c0"/><stop offset=".6" stop-color="#e5cd96"/><stop offset="1" stop-color="#c9ab6f"/>
+  <stop offset="0" stop-color="#f7ecd0"/><stop offset=".6" stop-color="#ead4a2"/><stop offset="1" stop-color="#cfb178"/>
 </linearGradient>
 <linearGradient id="g_back" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#2c3552"/><stop offset="1" stop-color="#141a2e"/>
+  <stop offset="0" stop-color="#505d6a"/><stop offset=".55" stop-color="#333d47"/><stop offset="1" stop-color="#1a2129"/>
 </linearGradient>
-<linearGradient id="g_slate" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#4c464a"/><stop offset="1" stop-color="#2a262b"/>
+<linearGradient id="g_redback" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#ab3524"/><stop offset=".55" stop-color="#7c1d10"/><stop offset="1" stop-color="#470c05"/>
 </linearGradient>
-<linearGradient id="g_redbg" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#4a2020"/><stop offset="1" stop-color="#230d0d"/>
+<radialGradient id="g_cave" cx=".5" cy=".42" r=".8">
+  <stop offset="0" stop-color="#333a3e"/><stop offset=".55" stop-color="#181d20"/><stop offset="1" stop-color="#07090b"/>
+</radialGradient>
+<radialGradient id="g_coal" cx=".38" cy=".3" r=".85">
+  <stop offset="0" stop-color="#5a616a"/><stop offset=".5" stop-color="#2c3037"/><stop offset="1" stop-color="#0c0e12"/>
+</radialGradient>
+<linearGradient id="g_rockfall" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#b28765"/><stop offset=".5" stop-color="#8a5f42"/><stop offset="1" stop-color="#573824"/>
 </linearGradient>
 <radialGradient id="g_vign" cx=".5" cy=".5" r=".72">
-  <stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/>
+  <stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".42"/>
 </radialGradient>
 <radialGradient id="g_stone" cx=".38" cy=".32" r=".8">
   <stop offset="0" stop-color="#b7b3ab"/><stop offset=".55" stop-color="#847f77"/><stop offset="1" stop-color="#4e4a44"/>
 </radialGradient>
 
 <filter id="f_rock" x="-5%" y="-5%" width="110%" height="110%">
-  <feTurbulence type="fractalNoise" baseFrequency="0.42" numOctaves="4" seed="11" result="n"/>
-  <feDiffuseLighting in="n" lighting-color="#fff" surfaceScale="2.6" result="lt">
-    <feDistantLight azimuth="235" elevation="52"/>
+  <feTurbulence type="fractalNoise" baseFrequency="0.36" numOctaves="4" seed="11" result="n"/>
+  <feDiffuseLighting in="n" lighting-color="#fff" surfaceScale="2.2" result="lt">
+    <feDistantLight azimuth="235" elevation="55"/>
   </feDiffuseLighting>
-  <feComposite in="lt" in2="SourceGraphic" operator="arithmetic" k1="1.05" k2="0" k3="0.18" k4="0" result="m"/>
+  <feComposite in="lt" in2="SourceGraphic" operator="arithmetic" k1="1.02" k2="0" k3="0.2" k4="0" result="m"/>
   <feComposite in="m" in2="SourceGraphic" operator="in"/>
 </filter>
 <filter id="f_wood" x="-5%" y="-5%" width="110%" height="110%">
@@ -1308,10 +1330,10 @@ const DEFS = `
 <filter id="f_blur3"><feGaussianBlur stdDeviation="3"/></filter>
 
 <symbol id="sym_pick" viewBox="-40 -40 80 80">
-  <rect x="-3.4" y="-26" width="6.8" height="58" rx="3" fill="url(#g_wood)" filter="url(#f_wood)" transform="rotate(0)"/>
-  <path d="M-30,-14 Q0,-34 30,-14 L27,-8 Q0,-26 -27,-8 Z" fill="url(#g_metal)" stroke="#39424b" stroke-width="1.2"/>
-  <path d="M-30,-14 Q0,-34 30,-14" fill="none" stroke="#f2f6fa" stroke-width="1.4" opacity=".7"/>
-  <rect x="-4.6" y="-22" width="9.2" height="8" rx="2" fill="url(#g_iron)"/>
+  <rect x="-3.6" y="-24" width="7.2" height="56" rx="3.4" fill="url(#g_wood)" filter="url(#f_wood)"/>
+  <path d="M-32,-10 Q0,-36 32,-10 L26,-4 Q0,-26 -26,-4 Z" fill="url(#g_metal)" stroke="#2e363e" stroke-width="1.3"/>
+  <path d="M-31,-11 Q0,-35 31,-11" fill="none" stroke="#f4f8fb" stroke-width="1.3" opacity=".65"/>
+  <rect x="-5" y="-21" width="10" height="8.5" rx="2" fill="url(#g_iron)"/>
 </symbol>
 <symbol id="sym_lamp" viewBox="-40 -40 80 80">
   <ellipse cx="0" cy="4" rx="26" ry="26" fill="url(#g_glow)"/>
@@ -1353,6 +1375,26 @@ const DEFS = `
   <rect x="-3.4" y="2" width="6.8" height="4.4" rx="1.4" fill="#cfc6b4"/>
   <circle cx="-2.1" cy="-2" r="1.5" fill="#2a241c"/><circle cx="2.1" cy="-2" r="1.5" fill="#2a241c"/>
   <path d="M-1,1.2 L0,-0.4 L1,1.2 Z" fill="#2a241c"/>
+</symbol>
+<symbol id="sym_coal" viewBox="-10 -10 20 20">
+  <path d="M-8,3 L-4.5,-6 L3,-8 L8,-2 L6,6 L-2,8 Z" fill="url(#g_coal)" stroke="#05060a" stroke-width=".9"/>
+  <path d="M-4.5,-6 L3,-8 L2,-2 L-3,0 Z" fill="#666f79" opacity=".75"/>
+  <path d="M2,-2 L8,-2 L6,6 L1,4 Z" fill="#343a42" opacity=".9"/>
+</symbol>
+<symbol id="sym_gem" viewBox="-10 -10 20 20">
+  <path d="M0,-8 L6,-2 L4,7 L-4,7 L-6,-2 Z" fill="#8fc3e8" stroke="#2b5d84" stroke-width="1"/>
+  <path d="M0,-8 L6,-2 L0,1 Z" fill="#cde8f8" opacity=".9"/>
+  <path d="M-6,-2 L0,1 L-4,7 Z" fill="#5f9cc6"/>
+</symbol>
+<symbol id="sym_rocks" viewBox="-10 -10 20 20">
+  <circle cx="-3" cy="-3.5" r="4.4" fill="url(#g_rockfall)" stroke="#3c2517" stroke-width=".9"/>
+  <circle cx="4.5" cy="1.5" r="3.6" fill="url(#g_rockfall)" stroke="#3c2517" stroke-width=".9"/>
+  <circle cx="-2.5" cy="5" r="2.8" fill="url(#g_rockfall)" stroke="#3c2517" stroke-width=".9"/>
+</symbol>
+<symbol id="sym_mapico" viewBox="-10 -10 20 20">
+  <path d="M-8,-6 L-2.7,-8 L2.7,-6 L8,-8 L8,6 L2.7,8 L-2.7,6 L-8,8 Z" fill="#f2e7c8" stroke="#7a5c2c" stroke-width="1"/>
+  <path d="M-2.7,-8 L-2.7,6 M2.7,-6 L2.7,8" stroke="#b99d66" stroke-width=".8"/>
+  <path d="M4,-4 l3,3 M7,-4 l-3,3" stroke="#a32222" stroke-width="1.2"/>
 </symbol>`;
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -1378,16 +1420,13 @@ function label(txt, y, size, color){
 }
 
 // ── 通道卡 ────────────────────────────────────────────────
-// e=[N,E,S,W]（已含旋轉）；thru=0 → 各臂止於中心前並以碎石封death
+// e=[N,E,S,W]（已含旋轉）；thru=0 → 各臂止於中心前（圓弧封口＝死路）
+// 實體卡風格：藍灰水彩岩壁＋米白通道、深色粗糙描邊，岩縫／煤斑／骷髏點綴
 function tunnelArt(e, thru, seedStr){
   const rnd = SAB.mulberry32(h32(seedStr||'x'));
-  const half = AW/2;
-  const half2 = half-6;                            // 地板半寬
-  const hD = half2+3;                              // 坑壁層只比地板寬 3px：位移後不會咬出大缺口
-  let tun='', floor='', beams='', rubble='';
-  const armLen = thru ? null : 22;                 // 死路臂長縮短（距中心 22 停）
-  // 所有子路徑一律「順時針」繞向：nonzero 填色下重疊區才會相加成聯集，
-  // 繞向混用會讓重疊區抵銷成洞，通道中央就出現像斷路的缺口
+  const wIn=AW/2-6, wRim=wIn+2.5, wOut=wIn+5;                    // 米白路面 / 沙色邊 / 深色描邊 半寬
+  const stopIn=thru?0:25, stopRim=thru?0:23, stopOut=thru?0:21;  // 死路：描邊比路面更靠中心，包住封口
+  // 所有子路徑一律「順時針」繞向：nonzero 填色下重疊區才會相加成聯集
   const rect = (x0,y0,x1,y1)=>`M${x0},${y0} L${x1},${y0} L${x1},${y1} L${x0},${y1} Z `;
   const armsPath = (w, stop)=>{
     let s='';
@@ -1398,49 +1437,56 @@ function tunnelArt(e, thru, seedStr){
     if(thru) s+=rect(CX-w, CY-w, CX+w, CY+w);
     return s;
   };
-  tun = `<path d="${armsPath(hD, thru?0:armLen)}" fill="url(#g_tunnel)" filter="url(#f_rough)"/>`;
-  // 地板：乾淨連續面（不做位移粗糙，粗糙感由外圍坑壁層提供）
-  floor = `<path d="${armsPath(half2, thru?0:armLen+3)}" fill="url(#g_floor)" opacity=".95"/>`;
-  // 碎石地板點
-  let dots='';
-  for(let i=0;i<26;i++){
-    const d = [0,1,2,3].filter(x=>e[x])[Math.floor(rnd()*e.filter(Boolean).length)];
-    let px,py;
-    if(d===0){ px=CX-half2+rnd()*half2*2; py=rnd()*(CY-(thru?0:armLen)); }
-    else if(d===2){ px=CX-half2+rnd()*half2*2; py=H-rnd()*(H-CY-(thru?0:armLen)); }
-    else if(d===1){ px=W-rnd()*(W-CX-(thru?0:armLen)); py=CY-half2+rnd()*half2*2; }
-    else { px=rnd()*(CX-(thru?0:armLen)); py=CY-half2+rnd()*half2*2; }
-    const r=.8+rnd()*1.4;
-    dots += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(1)}" fill="${rnd()<.5?'#6b5f4e':'#8a7d68'}" opacity=".45"/>`;
-  }
-  // 木樑：每個開口一組（雙柱+橫樑）
-  const beam = (d)=>{
-    const g=[];
-    const rot = d===0?0 : d===1?90 : d===2?180 : 270;
-    g.push(`<g transform="rotate(${rot} ${CX} ${CY})">`);
-    g.push(`<rect x="${CX-half-5}" y="1" width="6.5" height="30" rx="1.6" fill="url(#g_wood)" filter="url(#f_wood)" stroke="#2e1c0c" stroke-width=".8"/>`);
-    g.push(`<rect x="${CX+half-1.5}" y="1" width="6.5" height="30" rx="1.6" fill="url(#g_wood)" filter="url(#f_wood)" stroke="#2e1c0c" stroke-width=".8"/>`);
-    g.push(`<rect x="${CX-half-8}" y="0" width="${AW+16}" height="7" rx="2" fill="url(#g_woodD)" filter="url(#f_wood)" stroke="#2e1c0c" stroke-width=".8"/>`);
-    g.push(`</g>`);
-    return g.join('');
+  const caps = (w, stop)=>{                                      // 死路臂端圓弧封口
+    if(thru) return '';
+    let s='';
+    if(e[0]) s+=`<ellipse cx="${CX}" cy="${CY-stop}" rx="${w}" ry="${(w*.7).toFixed(1)}"/>`;
+    if(e[1]) s+=`<ellipse cx="${CX+stop}" cy="${CY}" rx="${(w*.7).toFixed(1)}" ry="${w}"/>`;
+    if(e[2]) s+=`<ellipse cx="${CX}" cy="${CY+stop}" rx="${w}" ry="${(w*.7).toFixed(1)}"/>`;
+    if(e[3]) s+=`<ellipse cx="${CX-stop}" cy="${CY}" rx="${(w*.7).toFixed(1)}" ry="${w}"/>`;
+    return s;
   };
-  for(let d=0;d<4;d++) if(e[d]) beams += beam(d);
-  // 死路：臂端碎石堆 + 偶爾骷髏
-  if(!thru){
-    const plug = (d)=>{
-      const rot = d===0?0 : d===1?90 : d===2?180 : 270;
-      let s = `<g transform="rotate(${rot} ${CX} ${CY})">`;
-      for(let i=0;i<6;i++){
-        const px=CX-14+rnd()*28, py=CY-armLen-6+rnd()*10, r=3.5+rnd()*4;
-        s+=`<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${r.toFixed(1)}" ry="${(r*.8).toFixed(1)}" fill="url(#g_stone)" stroke="#26221d" stroke-width=".8"/>`;
-      }
-      s+='</g>';
-      return s;
-    };
-    for(let d=0;d<4;d++) if(e[d]) rubble += plug(d);
-    if(rnd()<.45) rubble += `<use href="#sym_skull" x="${CX-8}" y="${CY-8}" width="16" height="16" opacity=".9"/>`;
+  const layer = (w,stop,fill,filt)=>`<g fill="${fill}" filter="url(#${filt})"><path d="${armsPath(w,stop)}"/>${caps(w,stop)}</g>`;
+  // 岩壁裂縫與煤斑（先畫：被通道覆蓋處自然隱藏）
+  let deco='';
+  for(let i=0;i<5;i++){
+    let px=rnd()*W, py=rnd()*H, d=`M${px.toFixed(1)},${py.toFixed(1)}`;
+    for(let s=0;s<3;s++){ px+=(rnd()-.5)*28; py+=(rnd()-.5)*28; d+=` L${px.toFixed(1)},${py.toFixed(1)}`; }
+    deco+=`<path d="${d}" fill="none" stroke="#24403a" stroke-width="${(0.8+rnd()*0.9).toFixed(1)}" opacity=".4" stroke-linecap="round"/>`;
   }
-  return tun+floor+dots+rubble+beams;
+  for(let i=0;i<4;i++){
+    const s=5+rnd()*6;
+    deco+=`<use href="#sym_coal" x="${(2+rnd()*(W-18)).toFixed(1)}" y="${(2+rnd()*(H-18)).toFixed(1)}" width="${s.toFixed(1)}" height="${s.toFixed(1)}" opacity=".85"/>`;
+  }
+  const tun = layer(wOut,stopOut,'#242e2b','f_rough')
+            + layer(wRim,stopRim,'#cdb488','f_rough2')
+            + layer(wIn,stopIn,'url(#g_path)','f_rough');
+  // 路面沙點碎石
+  let dots='';
+  const open=[0,1,2,3].filter(x=>e[x]);
+  for(let i=0;i<22;i++){
+    const d=open[Math.floor(rnd()*open.length)];
+    let px,py;
+    if(d===0){ px=CX-wIn+rnd()*wIn*2; py=rnd()*(CY-stopIn); }
+    else if(d===2){ px=CX-wIn+rnd()*wIn*2; py=H-rnd()*(H-CY-stopIn); }
+    else if(d===1){ px=W-rnd()*(W-CX-stopIn); py=CY-wIn+rnd()*wIn*2; }
+    else { px=rnd()*(CX-stopIn); py=CY-wIn+rnd()*wIn*2; }
+    const r=.6+rnd()*1.2;
+    dots+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${r.toFixed(1)}" fill="${rnd()<.3?'#6d6152':'#c6ad7d'}" opacity=".55"/>`;
+  }
+  // 死路骷髏 / 岩壁角落藍晶
+  let extra='';
+  if(!thru && rnd()<.42){
+    const d=open[Math.floor(rnd()*open.length)];
+    const px = d===1 ? CX+stopIn+(W-CX-stopIn)*.4 : d===3 ? (CX-stopIn)*.6 : CX+(rnd()*10-5);
+    const py = d===0 ? (CY-stopIn)*.6 : d===2 ? CY+stopIn+(H-CY-stopIn)*.4 : CY+(rnd()*10-5);
+    extra+=`<use href="#sym_skull" x="${(px-7).toFixed(1)}" y="${(py-7).toFixed(1)}" width="14" height="14" opacity=".9"/>`;
+  }
+  if(rnd()<.3){
+    const [gx,gy]=[[16,20],[W-16,22],[15,H-24],[W-15,H-20]][Math.floor(rnd()*4)];
+    extra+=`<g opacity=".9"><use href="#sym_gem" x="${gx-6}" y="${gy-6}" width="12" height="12"/><use href="#sym_gem" x="${gx+2}" y="${gy-2}" width="9" height="9"/></g>`;
+  }
+  return deco+tun+dots+extra;
 }
 
 function pathCardFace(card, rot){
@@ -1450,154 +1496,212 @@ function pathCardFace(card, rot){
 
 // ── 起點 / 終點 ───────────────────────────────────────────
 function startCardFace(){
-  const ladder = `<g>
-    <rect x="${CX-11}" y="${CY-24}" width="4.6" height="48" rx="2" fill="url(#g_wood)" filter="url(#f_wood)"/>
-    <rect x="${CX+6.4}" y="${CY-24}" width="4.6" height="48" rx="2" fill="url(#g_wood)" filter="url(#f_wood)"/>
-    ${[-16,-6,4,14].map(y=>`<rect x="${CX-12}" y="${CY+y}" width="24" height="3.8" rx="1.8" fill="url(#g_woodD)" filter="url(#f_wood)"/>`).join('')}
+  const ladder = `<g stroke="#2f1c0a" stroke-width=".8">
+    <rect x="${CX-11}" y="${CY-26}" width="5" height="52" rx="2.4" fill="url(#g_wood)" filter="url(#f_wood)"/>
+    <rect x="${CX+6}" y="${CY-26}" width="5" height="52" rx="2.4" fill="url(#g_wood)" filter="url(#f_wood)"/>
+    ${[-18,-8,2,12,20].map(y=>`<rect x="${CX-12}" y="${CY+y}" width="24" height="4" rx="2" fill="url(#g_woodD)" filter="url(#f_wood)"/>`).join('')}
   </g>`;
-  return wrap(base('url(#g_rock)','f_rock') + tunnelArt([1,1,1,1],1,'start') + ladder + label('起點',176,11) + frame());
+  return wrap(base('url(#g_rock)','f_rock') + tunnelArt([1,1,1,1],1,'start') + ladder + label('起點',177,11) + frame());
 }
 function goalBackFace(){
   if(goalBackFace._c) return goalBackFace._c;
-  return goalBackFace._c = wrap(base('url(#g_back)','f_rock') + `
-    <rect x="8" y="8" width="${W-16}" height="${H-16}" rx="7" fill="none" stroke="#c9a75a" stroke-width="1.6" opacity=".8"/>
-    <rect x="12" y="12" width="${W-24}" height="${H-24}" rx="5" fill="none" stroke="#c9a75a" stroke-width=".8" opacity=".5"/>
-    <circle cx="${CX}" cy="${CY-8}" r="30" fill="none" stroke="#c9a75a" stroke-width="1.6" opacity=".8"/>
-    <text x="${CX}" y="${CY+8}" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="46" fill="url(#g_goldT)" stroke="#0e0a14" stroke-width="2" paint-order="stroke">?</text>
-    ${label('終 點', 165, 14)}` + frame(), 'cardback');
+  return goalBackFace._c = wrap(base('url(#g_redback)','f_rock') + `
+    <rect x="7" y="7" width="${W-14}" height="${H-14}" rx="7" fill="none" stroke="rgba(255,205,140,.5)" stroke-width="1.6"/>
+    <rect x="11" y="11" width="${W-22}" height="${H-22}" rx="5" fill="none" stroke="rgba(255,205,140,.22)" stroke-width=".8"/>
+    ${crossedTools('rgba(22,4,2,.5)','rgba(255,180,120,.12)')}
+    ${label('終 點',172,13,'#ffcf9a')}` + frame(), 'cardback');
 }
 function goalGoldFace(){
-  const pile = `<ellipse cx="${CX}" cy="${CY+10}" rx="26" ry="10" fill="#1c1610"/>
-    <use href="#sym_nugget" x="${CX-26}" y="${CY-12}" width="26" height="26"/>
-    <use href="#sym_nugget" x="${CX-2}" y="${CY-14}" width="24" height="24"/>
-    <use href="#sym_nugget" x="${CX-14}" y="${CY-2}" width="30" height="30"/>
+  const pile = `
+    <ellipse cx="${CX}" cy="${CY+14}" rx="24" ry="7" fill="#8f7c53" opacity=".5"/>
     <circle cx="${CX}" cy="${CY}" r="30" fill="url(#g_glow)" opacity=".8"/>
-    ${[[-20,-18],[24,-8],[8,-26],[-28,6]].map(([dx,dy])=>`<path d="M${CX+dx},${CY+dy} l2,0 M${CX+dx+1},${CY+dy-1} l0,2" stroke="#fff3c2" stroke-width="1.4"/>`).join('')}`;
-  return wrap(base('url(#g_rock)','f_rock') + tunnelArt([1,1,1,1],1,'gold') + pile + label('金礦！',176,11,'#ffe08a') + frame());
+    <use href="#sym_nugget" x="${CX-21}" y="${CY-22}" width="42" height="42"/>
+    <use href="#sym_nugget" x="${CX-25}" y="${CY-2}" width="22" height="22"/>
+    <use href="#sym_nugget" x="${CX+5}" y="${CY}" width="19" height="19"/>
+    ${[[-22,-16],[24,-8],[8,-26],[-28,8],[20,14]].map(([dx,dy])=>`<path d="M${CX+dx-2},${CY+dy} h4 M${CX+dx},${CY+dy-2} v4" stroke="#fff3c2" stroke-width="1.4"/>`).join('')}`;
+  return wrap(base('url(#g_rock)','f_rock') + tunnelArt([1,1,1,1],1,'gold') + pile + label('金礦！',177,11,'#ffe08a') + frame());
 }
 function goalStoneFace(rot){
   const e = SAB.edgesOf([0,1,1,0], rot||0);
-  const boulder = `<ellipse cx="${CX}" cy="${CY}" rx="17" ry="15" fill="url(#g_stone)" stroke="#221e19" stroke-width="1.2"/>
-    <path d="M${CX-8},${CY-6} q4,-5 10,-3" stroke="#d8d4cb" stroke-width="1.6" fill="none" opacity=".7"/>`;
-  return wrap(base('url(#g_rock)','f_rock') + tunnelArt(e,1,'stone'+rot) + boulder + label('石頭',176,11,'#cfc9bd') + frame());
+  const pile = `
+    <ellipse cx="${CX}" cy="${CY+12}" rx="22" ry="6.5" fill="#4a4238" opacity=".55"/>
+    <use href="#sym_coal" x="${CX-20}" y="${CY-15}" width="25" height="25"/>
+    <use href="#sym_coal" x="${CX-1}" y="${CY-11}" width="21" height="21"/>
+    <use href="#sym_coal" x="${CX-11}" y="${CY-1}" width="18" height="18"/>`;
+  return wrap(base('url(#g_rock)','f_rock') + tunnelArt(e,1,'stone'+rot) + pile + label('石頭',177,11,'#cfc9bd') + frame());
 }
 
-// ── 行動卡 ────────────────────────────────────────────────
-function actionFrame(bg, art, txt, txtColor){
-  const fr = `
-  <rect x="4" y="4" width="${W-8}" height="${H-8}" rx="8" fill="${bg}" filter="url(#f_rock)"/>
-  <rect x="4" y="4" width="${W-8}" height="${H-8}" rx="8" fill="${bg}" opacity=".4"/>
-  <rect x="4" y="4" width="${W-8}" height="10" fill="url(#g_woodD)" filter="url(#f_wood)"/>
-  <rect x="4" y="${H-14}" width="${W-8}" height="10" fill="url(#g_woodD)" filter="url(#f_wood)"/>
-  <rect x="4" y="4" width="9" height="${H-8}" fill="url(#g_wood)" filter="url(#f_wood)"/>
-  <rect x="${W-13}" y="4" width="9" height="${H-8}" fill="url(#g_wood)" filter="url(#f_wood)"/>
-  ${[[8.5,8.5],[W-8.5,8.5],[8.5,H-8.5],[W-8.5,H-8.5]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.6" fill="url(#g_iron)" stroke="#1c130a" stroke-width=".7"/>`).join('')}
-  <rect x="13" y="14" width="${W-26}" height="${H-28}" rx="4" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.4"/>`;
-  const band = `<rect x="13" y="${H-40}" width="${W-26}" height="22" rx="3" fill="rgba(12,8,4,.72)" stroke="rgba(240,205,130,.35)" stroke-width=".8"/>
-  ${label(txt, H-24.5, 12.5, txtColor)}`;
-  return fr + art + band;
+// ── 行動卡：洞窟畫框＋角落圖示（仿實體卡）──────────────────
+const CAVE_HOLE = `M14,42 Q14,26 30,25 L40,25 L47,42 L54,24 L68,24 L76,40 L84,25 Q104,24 106,42 L107,70 Q111,86 106,98 L107,138 Q107,157 90,161 L36,163 Q17,160 15,142 L13,106 Q9,92 14,80 Z`;
+function caveFrame(art, txt, txtColor, icons){
+  return `
+  <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="url(#g_cave)"/>
+  <g filter="url(#f_rough2)">
+    <path fill-rule="evenodd" d="M2,2 L${W-2},2 L${W-2},${H-2} L2,${H-2} Z ${CAVE_HOLE}" fill="url(#g_rock)" filter="url(#f_rock)"/>
+  </g>
+  <path d="${CAVE_HOLE}" fill="none" stroke="#05080a" stroke-width="5" opacity=".5" filter="url(#f_blur3)"/>
+  <ellipse cx="${CX}" cy="${H-34}" rx="42" ry="12" fill="#3c4347" filter="url(#f_rock)"/>
+  <ellipse cx="${CX-28}" cy="${H-31}" rx="9" ry="4" fill="#59626a" opacity=".7"/>
+  <ellipse cx="${CX+24}" cy="${H-30}" rx="11" ry="4.5" fill="#4c545b" opacity=".7"/>
+  ${art}
+  ${icons||''}
+  <rect x="13" y="${H-32}" width="${W-26}" height="19" rx="3" fill="rgba(10,7,3,.78)" stroke="rgba(240,205,130,.35)" stroke-width=".8"/>
+  ${label(txt, H-18.5, txt.length>7 ? Math.round(880/txt.length)/10 : 12, txtColor)}`;
 }
 function toolUse(tool, x, y, s, extra){
   return `<use href="#sym_${tool}" x="${x-s/2}" y="${y-s/2}" width="${s}" height="${s}" ${extra||''}/>`;
 }
-function crackOverlay(x,y){
-  return `<path d="M${x-16},${y-14} l9,8 l-5,7 l11,9 M${x+14},${y-18} l-7,10 l6,6" stroke="#1a1108" stroke-width="2" fill="none" opacity=".85"/>`;
+// 角落圖示：綠圈＝修復、紅圈斜線＝破壞、灰圈＝事件
+function cIcon(x, sym, kind){
+  const ring = kind==='ok' ? '#3e8e41' : kind==='ban' ? '#c1272d' : '#6b6353';
+  return `<g>
+    <circle cx="${x}" cy="21" r="11.5" fill="#f4eeda" stroke="${ring}" stroke-width="2.8"/>
+    <use href="#sym_${sym}" x="${x-8}" y="13" width="16" height="16"/>
+    ${kind==='ban'?`<line x1="${x-8.2}" y1="29.2" x2="${x+8.2}" y2="12.8" stroke="#c1272d" stroke-width="3.2" stroke-linecap="round" opacity=".92"/>`:''}
+  </g>`;
 }
-function banOverlay(x,y,r){
-  return `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#e02f2f" stroke-width="5.5" opacity=".92"/>
-  <line x1="${x-r*0.71}" y1="${y+r*0.71}" x2="${x+r*0.71}" y2="${y-r*0.71}" stroke="#e02f2f" stroke-width="5.5" opacity=".92"/>`;
+function toolOkArt(tool){
+  if(tool==='lamp') return `<circle cx="${CX}" cy="86" r="32" fill="url(#g_glow)" opacity=".45"/>` + toolUse('lamp', CX, 86, 72);
+  if(tool==='cart') return `<circle cx="${CX}" cy="88" r="30" fill="url(#g_glow)" opacity=".3"/>` + toolUse('cart', CX, 88, 78);
+  return `<circle cx="${CX}" cy="86" r="30" fill="url(#g_glow)" opacity=".3"/>
+    <g transform="rotate(-12 ${CX} 88)">${toolUse('pick', CX, 88, 72)}</g>`;
+}
+function toolBrokenArt(tool){
+  if(tool==='pick') return `<g transform="translate(${CX},100)">
+    <path d="M-31,6 Q0,-10 31,6 L26,12 Q0,-1 -26,12 Z" fill="url(#g_metal)" stroke="#2e363e" stroke-width="1.2"/>
+    <g transform="rotate(-64)"><rect x="-3.2" y="-32" width="6.4" height="27" rx="3" fill="url(#g_wood)" filter="url(#f_wood)"/></g>
+    <g transform="translate(13,-8) rotate(38)"><rect x="-3.2" y="-2" width="6.4" height="24" rx="3" fill="url(#g_wood)" filter="url(#f_wood)"/></g>
+    <path d="M-7,-15 l-4,-6 M-2,-16 l1,-8 M3,-15 l5,-5" stroke="#7c5426" stroke-width="1.6" stroke-linecap="round"/>
+  </g>`;
+  if(tool==='lamp') return `<g transform="translate(${CX},94)">
+    <g transform="rotate(76)">
+      <rect x="-7" y="-27" width="14" height="5" rx="2.5" fill="url(#g_iron)"/>
+      <path d="M-13,-20 L13,-20 L10,12 L-10,12 Z" fill="#2c3236" opacity=".9" stroke="url(#g_iron)" stroke-width="2.2"/>
+      <path d="M-6,-12 l5,8 l-3,7 M5,-14 l-4,10" stroke="#9fb2bd" stroke-width="1.1" fill="none" opacity=".8"/>
+      <path d="M-10,12 L10,12 L12,17 L-12,17 Z" fill="url(#g_iron)"/>
+    </g>
+    <path d="M-18,12 l-4,4 M22,4 l5,3 M16,15 l3,5" stroke="#8fa2ad" stroke-width="1.3" opacity=".8"/>
+    <path d="M-4,-20 q-7,-9 -2,-18 q6,7 11,-1" fill="none" stroke="#9aa5ab" stroke-width="2" opacity=".45" stroke-linecap="round"/>
+  </g>`;
+  return `<g transform="translate(${CX},94)">
+    <g transform="rotate(-20)">
+      <path d="M-26,-12 L26,-12 L19,14 L-19,14 Z" fill="url(#g_woodD)" filter="url(#f_wood)" stroke="#3a2410" stroke-width="1.4"/>
+      <path d="M-26,-12 L26,-12 L24.5,-6.5 L-24.5,-6.5 Z" fill="url(#g_iron)"/>
+      <circle cx="-13" cy="18" r="7" fill="url(#g_iron)" stroke="#20262c" stroke-width="1.6"/>
+      <circle cx="-13" cy="18" r="2.2" fill="#9aa7b2"/>
+    </g>
+    <g transform="translate(27,17) rotate(30)">
+      <circle r="7.5" fill="url(#g_iron)" stroke="#20262c" stroke-width="1.6"/><circle r="2.2" fill="#9aa7b2"/>
+    </g>
+    <use href="#sym_nugget" x="-31" y="9" width="13" height="13"/>
+    <use href="#sym_nugget" x="-15" y="15" width="11" height="11"/>
+  </g>`;
 }
 function breakFace(tool){
-  const art = toolUse(tool, CX, 82, 78) + crackOverlay(CX,82) + banOverlay(CX,82,34);
-  return wrap(actionFrame('url(#g_redbg)', art, '破壞・'+SAB.TOOL_NAME[tool], '#ff9d8a') + frame());
+  const ic = cIcon(20, tool, 'ban') + cIcon(W-20, tool, 'ban');
+  return wrap(caveFrame(toolBrokenArt(tool), '破壞・'+SAB.TOOL_NAME[tool], '#ff9d8a', ic) + frame());
 }
 function repairFace(tools){
-  let art;
+  let art, ic;
   if(tools.length===1){
-    art = `<ellipse cx="${CX}" cy="82" rx="34" ry="34" fill="#2e5e33" opacity=".5" filter="url(#f_blur3)"/>`
-        + toolUse(tools[0], CX, 80, 72)
-        + `<use href="#sym_wrench" x="${CX+2}" y="96" width="34" height="34"/>`;
+    art = toolOkArt(tools[0]) + `<use href="#sym_wrench" x="${CX+10}" y="102" width="28" height="28"/>`;
+    ic = cIcon(20, tools[0], 'ok') + cIcon(W-20, tools[0], 'ok');
   } else {
-    art = `<ellipse cx="${CX}" cy="82" rx="38" ry="34" fill="#2e5e33" opacity=".5" filter="url(#f_blur3)"/>`
-        + toolUse(tools[0], CX-21, 74, 48) + toolUse(tools[1], CX+21, 74, 48)
-        + `<use href="#sym_wrench" x="${CX-15}" y="96" width="30" height="30"/>`;
+    art = `<circle cx="${CX}" cy="86" r="34" fill="#2e5e33" opacity=".35" filter="url(#f_blur3)"/>`
+        + toolUse(tools[0], CX-20, 84, 52) + toolUse(tools[1], CX+20, 88, 52)
+        + `<use href="#sym_wrench" x="${CX-13}" y="102" width="26" height="26"/>`;
+    ic = cIcon(20, tools[0], 'ok') + cIcon(W-20, tools[1], 'ok');
   }
   const nm = tools.map(t=>SAB.TOOL_NAME[t]).join('＋');
-  return wrap(actionFrame('url(#g_slate)', art, '修復・'+nm, '#9fe0a0') + frame());
+  return wrap(caveFrame(art, '修復・'+nm, '#9fe0a0', ic) + frame());
 }
 function rockfallFace(){
   const art = `
-    ${[[42,52,13],[74,44,10],[60,72,15],[86,70,9],[38,80,8]].map(([x,y,r])=>
-      `<g><ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r*.85}" fill="url(#g_stone)" stroke="#221e19" stroke-width="1"/>
-       <line x1="${x-2}" y1="${y-r-9}" x2="${x-5}" y2="${y-r-2}" stroke="#b9b2a5" stroke-width="1.6" opacity=".7"/>
-       <line x1="${x+5}" y1="${y-r-12}" x2="${x+3}" y2="${y-r-3}" stroke="#b9b2a5" stroke-width="1.4" opacity=".55"/></g>`).join('')}
-    <ellipse cx="${CX}" cy="106" rx="34" ry="8" fill="#8d8271" opacity=".5" filter="url(#f_blur3)"/>
-    <ellipse cx="${CX-24}" cy="100" rx="12" ry="5" fill="#a99d89" opacity=".4" filter="url(#f_blur3)"/>
-    <ellipse cx="${CX+22}" cy="102" rx="14" ry="6" fill="#a99d89" opacity=".4" filter="url(#f_blur3)"/>`;
-  return wrap(actionFrame('url(#g_slate)', art, '落　石', '#e8c9a0') + frame());
+    ${[[40,46,11],[72,40,9],[58,66,13],[86,66,8],[34,76,7]].map(([x,y,r])=>
+      `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${(r*.85).toFixed(1)}" fill="url(#g_rockfall)" stroke="#3c2517" stroke-width="1"/>
+       <path d="M${x-3},${y-r-10} l1,6 M${x+4},${y-r-13} l-1,8" stroke="#c9b49e" stroke-width="1.4" opacity=".55"/>`).join('')}
+    <ellipse cx="${CX}" cy="112" rx="34" ry="9" fill="#77685a" opacity=".5" filter="url(#f_blur3)"/>
+    <ellipse cx="${CX-22}" cy="106" rx="12" ry="5" fill="#8d7d6c" opacity=".4" filter="url(#f_blur3)"/>`;
+  return wrap(caveFrame(art, '落　石', '#e8c9a0', cIcon(20,'rocks','plain')+cIcon(W-20,'rocks','plain')) + frame());
 }
 function mapFace(){
   const art = `
+    <ellipse cx="${CX}" cy="80" rx="44" ry="36" fill="#cfd8dc" opacity=".08" filter="url(#f_blur3)"/>
     <g filter="url(#f_paperT)">
-      <path d="M22,44 q-6,4 -2,10 l0,52 q-4,6 2,10 l74,0 q6,-4 2,-10 l0,-52 q4,-6 -2,-10 Z" fill="url(#g_paper)" stroke="#8a6b35" stroke-width="1.6"/>
+      <path d="M22,46 q-6,4 -2,10 l0,50 q-4,6 2,10 l74,0 q6,-4 2,-10 l0,-50 q4,-6 -2,-10 Z" fill="url(#g_paper)" stroke="#8a6b35" stroke-width="1.6"/>
     </g>
-    <path d="M22,44 q-8,2 -8,8 q0,6 8,6" fill="#c9ab6f" stroke="#8a6b35" stroke-width="1.2"/>
-    <path d="M98,102 q8,2 8,8 q0,6 -8,6" fill="#c9ab6f" stroke="#8a6b35" stroke-width="1.2"/>
-    <path d="M32,96 Q44,70 58,80 T88,58" fill="none" stroke="#7a3b1d" stroke-width="2" stroke-dasharray="4 3.2" stroke-linecap="round"/>
-    <path d="M84,52 l9,9 M93,52 l-9,9" stroke="#a32222" stroke-width="3" stroke-linecap="round"/>
+    <path d="M22,46 q-8,2 -8,8 q0,6 8,6" fill="#cfb178" stroke="#8a6b35" stroke-width="1.2"/>
+    <path d="M98,102 q8,2 8,8 q0,6 -8,6" fill="#cfb178" stroke="#8a6b35" stroke-width="1.2"/>
+    <path d="M32,96 Q44,70 58,80 T88,60" fill="none" stroke="#7a3b1d" stroke-width="2" stroke-dasharray="4 3.2" stroke-linecap="round"/>
+    <path d="M84,54 l9,9 M93,54 l-9,9" stroke="#a32222" stroke-width="3" stroke-linecap="round"/>
     <circle cx="33" cy="97" r="3.4" fill="none" stroke="#5c451f" stroke-width="1.6"/>
-    <g transform="translate(38,56)"><circle r="7.5" fill="none" stroke="#5c451f" stroke-width="1.2"/><path d="M0,-6 L1.8,0 L0,6 L-1.8,0 Z" fill="#a32222"/></g>`;
-  return wrap(actionFrame('url(#g_slate)', art, '祕密地圖', '#e8d9a8') + frame());
+    <g transform="translate(38,58)"><circle r="7.5" fill="none" stroke="#5c451f" stroke-width="1.2"/><path d="M0,-6 L1.8,0 L0,6 L-1.8,0 Z" fill="#a32222"/></g>`;
+  return wrap(caveFrame(art, '祕密地圖', '#e8d9a8', cIcon(20,'mapico','plain')+cIcon(W-20,'mapico','plain')) + frame());
 }
 
-// ── 角色卡 ────────────────────────────────────────────────
+// ── 角色卡（仿實體卡：礦工推車 / 黑衣破壞者扛鎬）──────────
 function roleDigFace(){
   const art = `
-    <circle cx="${CX}" cy="80" r="42" fill="url(#g_glow)" opacity=".65"/>
-    <g transform="rotate(-46 ${CX} 88)">${toolUse('pick',CX,88,108)}</g>
-    <g transform="rotate(46 ${CX} 88)">${toolUse('pick',CX,88,108)}</g>
-    <ellipse cx="${CX}" cy="118" rx="26" ry="7" fill="#1c1610" opacity=".6"/>
-    <path d="M${CX-19},80 A19,18 0 0 1 ${CX+19},80 L${CX+23},86 L${CX-23},86 Z" fill="#d9a441" stroke="#7a5410" stroke-width="1.6"/>
-    <path d="M${CX-17},76 A19,16 0 0 1 ${CX+17},76" fill="none" stroke="#f5d98a" stroke-width="1.6" opacity=".8"/>
-    <circle cx="${CX}" cy="72" r="6" fill="url(#g_iron)" stroke="#20262c" stroke-width="1"/>
-    <circle cx="${CX}" cy="72" r="3.2" fill="url(#g_flame)"/>`;
-  return wrap(actionFrame('url(#g_rock)', art, '金 礦 工', '#ffd97a') + frame());
+    <circle cx="${CX}" cy="76" r="40" fill="url(#g_glow)" opacity=".5"/>
+    <path d="M38,112 Q38,86 60,84 Q82,86 82,112 Z" fill="#2e5f9c" stroke="#1a3a66" stroke-width="1.4"/>
+    <circle cx="60" cy="71" r="13.5" fill="#ecc39a"/>
+    <circle cx="55" cy="69" r="1.8" fill="#26221c"/><circle cx="65" cy="69" r="1.8" fill="#26221c"/>
+    <ellipse cx="60" cy="75" rx="4.6" ry="3.6" fill="#dfa87b" stroke="#b57f55" stroke-width=".6"/>
+    <path d="M46,72 Q45,93 60,97 Q75,93 74,72 Q67,82 60,81 Q53,82 46,72 Z" fill="#f4f1e9" stroke="#c9c2b2" stroke-width="1"/>
+    <path d="M45,65 Q44,49 58,44 Q76,39 82,49 Q88,51 84,57 Q79,55 75,59 Q61,51 47,63 Z" fill="#c1272d" stroke="#77120f" stroke-width="1.2"/>
+    <rect x="28" y="106" width="64" height="6" rx="3" fill="url(#g_wood)" filter="url(#f_wood)" stroke="#2f1c0a" stroke-width=".8"/>
+    <circle cx="42" cy="108" r="5.5" fill="#e9b98d" stroke="#b5825a" stroke-width="1"/>
+    <circle cx="78" cy="108" r="5.5" fill="#e9b98d" stroke="#b5825a" stroke-width="1"/>
+    <path d="M24,116 L96,116 L91,150 L29,150 Z" fill="url(#g_woodD)" filter="url(#f_wood)" stroke="#33200e" stroke-width="1.4"/>
+    <path d="M24,116 L96,116 L94.5,122 L25.5,122 Z" fill="url(#g_iron)"/>
+    <path d="M32,124 L88,146 M88,124 L32,146" stroke="#33200e" stroke-width="2" opacity=".5"/>`;
+  return wrap(caveFrame(art, '金 礦 工', '#ffd97a') + frame());
 }
 function roleSabFace(){
   const art = `
-    <ellipse cx="${CX}" cy="86" rx="34" ry="40" fill="#0c0a0e"/>
-    <path d="M${CX-30},112 Q${CX-32},60 ${CX},48 Q${CX+32},60 ${CX+30},112 Z" fill="#191521" stroke="#000" stroke-width="1.4"/>
-    <path d="M${CX-16},80 Q${CX},72 ${CX+16},80 Q${CX},92 ${CX-16},80 Z" fill="#05040a"/>
-    <ellipse cx="${CX-8}" cy="80" rx="3.2" ry="2" fill="#ffb54a"/>
-    <ellipse cx="${CX+8}" cy="80" rx="3.2" ry="2" fill="#ffb54a"/>
-    <g transform="translate(${CX+18},108) rotate(18)">
-      <rect x="-14" y="-6" width="28" height="5.6" rx="2.6" fill="#b3272a" stroke="#5e0f11" stroke-width=".8"/>
-      <rect x="-14" y="0.4" width="28" height="5.6" rx="2.6" fill="#cf3134" stroke="#5e0f11" stroke-width=".8"/>
-      <path d="M14,-3 q8,-6 12,-14" stroke="#c9a75a" stroke-width="1.6" fill="none"/>
-      <circle cx="26.5" cy="-17.5" r="2.6" fill="url(#g_flame)"/>
-    </g>`;
-  return wrap(actionFrame('url(#g_redbg)', art, '破 壞 者', '#ff8f7d') + frame());
+    <ellipse cx="${CX}" cy="92" rx="40" ry="46" fill="#0a0c11"/>
+    <g transform="translate(72,58) rotate(24)">
+      <rect x="-2.8" y="-6" width="5.6" height="52" rx="2.6" fill="url(#g_wood)" filter="url(#f_wood)"/>
+      <path d="M-20,-8 Q0,-22 20,-8 L16,-2 Q0,-13 -16,-2 Z" fill="url(#g_metal)" stroke="#2e363e" stroke-width="1"/>
+    </g>
+    <path d="M40,120 Q40,90 58,86 Q78,90 80,120 Z" fill="#23262e" stroke="#0d0f14" stroke-width="1.4"/>
+    <circle cx="57" cy="73" r="12.5" fill="#e0b087"/>
+    <circle cx="53" cy="71" r="1.7" fill="#1c1914"/><circle cx="62" cy="71" r="1.7" fill="#1c1914"/>
+    <ellipse cx="58" cy="77" rx="4.2" ry="3.4" fill="#d29a6d" stroke="#a5744c" stroke-width=".6"/>
+    <path d="M45,75 Q44,93 57,97 Q71,93 70,75 Q64,84 57,83 Q50,84 45,75 Z" fill="#3b3f47" stroke="#1e2126" stroke-width="1"/>
+    <path d="M43,67 Q42,51 55,47 Q72,43 77,52 Q82,55 78,60 Q73,57 70,61 Q58,53 45,65 Z" fill="#a5411c" stroke="#5e1f0c" stroke-width="1.2"/>
+    <rect x="47" y="118" width="9" height="16" rx="3" fill="#1b1e24"/><rect x="63" y="118" width="9" height="16" rx="3" fill="#1b1e24"/>
+    <ellipse cx="50" cy="136" rx="7" ry="4" fill="#0e1013"/><ellipse cx="68" cy="136" rx="7" ry="4" fill="#0e1013"/>
+    <rect x="26" y="8" width="68" height="15" rx="4" fill="#7c1216" stroke="#3d0608" stroke-width="1"/>
+    <text x="${CX}" y="19.5" text-anchor="middle" font-family="Georgia,serif" font-style="italic" font-weight="700" font-size="11" fill="#ffcdb0">Saboteur</text>`;
+  return wrap(caveFrame(art, '破 壞 者', '#ff8f7d') + frame());
 }
 
 // ── 金塊卡 / 卡背 ─────────────────────────────────────────
 function goldCardFace(v){
-  const pos = v===1 ? [[CX,86,46]] : v===2 ? [[CX-16,72,38],[CX+15,98,40]] : [[CX-18,66,34],[CX+18,80,36],[CX-4,104,38]];
-  const art = `<circle cx="${CX}" cy="88" r="36" fill="url(#g_glow)" opacity=".55"/>`
-    + pos.map(([x,y,s])=>`<use href="#sym_nugget" x="${x-s/2}" y="${y-s/2}" width="${s}" height="${s}"/>`).join('')
-    + [[30,52],[92,60],[84,116],[36,112]].map(([x,y])=>`<path d="M${x-3},${y} h6 M${x},${y-3} v6" stroke="#fff3c2" stroke-width="1.3" opacity=".9"/>`).join('');
-  return wrap(actionFrame('url(#g_back)', art, '金塊 × '+v, '#ffe08a') + frame());
+  const nug = v===1 ? [[CX,96,34]] : v===2 ? [[CX-17,92,30],[CX+16,100,30]] : [[CX-19,88,27],[CX+18,92,27],[CX,106,29]];
+  const art = `
+    <circle cx="${CX}" cy="88" r="36" fill="url(#g_glow)" opacity=".6"/>
+    <path d="M38,112 Q30,76 52,68 Q50,58 60,56 Q70,58 68,68 Q90,76 82,112 Q60,122 38,112 Z" fill="#9a7a4e" filter="url(#f_wood)" stroke="#5e4526" stroke-width="1.4"/>
+    <path d="M52,68 Q60,74 68,68" fill="none" stroke="#5e4526" stroke-width="1.2"/>
+    <ellipse cx="60" cy="62" rx="6" ry="3" fill="#6f5430"/>
+    ${nug.map(([x,y,s])=>`<use href="#sym_nugget" x="${x-s/2}" y="${y-s/2}" width="${s}" height="${s}"/>`).join('')}
+    ${[[34,58],[88,66],[80,118],[32,110]].map(([x,y])=>`<path d="M${x-3},${y} h6 M${x},${y-3} v6" stroke="#fff3c2" stroke-width="1.3" opacity=".9"/>`).join('')}`;
+  return wrap(caveFrame(art, '金塊 × '+v, '#ffe08a') + frame());
+}
+// 卡背共用：交叉鎬鎚壓紋（灰藍＝抽牌堆、暗紅＝終點蓋牌）
+function crossedTools(fill, stroke){
+  return `<g transform="translate(${CX} ${CY})" fill="${fill}"${stroke?` stroke="${stroke}" stroke-width="1"`:''}>
+    <g transform="rotate(-40)"><rect x="-3.4" y="-31" width="6.8" height="62" rx="3.2"/><path d="M-26,-15 Q0,-33 26,-15 L21,-7 Q0,-21 -21,-7 Z"/></g>
+    <g transform="rotate(40)"><rect x="-3.4" y="-31" width="6.8" height="62" rx="3.2"/><rect x="-15" y="-32" width="30" height="13" rx="3.5"/></g>
+  </g>`;
 }
 function backFace(){
   if(backFace._c) return backFace._c;
   return backFace._c = wrap(base('url(#g_back)','f_rock') + `
-    <rect x="7" y="7" width="${W-14}" height="${H-14}" rx="7" fill="none" stroke="#c9a75a" stroke-width="1.8" opacity=".85"/>
-    <rect x="11" y="11" width="${W-22}" height="${H-22}" rx="5" fill="none" stroke="#c9a75a" stroke-width=".8" opacity=".45"/>
-    <circle cx="${CX}" cy="${CY}" r="34" fill="rgba(201,167,90,.08)" stroke="#c9a75a" stroke-width="1.6"/>
-    <circle cx="${CX}" cy="${CY}" r="29.5" fill="none" stroke="#c9a75a" stroke-width=".7" opacity=".6"/>
-    <g transform="rotate(-40 ${CX} ${CY})">${toolUse('pick',CX,CY,52)}</g>
-    <g transform="rotate(40 ${CX} ${CY})">${toolUse('pick',CX,CY,52)}</g>
-    <text x="${CX}" y="34" text-anchor="middle" font-family="'Noto Sans TC',sans-serif" font-weight="700" font-size="13" fill="#e3c67f" letter-spacing="4">矮人礦坑</text>
-    <text x="${CX}" y="${H-24}" text-anchor="middle" font-family="Georgia,serif" font-size="8.5" fill="#a08948" letter-spacing="2">DWARF&#160;MINE</text>` + frame(), 'cardback');
+    <rect x="6.5" y="6.5" width="${W-13}" height="${H-13}" rx="7" fill="none" stroke="rgba(215,228,238,.28)" stroke-width="1.5"/>
+    <rect x="10.5" y="10.5" width="${W-21}" height="${H-21}" rx="5" fill="none" stroke="rgba(215,228,238,.13)" stroke-width=".8"/>
+    ${crossedTools('rgba(8,12,16,.55)','rgba(225,238,246,.10)')}` + frame(), 'cardback');
 }
 
 // ── 對外：依卡片物件產生 SVG ───────────────────────────────
@@ -1642,7 +1746,7 @@ const APP = {
   aiTimer:null, cellEls:new Map(), handSig:'',
 };
 const SEAT_COLORS = ['#caa24b','#d03030','#2563eb','#0d9488','#7c3aed','#ea580c','#db2777','#475569'];
-const AI_NAMES = ['紅鬍','石斧','油燈','煤球','銀鎬','火藥','岩爪'];
+const AI_NAMES = ['諸葛亮','拿破崙','凱撒','達文西','牛頓','哥倫布','貝多芬','武則天','愛因斯坦'];
 const OX=14, OY=11, PX=104, PY=160;
 function npChoice(){ return APP.np || 6; }
 // 手機直版：礦坑改「由上往下挖」。純顯示層旋轉（座標轉置＋卡面轉 90°），
@@ -1709,8 +1813,16 @@ function announce(html, big, seat){
 }
 function banner(txt){ announce(esc(String(txt))); }
 function addLog(html, cls){
+  const lg=$('log');
+  if(!lg.childElementCount) APP.logMin=null;                 // 清空（新回合）後重新標時間
+  const now=new Date();
+  const hm=(now.getHours()<12?'上午':'下午')+String(now.getHours()%12||12).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  if(APP.logMin!==hm){                                       // 換分鐘就插一列時間（仿 BGA）
+    APP.logMin=hm;
+    const t=document.createElement('div'); t.className='logtime'; t.textContent=hm; lg.appendChild(t);
+  }
   const d=document.createElement('div'); if(cls) d.className=cls; d.innerHTML=html;
-  $('log').appendChild(d); $('log').scrollTop=$('log').scrollHeight;
+  lg.appendChild(d); lg.scrollTop=lg.scrollHeight;
 }
 
 /* ── 自訂 modal ───────────────────────────────────────────── */
@@ -1834,7 +1946,32 @@ function renderBoard(){
 function renderOverlays(){
   const st=stview(); if(!st) return;
   const bi=$('boardIn');
-  bi.querySelectorAll('.ghost,.rocktarget,.goaltarget').forEach(e=>e.remove());
+  bi.querySelectorAll('.ghost,.rocktarget,.goaltarget,.slotmark').forEach(e=>e.remove());
+  // 可接牌位置：常駐角框標記（不分誰的回合都顯示，仿 BGA 預示下一步）
+  if(st.phase==='play'){
+    const occ=new Set(st.board.keys());
+    for(const g of st.goals) if(!g.revealed) occ.add(g.x+','+g.y);
+    const cand=new Set();
+    for(const [k,pc] of st.board){
+      if(!pc.card.e) continue;
+      const ed=SAB.edgesOf(pc.card.e, pc.rot||0);
+      const [x,y]=k.split(',').map(Number);
+      for(let d=0;d<4;d++){
+        if(!ed[d]) continue;                       // 只標開口方向
+        const nx=x+SAB.DIRS[d][0], ny=y+SAB.DIRS[d][1], nk=nx+','+ny;
+        if(occ.has(nk)||cand.has(nk)) continue;
+        if(nx<SAB.BOUND.minX||nx>SAB.BOUND.maxX||ny<SAB.BOUND.minY||ny>SAB.BOUND.maxY) continue;
+        cand.add(nk);
+      }
+    }
+    for(const nk of cand){
+      const [x,y]=nk.split(',').map(Number);
+      const p=cellPos(x,y);
+      const d=document.createElement('div');
+      d.className='slotmark'; d.style.left=p.left+'px'; d.style.top=p.top+'px';
+      bi.appendChild(d);
+    }
+  }
   if(!myTurn()) return;
   const sm=shim();
   if(APP.sel && APP.sel.card.k==='path' && !toolsBrokenMine()){
@@ -2146,16 +2283,16 @@ function narrate(events, seat){
   for(const e of events){
     let msg=null, big=false;
     if(e.ev==='path'){
-      msg=`${nmHtml(e.seat)} 鋪了通道${e.card.thru?'':'——<span class="warn">是條死路！</span>'}`;
+      msg=`${nmHtml(e.seat)} 挖掘了一條新的道路${e.card.thru?'':'——<span class="warn">是條死路！</span>'}`;
       sfx('place');
     }
-    else if(e.ev==='discard') msg=`${nmHtml(e.seat)} 蓋牌棄了一張`;
+    else if(e.ev==='discard') msg=`${nmHtml(e.seat)} 棄掉一張牌`;
     else if(e.ev==='pass') msg=`${nmHtml(e.seat)} 過牌`;
-    else if(e.ev==='break'){ msg=`${nmHtml(e.seat)} <span class="warn">弄壞了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`; sfx('break'); }
-    else if(e.ev==='repair'){ msg=`${nmHtml(e.seat)} <span class="good">修好了</span> ${nmHtml(e.target)} 的${SAB.TOOL_NAME[e.tool]}`; sfx('repair'); }
-    else if(e.ev==='rock'){ msg=`${nmHtml(e.seat)} 的<span class="warn">落石</span>炸掉一張通道卡`; sfx('rock'); }
+    else if(e.ev==='break'){ msg=`${nmHtml(e.seat)} <span class="warn">破壞了</span> ${nmHtml(e.target)} 的 ${SAB.TOOL_NAME[e.tool]}`; sfx('break'); }
+    else if(e.ev==='repair'){ msg=`${nmHtml(e.seat)} <span class="good">修復了</span> ${nmHtml(e.target)} 的 ${SAB.TOOL_NAME[e.tool]}`; sfx('repair'); }
+    else if(e.ev==='rock'){ msg=`${nmHtml(e.seat)} 用<span class="warn">落石</span>摧毀了一張通道卡`; sfx('rock'); }
     else if(e.ev==='map'){
-      msg=`${nmHtml(e.seat)} 偷看了終點卡 🗺️`;
+      msg=`${nmHtml(e.seat)} 使用地圖卡窺視了${e.goal!=null?'一張終點卡（'+['上','中','下'][e.goal]+'方）':'一張終點卡'} 🗺️`;
       sfx('map');
       if(e.seat===APP.my && e.kind){    // client 收到的是已淨化事件（無 kind），結果由 priv 顯示
         const face = e.kind==='gold' ? CARDS.cardSVG({k:'goal',kind:'gold'}) : CARDS.cardSVG({k:'goal',kind:'stone'},0);
