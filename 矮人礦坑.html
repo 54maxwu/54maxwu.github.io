@@ -1038,44 +1038,96 @@ function goalDistFrom(G, P, x, y){
   return Math.min(...ys.map(gy=>Math.abs(8-x)+Math.abs(gy-y)));
 }
 
+// ── AI 的「腦」：以模擬取代座標猜測 ─────────────────────────
+// 挖掘前緣距離＝所有可接牌位中，離（AI 認知的）金礦最近者。
+// 放牌/炸牌前先在複製盤面上模擬，看前緣是變近（礦工要的）還是變遠（破壞者要的）。
+function frontierDistOf(G, P, board){
+  const ri = reachInfo(board);
+  let best = 9999;
+  for(const k of ri.sockets.keys()){
+    const [x,y] = k.split(',').map(Number);
+    const d = goalDistFrom(G, P, x, y);
+    if(d < best) best = d;
+  }
+  return best;
+}
+// 模擬擺放：回傳 {nd:放完後的前緣距離, reveals:[會被翻開的終點]}
+function evalPlace(G, P, card, rot, x, y){
+  const b = new Map(G.board);
+  b.set(K(x,y), { card, rot });
+  const ri = reachInfo(b);
+  let nd = 9999;
+  for(const k of ri.sockets.keys()){
+    const [sx,sy] = k.split(',').map(Number);
+    const d = goalDistFrom(G, P, sx, sy);
+    if(d < nd) nd = d;
+  }
+  const reveals = [];
+  for(const g of G.goals){
+    if(g.revealed) continue;
+    for(let d=0; d<4; d++){
+      const nx=g.x+DIRS[d][0], ny=g.y+DIRS[d][1];
+      const pc = b.get(K(nx,ny));
+      if(pc && ri.reach.has(K(nx,ny)) && edgeAt(pc.card.e, pc.rot, OPP(d))){ reveals.push(g); break; }
+    }
+  }
+  return { nd, reveals };
+}
+// 模擬移除（落石）：回傳炸掉該格後的前緣距離
+function evalRemove(G, P, x, y){
+  const b = new Map(G.board);
+  b.delete(K(x,y));
+  return frontierDistOf(G, P, b);
+}
+
 function aiChooseMove(G, seat){
   const P = G.players[seat];
   const rng = G.rng;
   const sab = P.role==='sab';
   const progress = G.deckStart ? 1 - G.deck.length/G.deckStart : 1;   // 0 開局 → 1 尾聲
-  const camo = sab && progress < 0.3;                       // 破壞者前期偽裝
+  const camo = sab && progress < 0.15;                      // 破壞者前期偽裝（別裝太久）
   const hasBroken = TOOLS.some(t=>P.broken[t]);
-  const cand = [];                                          // {score, move, di?}
+  const cand = [];                                          // {score, move}
 
-  const ri = reachInfo(G.board);
-  const curDist = Math.min(9999, ...[...ri.sockets.keys()].map(k=>{ const [x,y]=k.split(',').map(Number); return goalDistFrom(G,P,x,y); }));
+  const cur = frontierDistOf(G, P, G.board);                // 目前挖掘前緣
 
   P.hand.forEach((card, hi)=>{
     if(card.k==='path'){
       if(hasBroken){ return; }
       for(const pl of legalPlacements(G, card)){
-        const d = goalDistFrom(G, P, pl.x, pl.y);
+        const ev = evalPlace(G, P, card, pl.rot, pl.x, pl.y);
+        const gain = Math.max(-8, Math.min(12, cur - ev.nd));   // >0：挖完前緣更近金礦
         let s;
-        if(!card.thru){                                     // 死路
-          s = sab ? (camo ? -2 : 16 - d*1.4) : -8;
+        if(!card.thru){                                     // 死路：模擬已含「塞住最佳牌位→前緣變遠」
+          // 只在真的塞到路（前緣變遠）才出手，否則抱著等時機，別浪費彈藥
+          s = sab ? (camo ? -2 : (gain<0 ? 3 - gain*7 : -1)) : -9;
         } else if(sab){
-          s = camo ? 3 - Math.max(0,(curDist-d))*1.5 : -2 - (curDist-d)*3;
+          s = camo ? 3 - Math.max(0,gain)*2                 // 偽裝期：鋪「不推進」的通道裝好人
+                   : -4 - gain*4;                           // 攤牌期：絕不幫忙挖
         } else {
-          const my = edgesOf(card.e, pl.rot);
-          const openOut = my.reduce((a,b,di)=>{
-            const nx=pl.x+DIRS[di][0], ny=pl.y+DIRS[di][1];
-            return a + (b && !G.board.get(K(nx,ny)) ? 1 : 0);
-          },0);
-          s = 10 + (curDist - d)*4 + openOut*1.2 - d*0.6;
+          s = 8 + gain*6 - ev.nd*0.4;
+          if(gain<=0) s -= 4;                               // 白鋪不推進的牌
         }
-        cand.push({ s: s + rng()*1.5, move:{ type:'path', hi, rot:pl.rot, x:pl.x, y:pl.y } });
+        // 這一放會直接翻開終點：礦工衝、破壞者避
+        for(const g of ev.reveals){
+          const kn = P.known[g.idx];
+          if(kn==='gold') s += sab ? -200 : 200;
+          else if(kn==='stone') s += sab ? -6 : 4;          // 翻開石頭＝送礦工情報，破壞者別幫忙
+          else s += sab ? -20 : 30;
+        }
+        cand.push({ s: s + rng()*1.2, move:{ type:'path', hi, rot:pl.rot, x:pl.x, y:pl.y } });
       }
     } else if(card.a==='map'){
       const ts = legalActionTargets(G, seat, card);
       if(ts.length){
-        const unknown = ts.length;
-        const s = (sab?8:12) - progress*7 + unknown;
-        const goal = ts[Math.floor(rng()*ts.length)];
+        // 偷看「離目前認知挖向最近」的未知終點，情報最能改變路線
+        const fy = believedGoalYs(G, P);
+        let goal = ts[0], bd = 1e9;
+        for(const t of ts){
+          const d = Math.min(...fy.map(y=>Math.abs(y-G.goals[t].y)));
+          if(d < bd){ bd = d; goal = t; }
+        }
+        const s = (sab?10:13) - progress*7 + ts.length;    // 內鬼也要早點知道金礦在哪，才知道該堵哪
         cand.push({ s: s + rng(), move:{ type:'map', hi, goal } });
       }
     } else if(card.a==='break'){
@@ -1083,10 +1135,12 @@ function aiChooseMove(G, seat){
       for(const t of ts){
         let s;
         if(sab){
-          s = 6 + progress*6 + P.mind.contrib[t]*1.2 - (camo?4:0);
+          // 破壞卡重在時機：離金礦遠時抱著（早出會被修掉），礦工逼近時集中火力
+          // 優先癱瘓貢獻度最高的礦工
+          s = 2 + progress*3 + P.mind.contrib[t]*1.5 + Math.max(0, 10-cur)*1.8 - (camo?6:0);
         } else {
           const susp = P.mind.susp[t];
-          s = susp>=5 ? 4 + susp : -3;
+          s = susp>=5 ? 4 + susp : (susp>=3 && progress>0.5 ? 1 + susp : -3);
         }
         cand.push({ s: s + rng()*1.5, move:{ type:'break', hi, target:t } });
       }
@@ -1095,21 +1149,23 @@ function aiChooseMove(G, seat){
         const T = G.players[t];
         const tool = card.tools.find(tl=>T.broken[tl]);
         let s;
-        if(t===seat) s = 14;
+        if(t===seat) s = 15;                                // 自救最優先（不能鋪路＝廢人）
         else if(sab) s = camo ? 4 : -4;
-        else s = P.mind.susp[t]<4 ? 8 : -2;
+        else s = P.mind.susp[t]<4 ? 8 + progress*2 : -2;
         cand.push({ s: s + rng(), move:{ type:'repair', hi, target:t, tool } });
       }
     } else if(card.a==='rock'){
       const ts = legalActionTargets(G, seat, card);
       let best=null, bs=-99;
       for(const k of ts){
-        const [x,y]=k.split(',').map(Number);
-        const pc = G.board.get(k);
-        const d = goalDistFrom(G,P,x,y);
+        const [x,y] = k.split(',').map(Number);
+        const nd = evalRemove(G, P, x, y);
+        const delta = Math.max(-12, Math.min(12, nd - cur));    // >0：炸完前緣變遠（傷礦工）
+        // 模擬自動涵蓋：破壞者炸關鍵通道（前緣暴退）、礦工炸塞路的死路（前緣恢復）。
+        // 零傷害就不出手（continue），落石只有 3 張，留著等能炸痛的時候
         let s;
-        if(sab) s = pc.card.thru ? (camo? -3 : 9 - d*0.8) : -6;
-        else    s = !pc.card.thru ? 8 - d*0.7 : -6;
+        if(sab){ if(delta<=0) continue; s = 5 + delta*5 + progress*2 + Math.max(0,9-cur)*0.7; }
+        else   { if(delta>=0) continue; s = 4 - delta*4.5; }
         if(s>bs){ bs=s; best={x,y}; }
       }
       if(best) cand.push({ s: bs + rng(), move:{ type:'rock', hi, x:best.x, y:best.y } });
