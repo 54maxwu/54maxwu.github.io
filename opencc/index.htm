@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>簡繁轉換工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+            background: #f1f5f9;
+            color: #2c3e50;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 24px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .app-header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            letter-spacing: .02em;
+        }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background-color .2s, color .2s, border-color .2s;
+        }
+        .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status-pill.idle { color: #64748b; }
+        .status-pill.busy { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+        .status-pill.busy .dot { animation: pulse 1s infinite ease-in-out; }
+        .status-pill.ok   { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+        .status-pill.err  { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+        .page-content {
+            padding: 12px 20px 20px;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .glass {
+            position: relative;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            background-color: rgba(255,255,255,0.55);
+            box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
+            border: 1.5px solid rgba(255,255,255,0.7);
+            border-bottom: 1.5px solid rgba(40,40,40,0.15);
+            border-right: 1.5px solid rgba(40,40,40,0.15);
+            padding: 24px;
+        }
+
+        .field-label {
+            font-size: .78rem;
+            font-weight: 700;
+            color: #7c3aed;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin-bottom: 6px;
+        }
+
+        /* ── 設定列 ── */
+        .settings-row {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .setting { display: flex; flex-direction: column; gap: 6px; }
+        .setting .field-label { margin-bottom: 0; }
+        .cc-select {
+            font-family: inherit;
+            font-size: 13.5px;
+            padding: 9px 12px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            color: #1e293b;
+            outline: none;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .cc-select:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.14); }
+
+        .bom-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13px;
+            color: #475569;
+            cursor: pointer;
+            user-select: none;
+            padding: 9px 0;
+        }
+        .bom-check input { width: 15px; height: 15px; accent-color: #7c3aed; cursor: pointer; }
+
+        /* ── 拖放區 ── */
+        .drop-zone {
+            border: 2px dashed #c4b5fd;
+            border-radius: 12px;
+            background: rgba(245,243,255,.6);
+            padding: 34px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .18s, background-color .18s, transform .1s;
+        }
+        .drop-zone:hover { border-color: #8b5cf6; background: rgba(237,233,254,.8); }
+        .drop-zone.dragover {
+            border-color: #7c3aed;
+            background: rgba(221,214,254,.9);
+            transform: scale(1.005);
+        }
+        .drop-zone .dz-icon { font-size: 34px; margin-bottom: 8px; }
+        .drop-zone .dz-title { font-size: 15px; font-weight: 700; color: #4c1d95; margin-bottom: 5px; }
+        .drop-zone .dz-hint  { font-size: 12px; color: #64748b; line-height: 1.7; }
+
+        /* ── 檔案列表 ── */
+        .file-list-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 18px 0 10px;
+            flex-wrap: wrap;
+        }
+        .file-list-head .field-label { margin-bottom: 0; }
+        .file-list-actions { display: flex; gap: 8px; }
+
+        .file-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,255,255,0.85);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .file-name {
+            flex: 1 1 200px;
+            min-width: 0;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #1e293b;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        }
+        .file-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .meta-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 700;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            white-space: nowrap;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        }
+        .meta-pill.enc { color: #7c3aed; background: #f5f3ff; border-color: #ddd6fe; }
+        .file-actions { display: flex; gap: 6px; }
+
+        .btn {
+            padding: 10px 22px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: .04em;
+            font-family: inherit;
+            transition: background .15s, box-shadow .15s, transform .08s, color .15s, border-color .15s;
+        }
+        .btn-primary {
+            background: linear-gradient(145deg, #8b5cf6, #7c3aed);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(124,58,237,0.35);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 14px rgba(124,58,237,0.45); }
+        .btn-primary:active { transform: scale(.97); }
+        .btn-secondary {
+            background: #fff;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-secondary:hover { background: #f8fafc; color: #7c3aed; border-color: #7c3aed; }
+        .btn-secondary:active { transform: scale(.97); }
+        .btn-sm { padding: 6px 13px; font-size: 12px; border-radius: 7px; }
+        .btn-danger-ghost {
+            background: transparent;
+            color: #94a3b8;
+            border: 1px solid transparent;
+            padding: 6px 9px;
+        }
+        .btn-danger-ghost:hover { color: #b91c1c; background: #fef2f2; }
+
+        .empty-hint { font-size: 13px; color: #94a3b8; text-align: center; padding: 6px 0 2px; }
+
+        /* ── 貼上文字互轉 ── */
+        .text-grid {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+            gap: 14px;
+            margin-top: 4px;
+        }
+        @media (max-width: 760px) { .text-grid { grid-template-columns: 1fr; } }
+        .pane { display: flex; flex-direction: column; gap: 6px; }
+        .pane-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 26px;
+        }
+        .pane-head .field-label { margin-bottom: 0; }
+        .cc-textarea {
+            width: 100%;
+            height: 240px;
+            resize: vertical;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.65;
+            padding: 12px 14px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 10px;
+            background: #fff;
+            color: #1e293b;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .cc-textarea:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.14); }
+        .cc-textarea[readonly] { background: #f8fafc; color: #334155; }
+        .cc-textarea::placeholder { color: #94a3b8; }
+        .cc-textarea { scrollbar-width: thin; scrollbar-color: #c4b5fd transparent; }
+        .cc-textarea::-webkit-scrollbar { width: 8px; }
+        .cc-textarea::-webkit-scrollbar-track { background: transparent; }
+        .cc-textarea::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 999px; }
+        .cc-textarea::-webkit-scrollbar-thumb:hover { background: #a78bfa; }
+        .char-count { font-size: 11px; color: #94a3b8; font-family: ui-monospace, Consolas, monospace; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 24px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 980px;
+            max-height: 84vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.4);
+            overflow: hidden;
+        }
+        .modal-box.narrow { max-width: 440px; }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+            gap: 10px;
+        }
+        .modal-header .mh-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .modal-close {
+            background: transparent;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            color: #64748b;
+            font-family: inherit;
+            flex-shrink: 0;
+            transition: background .12s, color .12s;
+        }
+        .modal-close:hover { background: #fef2f2; color: #b91c1c; }
+        .modal-msg {
+            padding: 18px 20px;
+            font-size: 13.5px;
+            color: #334155;
+            line-height: 1.7;
+        }
+        .modal-msg-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding: 0 16px 16px;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+            gap: 0;
+            flex: 1;
+            min-height: 0;
+        }
+        @media (max-width: 760px) { .preview-grid { grid-template-columns: 1fr; } }
+        .preview-col {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            min-width: 0;
+        }
+        .preview-col + .preview-col { border-left: 1px solid #1e293b; }
+        @media (max-width: 760px) { .preview-col + .preview-col { border-left: none; border-top: 1px solid #1e293b; } }
+        .preview-col-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            color: #94a3b8;
+            background: #1e293b;
+            padding: 7px 16px;
+            text-transform: uppercase;
+        }
+        .preview-pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 14px 16px;
+            margin: 0;
+            font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+            font-size: 12.5px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow: auto;
+            flex: 1;
+            min-height: 200px;
+        }
+        .preview-pre { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .preview-pre::-webkit-scrollbar { width: 8px; }
+        .preview-pre::-webkit-scrollbar-track { background: transparent; }
+        .preview-pre::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+        .preview-pre::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%) translateY(16px);
+            background: #1e293b;
+            color: #f1f5f9;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 999px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.35);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s, transform .2s;
+            z-index: 200;
+            max-width: 86vw;
+            text-align: center;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>簡繁轉換工具</h1>
+        <div class="header-meta">
+            <span>OpenCC 離線轉換</span>
+            <span class="status-pill busy" id="statusPill"><span class="dot"></span><span id="statusText">載入字典中…</span></span>
+        </div>
+    </div>
+
+    <div class="page-content">
+        <!-- 設定 + 檔案轉換 -->
+        <div class="glass">
+            <div class="settings-row">
+                <div class="setting">
+                    <div class="field-label">轉換方向</div>
+                    <select class="cc-select" id="dirSelect"></select>
+                </div>
+                <div class="setting">
+                    <div class="field-label">來源編碼</div>
+                    <select class="cc-select" id="encSelect">
+                        <option value="auto" selected>自動偵測（UTF-8 / GB18030 / Big5）</option>
+                        <option value="utf-8">UTF-8</option>
+                        <option value="gb18030">GB18030 / GBK</option>
+                        <option value="big5">Big5</option>
+                        <option value="utf-16le">UTF-16 LE</option>
+                        <option value="utf-16be">UTF-16 BE</option>
+                    </select>
+                </div>
+                <div class="setting">
+                    <label class="bom-check" title="部分 Windows 播放器需要 BOM 才會正確以 UTF-8 讀取字幕">
+                        <input type="checkbox" id="bomCheck">輸出附加 UTF-8 BOM
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin-top:18px">
+                <div class="drop-zone" id="dropZone">
+                    <div class="dz-icon">📄⇄</div>
+                    <div class="dz-title">拖放檔案到這裡，或點擊選擇</div>
+                    <div class="dz-hint">支援 JSON / SRT / ASS / TXT / VTT / CSV… 任何文字檔，可一次多個<br>轉換都在瀏覽器本機完成，檔案不會上傳到任何伺服器</div>
+                </div>
+                <input type="file" id="fileInput" multiple hidden>
+            </div>
+
+            <div id="fileSection" hidden>
+                <div class="file-list-head">
+                    <div class="field-label">已轉換檔案</div>
+                    <div class="file-list-actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="downloadAllBtn">全部下載</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="clearBtn">清除列表</button>
+                    </div>
+                </div>
+                <div id="fileList"></div>
+            </div>
+        </div>
+
+        <!-- 貼上文字互轉 -->
+        <div class="glass">
+            <div class="field-label" style="margin-bottom:10px">貼上文字直接轉</div>
+            <div class="text-grid">
+                <div class="pane">
+                    <div class="pane-head">
+                        <div class="field-label">原文</div>
+                        <span class="char-count" id="srcCount"></span>
+                    </div>
+                    <textarea class="cc-textarea" id="srcText" placeholder="在這裡貼上文字，右邊即時顯示轉換結果…" spellcheck="false"></textarea>
+                </div>
+                <div class="pane">
+                    <div class="pane-head">
+                        <div class="field-label">轉換結果</div>
+                        <div style="display:flex;gap:6px">
+                            <button type="button" class="btn btn-secondary btn-sm" id="copyBtn">複製</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="dlTextBtn">下載 .txt</button>
+                        </div>
+                    </div>
+                    <textarea class="cc-textarea" id="dstText" readonly spellcheck="false" placeholder="轉換結果會出現在這裡"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 預覽 modal -->
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <span class="mh-title" id="previewTitle">預覽</span>
+                <button type="button" class="modal-close" id="previewClose">&times;</button>
+            </div>
+            <div class="preview-grid">
+                <div class="preview-col">
+                    <div class="preview-col-label">原文</div>
+                    <pre class="preview-pre" id="previewSrc"></pre>
+                </div>
+                <div class="preview-col">
+                    <div class="preview-col-label">轉換後</div>
+                    <pre class="preview-pre" id="previewDst"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 訊息 modal -->
+    <div class="modal-overlay" id="msgModal">
+        <div class="modal-box narrow">
+            <div class="modal-header">
+                <span class="mh-title" id="msgTitle">提示</span>
+                <button type="button" class="modal-close" id="msgClose">&times;</button>
+            </div>
+            <div class="modal-msg" id="msgBody"></div>
+            <div class="modal-msg-actions">
+                <button type="button" class="btn btn-primary btn-sm" id="msgOk">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- 本機優先載入字典（file:// 離線可用），失敗時退回 CDN -->
+    <script src="opencc-full.js"></script>
+    <script>
+    'use strict';
+
+    /* ── 轉換方向 ── */
+    const DIRECTIONS = [
+        { id: 's2twp', from: 'cn',  to: 'twp', suffix: 'tw',  label: '簡體 → 繁體（台灣＋慣用詞彙 s2twp）' },
+        { id: 's2tw',  from: 'cn',  to: 'tw',  suffix: 'tw',  label: '簡體 → 繁體（台灣正體 s2tw）' },
+        { id: 's2hk',  from: 'cn',  to: 'hk',  suffix: 'hk',  label: '簡體 → 繁體（香港 s2hk）' },
+        { id: 's2t',   from: 'cn',  to: 't',   suffix: 'zht', label: '簡體 → 繁體（OpenCC 標準 s2t）' },
+        { id: 'tw2sp', from: 'twp', to: 'cn',  suffix: 'cn',  label: '繁體（台灣＋慣用詞彙）→ 簡體 tw2sp' },
+        { id: 'tw2s',  from: 'tw',  to: 'cn',  suffix: 'cn',  label: '繁體（台灣正體）→ 簡體 tw2s' },
+        { id: 'hk2s',  from: 'hk',  to: 'cn',  suffix: 'cn',  label: '繁體（香港）→ 簡體 hk2s' },
+        { id: 't2s',   from: 't',   to: 'cn',  suffix: 'cn',  label: '繁體 → 簡體（OpenCC 標準 t2s）' },
+        { id: 'jp2t',  from: 'jp',  to: 't',   suffix: 'zht', label: '日本新字體 → 繁體 jp2t' },
+        { id: 't2jp',  from: 't',   to: 'jp',  suffix: 'jp',  label: '繁體 → 日本新字體 t2jp' },
+    ];
+
+    const $ = id => document.getElementById(id);
+    const $pill = $('statusPill'), $statusText = $('statusText');
+    const $dirSelect = $('dirSelect'), $encSelect = $('encSelect'), $bomCheck = $('bomCheck');
+    const $dropZone = $('dropZone'), $fileInput = $('fileInput');
+    const $fileSection = $('fileSection'), $fileList = $('fileList');
+    const $srcText = $('srcText'), $dstText = $('dstText'), $srcCount = $('srcCount');
+
+    let ccReady = false;
+    const ccCache = {};          // "from|to" -> converter fn
+    let files = [];              // { name, size, enc, srcText, outText }
+
+    DIRECTIONS.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.label;
+        $dirSelect.appendChild(opt);
+    });
+
+    function setStatus(cls, text) {
+        $pill.className = 'status-pill ' + cls;
+        $statusText.textContent = text;
+    }
+
+    function currentDir() {
+        return DIRECTIONS.find(d => d.id === $dirSelect.value) || DIRECTIONS[0];
+    }
+
+    function getConverter() {
+        const d = currentDir();
+        const key = d.from + '|' + d.to;
+        if (!ccCache[key]) ccCache[key] = OpenCC.Converter({ from: d.from, to: d.to });
+        return ccCache[key];
+    }
+
+    /* ── 字典載入：本機 script 失敗 → CDN 後援 ── */
+    function dictReady() {
+        ccReady = true;
+        setStatus('ok', '就緒');
+        try { getConverter(); } catch (e) {}   // 預熱預設方向的字典 trie
+    }
+    if (typeof OpenCC !== 'undefined') {
+        dictReady();
+    } else {
+        setStatus('busy', '改由 CDN 載入字典…');
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js';
+        s.onload = dictReady;
+        s.onerror = () => {
+            setStatus('err', '字典載入失敗');
+            showMsg('字典載入失敗', '找不到本機的 opencc-full.js，CDN 也連不上。請確認網路連線後重新整理頁面。');
+        };
+        document.head.appendChild(s);
+    }
+
+    function requireReady() {
+        if (!ccReady) { showToast('字典還在載入中，請稍候…'); return false; }
+        return true;
+    }
+
+    /* ── Toast / Modal ── */
+    let toastTimer = null;
+    function showToast(msg) {
+        const t = $('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function showMsg(title, body) {
+        $('msgTitle').textContent = title;
+        $('msgBody').textContent = body;
+        $('msgModal').classList.add('show');
+    }
+    $('msgClose').addEventListener('click', () => $('msgModal').classList.remove('show'));
+    $('msgOk').addEventListener('click', () => $('msgModal').classList.remove('show'));
+    $('msgModal').addEventListener('click', e => { if (e.target === $('msgModal')) $('msgModal').classList.remove('show'); });
+
+    $('previewClose').addEventListener('click', () => $('previewModal').classList.remove('show'));
+    $('previewModal').addEventListener('click', e => { if (e.target === $('previewModal')) $('previewModal').classList.remove('show'); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            $('previewModal').classList.remove('show');
+            $('msgModal').classList.remove('show');
+        }
+    });
+
+    /* ── 編碼偵測 ── */
+    function scoreCJK(text) {
+        let score = 0;
+        const n = Math.min(text.length, 20000);
+        for (let i = 0; i < n; i++) {
+            const c = text.charCodeAt(i);
+            if (c === 0xFFFD) score -= 20;                       // 解碼失敗替代字
+            else if (c >= 0x4E00 && c <= 0x9FFF) score += 2;    // CJK 統一漢字
+            else if (c >= 0x3000 && c <= 0x30FF) score += 1;    // CJK 標點、假名
+            else if (c >= 0xFF00 && c <= 0xFFEF) score += 1;    // 全形字元
+            else if (c >= 0xE000 && c <= 0xF8FF) score -= 5;    // 私用區＝多半解錯
+            else if (c >= 0x0080 && c < 0x2000)  score -= 1;    // 拉丁擴充雜訊
+        }
+        return score;
+    }
+
+    function decodeBuffer(buf, encChoice) {
+        const u8 = new Uint8Array(buf);
+        if (encChoice !== 'auto') {
+            return { enc: encChoice.toUpperCase(), text: new TextDecoder(encChoice).decode(u8) };
+        }
+        if (u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF)
+            return { enc: 'UTF-8', text: new TextDecoder('utf-8').decode(u8.subarray(3)) };
+        if (u8[0] === 0xFF && u8[1] === 0xFE)
+            return { enc: 'UTF-16 LE', text: new TextDecoder('utf-16le').decode(u8.subarray(2)) };
+        if (u8[0] === 0xFE && u8[1] === 0xFF)
+            return { enc: 'UTF-16 BE', text: new TextDecoder('utf-16be').decode(u8.subarray(2)) };
+        try {
+            return { enc: 'UTF-8', text: new TextDecoder('utf-8', { fatal: true }).decode(u8) };
+        } catch (e) {}
+        let best = null;
+        for (const enc of ['gb18030', 'big5']) {
+            try {
+                const text = new TextDecoder(enc).decode(u8);
+                const s = scoreCJK(text);
+                if (!best || s > best.s) best = { enc, text, s };
+            } catch (e) {}
+        }
+        if (best) return { enc: best.enc === 'gb18030' ? 'GB18030' : 'Big5', text: best.text };
+        return { enc: 'UTF-8?', text: new TextDecoder('utf-8').decode(u8) };
+    }
+
+    /* ── 檔案處理 ── */
+    function fmtSize(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+        return (n / 1048576).toFixed(2) + ' MB';
+    }
+
+    function outputName(name) {
+        const suffix = '_' + currentDir().suffix;
+        const m = name.match(/^(.+)(\.[^.]+)$/);
+        return m ? m[1] + suffix + m[2] : name + suffix + '.txt';
+    }
+
+    async function handleFiles(fileArr) {
+        if (!fileArr.length || !requireReady()) return;
+        setStatus('busy', '轉換中…');
+        await new Promise(r => setTimeout(r, 30));   // 讓狀態先畫出來再做同步轉換
+        const convert = getConverter();
+        let failed = 0;
+        for (const f of fileArr) {
+            try {
+                const buf = await f.arrayBuffer();
+                const { enc, text } = decodeBuffer(buf, $encSelect.value);
+                files.push({ name: f.name, size: f.size, enc, srcText: text, outText: convert(text) });
+            } catch (e) {
+                failed++;
+                console.error('convert failed:', f.name, e);
+            }
+        }
+        renderFileList();
+        setStatus('ok', '就緒');
+        if (failed) showMsg('部分檔案失敗', `有 ${failed} 個檔案無法讀取或解碼，已略過。可試著手動指定來源編碼後再拖進來一次。`);
+    }
+
+    function renderFileList() {
+        $fileSection.hidden = files.length === 0;
+        $fileList.innerHTML = '';
+        files.forEach((f, i) => {
+            const row = document.createElement('div');
+            row.className = 'file-row';
+
+            const name = document.createElement('span');
+            name.className = 'file-name';
+            name.textContent = f.name + '  →  ' + outputName(f.name);
+            name.title = name.textContent;
+
+            const meta = document.createElement('span');
+            meta.className = 'file-meta';
+            meta.innerHTML =
+                `<span class="meta-pill enc"></span>` +
+                `<span class="meta-pill">${fmtSize(f.size)}</span>` +
+                `<span class="meta-pill">${f.srcText.length.toLocaleString()} 字元</span>`;
+            meta.querySelector('.enc').textContent = f.enc;
+
+            const actions = document.createElement('span');
+            actions.className = 'file-actions';
+
+            const previewBtn = document.createElement('button');
+            previewBtn.type = 'button';
+            previewBtn.className = 'btn btn-secondary btn-sm';
+            previewBtn.textContent = '預覽';
+            previewBtn.addEventListener('click', () => openPreview(f));
+
+            const dlBtn = document.createElement('button');
+            dlBtn.type = 'button';
+            dlBtn.className = 'btn btn-primary btn-sm';
+            dlBtn.textContent = '下載';
+            dlBtn.addEventListener('click', () => downloadFile(f));
+
+            const rmBtn = document.createElement('button');
+            rmBtn.type = 'button';
+            rmBtn.className = 'btn btn-danger-ghost btn-sm';
+            rmBtn.textContent = '✕';
+            rmBtn.title = '移除';
+            rmBtn.addEventListener('click', () => { files.splice(i, 1); renderFileList(); });
+
+            actions.append(previewBtn, dlBtn, rmBtn);
+            row.append(name, meta, actions);
+            $fileList.appendChild(row);
+        });
+    }
+
+    function downloadText(text, filename) {
+        const parts = $bomCheck.checked ? ['\uFEFF', text] : [text];
+        const blob = new Blob(parts, { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
+    function downloadFile(f) {
+        downloadText(f.outText, outputName(f.name));
+        showToast('已下載 ' + outputName(f.name));
+    }
+
+    $('downloadAllBtn').addEventListener('click', () => {
+        if (!files.length) return;
+        files.forEach((f, i) => setTimeout(() => downloadFile(f), i * 300));
+    });
+    $('clearBtn').addEventListener('click', () => { files = []; renderFileList(); });
+
+    const PREVIEW_MAX = 80000;
+    function openPreview(f) {
+        $('previewTitle').textContent = f.name + '（' + currentDir().label + '）';
+        const clip = s => s.length > PREVIEW_MAX
+            ? s.slice(0, PREVIEW_MAX) + '\n\n…（僅預覽前 ' + PREVIEW_MAX.toLocaleString() + ' 字元，下載檔案為完整內容）'
+            : s;
+        $('previewSrc').textContent = clip(f.srcText);
+        $('previewDst').textContent = clip(f.outText);
+        $('previewModal').classList.add('show');
+    }
+
+    /* 預覽左右欄同步捲動（按比例） */
+    (function () {
+        const a = $('previewSrc'), b = $('previewDst');
+        let lock = false;
+        function sync(src, dst) {
+            if (lock) return;
+            lock = true;
+            const ratio = src.scrollTop / Math.max(1, src.scrollHeight - src.clientHeight);
+            dst.scrollTop = ratio * (dst.scrollHeight - dst.clientHeight);
+            requestAnimationFrame(() => { lock = false; });
+        }
+        a.addEventListener('scroll', () => sync(a, b));
+        b.addEventListener('scroll', () => sync(b, a));
+    })();
+
+    /* ── 拖放 / 選檔 ── */
+    $dropZone.addEventListener('click', () => $fileInput.click());
+    $fileInput.addEventListener('change', () => {
+        handleFiles([...$fileInput.files]);
+        $fileInput.value = '';
+    });
+    ['dragenter', 'dragover'].forEach(ev =>
+        $dropZone.addEventListener(ev, e => { e.preventDefault(); $dropZone.classList.add('dragover'); }));
+    ['dragleave', 'drop'].forEach(ev =>
+        $dropZone.addEventListener(ev, e => { e.preventDefault(); $dropZone.classList.remove('dragover'); }));
+    $dropZone.addEventListener('drop', e => {
+        const list = [...e.dataTransfer.files];
+        if (list.length) handleFiles(list);
+    });
+    // 防止拖到頁面其他地方時瀏覽器直接開檔
+    ['dragover', 'drop'].forEach(ev =>
+        window.addEventListener(ev, e => e.preventDefault()));
+
+    /* ── 貼上文字互轉 ── */
+    let textTimer = null;
+    function convertTextPane() {
+        const src = $srcText.value;
+        $srcCount.textContent = src ? src.length.toLocaleString() + ' 字元' : '';
+        if (!src) { $dstText.value = ''; return; }
+        if (!ccReady) return;
+        $dstText.value = getConverter()(src);
+    }
+    $srcText.addEventListener('input', () => {
+        clearTimeout(textTimer);
+        textTimer = setTimeout(convertTextPane, 150);
+    });
+
+    $('copyBtn').addEventListener('click', async () => {
+        if (!$dstText.value) { showToast('沒有可複製的內容'); return; }
+        try {
+            await navigator.clipboard.writeText($dstText.value);
+            showToast('已複製到剪貼簿');
+        } catch (e) {
+            $dstText.select();
+            document.execCommand('copy');
+            showToast('已複製到剪貼簿');
+        }
+    });
+    $('dlTextBtn').addEventListener('click', () => {
+        if (!$dstText.value) { showToast('沒有可下載的內容'); return; }
+        downloadText($dstText.value, 'converted_' + currentDir().suffix + '.txt');
+        showToast('已下載');
+    });
+
+    /* ── 改變方向 / 編碼時重新轉換 ── */
+    $dirSelect.addEventListener('change', async () => {
+        if (!requireReady()) return;
+        setStatus('busy', '重新轉換…');
+        await new Promise(r => setTimeout(r, 30));
+        try {
+            const convert = getConverter();
+            files.forEach(f => { f.outText = convert(f.srcText); });
+            renderFileList();
+            convertTextPane();
+        } finally {
+            setStatus('ok', '就緒');
+        }
+    });
+    </script>
+</body>
+</html>
