@@ -24,7 +24,7 @@ canvas{display:block;max-width:100%;height:auto}#preview{width:auto;max-height:5
 </style>
 </head>
 <body>
-<header><div><div class="badge">TOOL HUB / PHOTO STUDIO</div><h1>證件照製作</h1><p>選照片、調整構圖，下載單張或整版相片。</p></div><a href="tool.htm">工具首頁 ↗</a></header>
+<header><div><div class="badge">TOOL HUB / PHOTO STUDIO</div><h1>證件照製作</h1><p>選照片、調整構圖，下載單張或整版相片。</p></div></header>
 <main>
 <aside>
 <section class="card"><h2>01　選擇照片</h2>
@@ -48,6 +48,14 @@ canvas{display:block;max-width:100%;height:auto}#preview{width:auto;max-height:5
 <section class="card"><h2>03　背景處理</h2>
 <button id="remove" disabled>AI 人像去背</button>
 <label><input id="useMask" type="checkbox" disabled> 使用去背結果</label>
+<fieldset id="repair" class="controls" disabled>
+<label for="brushMode">手動修補</label>
+<select id="brushMode"><option value="move">移動照片</option><option value="restore">補回原圖</option><option value="erase">擦除背景</option></select>
+<label for="brushSize">筆刷大小：<output id="brushLabel">24</output> px</label>
+<input id="brushSize" type="range" min="4" max="100" value="24">
+<button id="undo" disabled>復原上一筆</button>
+<p><small>去背後選「補回原圖」，在預覽上塗回誤刪部分；補太多可用「擦除背景」。支援滑鼠與觸控，最多復原 5 筆。補回會帶回該處原始背景，邊緣請用小筆刷。</small></p>
+</fieldset>
 <label for="background">去背後背景色</label><select id="background"><option value="#ffffff">白色</option><option value="#438edb">藍色</option><option value="#c84646">紅色</option></select>
 <p><small>人像分割可能漏掉髮絲或衣物，請放大確認。未去背時保留原始背景。</small></p></section>
 </aside>
@@ -61,11 +69,12 @@ canvas{display:block;max-width:100%;height:auto}#preview{width:auto;max-height:5
 <canvas id="printPreview" hidden aria-label="4乘6相紙排版預覽"></canvas>
 <p><small>排版以 300 ppi 計算，4 × 6 吋相紙（152.4 × 101.6 mm）。列印請選實際尺寸、關閉填滿裁切；下載檔不含輔助線。請先試印並量測。</small></p></section>
 </div></main>
+<div id="brushCursor" hidden style="position:fixed;pointer-events:none;border:1px solid white;box-shadow:0 0 0 1px #111;border-radius:50%;transform:translate(-50%,-50%);z-index:20"></div>
 <footer>本工具提供裁切與人像分割，未提供五官合規檢測。規格與流程參考 <a href="https://diyidphoto.com/zh-tw" target="_blank" rel="noopener">DIY 證件照</a>；本工具與該服務無合作關係。</footer>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
-const state = {source:null,mask:null,angle:0,busy:false,loading:false,version:0};
+const state = {source:null,mask:null,angle:0,busy:false,loading:false,version:0,history:[]};
 const makeCanvas = (w,h) => Object.assign(document.createElement('canvas'),{width:w,height:h});
 const px = mm => Math.round(mm / 25.4 * 300);
 function size(){
@@ -78,6 +87,8 @@ function controls(){
   $('adjust').disabled=!ready;
   for(const id of ['remove','download','sheet']) $(id).disabled=!ready;
   $('useMask').disabled=!state.mask||!ready;
+  $('repair').disabled=!state.mask||!ready||!$('useMask').checked;
+  $('undo').disabled=!state.history.length;
   $('upload').disabled=$('camera').disabled=state.busy||state.loading;
 }
 function rotatedSource(){
@@ -114,6 +125,8 @@ function layout(image){
   return {canvas:c,count:cols*rows};
 }
 function render(){
+  controls();
+  $('preview').style.cursor=canPaint()?'crosshair':'grab';
   const [w,h]=size(),image=photo(),sheet=layout(image);
   $('dimensions').textContent=w+' × '+h+' mm · '+image.width+' × '+image.height+' px · 每版 '+sheet.count+' 張';
   $('sheet').disabled=!state.source||state.busy||state.loading||sheet.count===0;
@@ -143,7 +156,7 @@ async function load(file){
     const scale=Math.min(1,2400/Math.max(img.naturalWidth,img.naturalHeight));
     const c=makeCanvas(Math.max(1,Math.round(img.naturalWidth*scale)),Math.max(1,Math.round(img.naturalHeight*scale)));
     c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-    state.source=c;state.mask=null;state.version++;$('useMask').checked=false;reset();
+    state.source=c;state.mask=null;state.history=[];state.version++;$('useMask').checked=false;$('brushMode').value='move';reset();
     status('照片已載入。可拖曳、縮放並調整構圖。');
   }catch(error){status('無法讀取圖片，請改用其他 JPG、PNG 或 WebP。');}
   finally{URL.revokeObjectURL(url);state.loading=false;controls();render();}
@@ -183,7 +196,7 @@ $('remove').onclick=async()=>{
       });
       model.send({image:source}).catch(reject);
     });
-    state.mask=await result;$('useMask').checked=true;
+    state.mask=await result;state.history=[];$('useMask').checked=true;$('brushMode').value='move';
     status('去背完成，請確認髮絲與衣物邊緣；可取消勾選還原背景。');
   }catch(error){status('去背失敗：'+error.message+'。仍可使用原圖裁切與下載。');}
   finally{clearTimeout(timer);expired=true;state.busy=false;controls();render();if(model)Promise.resolve(model.close()).catch(()=>{});}
@@ -218,23 +231,80 @@ const drop=$('drop');
 drop.ondragover=event=>{event.preventDefault();drop.classList.add('dragover');};
 drop.ondragleave=()=>drop.classList.remove('dragover');
 drop.ondrop=event=>{event.preventDefault();drop.classList.remove('dragover');load(event.dataTransfer.files[0]);};
-let drag;
+let drag,stroke;
+function canPaint(){
+  return state.mask&&$('useMask').checked&&$('brushMode').value!=='move'&&!state.busy&&!state.loading;
+}
+// Map the visible crop back into unrotated source pixels, including zoom and pan.
+function brushPoint(event){
+  const c=$('preview'),rect=c.getBoundingClientRect(),s=state.source,sideways=state.angle%180!==0;
+  const rw=sideways?s.height:s.width,rh=sideways?s.width:s.height;
+  const scale=Math.max(c.width/rw,c.height/rh)*Number($('zoom').value);
+  const dw=rw*scale,dh=rh*scale;
+  const left=(c.width-dw)/2+Number($('horizontal').value)*(dw-c.width)/2;
+  const top=(c.height-dh)/2+Number($('vertical').value)*(dh-c.height)/2;
+  const x=((event.clientX-rect.left)*c.width/rect.width-left)/scale-rw/2;
+  const y=((event.clientY-rect.top)*c.height/rect.height-top)/scale-rh/2;
+  const angle=state.angle*Math.PI/180;
+  return {x:Math.cos(angle)*x+Math.sin(angle)*y+s.width/2,
+    y:-Math.sin(angle)*x+Math.cos(angle)*y+s.height/2,
+    radius:Number($('brushSize').value)*c.width/rect.width/scale/2};
+}
+function showBrush(event){
+  const cursor=$('brushCursor');cursor.hidden=!canPaint();
+  cursor.style.left=event.clientX+'px';cursor.style.top=event.clientY+'px';
+  cursor.style.width=cursor.style.height=$('brushSize').value+'px';
+}
+function paint(from,to){
+  const ctx=state.mask.getContext('2d'),r=to.radius;
+  const angle=Math.atan2(to.y-from.y,to.x-from.x);
+  // A capsule-shaped clip keeps consecutive points connected without changing original colors.
+  ctx.save();ctx.beginPath();
+  ctx.arc(from.x,from.y,r,angle+Math.PI/2,angle+Math.PI*1.5);
+  ctx.arc(to.x,to.y,r,angle-Math.PI/2,angle+Math.PI/2);ctx.closePath();ctx.clip();
+  ctx.clearRect(0,0,state.mask.width,state.mask.height);
+  if($('brushMode').value==='restore')ctx.drawImage(state.source,0,0);
+  ctx.restore();render();
+}
+$('brushMode').onchange=()=>{$('brushCursor').hidden=true;render();};
+$('brushSize').oninput=()=>{$('brushLabel').value=$('brushSize').value;};
+$('undo').onclick=()=>{
+  const previous=state.history.pop();if(!previous)return;
+  state.mask.getContext('2d').putImageData(previous,0,0);render();status('已復原上一筆修補。');
+};
 $('preview').onpointerdown=event=>{
-  if(!state.source||state.busy||state.loading)return;
+  if(!state.source||state.busy||state.loading||drag||stroke||event.button!==0)return;
+  if(canPaint()){
+    event.preventDefault();
+    const ctx=state.mask.getContext('2d');
+    if(state.history.length===5)state.history.shift();
+    state.history.push(ctx.getImageData(0,0,state.mask.width,state.mask.height));
+    stroke={id:event.pointerId,point:brushPoint(event)};
+    $('preview').setPointerCapture(event.pointerId);showBrush(event);paint(stroke.point,stroke.point);return;
+  }
   const c=$('preview'),source=rotatedSource(),scale=Math.max(c.width/source.width,c.height/source.height)*Number($('zoom').value);
   drag={x:event.clientX,y:event.clientY,h:Number($('horizontal').value),v:Number($('vertical').value),dx:(source.width*scale-c.width)/2,dy:(source.height*scale-c.height)/2};
   c.setPointerCapture(event.pointerId);
 };
 $('preview').onpointermove=event=>{
+  showBrush(event);
+  if(stroke){
+    if(event.pointerId!==stroke.id)return;
+    const next=brushPoint(event);paint(stroke.point,next);stroke.point=next;return;
+  }
   if(!drag)return;
   const c=$('preview'),ratio=c.width/c.getBoundingClientRect().width,clamp=n=>Math.max(-1,Math.min(1,n));
   if(drag.dx>0)$('horizontal').value=clamp(drag.h+(event.clientX-drag.x)*ratio/drag.dx);
   if(drag.dy>0)$('vertical').value=clamp(drag.v+(event.clientY-drag.y)*ratio/drag.dy);
   render();
 };
-$('preview').onpointerup=$('preview').onpointercancel=$('preview').onlostpointercapture=()=>{drag=null;};
+$('preview').onpointerup=$('preview').onpointercancel=$('preview').onlostpointercapture=event=>{
+  if(stroke&&event.pointerId!==stroke.id)return;
+  if(stroke)status('修補已套用，單張與排版下載均包含修補結果。');
+  drag=null;stroke=null;$('brushCursor').hidden=true;
+};
+$('preview').onpointerleave=()=>{$('brushCursor').hidden=true;};
 render();
 </script>
 </body>
 </html>
-
