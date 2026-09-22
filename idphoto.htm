@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>證件照製作 · Tool Hub</title>
+<style>
+:root{color-scheme:dark;--bg:#0f1117;--panel:#181d28;--line:#303849;--text:#e7edf5;--muted:#9daac0;--accent:#5eead4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,sans-serif}
+header,main,footer{max-width:1200px;margin:auto;padding:24px}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+h1{font-size:26px;margin:0}h2{font-size:17px;margin:0 0 16px}p{margin:8px 0;color:var(--muted)}a{color:var(--accent)}
+.badge{color:var(--accent);font-size:12px;letter-spacing:2px}main{display:grid;grid-template-columns:310px 1fr;gap:20px}
+.card{padding:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-bottom:16px}
+label{display:block;margin:12px 0 5px}select,button,input[type=number]{font:inherit;border-radius:8px;border:1px solid var(--line);background:#222a39;color:var(--text);padding:9px 12px}
+select{width:100%}button{cursor:pointer}button:hover:not(:disabled){border-color:var(--accent)}button:disabled{opacity:.4;cursor:not-allowed}
+.primary{background:var(--accent);color:#102725;font-weight:650;border:0}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+input[type=range]{width:100%;accent-color:var(--accent)}input[type=checkbox]{accent-color:var(--accent)}small{color:var(--muted)}
+.stage{min-height:410px;display:grid;place-items:center;padding:24px;border-radius:12px;background:repeating-conic-gradient(#222938 0 25%,#1b2230 0 50%) 0/20px 20px}
+canvas{display:block;max-width:100%;height:auto}#preview{width:auto;max-height:500px;touch-action:none;cursor:grab;box-shadow:0 12px 40px #0008}
+.stage.dragover{outline:2px dashed var(--accent)}#empty{text-align:center;max-width:340px}#empty strong{display:block;font-size:25px;color:var(--text)}
+#status{min-height:26px;color:var(--accent)}#printPreview{max-height:280px;width:auto;margin:16px auto;border:1px solid var(--line)}
+[hidden]{display:none!important}.controls{border:0;padding:0;margin:0;min-width:0}footer{padding-top:0;font-size:13px}
+@media(max-width:760px){main{grid-template-columns:1fr;padding:14px}header{padding:18px}.stage{min-height:300px;padding:16px}#preview{max-height:420px}.card{padding:16px}.badge{letter-spacing:0}}
+</style>
+</head>
+<body>
+<header><div><div class="badge">TOOL HUB / PHOTO STUDIO</div><h1>證件照製作</h1><p>選照片、調整構圖，下載單張或整版相片。</p></div><a href="tool.htm">工具首頁 ↗</a></header>
+<main>
+<aside>
+<section class="card"><h2>01　選擇照片</h2>
+<div class="row"><button id="upload" class="primary">上傳照片</button><button id="camera">手機拍照</button></div>
+<input id="file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+<input id="capture" type="file" accept="image/*" capture="user" hidden>
+<p><small>支援 JPG、PNG、WebP，最大 20 MB。也可拖放照片到預覽區。</small></p>
+<p><small>照片留在本機，不上傳。AI 去背首次使用會從 CDN 下載模型。</small></p></section>
+<section class="card"><h2>02　尺寸與構圖</h2>
+<label for="size">照片尺寸（寬 × 高）</label>
+<select id="size"><option value="35,45">35 × 45 mm</option><option value="28,35">28 × 35 mm</option><option value="42,47">42 × 47 mm</option><option value="50,50">50 × 50 mm</option><option value="custom">自訂尺寸</option></select>
+<div id="custom" class="row" hidden><label>寬 mm<input id="width" type="number" min="10" max="100" value="35"></label><label>高 mm<input id="height" type="number" min="10" max="100" value="45"></label></div>
+<fieldset id="adjust" class="controls" disabled>
+<label for="zoom">縮放</label><input id="zoom" type="range" min="1" max="4" step=".01" value="1">
+<label for="horizontal">水平位置</label><input id="horizontal" type="range" min="-1" max="1" step=".01" value="0">
+<label for="vertical">垂直位置</label><input id="vertical" type="range" min="-1" max="1" step=".01" value="0">
+<label for="brightness">亮度</label><input id="brightness" type="range" min="70" max="130" value="100">
+<div class="row"><button id="rotate">旋轉 90°</button><button id="reset">重設調整</button></div>
+<label><input id="guides" type="checkbox" checked> 顯示構圖輔助線（不會匯出）</label>
+</fieldset></section>
+<section class="card"><h2>03　背景處理</h2>
+<button id="remove" disabled>AI 人像去背</button>
+<label><input id="useMask" type="checkbox" disabled> 使用去背結果</label>
+<label for="background">去背後背景色</label><select id="background"><option value="#ffffff">白色</option><option value="#438edb">藍色</option><option value="#c84646">紅色</option></select>
+<p><small>人像分割可能漏掉髮絲或衣物，請放大確認。未去背時保留原始背景。</small></p></section>
+</aside>
+<div>
+<section class="card"><h2>照片預覽</h2>
+<div id="drop" class="stage"><div id="empty"><strong>你的下一張證件照</strong><p>上傳正面、肩膀完整、光線均勻的照片。<br>拖曳預覽可調整人物位置。</p></div><canvas id="preview" hidden aria-label="證件照裁切預覽"></canvas></div>
+<p id="status" role="status" aria-live="polite">請先選擇照片。</p>
+<small>輔助線僅供手動構圖，不代表已通過證件規格審核。請依申辦單位要求確認尺寸、頭部比例與背景。</small></section>
+<section class="card"><h2>04　下載成品</h2>
+<p id="dimensions"></p><div class="row"><button id="download" class="primary" disabled>下載單張 JPG</button><button id="sheet" disabled>下載 4 × 6 排版 JPG</button></div>
+<canvas id="printPreview" hidden aria-label="4乘6相紙排版預覽"></canvas>
+<p><small>排版以 300 ppi 計算，4 × 6 吋相紙（152.4 × 101.6 mm）。列印請選實際尺寸、關閉填滿裁切；下載檔不含輔助線。請先試印並量測。</small></p></section>
+</div></main>
+<footer>本工具提供裁切與人像分割，未提供五官合規檢測。規格與流程參考 <a href="https://diyidphoto.com/zh-tw" target="_blank" rel="noopener">DIY 證件照</a>；本工具與該服務無合作關係。</footer>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const state = {source:null,mask:null,angle:0,busy:false,loading:false,version:0};
+const makeCanvas = (w,h) => Object.assign(document.createElement('canvas'),{width:w,height:h});
+const px = mm => Math.round(mm / 25.4 * 300);
+function size(){
+  if($('size').value !== 'custom') return $('size').value.split(',').map(Number);
+  return ['width','height'].map(id => Math.min(100,Math.max(10,Number($(id).value)||35)));
+}
+function status(message){$('status').textContent=message;}
+function controls(){
+  const ready=!!state.source&&!state.busy&&!state.loading;
+  $('adjust').disabled=!ready;
+  for(const id of ['remove','download','sheet']) $(id).disabled=!ready;
+  $('useMask').disabled=!state.mask||!ready;
+  $('upload').disabled=$('camera').disabled=state.busy||state.loading;
+}
+function rotatedSource(){
+  const original=$('useMask').checked&&state.mask?state.mask:state.source;
+  const sideways=state.angle%180!==0;
+  const c=makeCanvas(sideways?original.height:original.width,sideways?original.width:original.height);
+  const ctx=c.getContext('2d');
+  ctx.translate(c.width/2,c.height/2);ctx.rotate(state.angle*Math.PI/180);
+  ctx.drawImage(original,-original.width/2,-original.height/2);
+  return c;
+}
+function photo(){
+  const [w,h]=size(),c=makeCanvas(px(w),px(h)),ctx=c.getContext('2d');
+  ctx.fillStyle=$('useMask').checked?$('background').value:'#ffffff';ctx.fillRect(0,0,c.width,c.height);
+  if(!state.source)return c;
+  const source=rotatedSource();
+  const scale=Math.max(c.width/source.width,c.height/source.height)*Number($('zoom').value);
+  const dw=source.width*scale,dh=source.height*scale;
+  const x=(c.width-dw)/2+Number($('horizontal').value)*(dw-c.width)/2;
+  const y=(c.height-dh)/2+Number($('vertical').value)*(dh-c.height)/2;
+  ctx.filter='brightness('+Number($('brightness').value)+'%)';
+  ctx.drawImage(source,x,y,dw,dh);return c;
+}
+function layout(image){
+  const c=makeCanvas(1800,1200),ctx=c.getContext('2d'),gap=px(2),margin=px(3);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
+  const cols=Math.floor((c.width-2*margin+gap)/(image.width+gap));
+  const rows=Math.floor((c.height-2*margin+gap)/(image.height+gap));
+  const x=(c.width-cols*image.width-(cols-1)*gap)/2,y=(c.height-rows*image.height-(rows-1)*gap)/2;
+  for(let r=0;r<rows;r++)for(let col=0;col<cols;col++){
+    const left=x+col*(image.width+gap),top=y+r*(image.height+gap);
+    ctx.drawImage(image,left,top);ctx.strokeStyle='#c6c6c6';ctx.lineWidth=1;ctx.strokeRect(left,top,image.width,image.height);
+  }
+  return {canvas:c,count:cols*rows};
+}
+function render(){
+  const [w,h]=size(),image=photo(),sheet=layout(image);
+  $('dimensions').textContent=w+' × '+h+' mm · '+image.width+' × '+image.height+' px · 每版 '+sheet.count+' 張';
+  $('sheet').disabled=!state.source||state.busy||state.loading||sheet.count===0;
+  if(!state.source)return;
+  const c=$('preview');c.width=image.width;c.height=image.height;
+  const ctx=c.getContext('2d');ctx.drawImage(image,0,0);
+  if($('guides').checked){
+    ctx.strokeStyle='#14b8a6';ctx.lineWidth=Math.max(1,c.width/250);ctx.setLineDash([c.width/60,c.width/80]);
+    ctx.beginPath();ctx.moveTo(c.width/2,0);ctx.lineTo(c.width/2,c.height);
+    for(const ratio of [.12,.72]){ctx.moveTo(0,c.height*ratio);ctx.lineTo(c.width,c.height*ratio);}
+    ctx.stroke();ctx.beginPath();ctx.ellipse(c.width/2,c.height*.42,c.width*.27,c.height*.30,0,0,2*Math.PI);ctx.stroke();
+  }
+  const print=$('printPreview');print.width=600;print.height=400;print.getContext('2d').drawImage(sheet.canvas,0,0,600,400);
+  c.hidden=print.hidden=false;$('empty').hidden=true;
+}
+function reset(){
+  state.angle=0;$('zoom').value=1;$('horizontal').value=$('vertical').value=0;$('brightness').value=100;render();
+}
+async function load(file){
+  if(!file||state.busy||state.loading)return;
+  if(file.size>20*1024*1024){status('檔案超過 20 MB，請先縮小照片。');return;}
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type)){status('請選擇 JPG、PNG 或 WebP；HEIC 請先轉檔。');return;}
+  state.loading=true;controls();status('正在讀取照片…');
+  const url=URL.createObjectURL(file);
+  try{
+    const img=new Image();img.src=url;await img.decode();
+    const scale=Math.min(1,2400/Math.max(img.naturalWidth,img.naturalHeight));
+    const c=makeCanvas(Math.max(1,Math.round(img.naturalWidth*scale)),Math.max(1,Math.round(img.naturalHeight*scale)));
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    state.source=c;state.mask=null;state.version++;$('useMask').checked=false;reset();
+    status('照片已載入。可拖曳、縮放並調整構圖。');
+  }catch(error){status('無法讀取圖片，請改用其他 JPG、PNG 或 WebP。');}
+  finally{URL.revokeObjectURL(url);state.loading=false;controls();render();}
+}
+let libraryPromise;
+function loadLibrary(){
+  if(window.SelfieSegmentation)return Promise.resolve();
+  if(libraryPromise)return libraryPromise;
+  libraryPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{script.remove();reject(new Error('模型載入逾時'));},30000);
+    script.src='https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js';
+    script.crossOrigin='anonymous';
+    script.onload=()=>{clearTimeout(timer);resolve();};
+    script.onerror=()=>{clearTimeout(timer);script.remove();reject(new Error('無法下載模型'));};
+    document.head.append(script);
+  }).catch(error=>{libraryPromise=null;throw error;});return libraryPromise;
+}
+$('remove').onclick=async()=>{
+  if(!state.source||state.busy)return;
+  state.busy=true;controls();status('正在載入 AI 並處理人像，首次使用可能需要一些時間…');
+  let model,timer,expired=false;
+  try{
+    await loadLibrary();
+    model=new SelfieSegmentation({locateFile:file=>'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/'+file});
+    model.setOptions({modelSelection:0,selfieMode:false});
+    const source=state.source;
+    const result=new Promise((resolve,reject)=>{
+      timer=setTimeout(()=>{expired=true;reject(new Error('去背逾時，請重試'));},60000);
+      model.onResults(results=>{
+        if(expired)return;
+        try{
+          const c=makeCanvas(source.width,source.height),ctx=c.getContext('2d');
+          ctx.drawImage(results.segmentationMask,0,0,c.width,c.height);
+          ctx.globalCompositeOperation='source-in';ctx.drawImage(source,0,0);resolve(c);
+        }catch(error){reject(error);}
+      });
+      model.send({image:source}).catch(reject);
+    });
+    state.mask=await result;$('useMask').checked=true;
+    status('去背完成，請確認髮絲與衣物邊緣；可取消勾選還原背景。');
+  }catch(error){status('去背失敗：'+error.message+'。仍可使用原圖裁切與下載。');}
+  finally{clearTimeout(timer);expired=true;state.busy=false;controls();render();if(model)Promise.resolve(model.close()).catch(()=>{});}
+};
+function density(blob){
+  // JFIF density tells photo/print software the intended physical size.
+  return blob.arrayBuffer().then(buffer=>{
+    const bytes=new Uint8Array(buffer);
+    if(bytes[0]===255&&bytes[1]===216&&bytes[2]===255&&bytes[3]===224&&String.fromCharCode(...bytes.slice(6,10))==='JFIF'){
+      bytes[13]=1;bytes[14]=1;bytes[15]=44;bytes[16]=1;bytes[17]=44;
+    }
+    return new Blob([bytes],{type:'image/jpeg'});
+  });
+}
+function download(canvas,name){
+  canvas.toBlob(async blob=>{
+    if(!blob){status('匯出失敗，請重試。');return;}
+    const url=URL.createObjectURL(await density(blob)),a=document.createElement('a');
+    a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    status('已產生下載檔案。列印時請選實際尺寸。');
+  },'image/jpeg',.95);
+}
+$('download').onclick=()=>download(photo(),'證件照-'+size().join('x')+'mm.jpg');
+$('sheet').onclick=()=>download(layout(photo()).canvas,'證件照-4x6-300ppi.jpg');
+$('upload').onclick=()=>$('file').click();$('camera').onclick=()=>$('capture').click();
+for(const id of ['file','capture'])$(id).onchange=event=>{load(event.target.files[0]);event.target.value='';};
+$('size').onchange=()=>{$('custom').hidden=$('size').value!=='custom';render();};
+for(const id of ['width','height','zoom','horizontal','vertical','brightness','guides','useMask','background'])$(id).oninput=render;
+for(const id of ['width','height'])$(id).onchange=()=>{const [w,h]=size();$('width').value=w;$('height').value=h;render();};
+$('rotate').onclick=()=>{state.angle=(state.angle+90)%360;$('horizontal').value=$('vertical').value=0;render();};$('reset').onclick=reset;
+const drop=$('drop');
+drop.ondragover=event=>{event.preventDefault();drop.classList.add('dragover');};
+drop.ondragleave=()=>drop.classList.remove('dragover');
+drop.ondrop=event=>{event.preventDefault();drop.classList.remove('dragover');load(event.dataTransfer.files[0]);};
+let drag;
+$('preview').onpointerdown=event=>{
+  if(!state.source||state.busy||state.loading)return;
+  const c=$('preview'),source=rotatedSource(),scale=Math.max(c.width/source.width,c.height/source.height)*Number($('zoom').value);
+  drag={x:event.clientX,y:event.clientY,h:Number($('horizontal').value),v:Number($('vertical').value),dx:(source.width*scale-c.width)/2,dy:(source.height*scale-c.height)/2};
+  c.setPointerCapture(event.pointerId);
+};
+$('preview').onpointermove=event=>{
+  if(!drag)return;
+  const c=$('preview'),ratio=c.width/c.getBoundingClientRect().width,clamp=n=>Math.max(-1,Math.min(1,n));
+  if(drag.dx>0)$('horizontal').value=clamp(drag.h+(event.clientX-drag.x)*ratio/drag.dx);
+  if(drag.dy>0)$('vertical').value=clamp(drag.v+(event.clientY-drag.y)*ratio/drag.dy);
+  render();
+};
+$('preview').onpointerup=$('preview').onpointercancel=$('preview').onlostpointercapture=()=>{drag=null;};
+render();
+</script>
+</body>
+</html>
+
