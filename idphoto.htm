@@ -191,7 +191,8 @@ $('remove').onclick=async()=>{
         try{
           const c=makeCanvas(source.width,source.height),ctx=c.getContext('2d');
           ctx.drawImage(results.segmentationMask,0,0,c.width,c.height);
-          ctx.globalCompositeOperation='source-in';ctx.drawImage(source,0,0);resolve(c);
+          ctx.globalCompositeOperation='source-in';ctx.drawImage(source,0,0);
+          ctx.globalCompositeOperation='source-over';resolve(c);
         }catch(error){reject(error);}
       });
       model.send({image:source}).catch(reject);
@@ -259,7 +260,9 @@ function paint(from,to){
   const ctx=state.mask.getContext('2d'),r=to.radius;
   const angle=Math.atan2(to.y-from.y,to.x-from.x);
   // A capsule-shaped clip keeps consecutive points connected without changing original colors.
-  ctx.save();ctx.beginPath();
+  ctx.save();
+  // Restore must also paint into transparent pixels, regardless of the AI compositing state.
+  ctx.globalCompositeOperation='source-over';ctx.beginPath();
   ctx.arc(from.x,from.y,r,angle+Math.PI/2,angle+Math.PI*1.5);
   ctx.arc(to.x,to.y,r,angle-Math.PI/2,angle+Math.PI/2);ctx.closePath();ctx.clip();
   ctx.clearRect(0,0,state.mask.width,state.mask.height);
