@@ -683,6 +683,38 @@
             .modal-box { border-radius: 0; max-height: 100vh; }
             .tool-btn { width: 30px; height: 30px; }
         }
+        .replay-panel { padding:16px; background:#0f172a; color:#e2e8f0; }
+        .replay-panel img { display:block; width:100%; max-height:55vh; object-fit:contain; background:#020617; }
+        .replay-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:12px 0; }
+        .replay-controls button { padding:8px 12px; cursor:pointer; }
+        .replay-controls input { flex:1; min-width:100px; accent-color:#38bdf8; }
+        .replay-panel p { font-size:13px; line-height:1.7; }
+        .replay-panel a { color:#7dd3fc; }
+        #replayBtn { width:auto; padding:0 10px; white-space:nowrap; }
+        .replay-panel { background:linear-gradient(135deg,#101c30,#0b1220); padding:22px; overflow:auto; max-height:85vh; }
+        .replay-heading { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+        .replay-heading h2 { font-size:20px; margin-top:5px; }
+        .replay-eyebrow { color:#5eead4; font-size:10px; letter-spacing:2px; }
+        .replay-layout { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:20px; }
+        .replay-screen { position:relative; background:#020617; border:1px solid #29384d; border-radius:14px; overflow:hidden; min-height:260px; display:grid; place-items:center; }
+        .replay-panel .replay-screen img { max-height:48vh; }
+        #replayTime { padding:10px 0; color:#7dd3fc; font-variant-numeric:tabular-nums; min-height:40px; }
+        .replay-controls button,.replay-panel select,.calendar-nav button { background:#1e3048; color:#dce9f8; border:1px solid #334a64; border-radius:9px; padding:8px 10px; }
+        .replay-panel button:disabled { opacity:.35; cursor:default; }
+        .replay-panel button:not(:disabled):hover { background:#2a4562; }
+        #replayPlay { background:#5eead4; color:#082f35; font-weight:700; }
+        #replayTimeline { flex-basis:100%; width:100%; }
+        .calendar-card { background:#162339; border:1px solid #2b3d55; border-radius:14px; padding:16px; align-self:start; }
+        .calendar-nav { display:flex; align-items:center; justify-content:space-between; gap:5px; margin:12px 0; }
+        .calendar-nav select { min-width:0; padding:7px 3px; }
+        .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; }
+        .calendar-grid span { color:#8095b2; font-size:11px; padding:8px 0; }
+        .calendar-grid button { aspect-ratio:1; border:1px solid transparent; border-radius:50%; background:transparent; color:#91a4be; cursor:pointer; }
+        .calendar-grid button:not(:disabled) { color:#5eead4; border-color:#305455; }
+        .calendar-grid button[aria-pressed=true] { background:#5eead4; color:#083344; font-weight:700; }
+        #replayStatus { color:#9cb0ca; min-height:44px; margin-top:12px; }
+        .replay-note { color:#7e93af; border-top:1px solid #25354b; padding-top:12px; margin-top:14px; }
+        @media(max-width:720px) { .replay-layout{grid-template-columns:1fr}.calendar-card{width:100%}.replay-panel{padding:14px}.replay-heading h2{font-size:17px}.modal-header{flex-wrap:wrap}.modal-actions{margin-left:auto}.replay-screen{min-height:200px} }
     </style>
 </head>
 <body>
@@ -720,6 +752,7 @@
                 <span class="dot"></span>
                 <span class="modal-title" id="modalTitle">即時影像</span>
                 <div class="modal-actions">
+                    <button class="tool-btn" id="replayBtn" type="button">歷史影像重播</button>
                     <button class="tool-btn" id="reloadBtn" type="button" title="重新整理串流">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
                     </button>
@@ -764,6 +797,27 @@
                 </div>
             </div>
 
+            <section id="replayPanel" class="replay-panel" hidden aria-label="歷史影像重播">
+                <div class="replay-heading"><div><span class="replay-eyebrow">TRAFFIC ARCHIVE</span><h2>歷史影像重播</h2></div><span style="color:#7e93af;font-size:12px">台灣時間 UTC+8</span></div>
+                <div class="replay-layout"><div>
+                <div class="replay-screen"><img id="replayImage" alt="歷史快照" referrerpolicy="no-referrer" hidden></div>
+                <p id="replayTime"></p>
+                <div class="replay-controls">
+                    <button id="replayPlay" type="button" disabled>播放</button>
+                    <button id="replayPause" type="button" disabled>暫停</button>
+                    <button id="replayStop" type="button" disabled>停止</button>
+                    <input id="replayTimeline" type="range" min="0" max="0" value="0" step="1" aria-label="歷史快照時間軸" disabled>
+                    <button id="replayRetry" type="button">重新載入</button>
+                    <select id="replaySpeed" aria-label="播放速度"><option value="2000">慢速 · 2 秒／張</option><option value="1000" selected>標準 · 1 秒／張</option><option value="500">快速 · 0.5 秒／張</option></select>
+                </div>
+                <p id="replayStatus" role="status" aria-live="polite"></p></div>
+                <aside class="calendar-card"><p>選擇回放日期</p>
+                <div class="calendar-nav"><button id="historyPrev" aria-label="上個月">‹</button><select id="historyYear" aria-label="年份"></select><select id="historyMonth" aria-label="月份"></select><button id="historyNext" aria-label="下個月">›</button></div>
+                <div class="calendar-grid" id="historyCalendar" aria-label="可用歷史影像日期"></div>
+                <p style="color:#7e93af;margin-top:12px">亮色日期有影像，可點選重播。</p></aside></div>
+                <p class="replay-note">歷史快照逐張播放，非連續錄影；保存範圍與缺漏依來源為準。
+                來源：<a id="replaySource" href="https://www.twipcam.com/" target="_blank" rel="noopener noreferrer">台灣即時影像監視器</a> · <a href="https://creativecommons.org/licenses/by/3.0/tw/" target="_blank" rel="noopener noreferrer">CC BY 3.0 TW</a></p>
+            </section>
             <div class="share-pop" id="sharePop">
                 <div class="pop-title">MJPEG 串流網址（給外部播放器用）</div>
                 <div class="url-row">
@@ -1140,6 +1194,7 @@
     function hideOverlays() { $loadingOv.hidden = true; $errorOv.hidden = true; $pausedOv.hidden = true; }
 
     function loadStream() {
+        if (replay.open) return;
         if (!currentCam || !currentCam.url) return;
         showLoading();
         $video.removeAttribute('src');
@@ -1147,6 +1202,7 @@
     }
 
     async function openVideo(id, name) {
+        resetReplay();
         currentCam = { id, name, url: null };
         $modalTitle.textContent = displayName(name) || id;
         $modal.classList.add('show');
@@ -1164,6 +1220,7 @@
     }
 
     function closeModal() {
+        resetReplay();
         $video.removeAttribute('src');
         $modal.classList.remove('show');
         $sharePop.classList.remove('show');
@@ -1175,6 +1232,7 @@
     // ── <img> stream state → overlay handling ─────────────
     $video.addEventListener('load',  hideOverlays);
     $video.addEventListener('error', () => {
+        if (replay.open) return;
         if (!currentCam) return;
         if (!$pausedOv.hidden) return;   // src 是為了外部播放而清掉的
         showError('串流連線失敗', '請檢查網路或改用外部播放器');
@@ -1196,6 +1254,160 @@
         else if ($videoWrap.webkitRequestFullscreen) $videoWrap.webkitRequestFullscreen();
         else                                         toast('此瀏覽器不支援全螢幕');
     });
+
+    // ── Third-party historical snapshots (file timestamp != capture timestamp) ──
+    const replay = { open:false, generation:0, frames:[], index:0, timer:null, playing:false, request:0, camId:null, dates:[], date:null, month:'', dayRequest:0 };
+    const rp = id => document.getElementById(id);
+    let replayCatalog = null;
+    function pauseReplay() {
+        replay.playing=false; clearTimeout(replay.timer); replay.timer=null;
+        rp('replayPlay').disabled=!replay.frames.length;
+        rp('replayPause').disabled=true;
+    }
+    function resetReplay() {
+        pauseReplay(); replay.open=false; replay.generation++; replay.request++;
+        replay.frames=[]; replay.camId=null;
+        replay.dates=[];replay.date=null;replay.dayRequest++;
+        rp('historyCalendar').replaceChildren();rp('historyYear').replaceChildren();rp('historyMonth').replaceChildren();
+        rp('replayPanel').hidden=true; $videoWrap.hidden=false;
+        rp('replayImage').removeAttribute('src'); rp('replayImage').hidden=true;
+        rp('replayBtn').textContent='歷史影像重播';
+        for (const button of [$reloadBtn,$snapBtn,$shareBtn,$fsBtn]) button.disabled=false;
+    }
+    async function replayJson(url) {
+        const candidates=[url];
+        const proxy=proxyList()[0]; if (proxy) candidates.push(proxy(url));
+        for (const endpoint of candidates) {
+            try {
+                const response=await fetch(endpoint,{cache:'no-store',signal:AbortSignal.timeout(12000)});
+                if (!response.ok) throw new Error('HTTP '+response.status);
+                const data=await response.json();
+                if (!Array.isArray(data)) throw new Error('清單格式不符');
+                return data;
+            } catch (error) { /* Try the configured proxy for cross-origin JSON only. */ }
+        }
+        throw new Error('無法取得回放清單，請稍後重試或至來源網站查看');
+    }
+    function replayMatch(list,cam) {
+        const normalize=url=>{try{const u=new URL(url);return u.hostname.toLowerCase()+u.pathname+u.search;}catch{return '';}};
+        const key=normalize(cam.url);
+        let matches=key?list.filter(c=>normalize(c.cam_url)===key):[];
+        if (matches.length===1) return matches[0];
+        const code=String(cam.name).match(/^\[?(\d{4,6})\]?/);
+        if (!code) return null;
+        matches=list.filter(c=>/^txg-\d+$/.test(c.id)&&String(c.name).includes('['+code[1]+']'));
+        return matches.length===1?matches[0]:null;
+    }
+    const replayDate=ts=>new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(ts*1000));
+    function showReplayFrame(index) {
+        if (!replay.open||!replay.frames.length) return;
+        clearTimeout(replay.timer);
+        replay.index=Math.max(0,Math.min(index,replay.frames.length-1));
+        rp('replayTimeline').value=replay.index;
+        const [fileTS,realTS]=replay.frames[replay.index],request=++replay.request;
+        const image=new Image(); image.referrerPolicy='no-referrer';
+        rp('replayImage').hidden=true; rp('replayTime').textContent='';
+        rp('replayStatus').textContent='正在載入 '+replayDate(realTS)+'…';
+        let timeout;
+        const finish=ok=>{
+            clearTimeout(timeout);
+            if (!replay.open||request!==replay.request) return;
+            if (!ok) { pauseReplay();rp('replayStatus').textContent='這張快照無法載入，請拖曳時間軸選擇其他時間。';return; }
+            rp('replayImage').src=image.src;rp('replayImage').hidden=false;
+            rp('replayTime').textContent=replayDate(realTS)+'（'+(replay.index+1)+' / '+replay.frames.length+'）';
+            rp('replayStatus').textContent='可用範圍：'+replayDate(replay.frames[0][1])+' ～ '+replayDate(replay.frames.at(-1)[1]);
+            if (replay.playing) {
+                if (replay.index===replay.frames.length-1) pauseReplay();
+                else replay.timer=setTimeout(()=>showReplayFrame(replay.index+1),Number(rp('replaySpeed').value));
+            }
+        };
+        image.onload=()=>finish(true);image.onerror=()=>finish(false);
+        timeout=setTimeout(()=>{image.onload=image.onerror=null;finish(false);},15000);
+        image.src='https://c02.twipcam.com/cam/history.php?id='+encodeURIComponent(replay.camId)+'&timestamp='+fileTS;
+    }
+    async function openReplay() {
+        if (!currentCam) return;
+        resetReplay(); replay.open=true;
+        const generation=++replay.generation,cam={...currentCam};
+        $videoWrap.hidden=true;$video.removeAttribute('src');$sharePop.classList.remove('show');
+        rp('replayPanel').hidden=false;rp('replayBtn').textContent='返回即時';
+        for (const button of [$reloadBtn,$snapBtn,$shareBtn,$fsBtn]) button.disabled=true;
+        for (const id of ['replayPlay','replayPause','replayStop','replayTimeline']) rp(id).disabled=true;
+        rp('replayTimeline').value=0;rp('replayTime').textContent='';
+        rp('replaySource').href='https://www.twipcam.com/';
+        rp('replayStatus').textContent='正在尋找這支攝影機的歷史快照…';
+        try {
+            if (!replayCatalog) replayCatalog=await replayJson('https://www.twipcam.com/api/v1/cam-list.json');
+            if (generation!==replay.generation) return;
+            const match=replayMatch(replayCatalog,cam);
+            if (!match||!/^[-a-zA-Z0-9]+$/.test(match.id)) throw new Error('來源沒有這支攝影機的明確對應，無法提供回放');
+            replay.camId=match.id;rp('replaySource').href='https://www.twipcam.com/cam/'+match.id;
+            const dates=await replayJson('https://c01.twipcam.com/cam/snapshot-history/'+match.id+'.json');
+            if (generation!==replay.generation) return;
+            replay.dates=[...new Set(dates.filter(d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&!isNaN(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d))].sort();
+            if (!replay.dates.length) throw new Error('這支攝影機目前沒有可用歷史日期');
+            replay.month=replay.dates.at(-1).slice(0,7);
+            renderHistoryCalendar();await loadHistoryDay(replay.dates.at(-1));
+        } catch (error) { if (generation===replay.generation) rp('replayStatus').textContent=error.message; }
+    }
+    rp('replayBtn').onclick=()=>{if(replay.open){resetReplay();loadStream();}else openReplay();};
+    rp('replayRetry').onclick=()=>replay.date?loadHistoryDay(replay.date):openReplay();
+    function renderHistoryCalendar() {
+        if (!replay.dates.length) return;
+        const [year,month]=replay.month.split('-').map(Number);
+        const years=[...new Set(replay.dates.map(d=>d.slice(0,4)))];
+        rp('historyYear').replaceChildren(...years.map(y=>new Option(y+' 年',y,false,Number(y)===year)));
+        rp('historyMonth').replaceChildren(...Array.from({length:12},(_,i)=>new Option((i+1)+' 月',i+1,false,i+1===month)));
+        rp('historyPrev').disabled=replay.month<=replay.dates[0].slice(0,7);
+        rp('historyNext').disabled=replay.month>=replay.dates.at(-1).slice(0,7);
+        const grid=rp('historyCalendar');grid.replaceChildren();
+        for (const text of ['日','一','二','三','四','五','六']) {const el=document.createElement('span');el.textContent=text;grid.append(el);}
+        const first=new Date(Date.UTC(year,month-1,1)).getUTCDay();
+        for(let i=0;i<first;i++)grid.append(document.createElement('span'));
+        const count=new Date(Date.UTC(year,month,0)).getUTCDate();
+        for(let day=1;day<=count;day++){
+            const date=replay.month+'-'+String(day).padStart(2,'0'),button=document.createElement('button');
+            button.type='button';button.textContent=day;button.disabled=!replay.dates.includes(date);
+            button.setAttribute('aria-label',date);button.setAttribute('aria-pressed',String(date===replay.date));
+            button.onclick=()=>loadHistoryDay(date);grid.append(button);
+        }
+    }
+    async function loadHistoryDay(date) {
+        if (!replay.open||!replay.dates.includes(date)) return;
+        pauseReplay();replay.request++;const request=++replay.dayRequest,generation=replay.generation;
+        replay.frames=[];replay.date=date;replay.month=date.slice(0,7);renderHistoryCalendar();
+        rp('replayImage').hidden=true;rp('replayTime').textContent='';rp('replayTimeline').value=0;
+        for(const id of ['replayPlay','replayPause','replayStop','replayTimeline'])rp(id).disabled=true;
+        rp('replaySource').href='https://www.twipcam.com/cam/'+replay.camId+'/snapshot/'+date;
+        rp('replayStatus').textContent='正在讀取 '+date+' 的歷史影像…';
+        try {
+            const pairs=await replayJson('https://c02.twipcam.com/cam/history.php?id='+encodeURIComponent(replay.camId)+'&date='+date+'&step=0');
+            if(request!==replay.dayRequest||generation!==replay.generation)return;
+            replay.frames=pairs.filter(p=>Array.isArray(p)&&p.length>=2&&p.slice(0,2).every(t=>Number.isSafeInteger(t)&&t>0&&t<8640000000000)).sort((a,b)=>a[1]-b[1]);
+            if(!replay.frames.length)throw new Error('這一天沒有可播放的影像，請選擇其他日期。');
+            rp('replayTimeline').max=replay.frames.length-1;
+            for(const id of ['replayPlay','replayStop','replayTimeline'])rp(id).disabled=false;
+            showReplayFrame(0);
+        }catch(error){if(request===replay.dayRequest&&generation===replay.generation)rp('replayStatus').textContent=error.message;}
+    }
+    function changeHistoryMonth(offset) {
+        if(!replay.dates.length)return;
+        const [year,month]=replay.month.split('-').map(Number);
+        const next=new Date(Date.UTC(year,month-1+offset,1)).toISOString().slice(0,7);
+        replay.month=next<replay.dates[0].slice(0,7)?replay.dates[0].slice(0,7):next>replay.dates.at(-1).slice(0,7)?replay.dates.at(-1).slice(0,7):next;
+        renderHistoryCalendar();
+    }
+    rp('historyPrev').onclick=()=>changeHistoryMonth(-1);rp('historyNext').onclick=()=>changeHistoryMonth(1);
+    for(const id of ['historyYear','historyMonth'])rp(id).onchange=()=>{replay.month=rp('historyYear').value+'-'+String(rp('historyMonth').value).padStart(2,'0');changeHistoryMonth(0);};
+    rp('replayPlay').onclick=()=>{
+        if (!replay.frames.length) return;
+        replay.playing=true;rp('replayPlay').disabled=true;rp('replayPause').disabled=false;
+        showReplayFrame(replay.index===replay.frames.length-1?0:replay.index);
+    };
+    rp('replayPause').onclick=pauseReplay;
+    rp('replayStop').onclick=()=>{pauseReplay();showReplayFrame(0);};
+    rp('replayTimeline').oninput=()=>{pauseReplay();showReplayFrame(Number(rp('replayTimeline').value));};
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseReplay();});
 
     // ── External player ───────────────────────────────────
     function safeFilename(s) {
