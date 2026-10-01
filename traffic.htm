@@ -697,7 +697,8 @@
         .replay-eyebrow { color:#5eead4; font-size:10px; letter-spacing:2px; }
         .replay-layout { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:20px; }
         .replay-screen { position:relative; background:#020617; border:1px solid #29384d; border-radius:14px; overflow:hidden; min-height:260px; display:grid; place-items:center; }
-        .replay-panel .replay-screen img { max-height:48vh; }
+        .replay-panel .replay-screen { height:clamp(200px,48vh,540px); min-height:0; }
+        .replay-panel .replay-screen img { width:100%; height:100%; max-height:100%; min-height:0; object-fit:contain; }
         #replayTime { padding:10px 0; color:#7dd3fc; font-variant-numeric:tabular-nums; min-height:40px; }
         .replay-controls button,.replay-panel select,.calendar-nav button { background:#1e3048; color:#dce9f8; border:1px solid #334a64; border-radius:9px; padding:8px 10px; }
         .replay-panel button:disabled { opacity:.35; cursor:default; }
@@ -1306,14 +1307,15 @@
         rp('replayTimeline').value=replay.index;
         const [fileTS,realTS]=replay.frames[replay.index],request=++replay.request;
         const image=new Image(); image.referrerPolicy='no-referrer';
-        rp('replayImage').hidden=true; rp('replayTime').textContent='';
-        rp('replayStatus').textContent='正在載入 '+replayDate(realTS)+'…';
+        // Keep the displayed frame and its timestamp until the next frame is decoded.
+        if (rp('replayImage').hidden) rp('replayStatus').textContent='正在載入 '+replayDate(realTS)+'…';
         let timeout;
         const finish=ok=>{
             clearTimeout(timeout);
             if (!replay.open||request!==replay.request) return;
             if (!ok) { pauseReplay();rp('replayStatus').textContent='這張快照無法載入，請拖曳時間軸選擇其他時間。';return; }
-            rp('replayImage').src=image.src;rp('replayImage').hidden=false;
+            image.id='replayImage';image.alt='歷史快照';image.hidden=false;
+            rp('replayImage').replaceWith(image);
             rp('replayTime').textContent=replayDate(realTS)+'（'+(replay.index+1)+' / '+replay.frames.length+'）';
             rp('replayStatus').textContent='可用範圍：'+replayDate(replay.frames[0][1])+' ～ '+replayDate(replay.frames.at(-1)[1]);
             if (replay.playing) {
@@ -1321,7 +1323,8 @@
                 else replay.timer=setTimeout(()=>showReplayFrame(replay.index+1),Number(rp('replaySpeed').value));
             }
         };
-        image.onload=()=>finish(true);image.onerror=()=>finish(false);
+        image.onload=()=>image.decode().then(()=>finish(true),()=>finish(false));
+        image.onerror=()=>finish(false);
         timeout=setTimeout(()=>{image.onload=image.onerror=null;finish(false);},15000);
         image.src='https://c02.twipcam.com/cam/history.php?id='+encodeURIComponent(replay.camId)+'&timestamp='+fileTS;
     }
