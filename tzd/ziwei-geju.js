@@ -47,6 +47,7 @@ const mingMutagen = (z, mu) => (byName(z, "命宮")?.majorStars || []).some(s =>
  *       cond 成格條件（白話）、pros[] 優點、cons[] 注意、
  *       match(z) 偵測函式（可省略＝目前不自動偵測，只列入辭典）
  */
+import { getZiweiReading } from './reading-model.js';
 export const GEJU = [
   /* ===== 帝王 / 領導型（紫府武相 + 太陽系） ===== */
   { name: "極向離明格", alias: "霸道總裁格局", cat: "領導",
@@ -370,6 +371,11 @@ export const GEJU = [
 
 /* 偵測：回傳命中的格局（含完整資料），依類別輕重排序展示 */
 export function detectGeju(z) {
+  if(z?.upstream) return getZiweiReading(z).rules.map(p=>({
+    name:p.name,meaning:p.description,
+    cat:p.limited||p.level==='caution'?'警示':'結構',
+    cond:p.required.join('；'),pros:p.bonus,cons:p.breaking,source:p.source
+  }));
   if (!z || !z.palaces) return [];
   const hit = [];
   for (const g of GEJU) {

@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>天知道 · 深度命理命盤</title>
 <meta name="description" content="八字四柱、十神身強弱用神、紫微斗數十二宮、大運流年、神煞格局、雙人合盤 — 一站式深度命理排盤分析">
-<script src="https://cdn.jsdelivr.net/npm/iztro/dist/iztro.min.js"></script>
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -76,7 +75,7 @@
           <option value="late">晚子時派（23-24時日柱歸當日，主流）</option>
           <option value="early">早子時派（23時後即算次日）</option>
         </select>
-        <div class="hint">出生於 23:00–01:00 才有差異。不確定就用主流的晚子時派。</div>
+        <div class="hint">此選項控制八字日柱；紫微晚子時依下方「紫微流派設定」處理。</div>
       </div>
     </div>
   </div>
@@ -113,6 +112,10 @@
   </div>
   </div><!-- /#personGrid -->
 
+  <details class="card"><summary>紫微流派設定（單人與合盤共用）</summary>
+    <div id="upstreamSettings" class="up-settings"></div>
+    <p class="hint">採用上游排盤、亮度與閏月口徑。變更後按「啟盤推算」重新計算，設定隨命盤存檔保留。</p>
+  </details>
   <div class="go-row">
     <button class="go" id="go">啟盤推算</button>
     <button class="go-save" id="saveBtn" title="把目前輸入的生辰存到本機">💾 存檔</button>

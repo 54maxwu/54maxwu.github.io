@@ -1,3 +1,4 @@
+import { calculateTrueSolarTime } from "./true-solar-time.js";
 /* ============================================================
  * 天知道 · 曆法層 (Layer 0)
  * 節氣定月 / JDN定日 / 五虎遁 / 五鼠遁 / 立春定年
@@ -99,21 +100,12 @@ function gatherTerms(y){
  * 真太陽時再加均時差 (equation of time)
  */
 export function trueSolarCorrection(jde, longitude){
-  // 經度時差（小時）：(實際經度 - 120) / 15
-  const lonDiffHours = (longitude - 120) / 15;
-  // 均時差（分鐘）
-  const T=(jde-2451545.0)/36525.0;
-  const L0=((280.46646+36000.76983*T)%360+360)%360;
-  const M=(357.52911+35999.05029*T)*Math.PI/180;
-  const e=0.016708634-0.000042037*T;
-  const y=Math.tan((23.439-0.0130042*T)*Math.PI/360)**2;
-  const Eot = y*Math.sin(2*L0*Math.PI/180)
-            - 2*e*Math.sin(M)
-            + 4*e*y*Math.sin(M)*Math.cos(2*L0*Math.PI/180)
-            - 0.5*y*y*Math.sin(4*L0*Math.PI/180)
-            - 1.25*e*e*Math.sin(2*M);
-  const eotMinutes = Eot*4*180/Math.PI;
-  return lonDiffHours/24 + eotMinutes/1440; // 以「日」為單位回傳
+  // Compatibility API: JDE is UTC; upstream expects an East-8 clock date.
+  const date = new Date((jde - 2440587.5) * 86400000 + 8 * 3600000);
+  return calculateTrueSolarTime({
+    year:date.getUTCFullYear(), month:date.getUTCMonth()+1, day:date.getUTCDate(),
+    clockHour:date.getUTCHours(), clockMinute:date.getUTCMinutes(), longitude
+  }).totalCorrectionMinutes / 1440;
 }
 
 /* ============================================================
@@ -137,15 +129,14 @@ export function buildBazi(y,m,d,hour=-1,minute=0,opts={}){
   // 1) 構造出生時刻 JDE（東八區鐘錶時）
   let baseJDE = jdeFromYMD(y,m,d) + (H + MM/60 - tz)/24.0;
 
-  // 2) 真太陽時校正
-  let corr = 0;
-  if(useTrueSolar){
-    corr = trueSolarCorrection(baseJDE, longitude);
-    baseJDE += corr;
-  }
-  // 校正後的「鐘錶等效時刻」用來判定時辰/換日
-  const solarHourFloat = (H + MM/60) + corr*24; // 真太陽時的小時數（可能跨日）
-
+  // Shared upstream correction; use its second-rounded date and branch boundaries.
+  const solarTime = calculateTrueSolarTime({
+    year:y, month:m, day:d, clockHour:H, clockMinute:MM,
+    longitude:useTrueSolar ? longitude : undefined
+  });
+  const corr = solarTime.totalCorrectionMinutes / 1440;
+  baseJDE += corr;
+  const solarHourFloat = solarTime.dayOffset * 24 + solarTime.normalizedMinutes / 60;
   // 3) 定時辰索引（每2小時一柱，23:00起為子時）
   let effY=y, effM=m, effD=d;
   let ziweiY=y, ziweiM=m, ziweiD=d;  // 給紫微用的「校正後日曆日」（不套早子時規則）
@@ -158,8 +149,8 @@ export function buildBazi(y,m,d,hour=-1,minute=0,opts={}){
     shiftDays(Math.floor(solarHourFloat / 24));
     let sh = ((solarHourFloat % 24) + 24) % 24;
     // 23:00-01:00 子時
-    hourIdx = Math.floor(((sh + 1) % 24) / 2); // +1使23時→0(子)
-    // 此時的 effY/effM/effD = 校正後真太陽時的「日曆日」，尚未套早子時規則 → 給紫微用（iztro 內部會依時辰自行換日，不可重複套子時）。
+    hourIdx = solarTime.branch; // +1使23時→0(子)
+    // 保留未套八字子時規則的真太陽日；紫微 adapter 另依其流派計算換日。
     ziweiY=effY; ziweiM=effM; ziweiD=effD;
     // 早晚子時換日處理：23-24點出生
     if(sh >= 23){
@@ -214,6 +205,7 @@ export function buildBazi(y,m,d,hour=-1,minute=0,opts={}){
     yGan,yZhi,mGan,mZhi:monthZhi,dGan,dZhi,hGan,hZhi,
     hourKnown:known, hourIdx,
     lichunYear, jieName, monthZhi,
+    solarTime,                 // 上游校正明細與秒級時刻
     correction: corr,           // 真太陽時校正量(日)
     correctionMin: Math.round(corr*1440),
     longitude, useTrueSolar, ziSchool,

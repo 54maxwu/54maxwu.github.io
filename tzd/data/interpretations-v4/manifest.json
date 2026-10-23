@@ -1,0 +1,26 @@
+{
+  "version": "v4.0-13d",
+  "format": "topic-sequences-v2",
+  "count": 674976,
+  "years": [
+    1950,
+    2026
+  ],
+  "topics": [
+    "overview",
+    "personality",
+    "love",
+    "career",
+    "wealth",
+    "health",
+    "family",
+    "children",
+    "move",
+    "friends",
+    "home",
+    "spirit",
+    "parents"
+  ],
+  "source": "https://github.com/Renhuai123/ziwei-doushu",
+  "author": "王多鱼AI"
+}
