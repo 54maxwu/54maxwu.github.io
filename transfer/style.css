@@ -1,0 +1,58 @@
+:root{color-scheme:light;--bg:#fff;--text:#333;--blue:#4487ea;--line:#ddd;--ring:#929292;font:16px system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+:root[data-theme=dark]{color-scheme:dark;--bg:#121212;--text:#eee;--blue:#72a8ff;--line:#555;--ring:#eee}
+@media(prefers-color-scheme:dark){:root:not([data-theme]){color-scheme:dark;--bg:#121212;--text:#eee;--blue:#72a8ff;--line:#555;--ring:#eee}}
+*{box-sizing:border-box}
+[hidden],.symbols{display:none!important}
+body{margin:0;min-height:100svh;overflow:hidden;background:var(--bg);color:var(--text)}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-radial-gradient(circle at 50% calc(100% - 116px),transparent 0 38px,var(--ring) 39px 40px,transparent 41px 77px);opacity:.23;mask-image:radial-gradient(circle at 50% calc(100% - 116px),black 0,black 130px,transparent 620px)}
+.toolbar{position:fixed;z-index:1;top:4px;right:12px;display:flex}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+.toolbar button,#radar,#rename,#device{border:0;background:none;color:inherit;padding:0}
+.toolbar button{width:48px;height:48px;display:grid;place-items:center;border-radius:50%}
+.toolbar button:hover,#rename:hover{background:color-mix(in srgb,var(--text) 8%,transparent)}
+.toolbar svg{width:24px;height:24px}
+main{position:fixed;inset:52px 12px 124px;display:grid;place-items:center;text-align:center}
+main h1{font-size:clamp(16px,4vw,22px);font-weight:500;color:var(--blue);margin:0 0 6px}
+main p{font-size:14px;margin:0}
+footer{position:fixed;bottom:4px;width:100%;text-align:center}
+#radar{display:block;width:80px;height:80px;margin:0 auto 4px;color:var(--blue)}
+#radar svg{width:100%;height:100%}
+#device-name,.visibility strong{background:#808080;color:white;border-radius:5px;padding:0 4px;font-weight:500}
+#rename{font-size:20px;line-height:1}
+.visibility{margin:12px auto 0;padding:4px 6px;border:2px solid #888;border-radius:12px;background:var(--bg);color:var(--text);font-size:13px}
+.visibility strong{background:var(--blue);margin-left:3px}
+#status{font-size:13px;margin:4px auto 0;color:var(--blue)}
+#status:empty{display:none}
+#device{font-size:16px;font-weight:600}
+#device span{display:grid;place-items:center;margin:0 auto 10px;width:80px;height:80px;border-radius:50%;color:#fff;background:var(--blue)}
+#device svg{width:38px;height:38px}
+#device small{display:block;font-weight:400;margin-top:4px}
+dialog{position:fixed;width:min(440px,calc(100% - 32px));max-height:calc(100svh - 32px);overflow:auto;border:0;border-radius:6px;background:var(--bg);color:var(--text);padding:24px;box-shadow:0 10px 40px #0004;text-align:center}
+dialog::backdrop{background:#0006}
+dialog h2{margin:0 24px 16px;font-size:22px;font-weight:500}
+dialog p{overflow-wrap:anywhere}
+dialog button:not(.close){border:0;border-radius:4px;background:transparent;color:var(--blue);font-weight:600;padding:8px 12px;margin:4px}
+dialog button:hover:not(:disabled){background:color-mix(in srgb,var(--blue) 12%,transparent)}
+dialog button.primary{background:var(--blue);color:#fff}
+dialog button.primary:hover:not(:disabled){background:color-mix(in srgb,var(--blue) 90%,black)}
+dialog button:disabled{opacity:.45;cursor:default}
+.close{position:absolute;top:6px;right:9px;background:none;border:0;font-size:25px;color:inherit;padding:3px 7px}
+dialog form,dialog details{margin-top:16px}
+dialog details{font-size:14px}
+dialog label{display:block;margin:8px 0;font-size:14px}
+dialog input,dialog textarea{display:block;width:100%;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:4px;padding:8px;margin:6px 0}
+#code{text-align:center;font:1rem ui-monospace,monospace}
+#room-code{display:block;font-size:clamp(16px,4vw,24px);font-weight:600;letter-spacing:1px;margin-bottom:12px}
+#qr canvas{display:block;margin:auto}
+#pair-status{font-size:14px;color:var(--blue);margin-bottom:0}
+fieldset{border:0;padding:0;margin:0;min-width:0}
+#drop{border:1px dashed var(--line);border-radius:5px;padding:10px}
+#drop.over{border-color:var(--blue)}
+progress{width:100%;accent-color:var(--blue)}
+#received a{display:block;margin:8px 0}
+#received pre{white-space:pre-wrap;overflow-wrap:anywhere;text-align:left;font:inherit}
+a{color:var(--blue)}
+.about-logo{width:80px;height:80px;color:var(--blue)}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media(max-width:340px){.toolbar{right:4px}.toolbar button{width:42px}}
