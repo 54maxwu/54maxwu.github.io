@@ -152,7 +152,25 @@ body {
 #link-list::-webkit-scrollbar { width: 4px; }
 #link-list::-webkit-scrollbar-thumb { background: #3a4560; border-radius: 2px; }
 
+.tool-group + .tool-group { margin-top: 2px; }
+.tool-group > summary {
+  padding: 9px 8px;
+  border-radius: 7px;
+  color: #c9d1d9;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tool-group > summary:hover { background: #1f2b3e; }
+.tool-group.has-active > summary { color: #93c5fd; }
+.group-tools { padding-left: 12px; }
+
 .link-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -360,46 +378,19 @@ body {
   .tab-name { max-width: 90px; }
   #close-all-btn { height: 24px; padding: 0 8px; font-size: 11px; }
 
-  /* Main: stack vertically, sidebar to bottom */
+  /* Main: stack the tool list above the content */
   #main { flex-direction: column; }
 
-  /* Sidebar becomes bottom toolbar */
+  /* Keep the grouped tool list scrollable above the tool on phones. */
   #sidebar {
     width: 100% !important;
     min-width: unset;
     max-width: unset;
-    height: 68px;
-    flex-shrink: 0;
-    flex-direction: row;
+    height: min(30dvh, 180px);
     border-right: none;
-    border-top: 1px solid #2a3142;
+    border-bottom: 1px solid #2a3142;
   }
-  #sidebar-header { display: none; }
-  #sidebar-resize  { display: none; }
-
-  #link-list {
-    display: flex;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 6px 8px;
-    gap: 4px;
-    scrollbar-width: none;
-  }
-  #link-list::-webkit-scrollbar { display: none; }
-
-  /* Each tool: icon above, name below */
-  .link-item {
-    flex-direction: column;
-    gap: 3px;
-    padding: 5px 10px;
-    min-width: 54px;
-    align-items: center;
-    border-radius: 8px;
-    flex-shrink: 0;
-  }
-  .link-icon { width: 30px; height: 30px; font-size: 13px; border-radius: 8px; }
-  .link-name { font-size: 10px; text-align: center; white-space: nowrap; }
+  #sidebar-header, #sidebar-resize { display: none; }
 
   /* Content fills the remaining space */
   #content { flex: 1; min-height: 0; }
@@ -457,44 +448,63 @@ body {
 
 <script>
 // ╔══════════════════════════════════════════════════════╗
-// ║  在這裡設定工具清單                                     ║
+// ║  在這裡設定分類與工具清單                                     ║
 // ║  { id, name, url, color }                            ║
 // ║  color 可用 hex 或任何 CSS 色彩                        ║
 // ╚══════════════════════════════════════════════════════╝
-const LINKS = [
-  { id: 'base64',          name: '圖片/Base64互轉',         url: 'base64/index.htm',           color: '#3b82f6' },
-  { id: 'qrcode',          name: '二維碼生成/解碼器',       url: 'qrcode/index.html',          color: '#22c55e' },
-  { id: 'encode',          name: '編碼 / 解碼工具',         url: 'encode.htm',                 color: '#0891b2' },
-  { id: 'otp',             name: 'OTP 產生器',              url: 'OTP.htm',                    color: '#a855f7' },
-  { id: 'tip',             name: '文件加密',                url: 'tip/index.html',             color: '#06b6d4' },
-  { id: 'device',          name: '裝置診斷',                url: 'device.html',                color: '#f59e0b' },
-  { id: 'rsa',             name: 'RSA 加密 / 簽章工具',     url: 'rsa.htm',                    color: '#ef4444' },
-  { id: 'aes',             name: 'AES 加密 / 解密工具',     url: 'aes.htm',                    color: '#f97316' },
-  { id: 'aesecb',          name: 'AES ECB 加密 / 解密工具', url: 'aesecb.htm',                 color: '#ec4899' },
-  { id: 'diff',            name: '文字比對工具',            url: 'diff.htm',                   color: '#14b8a6' },
-  { id: 'json',            name: 'JSON 格式化工具',         url: 'json.htm',                   color: '#84cc16' },
-  { id: 'opencc',          name: '簡繁轉換工具',            url: 'opencc/index.htm',           color: '#9333ea' },
-  { id: 'imageprovenance', name: '影像溯源分析儀',          url: 'imageprovenance/index.html', color: '#441116' },
-  { id: 'imgedit',         name: '本地修圖工具',            url: 'imgedit/index.htm',          color: '#f43f5e' },
-  { id: 'imgconv',         name: '圖片轉檔工具箱',          url: 'imgconv.htm',                color: '#059669' },
-  { id: 'idphoto',         name: '證件照製作',              url: 'idphoto.htm',                color: '#14b8a6' },
-  { id: 'searchpic',       name: '以圖搜圖工具',            url: 'searchpic.htm',              color: '#6366f1' },
-  { id: 'dig',             name: 'DNS Dig 工具',            url: 'dig.htm',                    color: '#0d9488' },
-  { id: 'ip',              name: 'IP 反查工具',             url: 'ip.htm',                     color: '#0284c7' },
-  { id: 'wificard',        name: 'WiFi 名片產生器',         url: 'wificard.htm',               color: '#14b8a6' },
-  { id: 'transfer',        name: '裝置快傳',                url: 'transfer/index.html',       color: '#0d9488' },
-  { id: 'traffic',         name: '台中交通即時影像',        url: 'traffic.htm',                color: '#0ea5e9' },
-  { id: 'bus',             name: '附近公車站牌',            url: 'bus.htm',                    color: '#eab308' },
-  { id: 'pingl',           name: '螢幕/鏡頭/檔案分享',       url: 'pingl/index.htm',            color: '#d946ef' },
-  { id: 'emoji',           name: 'emoji 查看器',            url: 'emoji.htm',                  color: '#d326ef' },
-  { id: 'liu',             name: '嘸蝦米兩碼字',            url: 'liu.htm',                    color: '#16a34a' },
-  { id: 'ogimage',         name: 'OG 圖片產生器',           url: 'ogimage.htm',                color: '#7c3aed' },
-  { id: 'favicon',         name: 'Favicon 產生器',          url: 'favicon.htm',                color: '#2563eb' },
-  { id: 'filesig',         name: '檔案真實格式偵測',        url: 'filesig.htm',                color: '#0e7490' },
-  { id: 'missing',         name: '失蹤人口協尋查詢',        url: 'missing.htm',                color: '#e11d48' },
-  { id: 'hangul',          name: '韓文拼字盤',              url: '韓文拼字盤.html',            color: '#275d8c' },
-  { id: 'kana',            name: '日文拼字盤',              url: '日文拼字盤.html',            color: '#bc4034' },
+const TOOL_GROUPS = [
+  { name: '加密與安全', tools: [
+      { id: 'otp',             name: 'OTP 產生器',              url: 'OTP.htm',                    color: '#a855f7' },
+      { id: 'tip',             name: '文件加密',                url: 'tip/index.html',             color: '#06b6d4' },
+      { id: 'rsa',             name: 'RSA 加密 / 簽章工具',     url: 'rsa.htm',                    color: '#ef4444' },
+      { id: 'aes',             name: 'AES 加密 / 解密工具',     url: 'aes.htm',                    color: '#f97316' },
+      { id: 'aesecb',          name: 'AES ECB 加密 / 解密工具', url: 'aesecb.htm',                 color: '#ec4899' },
+  ] },
+  { name: '文字與資料', tools: [
+      { id: 'diff',            name: '文字比對工具',            url: 'diff.htm',                   color: '#14b8a6' },
+      { id: 'json',            name: 'JSON 格式化工具',         url: 'json.htm',                   color: '#84cc16' },
+      { id: 'opencc',          name: '簡繁轉換工具',            url: 'opencc/index.htm',           color: '#9333ea' },
+      { id: 'encode',          name: '編碼 / 解碼工具',         url: 'encode.htm',                 color: '#0891b2' },
+  ] },
+  { name: '圖片與影像', tools: [
+      { id: 'imgedit',         name: '本地修圖工具',            url: 'imgedit/index.htm',          color: '#f43f5e' },
+      { id: 'imgconv',         name: '圖片轉檔工具箱',          url: 'imgconv.htm',                color: '#059669' },
+      { id: 'idphoto',         name: '證件照製作',              url: 'idphoto.htm',                color: '#14b8a6' },
+      { id: 'base64',          name: '圖片/Base64互轉',         url: 'base64/index.htm',           color: '#3b82f6' },
+      { id: 'imageprovenance', name: '影像溯源分析儀',          url: 'imageprovenance/index.html', color: '#441116' },
+      { id: 'searchpic',       name: '以圖搜圖工具',            url: 'searchpic.htm',              color: '#6366f1' },
+  ] },
+  { name: '網頁與圖碼', tools: [
+      { id: 'qrcode',          name: '二維碼生成/解碼器',       url: 'qrcode/index.html',          color: '#22c55e' },
+      { id: 'ogimage',         name: 'OG 圖片產生器',           url: 'ogimage.htm',                color: '#7c3aed' },
+      { id: 'favicon',         name: 'Favicon 產生器',          url: 'favicon.htm',                color: '#2563eb' },
+  ] },
+  { name: '網路與裝置', tools: [
+      { id: 'device',          name: '裝置診斷',                url: 'device.html',                color: '#f59e0b' },
+      { id: 'dig',             name: 'DNS Dig 工具',            url: 'dig.htm',                    color: '#0d9488' },
+      { id: 'ip',              name: 'IP 反查工具',             url: 'ip.htm',                     color: '#0284c7' },
+      { id: 'wificard',        name: 'WiFi 名片產生器',         url: 'wificard.htm',               color: '#14b8a6' },
+      { id: 'transfer',        name: '裝置快傳',                url: 'transfer/index.html',       color: '#0d9488' },
+  ] },
+  { name: '語言與符號', tools: [
+      { id: 'emoji',           name: 'emoji 查看器',            url: 'emoji.htm',                  color: '#d326ef' },
+      { id: 'liu',             name: '嘸蝦米兩碼字',            url: 'liu.htm',                    color: '#16a34a' },
+      { id: 'hangul',          name: '韓文拼字盤',              url: '韓文拼字盤.html',            color: '#275d8c' },
+      { id: 'kana',            name: '日文拼字盤',              url: '日文拼字盤.html',            color: '#bc4034' },
+  ] },
+  { name: '檔案工具', tools: [
+      { id: 'filesig',         name: '檔案真實格式偵測',        url: 'filesig.htm',                color: '#0e7490' },
+  ] },
+  { name: '交通與公共查詢', tools: [
+      { id: 'traffic',         name: '台中交通即時影像',        url: 'traffic.htm',                color: '#0ea5e9' },
+      { id: 'bus',             name: '附近公車站牌',            url: 'bus.htm',                    color: '#eab308' },
+      { id: 'missing',         name: '失蹤人口協尋查詢',        url: 'missing.htm',                color: '#e11d48' },
+  ] },
+  { name: '遊戲', tools: [
+      { id: 'pingl',           name: '猜數字遊戲',               url: 'pingl/guess.htm',            color: '#d946ef' },
+  ] },
 ];
+const LINKS = TOOL_GROUPS.flatMap(group => group.tools);
 
 // ── RSA-PSS Login ────────────────────────────────────
 (function () {
@@ -636,20 +646,52 @@ function renderTabs() {
   });
 }
 
+const toolButtons = new Map();
+let highlightedTool = null;
+
 function renderLinks() {
-  const list = document.getElementById('link-list');
-  list.innerHTML = '';
-  LINKS.forEach(link => {
-    const openTab  = tabs.find(t => t.linkId === link.id);
-    const isActive = openTab && openTab.uid === active;
-    const el = document.createElement('div');
-    el.className = 'link-item' + (isActive ? ' active-link' : '');
-    el.innerHTML = `
-      <div class="link-icon" style="background:${esc(link.color)}">${esc(initial(link.name))}</div>
-      <span class="link-name">${esc(link.name)}</span>`;
-    el.addEventListener('click', () => openLink(link));
-    list.appendChild(el);
-  });
+  if (!toolButtons.size) {
+    const list = document.getElementById('link-list');
+    TOOL_GROUPS.forEach(group => {
+      const section = document.createElement('details');
+      section.className = 'tool-group';
+      const label = document.createElement('summary');
+      label.textContent = group.name;
+      const tools = document.createElement('div');
+      tools.className = 'group-tools';
+
+      group.tools.forEach(link => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'link-item';
+        button.title = link.name;
+        button.innerHTML = '<span class="link-icon" aria-hidden="true" style="background:' +
+          esc(link.color) + '">' + esc(initial(link.name)) + '</span>' +
+          '<span class="link-name">' + esc(link.name) + '</span>';
+        button.addEventListener('click', () => openLink(link));
+        tools.appendChild(button);
+        toolButtons.set(link.id, { button, section });
+      });
+
+      section.append(label, tools);
+      list.appendChild(section);
+    });
+  }
+
+  const next = toolButtons.get(tabs.find(tab => tab.uid === active)?.linkId);
+  if (highlightedTool === next) return;
+  if (highlightedTool) {
+    highlightedTool.button.classList.remove('active-link');
+    highlightedTool.button.removeAttribute('aria-current');
+    highlightedTool.section.classList.remove('has-active');
+  }
+  if (next) {
+    next.button.classList.add('active-link');
+    next.button.setAttribute('aria-current', 'true');
+    next.section.classList.add('has-active');
+    next.section.open = true;
+  }
+  highlightedTool = next;
 }
 
 function renderPanes() {

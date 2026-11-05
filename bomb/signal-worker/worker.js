@@ -1,5 +1,4 @@
 // bomb-signal —— 炸彈人專用的 WebSocket 房間中轉 Worker（最多 4 人/房）
-// 與原本的 pingl-signal 完全獨立，不會互相影響。
 // 用法：WebSocket 連到 wss://<worker>/room/<房號>
 //   收到的控制訊息：{type:'room-state',peerCount} / {type:'peer-joined'} /
 //                   {type:'peer-left'} / {type:'room-full'}

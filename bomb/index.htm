@@ -480,8 +480,8 @@
    - 不用 WebRTC P2P：連得到 Worker 就一定通，不會 NAT 打洞失敗
    ============================================================ */
 
-// ── 連線設定（與 pingl 相同 worker，純 WebSocket 中轉）──────────────
-const WORKER_URL = 'wss://bomb-signal.54maxwu.workers.dev';   // 炸彈人專用房間中轉（最多4人/房，獨立於 pingl-signal）
+// ── 連線設定（純 WebSocket 中轉）──────────────
+const WORKER_URL = 'wss://bomb-signal.54maxwu.workers.dev';   // 炸彈人專用房間中轉（最多4人/房）
 const DEBUG = /[#&]debug/.test(location.hash);
 function dbg(...a){ if(DEBUG||window.BOMB_DEBUG) console.log('[bomb]', ...a); }
 // 畫面上的連線診斷（不用開 console 也看得到卡在哪一步）

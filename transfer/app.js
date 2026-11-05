@@ -6,7 +6,11 @@ const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const normalize = code => code.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
 const valid = code => /^[0-9A-HJKMNP-TV-Z]{20}$/.test(code);
 const LIMIT = 128 * 1024 * 1024;
+const LARGE_LIMIT = 10 * 1024 ** 3;
 const CHUNK = 16 * 1024;
+const DISK_WINDOW = 512 * 1024;
+const fileTokens = new WeakMap();
+let diskReceipt;
 const status = value => {
   $('status').textContent = value === '尚未配對' ? '' : value;
   $('pair-status').textContent = value;
@@ -21,7 +25,12 @@ function showDialog(id) {
   if (!dialog.open) dialog.showModal();
 }
 
-const size = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KiB' : (n / 1048576).toFixed(1) + ' MiB';
+function size(n) {
+  if (n >= 1024 ** 3) return (n / 1024 ** 3).toFixed(2) + ' GiB';
+  if (n >= 1024 ** 2) return (n / 1024 ** 2).toFixed(1) + ' MiB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' KiB';
+  return n + ' B';
+}
 function inviteURL(code) {
   const url = new URL(location.href);
   url.search = '';
@@ -59,7 +68,9 @@ function closeConnection(message) {
     previous.channel?.close();
     previous.pc.close();
   }
-  resetTransfer(transfer ? '傳輸中斷。重新配對後請再試一次。' : undefined);
+  resetTransfer(transfer?.resumeToken
+    ? '大檔傳輸已暫停。保留兩個分頁，重新配對後再次傳送同一筆檔案即可續傳。'
+    : transfer ? '傳輸中斷。重新配對後請再試一次。' : undefined);
   if (message) status(message);
 }
 function leave(message = '尚未配對') {
@@ -230,9 +241,19 @@ function send(message) {
 }
 function armTimeout() {
   clearTimeout(timer);
-  timer = setTimeout(() => { if (transfer) cancelTransfer('等待逾時，請重新傳送。'); }, 90000);
+  timer = setTimeout(() => {
+    if (transfer?.resumeToken) leave('大檔傳輸逾時，請重新配對續傳。');
+    else if (transfer) cancelTransfer('等待逾時，請重新傳送。');
+  }, 90000);
+}
+function discardDisk(disk) {
+  if (!disk || disk.complete) return;
+  if (diskReceipt === disk) diskReceipt = undefined;
+  disk.discarded = true;
+  disk.queue.finally(() => disk.writer.abort()).catch(() => {});
 }
 function cancelTransfer(message = '已取消傳輸。') {
+  discardDisk(transfer.disk);
   try { send({ type: 'cancel', id: transfer.id }); }
   catch { /* The connection may already have closed. */ }
   resetTransfer(message);
@@ -243,7 +264,12 @@ function start(payload) {
   const info = payload.files
     ? { files: payload.files.map(file => ({ name: file.name, size: file.size })) }
     : { length: payload.text.length };
-  transfer = { id, ...payload, direction: 'out', phase: 'pending' };
+  const file = payload.files?.[0];
+  if (file?.size > LIMIT) {
+    if (!fileTokens.has(file)) fileTokens.set(file, crypto.randomUUID());
+    info.resumeToken = fileTokens.get(file);
+  }
+  transfer = { id, ...payload, resumeToken: info.resumeToken, direction: 'out', phase: 'pending' };
   try { send({ type: 'offer', id, ...info }); }
   catch { resetTransfer('無法送出請求，請重新配對。'); return; }
   $('cancel').hidden = false;
@@ -257,18 +283,22 @@ function control(msg) {
   if (msg.type === 'offer') {
     const metadata = msg.files;
     const isFiles = Array.isArray(metadata);
+    const diskMode = isFiles && metadata.length === 1 && metadata[0]?.size > LIMIT &&
+      typeof msg.resumeToken === 'string' && /^[\da-f-]{36}$/.test(msg.resumeToken);
     const validFiles = isFiles && metadata.length >= 1 && metadata.length <= 20 &&
       metadata.every(f => f && typeof f.name === 'string' && f.name.length > 0 && f.name.length <= 255 &&
-        Number.isSafeInteger(f.size) && f.size >= 0 && f.size <= LIMIT);
+        Number.isSafeInteger(f.size) && f.size >= 0 && f.size <= (diskMode ? LARGE_LIMIT : LIMIT));
     const total = validFiles ? metadata.reduce((n, f) => n + f.size, 0) : 0;
-    if (transfer || (isFiles ? !validFiles || total > LIMIT : !Number.isInteger(msg.length) || msg.length < 1 || msg.length > 8000)) {
+    if (transfer || (isFiles ? !validFiles || (!diskMode && total > LIMIT) : !Number.isInteger(msg.length) || msg.length < 1 || msg.length > 8000)) {
       send({ type: 'reject', id: msg.id });
       return;
     }
     transfer = { id: msg.id, direction: 'in', phase: 'pending', metadata: isFiles ? metadata : null,
       length: msg.length, total, done: 0, index: 0, offset: 0, chunks: [], received: [] };
+    if (diskMode) transfer.resumeToken = msg.resumeToken;
     $('offer').textContent = isFiles ? '對方想傳送 ' + metadata.length + ' 個檔案（' + size(total) + '）：' +
       metadata.map(f => f.name).join('、') : '對方想傳送一則文字訊息。';
+    $('accept').textContent = diskMode ? '接受並儲存／續傳' : '接受';
     $('incoming').hidden = false;
     progress('等待你確認');
     if (document.hidden && window.Notification?.permission === 'granted') {
@@ -282,16 +312,40 @@ function control(msg) {
   const job = transfer;
   if (!job || msg.id !== job.id) return;
   if (msg.type === 'cancel' || msg.type === 'reject') {
+    if (msg.type === 'cancel') discardDisk(job.disk);
     resetTransfer(msg.type === 'cancel' ? '對方已取消傳輸。' : '對方未接受傳送請求。');
     return;
   }
   if (msg.type === 'accept' && job.direction === 'out' && job.phase === 'pending') {
+    if (job.resumeToken) {
+      if (!Number.isSafeInteger(msg.offset) || msg.offset < 0 || msg.offset > job.files[0].size) {
+        cancelTransfer('接收端不支援大檔續傳，或回傳的位置無效。');
+        return;
+      }
+      job.sent = job.ack = msg.offset;
+    }
     job.phase = 'active';
     transmit(job).catch(() => { if (job === transfer) cancelTransfer('傳輸失敗，請再試一次。'); });
   }
-  if (msg.type === 'done' && job.direction === 'out' && job.phase === 'ending')
+  if (msg.type === 'written' && job.resumeToken && job.direction === 'out' &&
+      Number.isSafeInteger(msg.offset) && msg.offset > job.ack && msg.offset <= job.sent) {
+    job.ack = msg.offset;
+    armTimeout();
+  }
+  if (msg.type === 'done' && job.direction === 'out' && job.phase === 'ending') {
+    if (job.files) {
+      $('files').value = '';
+      select([]);
+    } else {
+      $('message').value = '';
+    }
     resetTransfer('對方已收到。');
+  }
   if (job.direction !== 'in' || job.phase !== 'active') return;
+  if (job.disk) {
+    if (msg.type === 'end') finishDisk(job);
+    return;
+  }
   if (msg.type === 'text' && !job.metadata) {
     if (typeof msg.text !== 'string' || msg.text.length !== job.length) throw Error();
     const line = document.createElement('pre');
@@ -338,9 +392,80 @@ function received(job) {
   send({ type: 'done', id: job.id });
   resetTransfer('接收完成。');
 }
+
+async function prepareDisk(job) {
+  const { name, size: total } = job.metadata[0];
+  let disk = diskReceipt;
+  if (disk?.token === job.resumeToken && disk.name === name && disk.total === total) {
+    await disk.queue;
+    if (disk.discarded) throw Error();
+  } else {
+    const handle = await window.showSaveFilePicker({ suggestedName: name.replace(/[\/\\\x00-\x1f\x7f]/g, '_') });
+    if (job !== transfer) return;
+    const writer = await handle.createWritable();
+    if (job !== transfer) {
+      await writer.abort();
+      return;
+    }
+    discardDisk(diskReceipt);
+    disk = diskReceipt = { token: job.resumeToken, name, total, writer, offset: 0, queue: Promise.resolve() };
+  }
+  if (job !== transfer) return;
+  job.disk = disk;
+  job.queued = disk.offset;
+}
+
+function queueDiskChunk(job, chunk) {
+  const disk = job.disk;
+  if (job.finishing || disk.complete || !(chunk instanceof ArrayBuffer) ||
+      chunk.byteLength < 1 || chunk.byteLength > CHUNK ||
+      job.queued + chunk.byteLength > disk.total ||
+      job.queued + chunk.byteLength - disk.offset > DISK_WINDOW) throw Error();
+  job.queued += chunk.byteLength;
+  disk.queue = disk.queue.then(async () => {
+    if (disk.discarded) return;
+    await disk.writer.write(chunk);
+    disk.offset += chunk.byteLength;
+    if (job !== transfer) return;
+    try { send({ type: 'written', id: job.id, offset: disk.offset }); }
+    catch { leave('連線已中斷，請重新配對續傳。'); return; }
+    if (disk.offset % (16 * CHUNK) === 0 || disk.offset === disk.total)
+      progress('正在寫入磁碟… ' + size(disk.offset) + ' / ' + size(disk.total), disk.offset / disk.total);
+    armTimeout();
+  });
+  disk.queue.catch(() => diskFailed(job));
+}
+
+function diskFailed(job) {
+  discardDisk(job.disk);
+  if (job === transfer) cancelTransfer('寫入磁碟失敗。請確認有足夠空間和寫入權限，再重新傳送。');
+}
+
+function finishDisk(job) {
+  const disk = job.disk;
+  if (job.finishing || job.queued !== disk.total) throw Error();
+  job.finishing = true;
+  $('cancel').hidden = true;
+  disk.queue = disk.queue.then(async () => {
+    if (disk.discarded || disk.complete) return;
+    await disk.writer.close();
+    disk.complete = true;
+  });
+  disk.queue.then(() => {
+    if (job !== transfer || !disk.complete) return;
+    clearDownloads();
+    try { received(job); }
+    catch { leave('檔案已儲存，重新配對後可補送送達確認。'); }
+    progress('已儲存「' + disk.name + '」。');
+  }).catch(() => diskFailed(job));
+}
 function receiveChunk(chunk) {
   const job = transfer;
   if (!job || job.direction !== 'in' || job.phase !== 'active' || !job.metadata) return;
+  if (job.disk) {
+    queueDiskChunk(job, chunk);
+    return;
+  }
   const meta = job.metadata[job.index];
   if (!meta || !(chunk instanceof ArrayBuffer) || chunk.byteLength < 1 || chunk.byteLength > CHUNK ||
       job.offset + chunk.byteLength > meta.size) throw Error();
@@ -353,7 +478,22 @@ function receiveChunk(chunk) {
 async function transmit(job) {
   const channel = connection.channel;
   armTimeout();
-  if (job.files) {
+  if (job.resumeToken) {
+    const file = job.files[0];
+    while (job === transfer && job.sent < file.size) {
+      const end = Math.min(job.sent + CHUNK, file.size);
+      while (job === transfer && end - job.ack > DISK_WINDOW)
+        await new Promise(resolve => setTimeout(resolve, 20));
+      if (job !== transfer) return;
+      const bytes = await file.slice(job.sent, end).arrayBuffer();
+      if (job !== transfer) return;
+      channel.send(bytes);
+      job.sent = end;
+      if (end % (16 * CHUNK) === 0 || end === file.size)
+        progress('正在傳送… ' + size(end) + ' / ' + size(file.size), end / file.size);
+      armTimeout();
+    }
+  } else if (job.files) {
     const total = job.files.reduce((n, file) => n + file.size, 0);
     let done = 0;
     for (const file of job.files) {
@@ -382,7 +522,8 @@ async function transmit(job) {
 function select(list) {
   files = Array.from(list);
   const total = files.reduce((n, f) => n + f.size, 0);
-  if (files.length > 20 || total > LIMIT || files.some(f => !f.name || f.name.length > 255)) {
+  if (files.length > 20 || total > (files.length === 1 ? LARGE_LIMIT : LIMIT) ||
+      files.some(f => !f.name || f.name.length > 255)) {
     files = [];
     $('files').value = '';
     $('selection').textContent = '檔案超過數量、大小或檔名長度限制。';
@@ -410,14 +551,35 @@ $('text-form').onsubmit = event => {
   const text = $('message').value;
   if (text.trim() && text.length <= 8000) start({ text });
 };
-$('accept').onclick = () => {
+$('accept').onclick = async () => {
   if (transfer?.direction !== 'in' || transfer.phase !== 'pending') return;
-  transfer.phase = 'active';
+  const job = transfer;
+  if (job.resumeToken) {
+    if (typeof window.showSaveFilePicker !== 'function') {
+      cancelTransfer('此瀏覽器不支援直接寫入磁碟。請用桌面版 Chrome 或 Edge 開啟快傳。');
+      return;
+    }
+    job.phase = 'preparing';
+    clearTimeout(timer);
+    try { await prepareDisk(job); }
+    catch {
+      if (job === transfer) {
+        job.phase = 'pending';
+        progress('尚未選定可寫入的位置。請再次接受，或拒絕這筆傳輸。');
+        armTimeout();
+      }
+      return;
+    }
+    if (job !== transfer) return;
+  }
+  job.phase = 'active';
   $('incoming').hidden = true;
   $('cancel').hidden = false;
-  progress('等待資料…', 0);
+  const offset = job.disk?.offset ?? 0;
+  progress(offset ? '從 ' + size(offset) + ' 繼續接收…' : '等待資料…', offset ? offset / job.total : 0);
   armTimeout();
-  send({ type: 'accept', id: transfer.id });
+  try { send({ type: 'accept', id: job.id, offset }); }
+  catch { leave('連線已中斷，請重新配對。'); }
 };
 $('reject').onclick = () => {
   if (transfer?.direction !== 'in' || transfer.phase !== 'pending') return;

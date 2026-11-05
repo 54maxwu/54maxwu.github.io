@@ -199,24 +199,6 @@ body {
 .pick-btn .desc  { font-size: 12px; color: #64748b; }
 .pick-btn .ico { font-size: 30px; }
 
-.join-divider {
-  display: flex; align-items: center;
-  margin: 24px 0 14px;
-  color: #94a3b8; font-size: 12px; gap: 12px;
-}
-.join-divider::before, .join-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
-.join-row { display: flex; gap: 8px; max-width: 420px; margin: 0 auto; }
-.join-row input {
-  flex: 1;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 16px; padding: 11px 14px;
-  border: 1.5px solid #e2e8f0; border-radius: 8px;
-  background: #f8fafc; color: #1e293b; outline: none;
-  letter-spacing: 2px; text-align: center;
-}
-.join-row input:focus { border-color: #0d9488; background: #fff; }
-.join-hint { font-size: 12px; color: #94a3b8; margin-top: 10px; text-align: center; line-height: 1.6; }
-
 /* ── Buttons ──────────────────────────────────────────── */
 .btn {
   padding: 10px 16px; font-size: 13px; font-weight: 700;
@@ -233,22 +215,11 @@ body {
 .btn-danger:hover { background: #dc2626; }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 
-.code-big {
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 30px; font-weight: 700; letter-spacing: 6px;
-  color: #0d9488; text-align: center;
-  padding: 14px 8px; background: #f0fdfa;
-  border: 1.5px dashed #99f6e4; border-radius: 10px;
-  margin-bottom: 14px; user-select: all; cursor: text;
+.pair-code {
+  display: block; width: 100%; min-height: 76px; margin: 6px 0 10px; padding: 8px;
+  border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; resize: vertical;
 }
-.link-box { display: flex; gap: 8px; align-items: stretch; margin-bottom: 14px; }
-.link-box input {
-  flex: 1; font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 12px; padding: 10px 12px;
-  border: 1.5px solid #e2e8f0; border-radius: 8px;
-  background: #f8fafc; color: #1e293b; outline: none; min-width: 0;
-}
-.link-box input:focus { border-color: #0d9488; }
+#pairForm { margin-top: 14px; }
 
 .info-row {
   display: flex; justify-content: space-between;
@@ -474,12 +445,6 @@ body {
 .reconnect-count { font-size: 13px; color: #b45309; font-weight: 700; }
 .reconnect-count span { font-size: 20px; font-family: ui-monospace, monospace; }
 
-.config-warn {
-  background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
-  padding: 14px 16px; border-radius: 10px; font-size: 13px; line-height: 1.55; margin-bottom: 14px;
-}
-.config-warn code { background: #fff; padding: 1px 5px; border-radius: 4px; }
-
 .result-big { text-align: center; font-size: 30px; font-weight: 800; margin-bottom: 6px; }
 .result-big.win  { color: #15803d; }
 .result-big.lose { color: #b91c1c; }
@@ -505,21 +470,19 @@ body {
   <!-- mode A: picker -->
   <section id="picker" class="card" hidden>
     <h2>猜數字 1A2B</h2>
-    <p>兩人各自設定一組 4 位數（數字不重複，0 可放任意位置），<br>輪流猜對方的數字。建一個房間把代碼傳給對方。</p>
+    <p>兩人各自設定一組 4 位數（數字不重複，0 可放任意位置），<br>輪流猜對方的數字。交換配對碼後即可開始對戰。</p>
     <div class="pick-row">
       <button class="pick-btn" id="btnCreate">
         <span class="ico">🎮</span>
         <span class="label">建立房間</span>
-        <span class="desc">產生代碼傳給朋友</span>
+        <span class="desc">產生邀請碼傳給朋友</span>
+      </button>
+      <button class="pick-btn" id="btnJoin">
+        <span class="ico">🔗</span>
+        <span class="label">加入房間</span>
+        <span class="desc">貼上朋友傳來的邀請碼</span>
       </button>
     </div>
-    <div class="join-divider"><span>或</span></div>
-    <div class="join-row">
-      <input id="joinInput" type="text" inputmode="numeric" autocomplete="off"
-             placeholder="輸入 6 位數房間代碼" maxlength="32">
-      <button class="btn btn-primary" id="joinBtn">加入</button>
-    </div>
-    <div class="join-hint">也可以直接貼上分享連結。每個房間最多 2 人。</div>
 
     <div class="card" style="margin-top:26px;text-align:left;background:#f8fafc;">
       <div class="field-label">遊戲規則</div>
@@ -536,14 +499,17 @@ body {
 
   <!-- mode B: lobby (waiting for peer) -->
   <section id="lobby-view" class="card" hidden>
-    <div class="field-label">房間代碼</div>
-    <div class="code-big" id="lobbyRoomId">—</div>
-    <div class="field-label" style="margin-top:6px;">或分享連結</div>
-    <div class="link-box">
-      <input id="lobbyShareUrl" type="text" readonly>
-      <button class="btn btn-primary" id="lobbyCopyBtn">複製</button>
+    <div id="pairOutput" hidden>
+      <label class="field-label" for="pairCode" id="pairCodeLabel"></label>
+      <textarea class="pair-code" id="pairCode" readonly spellcheck="false"></textarea>
+      <button class="btn btn-ghost" id="pairCopyBtn">複製</button>
     </div>
-    <div class="info-row"><span class="k">連線狀態</span><span class="v" id="lobbyConnState">等待對方加入</span></div>
+    <form id="pairForm">
+      <label class="field-label" for="peerCode" id="peerCodeLabel"></label>
+      <textarea class="pair-code" id="peerCode" required spellcheck="false"></textarea>
+      <button class="btn btn-primary" id="pairSubmit"></button>
+    </form>
+    <p id="pairStatus" role="status"></p>
     <div class="actions">
       <button class="btn btn-danger" id="lobbyCancelBtn">取消</button>
     </div>
@@ -682,11 +648,6 @@ body {
 
   <!-- (result is shown in-board inside #boardResult so the KO stays visible) -->
 
-  <!-- config warning -->
-  <section id="config-warn" class="config-warn" hidden>
-    <strong>尚未設定 signaling server。</strong><br>
-    請在 <code>pingl/guess.htm</code> 頂端把 <code>WORKER_URL</code> 改成你部署的 Cloudflare Worker URL。
-  </section>
 </main>
 
 <div id="crackFlash"></div>
@@ -698,20 +659,14 @@ body {
   <div class="reconnect-card">
     <div class="reconnect-spinner"></div>
     <div class="reconnect-title" id="reconnectTitle">連線中斷</div>
-    <div class="reconnect-sub" id="reconnectSub">嘗試重新連線，請保持本頁開啟…</div>
+    <div class="reconnect-sub" id="reconnectSub">等待直連恢復，請保持本頁開啟…</div>
     <div class="reconnect-count"><span id="reconnectCount">60</span> 秒後結束本局</div>
     <button class="btn btn-ghost" id="reconnectCancel" style="margin-top:14px;">放棄並離開</button>
   </div>
 </div>
 
 <script>
-// ── 設定 ──────────────────────────────────────────────
-// 與 pingl/index.htm 共用同一個 signaling server。
-const WORKER_URL = 'wss://pingl-signal.54maxwu.workers.dev';
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun.cloudflare.com:3478' },
-];
+const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
 const DEBUG = /[#&]debug/.test(location.hash);
 function dbg(...a) { if (DEBUG || window.PINGL_DEBUG) console.log('[guess]', ...a); }
@@ -731,20 +686,6 @@ function toast(msg) {
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
-}
-
-function randomId() {
-  const buf = new Uint32Array(1); crypto.getRandomValues(buf);
-  return (100000 + (buf[0] % 900000)).toString();
-}
-function extractCode(input) {
-  if (!input) return '';
-  const m = input.match(/#(?:game|view|file)=([a-zA-Z0-9_-]+)/);
-  return m ? m[1] : input.trim();
-}
-function parseHash() {
-  const h = location.hash.replace(/^#/, '');
-  return new URLSearchParams(h).get('game');
 }
 
 // ── 1A2B core logic ───────────────────────────────────
@@ -796,89 +737,14 @@ function probText(candidates) {
   return (p < 0.1 ? p.toFixed(3) : p.toFixed(1)) + '%';
 }
 
-// ── Signaling + negotiator (same design as pingl/index.htm) ──
-function openSignal(roomId) {
-  const url = WORKER_URL.replace(/^http/, 'ws').replace(/\/$/, '') + '/room/' + roomId;
-  return new WebSocket(url);
-}
-
-// Token tie-break negotiator. The DataChannel is the only media; the higher
-// token offers and creates the channel, the lower answers. Symmetric afterwards.
-function createNegotiator({ ws, mk, onBeforeOffer }) {
-  const neg = { pc: null };
-  const myToken = (() => {
-    const b = new Uint32Array(2); crypto.getRandomValues(b);
-    return b[0] * 4294967296 + b[1];
-  })();
-  let peerToken = null, negotiating = false;
-
-  function ensurePc() {
-    if (neg.pc && !['failed', 'closed'].includes(neg.pc.connectionState)) return neg.pc;
-    try { neg.pc?.close(); } catch {}
-    const pc = mk();
-    neg.pc = pc;
-    pc.onicecandidate = e => {
-      if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
-    };
-    return pc;
-  }
-  function amOfferer() { return peerToken != null && myToken > peerToken; }
-
-  async function maybeOffer() {
-    if (!amOfferer() || negotiating) return;
-    const pc = ensurePc();
-    if (pc.signalingState !== 'stable') return;
-    try {
-      negotiating = true;
-      onBeforeOffer && onBeforeOffer(pc);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      ws.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription }));
-    } catch (e) { dbg('offer error', e); } finally { negotiating = false; }
-  }
-  function start() {
-    if (neg.pc && !['connected', 'connecting'].includes(neg.pc.connectionState)) {
-      try { neg.pc.close(); } catch {}
-      neg.pc = null; peerToken = null;
-    }
-    ws.send(JSON.stringify({ type: 'hello', token: myToken }));
-  }
-  async function onSignal(msg) {
-    if (msg.type === 'hello' || msg.type === 'hello-ack') {
-      peerToken = msg.token;
-      if (msg.type === 'hello') ws.send(JSON.stringify({ type: 'hello-ack', token: myToken }));
-      ensurePc();
-      await maybeOffer();
-    } else if (msg.type === 'offer') {
-      const pc = ensurePc();
-      if (amOfferer()) return;
-      await pc.setRemoteDescription(msg.sdp);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({ type: 'answer', sdp: pc.localDescription }));
-    } else if (msg.type === 'answer') {
-      const pc = neg.pc;
-      if (pc && pc.signalingState === 'have-local-offer') await pc.setRemoteDescription(msg.sdp);
-    } else if (msg.type === 'ice') {
-      if (!neg.pc) return;
-      try { await neg.pc.addIceCandidate(msg.candidate); } catch (e) { dbg('ice error', e); }
-    }
-  }
-  function reset() {
-    try { neg.pc?.close(); } catch {}
-    neg.pc = null; peerToken = null; negotiating = false;
-  }
-  return { neg, ensurePc, start, onSignal, reset, maybeOffer };
-}
-
 // ── Game state ────────────────────────────────────────
 // One object holds the whole match. `dc` is the data channel; all game
 // messages (ready/guess/result/rematch) flow over it as JSON.
 let G = null;
 
-function freshGame(ws, roomId, isHost) {
+function freshGame(pc, isHost) {
   return {
-    ws, roomId, isHost, neg: null, dc: null,
+    pc, isHost, dc: null,
     mySecret: null, peerSecret: null, peerReady: false, mineReady: false,
     // randomness for deciding first mover; both sides exchange and compare
     myStartTok: null, peerStartTok: null,
@@ -895,13 +761,7 @@ function freshGame(ws, roomId, isHost) {
     iGuessedThisRound: false, iHit: false,
     peerGuessedThisRound: false, peerHit: false,
     rematchMine: false, rematchPeer: false,
-    // ── reconnect bookkeeping ──
-    // phase: 'lobby' until the channel first opens, then 'setup'/'game'.
-    // A drop in 'setup'/'game' (and not over) triggers the 60s grace window.
-    phase: 'lobby',
-    everConnected: false,    // have we ever had an open data channel?
-    leaving: false,          // user pressed leave → don't try to reconnect
-    reconnecting: false, graceTimer: null, graceDeadline: 0, reconnectPoll: null,
+    graceTimer: null, graceDeadline: 0,
   };
 }
 
@@ -916,140 +776,119 @@ function showPicker() {
   setStatus('待機中');
 }
 
-// ── Boot / routing ────────────────────────────────────
-function boot() {
-  if (!WORKER_URL) {
-    $('config-warn').hidden = false;
-    setStatus('未設定 server', 'err');
-    return;
-  }
-  const game = parseHash();
-  if (game) joinRoom(game);
-  else showPicker();
-}
-
-// ── Create / join ─────────────────────────────────────
-function createRoom() {
-  const roomId = randomId();
-  startMatch(roomId, true);
-  showView('lobby-view');
-  $('lobbyRoomId').textContent = roomId;
-  $('lobbyShareUrl').value = `${location.origin}${location.pathname}#game=${roomId}`;
-  $('lobbyConnState').textContent = '等待對方加入';
-  setStatus('等待對方加入', 'busy');
-}
-
-function joinRoom(roomId) {
-  startMatch(roomId, false);
-  showView('lobby-view');
-  $('lobbyRoomId').textContent = roomId;
-  $('lobbyShareUrl').value = `${location.origin}${location.pathname}#game=${roomId}`;
-  $('lobbyConnState').textContent = '連線中…';
-  setStatus('連線中…', 'busy');
-}
-
-function startMatch(roomId, isHost) {
-  const ws = openSignal(roomId);
-  G = freshGame(ws, roomId, isHost);
-  wireSignal(ws);
-}
-
-// Attach the negotiator + WS/DataChannel handlers onto a (possibly brand-new)
-// signaling socket for the CURRENT G. Called on first connect and again on each
-// reconnect attempt — it never wipes game state, so a reopened channel resumes
-// the in-progress match instead of restarting it.
-function wireSignal(ws) {
-  G.ws = ws;
-
-  const setupDc = dc => {
-    if (G.dc && G.dc.readyState === 'open') return;
-    G.dc = dc;
-    dc.binaryType = 'arraybuffer';
-    dc.onopen = () => onDataOpen();
-    dc.onclose = () => { if (G && !G.over && !G.leaving) handleDrop('連線已關閉'); };
-    dc.onmessage = ev => { try { handleGameMsg(JSON.parse(ev.data)); } catch (e) { dbg('msg parse', e); } };
-  };
-
-  const mk = () => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    G.dc = null;
-    pc.ondatachannel = e => setupDc(e.channel);
-    pc.onconnectionstatechange = () => {
-      const cs = pc.connectionState;
-      if (cs === 'connected') setStatus('已連線', 'ok');
-      else if ((cs === 'failed' || cs === 'disconnected') && G && !G.over && !G.leaving) handleDrop('連線中斷');
+// ── Manual WebRTC pairing ─────────────────────────────
+function waitForCandidates(pc) {
+  return new Promise(resolve => {
+    const finish = () => {
+      clearTimeout(timer);
+      pc.removeEventListener('icegatheringstatechange', check);
+      resolve();
     };
-    return pc;
-  };
-  const onBeforeOffer = pc => { if (!G.dc) setupDc(pc.createDataChannel('guess', { ordered: true })); };
+    const check = () => {
+      if (pc.iceGatheringState !== 'complete') return;
+      finish();
+    };
+    const timer = setTimeout(finish, 12000);
+    pc.addEventListener('icegatheringstatechange', check);
+    check();
+  });
+}
 
-  G.neg = createNegotiator({ ws, mk, onBeforeOffer });
-
-  ws.onmessage = async ev => {
-    const msg = JSON.parse(ev.data);
-    if (msg.type === 'room-full') {
-      setStatus('房間已滿', 'err');
-      toast('此房號已有 2 人，無法加入');
-      return;
-    }
-    if (msg.type === 'room-state' || msg.type === 'peer-joined') {
-      if ((msg.peerCount ?? 1) >= 1) {
-        if (!G.reconnecting) $('lobbyConnState').textContent = '建立連線中…';
-        G.neg.start();
-      } else {
-        if (!G.reconnecting) $('lobbyConnState').textContent = '等待對方加入';
-      }
-    } else if (msg.type === 'peer-left') {
-      // Peer dropped. If the match is live, hold the door open for 60s.
-      if (G && !G.over && G.everConnected && !G.leaving) handleDrop('對方已離開');
-      else onPeerGone('對方已離開');
-    } else {
-      await G.neg.onSignal(msg);
-    }
-  };
-  ws.onerror = () => { if (!G?.reconnecting) setStatus('signaling 連線失敗', 'err'); };
-  ws.onclose = () => {
-    // Our own signaling socket dropped (e.g. phone backgrounded). If a match is
-    // live, try to reconnect within the grace window rather than bailing.
-    if (G && !G.over && G.everConnected && !G.leaving) handleDrop('連線中斷');
-    else if (G && !G.over && G.neg?.neg.pc?.connectionState !== 'connected') setStatus('signaling 已斷', 'err');
+function attachChannel(pc, dc) {
+  if (G?.pc !== pc) return;
+  G.dc = dc;
+  dc.onopen = () => { if (G?.pc === pc) beginSetup(); };
+  dc.onclose = () => { if (G?.pc === pc) onPeerGone('對戰連線已關閉'); };
+  dc.onmessage = ev => {
+    if (G?.pc !== pc) return;
+    try { handleGameMsg(JSON.parse(ev.data)); } catch (e) { dbg('msg parse', e); }
   };
 }
 
-// DataChannel open → either a FRESH match (exchange start token + go to setup)
-// or a RECONNECT mid-match (resume the board/setup we were already on).
-function onDataOpen() {
-  setStatus('已連線', 'ok');
+function beginPairing(isHost) {
+  showView('lobby-view');
+  $('pairOutput').hidden = true;
+  $('pairForm').hidden = isHost;
+  $('peerCode').value = '';
+  $('pairCode').value = '';
+  $('peerCodeLabel').textContent = isHost ? '貼上對方傳回的回覆碼' : '貼上對方傳來的邀請碼';
+  $('pairSubmit').textContent = isHost ? '建立連線' : '產生回覆碼';
+  $('pairSubmit').disabled = false;
+  $('pairStatus').textContent = isHost ? '正在產生邀請碼…' : '收到邀請碼後，請貼到上方欄位。';
+  setStatus('等待配對', 'busy');
+}
 
-  // Reconnect: the channel reopened while a match was already underway. Don't
-  // touch game state — just clear the grace window and put the right view back.
-  if (G.everConnected && G.phase !== 'lobby') {
-    clearGrace();
-    toast('已重新連線，繼續對戰');
-    if (G.phase === 'game') {
-      resumeGameBoard();           // restores view WITHOUT resetting the round
-    } else {                       // mid-setup when the drop happened
-      enterSetup();
-      // Re-announce my start token (it may have been lost on the drop) so the
-      // first-mover decision can still complete.
-      if (G.myStartTok != null) send({ type: 'start-token', token: G.myStartTok, host: G.isHost });
-      if (G.mineReady) {           // I'd already locked my secret — keep it locked
-        $('setupMine').textContent = '已送出';
-        $('setupConfirm').disabled = true;
-        digitInputs('setupDigits').forEach(el => el.disabled = true);
-        $('setupMsg').textContent = '已鎖定，等待對方…';
-        send({ type: 'ready' });   // re-announce in case the peer missed it
-      }
-      maybeStartGame();
-    }
-    return;
+function createConnection(isHost) {
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  G = freshGame(pc, isHost);
+  pc.ondatachannel = e => attachChannel(pc, e.channel);
+  pc.onconnectionstatechange = () => {
+    if (G?.pc !== pc) return;
+    if (pc.connectionState === 'connected') clearGrace();
+    else if (pc.connectionState === 'disconnected') handleDrop();
+    else if (pc.connectionState === 'failed') onPeerGone('直連失敗，請重新交換配對碼');
+  };
+  return pc;
+}
+
+async function showPairCode(pc, description) {
+  await pc.setLocalDescription(description);
+  await waitForCandidates(pc);
+  if (G?.pc !== pc) return;
+  if (!pc.localDescription.sdp.includes('a=candidate:')) throw new Error('No ICE candidates');
+  const isHost = G.isHost;
+  $('pairCode').value = btoa(JSON.stringify(pc.localDescription.toJSON()));
+  $('pairCodeLabel').textContent = isHost ? '邀請碼' : '回覆碼';
+  $('pairOutput').hidden = false;
+  $('pairForm').hidden = !isHost;
+  $('pairStatus').textContent = isHost
+    ? '將邀請碼傳給對方，再貼上對方傳回的回覆碼。'
+    : '將回覆碼傳給對方，等對方貼上後即可開始。';
+}
+
+async function createRoom() {
+  beginPairing(true);
+  let pc;
+  try {
+    pc = createConnection(true);
+    attachChannel(pc, pc.createDataChannel('guess'));
+    await showPairCode(pc, await pc.createOffer());
+  } catch (e) {
+    if (pc && G?.pc !== pc) return;
+    dbg('create invite', e);
+    onPeerGone('無法產生邀請碼，請重新建立房間');
   }
+}
 
-  // First connect of this match.
-  G.everConnected = true;
-  G.phase = 'setup';
-  toast('已連線，設定你的數字');
-  // Pick a start token; higher token's owner moves first. Tie → host first.
+async function acceptPairCode(event) {
+  event.preventDefault();
+  const isHost = G?.isHost === true;
+  let pc = G?.pc;
+  $('pairSubmit').disabled = true;
+  try {
+    const code = JSON.parse(atob($('peerCode').value.trim()));
+    if (code?.type !== (isHost ? 'answer' : 'offer') || typeof code.sdp !== 'string') {
+      throw new Error('Unexpected pairing code');
+    }
+    pc ??= createConnection(false);
+    await pc.setRemoteDescription(code);
+    if (G?.pc !== pc) return;
+    if (isHost) {
+      $('pairForm').hidden = true;
+      $('pairStatus').textContent = '正在建立直連…';
+    } else {
+      await showPairCode(pc, await pc.createAnswer());
+    }
+  } catch (e) {
+    if (pc && G?.pc !== pc) return;
+    dbg('pairing error', e);
+    if (!isHost) teardown();
+    $('pairStatus').textContent = '配對失敗，請確認配對碼完整並重試。';
+    $('pairSubmit').disabled = false;
+  }
+}
+
+function beginSetup() {
   const b = new Uint32Array(2); crypto.getRandomValues(b);
   G.myStartTok = b[0] * 4294967296 + b[1];
   send({ type: 'start-token', token: G.myStartTok, host: G.isHost });
@@ -1130,7 +969,7 @@ function handleGameMsg(msg) {
 
 // ── Both ready → start ────────────────────────────────
 function maybeStartGame() {
-  if (!G.mineReady || !G.peerReady) return;
+  if (!G?.mineReady || !G.peerReady) return;
   maybeDecideTurn();
   if (!G.turnDecided) { // tokens not both in yet; retry shortly via re-entry
     setTimeout(maybeStartGame, 60);
@@ -1140,7 +979,6 @@ function maybeStartGame() {
 }
 
 function startGameBoard() {
-  G.phase = 'game';
   showView('game-view');
   setStatus('遊戲進行中', 'ok');
   // Restore the guess controls and hide the in-board result from the last match.
@@ -1155,23 +993,6 @@ function startGameBoard() {
   hp.reset();
   hp.start();
   ring.reset();
-  ring.start();
-  renderHistories();
-  updateProbabilities();
-  refreshTurnUi();
-}
-
-// Non-destructive: put the game board back exactly as it was after a reconnect,
-// WITHOUT resetting round progress or HP/ring state (which startGameBoard does).
-function resumeGameBoard() {
-  showView('game-view');
-  setStatus('遊戲進行中', 'ok');
-  const guessUI = $('guessUI'), actions = document.querySelector('.guess-card .guess-actions');
-  if (guessUI) guessUI.hidden = false;
-  if (actions) actions.hidden = false;
-  $('boardResult').hidden = true;
-  $('mySecretShow').textContent = G.mySecret;
-  hp.start();   // start() is a no-op if already running; keeps current bars
   ring.start();
   renderHistories();
   updateProbabilities();
@@ -2057,110 +1878,53 @@ function tryRematch() {
   if (!G) return;
   if (G.rematchMine && G.rematchPeer) {
     // Reset match state but keep the connection + decide a fresh first mover.
-    const ws = G.ws, roomId = G.roomId, isHost = G.isHost, neg = G.neg, dc = G.dc;
-    G = freshGame(ws, roomId, isHost);
-    G.neg = neg; G.dc = dc;
-    const b = new Uint32Array(2); crypto.getRandomValues(b);
-    G.myStartTok = b[0] * 4294967296 + b[1];
-    send({ type: 'start-token', token: G.myStartTok, host: isHost });
-    enterSetup();
+    const { pc, isHost, dc } = G;
+    clearGrace();
+    G = freshGame(pc, isHost);
+    G.dc = dc;
+    beginSetup();
     toast('新的一局，重設你的數字');
   } else if (G.rematchPeer) {
     $('rematchMsg').textContent = '對方想再玩一局，按「再玩一局」開始。';
   }
 }
 
-// ── Reconnect grace window ────────────────────────────
-const GRACE_MS = 60000;   // how long we hold the match open after a drop
-
-// A connection dropped mid-match. Hold the door open for up to 60s: show the
-// overlay, keep G/state alive, and keep trying to re-establish the link. Both
-// sides do this independently — whoever's back first re-invites the other.
-function handleDrop(reason) {
-  if (!G || G.over || G.leaving) return;
-  if (G.reconnecting) return;           // already in the grace window
-  G.reconnecting = true;
-  G.graceDeadline = Date.now() + GRACE_MS;
-
-  // Tear down only the dead transport, NOT the game state.
-  try { G.neg?.reset(); } catch {}
-  try { G.dc?.close(); } catch {}
-  G.dc = null;
-
-  setStatus('連線中斷，重連中…', 'busy');
-  const ov = $('reconnectOverlay');
-  $('reconnectTitle').textContent = reason || '連線中斷';
-  ov.hidden = false;
-
-  // Countdown tick + give-up at zero.
-  tickGrace();
-  G.graceTimer = setInterval(tickGrace, 250);
-  // Keep poking the connection until it comes back.
-  attemptReconnect();
-  G.reconnectPoll = setInterval(attemptReconnect, 2500);
+// ── Connection recovery / cleanup ─────────────────────
+function handleDrop() {
+  if (G.graceTimer) return;
+  const match = G;
+  match.graceDeadline = Date.now() + 60000;
+  $('reconnectCount').textContent = '60';
+  $('reconnectOverlay').hidden = false;
+  match.graceTimer = setInterval(() => {
+    const left = Math.max(0, Math.ceil((match.graceDeadline - Date.now()) / 1000));
+    $('reconnectCount').textContent = left;
+    if (left === 0) onPeerGone('直連未能恢復，已結束本局');
+  }, 250);
 }
 
-function tickGrace() {
-  if (!G || !G.reconnecting) return;
-  const left = Math.max(0, Math.ceil((G.graceDeadline - Date.now()) / 1000));
-  $('reconnectCount').textContent = left;
-  if (left <= 0) giveUpReconnect();
-}
-
-// Make sure a signaling socket is open and re-announce ourselves so the peer
-// (also reconnecting) pairs back up and renegotiates a fresh DataChannel.
-function attemptReconnect() {
-  if (!G || !G.reconnecting) return;
-  const ws = G.ws;
-  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-    // Reopen the signaling socket on the same room and rewire handlers.
-    try { wireSignal(openSignal(G.roomId)); } catch (e) { dbg('reopen ws failed', e); }
-    return;
-  }
-  if (ws.readyState === WebSocket.OPEN) {
-    try { G.neg.start(); } catch (e) { dbg('neg.start failed', e); }
-  }
-  // if CONNECTING, just wait for onopen → room-state → neg.start()
-}
-
-// Clear the grace timers/overlay once we're back (called from onDataOpen).
 function clearGrace() {
-  if (!G) return;
-  G.reconnecting = false;
-  clearInterval(G.graceTimer); G.graceTimer = null;
-  clearInterval(G.reconnectPoll); G.reconnectPoll = null;
+  clearInterval(G?.graceTimer);
+  if (G) G.graceTimer = null;
   $('reconnectOverlay').hidden = true;
 }
 
-// Grace window expired with no reconnect → the match is lost.
-function giveUpReconnect() {
-  $('reconnectOverlay').hidden = true;
-  toast('對方未能在時間內重連，已結束本局');
-  teardown();
-  showPicker();
-}
-
-// ── Peer gone / leave ─────────────────────────────────
 function onPeerGone(reason) {
-  if (!G) return;
-  if (!G.over) { toast(reason || '對方已離開'); }
-  teardown();
-  showPicker();
+  leaveGame();
+  toast(reason);
 }
+
 function teardown() {
-  if (!G) return;
-  clearInterval(G.graceTimer); clearInterval(G.reconnectPoll);
-  $('reconnectOverlay').hidden = true;
-  try { hp.stop(); } catch {}
-  try { ring.stop(); } catch {}
-  try { G.neg?.reset(); } catch {}
-  try { G.dc?.close(); } catch {}
-  try { G.ws.close(); } catch {}
+  clearGrace();
+  const match = G;
   G = null;
-  history.replaceState(null, '', location.pathname + location.search);
+  if (!match) return;
+  hp.stop();
+  ring.stop();
+  match.pc.close();
 }
+
 function leaveGame() {
-  if (G) G.leaving = true;   // intentional → don't enter the grace window
   teardown();
   showPicker();
 }
@@ -2236,19 +2000,20 @@ function randomSecret() {
 
 // ── UI wiring ─────────────────────────────────────────
 $('btnCreate').addEventListener('click', createRoom);
-$('joinBtn').addEventListener('click', () => {
-  const code = extractCode($('joinInput').value);
-  if (!code) { toast('請輸入房間代碼'); return; }
-  if (!/^[a-zA-Z0-9_-]{1,32}$/.test(code)) { toast('代碼格式不正確'); return; }
-  location.hash = 'game=' + code;
-  joinRoom(code);
+$('btnJoin').addEventListener('click', () => {
+  beginPairing(false);
+  $('peerCode').focus();
 });
-$('joinInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); });
-
-$('lobbyCopyBtn').addEventListener('click', async () => {
-  const url = $('lobbyShareUrl').value;
-  try { await navigator.clipboard.writeText(url); toast('已複製連結'); }
-  catch { $('lobbyShareUrl').select(); document.execCommand('copy'); toast('已複製連結'); }
+$('pairForm').addEventListener('submit', acceptPairCode);
+$('pairCopyBtn').addEventListener('click', async () => {
+  const code = $('pairCode');
+  try {
+    await navigator.clipboard.writeText(code.value);
+    toast('已複製配對碼');
+  } catch {
+    code.select();
+    toast('已選取配對碼，請手動複製');
+  }
 });
 $('lobbyCancelBtn').addEventListener('click', leaveGame);
 
@@ -2263,19 +2028,9 @@ $('reconnectCancel').addEventListener('click', leaveGame);
 wireDigits('setupDigits', confirmSecret);
 wireDigits('guessDigits', submitGuess);
 
-// Coming back to the foreground (e.g. after the phone was backgrounded) — if a
-// match is mid-reconnect, fire an immediate reconnect instead of waiting for the
-// poll. Also re-poke the connection if it quietly died while hidden.
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !G || G.over || G.leaving) return;
-  if (G.reconnecting) { attemptReconnect(); return; }
-  // If we were live but the channel silently died while hidden, start grace now.
-  if (G.everConnected && G.dc?.readyState !== 'open') handleDrop('連線中斷');
-});
-
 window.addEventListener('beforeunload', () => { try { teardown(); } catch {} });
 
-boot();
+showPicker();
 </script>
 </body>
 </html>
