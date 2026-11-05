@@ -1,4 +1,6 @@
 import { buildBazi, lunar2solar, solar2lunar, leapMonth, GAN_WX, GAN, ZHI, ZHI_WX, GAN_YY, ZHI_YY } from "./engine-calendar.js";
+import { buildUpstreamZiwei, initUpstreamSettings, readSchool, restoreSchool, bindUpstream } from './upstream-ziwei.js';
+import { isValidGregorianDate } from './true-solar-time.js';
 import { chengGu } from "./engine-chenggu.js";
 import { fullBaziAnalysis, SHISHEN_DESC } from "./engine-bazi.js";
 import { calcDaYun, annotateDaYun, calcLiuNian, calcLiuYue, LUCK_THEME } from "./engine-luck.js";
@@ -16,6 +18,8 @@ import { GLOSSARY, SHISHEN_MONEY, DAYGAN_PROFILE, NAYIN_TREND,
 
 
 /* ---- 表單初始化 ---- */
+initUpstreamSettings();
+bindUpstream();
 function fillSelect(sel,from,to,suffix,fn){
   for(let i=from;i<=to;i++){const o=document.createElement("option");o.value=i;o.textContent=(fn?fn(i):i)+suffix;sel.appendChild(o);}
 }
@@ -75,6 +79,7 @@ function readPerson(n){
     const sol=lunar2solar(y,m,d,false);y=sol.y;m=sol.m;d=sol.d;
   }
   if(y<1900||y>2100) throw "請輸入正確年份 (1900–2100)";
+  if(!isValidGregorianDate(y,m,d)) throw '請輸入存在的國曆日期。';
   const opts={};
   if(n===1 && segVal.tst1==="1"){opts.useTrueSolar=true;opts.longitude=+$("#lon1").value||121.5;}
   if(n===1) opts.ziSchool=$("#zi1").value;
@@ -92,15 +97,12 @@ function readPerson(n){
   analysis.rising=known?risingSign(bz.solar.m,bz.solar.d,hour):null;
   analysis.nameInfo=name?nameAnalysis(name):null;
   // 紫微
-  if(typeof iztro!=="undefined" && known){
+  if(known){
     try{
-      const g=sex==="女"?"女":"男";
-      // 用校正後的日曆日（真太陽時跨子夜時，命宮/身宮才不會錯一天）；iztro 內部依時辰自行換日，故不可再套早子時
-      const zd=bz.ziweiDate||bz.solar;
-      const ds=zd.y+"-"+zd.m+"-"+zd.d;
+      // 上游接收已校正的時辰，紫微換日只在 adapter 中處理一次。
       const hi=bz.hourIdx>=0?bz.hourIdx:0;
-      const astro=iztro.astro.bySolar(ds,hi,g,true,"zh-TW");
-      analysis.ziwei=extractZiwei(astro);
+      const {z,astro}=buildUpstreamZiwei(bz,sex);
+      analysis.ziwei=z;
       // 紫微運限（流年盤）：以「今天」起盤，UI 可切換年份
       try{
         const now=new Date();
@@ -108,7 +110,7 @@ function readPerson(n){
         analysis.ziweiHoro=buildHoroscope(astro, today, hi);
         analysis._ziweiAstro=astro;  // 留著供切換年份重算
       }catch(e){analysis.ziweiHoro=null;}
-    }catch(e){analysis.ziwei=null;analysis.ziweiHoro=null;}
+    }catch(e){analysis.ziwei=null;analysis.ziweiHoro=null;analysis.ziweiError=e.message||String(e);}
   }else analysis.ziwei=null;
   // 袁天罡稱骨（年干支+農曆月日+時辰，時辰依真太陽時）
   try{
@@ -283,6 +285,7 @@ function setSeg(key,val){
 /* 把某人 n 的所有欄位打包 */
 function snapshotPerson(n){
   return {
+    school:readSchool(),
     name:$("#name"+n).value, y:$("#y"+n).value, m:$("#m"+n).value, d:$("#d"+n).value,
     h:$("#h"+n).value, min:$("#min"+n).value, lon:$("#lon"+n)?.value, zi:$("#zi"+n)?.value,
     city:$("#city"+n)?.value,
@@ -292,6 +295,7 @@ function snapshotPerson(n){
 /* 還原某人 n */
 function restorePerson(n,p){
   if(!p) return;
+  restoreSchool(p.school);
   $("#name"+n).value=p.name||""; $("#y"+n).value=p.y||"";
   $("#m"+n).value=p.m||1; $("#d"+n).value=p.d||1;
   $("#h"+n).value=p.h||0; $("#min"+n).value=p.min||0;

@@ -1,0 +1,407 @@
+[
+  {
+    "name": "MANIFEST.json",
+    "size": 16060,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/MANIFEST.json"
+  },
+  {
+    "name": "SHA256SUMS-all.txt",
+    "size": 90,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/SHA256SUMS-all.txt"
+  },
+  {
+    "name": "SHA256SUMS.txt",
+    "size": 6622,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/SHA256SUMS.txt"
+  },
+  {
+    "name": "year-1950.jsonl.zst",
+    "size": 2076328,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1950.jsonl.zst"
+  },
+  {
+    "name": "year-1951.jsonl.zst",
+    "size": 2144530,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1951.jsonl.zst"
+  },
+  {
+    "name": "year-1952.jsonl.zst",
+    "size": 2076820,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1952.jsonl.zst"
+  },
+  {
+    "name": "year-1953.jsonl.zst",
+    "size": 2107560,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1953.jsonl.zst"
+  },
+  {
+    "name": "year-1954.jsonl.zst",
+    "size": 2082372,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1954.jsonl.zst"
+  },
+  {
+    "name": "year-1955.jsonl.zst",
+    "size": 2050795,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1955.jsonl.zst"
+  },
+  {
+    "name": "year-1956.jsonl.zst",
+    "size": 2145189,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1956.jsonl.zst"
+  },
+  {
+    "name": "year-1957.jsonl.zst",
+    "size": 1997180,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1957.jsonl.zst"
+  },
+  {
+    "name": "year-1958.jsonl.zst",
+    "size": 2174351,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1958.jsonl.zst"
+  },
+  {
+    "name": "year-1959.jsonl.zst",
+    "size": 2116153,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1959.jsonl.zst"
+  },
+  {
+    "name": "year-1960.jsonl.zst",
+    "size": 1919875,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1960.jsonl.zst"
+  },
+  {
+    "name": "year-1961.jsonl.zst",
+    "size": 2126826,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1961.jsonl.zst"
+  },
+  {
+    "name": "year-1962.jsonl.zst",
+    "size": 2177958,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1962.jsonl.zst"
+  },
+  {
+    "name": "year-1963.jsonl.zst",
+    "size": 1979031,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1963.jsonl.zst"
+  },
+  {
+    "name": "year-1964.jsonl.zst",
+    "size": 2073242,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1964.jsonl.zst"
+  },
+  {
+    "name": "year-1965.jsonl.zst",
+    "size": 2183980,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1965.jsonl.zst"
+  },
+  {
+    "name": "year-1966.jsonl.zst",
+    "size": 2084768,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1966.jsonl.zst"
+  },
+  {
+    "name": "year-1967.jsonl.zst",
+    "size": 2118338,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1967.jsonl.zst"
+  },
+  {
+    "name": "year-1968.jsonl.zst",
+    "size": 2067146,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1968.jsonl.zst"
+  },
+  {
+    "name": "year-1969.jsonl.zst",
+    "size": 2180094,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1969.jsonl.zst"
+  },
+  {
+    "name": "year-1970.jsonl.zst",
+    "size": 2077013,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1970.jsonl.zst"
+  },
+  {
+    "name": "year-1971.jsonl.zst",
+    "size": 2048782,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1971.jsonl.zst"
+  },
+  {
+    "name": "year-1972.jsonl.zst",
+    "size": 2197870,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1972.jsonl.zst"
+  },
+  {
+    "name": "year-1973.jsonl.zst",
+    "size": 2111111,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1973.jsonl.zst"
+  },
+  {
+    "name": "year-1974.jsonl.zst",
+    "size": 1999387,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1974.jsonl.zst"
+  },
+  {
+    "name": "year-1975.jsonl.zst",
+    "size": 2152912,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1975.jsonl.zst"
+  },
+  {
+    "name": "year-1976.jsonl.zst",
+    "size": 2045397,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1976.jsonl.zst"
+  },
+  {
+    "name": "year-1977.jsonl.zst",
+    "size": 2133660,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1977.jsonl.zst"
+  },
+  {
+    "name": "year-1978.jsonl.zst",
+    "size": 2183545,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1978.jsonl.zst"
+  },
+  {
+    "name": "year-1979.jsonl.zst",
+    "size": 2047309,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1979.jsonl.zst"
+  },
+  {
+    "name": "year-1980.jsonl.zst",
+    "size": 2052499,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1980.jsonl.zst"
+  },
+  {
+    "name": "year-1981.jsonl.zst",
+    "size": 2151243,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1981.jsonl.zst"
+  },
+  {
+    "name": "year-1982.jsonl.zst",
+    "size": 2098029,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1982.jsonl.zst"
+  },
+  {
+    "name": "year-1983.jsonl.zst",
+    "size": 2104454,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1983.jsonl.zst"
+  },
+  {
+    "name": "year-1984.jsonl.zst",
+    "size": 2003914,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1984.jsonl.zst"
+  },
+  {
+    "name": "year-1985.jsonl.zst",
+    "size": 2182855,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1985.jsonl.zst"
+  },
+  {
+    "name": "year-1986.jsonl.zst",
+    "size": 2173899,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1986.jsonl.zst"
+  },
+  {
+    "name": "year-1987.jsonl.zst",
+    "size": 2000764,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1987.jsonl.zst"
+  },
+  {
+    "name": "year-1988.jsonl.zst",
+    "size": 2184339,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1988.jsonl.zst"
+  },
+  {
+    "name": "year-1989.jsonl.zst",
+    "size": 2164848,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1989.jsonl.zst"
+  },
+  {
+    "name": "year-1990.jsonl.zst",
+    "size": 1957581,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1990.jsonl.zst"
+  },
+  {
+    "name": "year-1991.jsonl.zst",
+    "size": 2140370,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1991.jsonl.zst"
+  },
+  {
+    "name": "year-1992.jsonl.zst",
+    "size": 2202026,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1992.jsonl.zst"
+  },
+  {
+    "name": "year-1993.jsonl.zst",
+    "size": 2011547,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1993.jsonl.zst"
+  },
+  {
+    "name": "year-1994.jsonl.zst",
+    "size": 2092835,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1994.jsonl.zst"
+  },
+  {
+    "name": "year-1995.jsonl.zst",
+    "size": 2059372,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1995.jsonl.zst"
+  },
+  {
+    "name": "year-1996.jsonl.zst",
+    "size": 2170672,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1996.jsonl.zst"
+  },
+  {
+    "name": "year-1997.jsonl.zst",
+    "size": 2125571,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1997.jsonl.zst"
+  },
+  {
+    "name": "year-1998.jsonl.zst",
+    "size": 2081142,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1998.jsonl.zst"
+  },
+  {
+    "name": "year-1999.jsonl.zst",
+    "size": 2165000,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-1999.jsonl.zst"
+  },
+  {
+    "name": "year-2000.jsonl.zst",
+    "size": 2066613,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2000.jsonl.zst"
+  },
+  {
+    "name": "year-2001.jsonl.zst",
+    "size": 2054526,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2001.jsonl.zst"
+  },
+  {
+    "name": "year-2002.jsonl.zst",
+    "size": 2196047,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2002.jsonl.zst"
+  },
+  {
+    "name": "year-2003.jsonl.zst",
+    "size": 2095376,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2003.jsonl.zst"
+  },
+  {
+    "name": "year-2004.jsonl.zst",
+    "size": 1978629,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2004.jsonl.zst"
+  },
+  {
+    "name": "year-2005.jsonl.zst",
+    "size": 2172155,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2005.jsonl.zst"
+  },
+  {
+    "name": "year-2006.jsonl.zst",
+    "size": 2072316,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2006.jsonl.zst"
+  },
+  {
+    "name": "year-2007.jsonl.zst",
+    "size": 2131774,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2007.jsonl.zst"
+  },
+  {
+    "name": "year-2008.jsonl.zst",
+    "size": 2180648,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2008.jsonl.zst"
+  },
+  {
+    "name": "year-2009.jsonl.zst",
+    "size": 2069451,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2009.jsonl.zst"
+  },
+  {
+    "name": "year-2010.jsonl.zst",
+    "size": 2070786,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2010.jsonl.zst"
+  },
+  {
+    "name": "year-2011.jsonl.zst",
+    "size": 2139735,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2011.jsonl.zst"
+  },
+  {
+    "name": "year-2012.jsonl.zst",
+    "size": 2084183,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2012.jsonl.zst"
+  },
+  {
+    "name": "year-2013.jsonl.zst",
+    "size": 2098888,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2013.jsonl.zst"
+  },
+  {
+    "name": "year-2014.jsonl.zst",
+    "size": 1965895,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2014.jsonl.zst"
+  },
+  {
+    "name": "year-2015.jsonl.zst",
+    "size": 2150345,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2015.jsonl.zst"
+  },
+  {
+    "name": "year-2016.jsonl.zst",
+    "size": 2155055,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2016.jsonl.zst"
+  },
+  {
+    "name": "year-2017.jsonl.zst",
+    "size": 2001232,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2017.jsonl.zst"
+  },
+  {
+    "name": "year-2018.jsonl.zst",
+    "size": 2174779,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2018.jsonl.zst"
+  },
+  {
+    "name": "year-2019.jsonl.zst",
+    "size": 2133016,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2019.jsonl.zst"
+  },
+  {
+    "name": "year-2020.jsonl.zst",
+    "size": 1924168,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2020.jsonl.zst"
+  },
+  {
+    "name": "year-2021.jsonl.zst",
+    "size": 2116174,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2021.jsonl.zst"
+  },
+  {
+    "name": "year-2022.jsonl.zst",
+    "size": 2173547,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2022.jsonl.zst"
+  },
+  {
+    "name": "year-2023.jsonl.zst",
+    "size": 1963960,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2023.jsonl.zst"
+  },
+  {
+    "name": "year-2024.jsonl.zst",
+    "size": 2040419,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2024.jsonl.zst"
+  },
+  {
+    "name": "year-2025.jsonl.zst",
+    "size": 2032796,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2025.jsonl.zst"
+  },
+  {
+    "name": "year-2026.jsonl.zst",
+    "size": 2162005,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/year-2026.jsonl.zst"
+  },
+  {
+    "name": "ziwei-interp-v4-all.tar",
+    "size": 161490432,
+    "browser_download_url": "https://github.com/Renhuai123/ziwei-doushu/releases/download/v4.0-13d/ziwei-interp-v4-all.tar"
+  }
+]

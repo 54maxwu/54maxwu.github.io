@@ -45,3 +45,9 @@ tip/assets/
 
 # Claude Code 個人本機設定（權限允許清單等，不進版控）
 .claude/settings.local.json
+
+# TZD upstream checkout and reproducible dataset intermediate files
+/tzd-upstream/
+/tzd/tools/downloads/
+/tzd/data/interpretations/
+*.json.gz.tmp

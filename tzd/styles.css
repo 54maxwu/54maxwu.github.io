@@ -1046,3 +1046,26 @@
     .zw-cell .star{font-size:12px}
     .recap{max-width:55vw}
   }
+/* Upstream rules, reference library and on-demand interpretation data. */
+.up-settings{display:flex;flex-wrap:wrap;gap:16px;padding:16px 0}
+.up-settings label{flex:1;min-width:180px;display:grid;gap:6px}
+.upstream-card details{margin:12px 0;padding:12px;border:1px solid var(--line,#ddd);border-radius:10px}
+.upstream-card summary{cursor:pointer;font-weight:600}
+.upstream-card p{line-height:1.8;overflow-wrap:anywhere}
+.up-rule{padding:12px 0;border-bottom:1px solid var(--line,#ddd)}
+.up-rule h4{margin:4px 0}.up-rule small{font-weight:400;color:var(--sub)}
+.up-table{overflow-x:auto}.up-table table{width:100%;border-collapse:collapse}
+.up-table th,.up-table td{padding:10px;text-align:left;border-bottom:1px solid var(--line,#ddd);vertical-align:top}
+.up-interpretation{white-space:pre-wrap;line-height:1.9;overflow-wrap:anywhere;padding:12px 0;max-height:65vh;overflow:auto}
+[data-classic-search]{width:100%;margin:10px 0}
+.reading-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:14px}
+.reading-three>article{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.reading-highlights h4{font-size:15px;line-height:1.75;margin:10px 0}
+.reading-highlights p,.reading-rule p{line-height:1.85;margin:8px 0;overflow-wrap:anywhere}
+.reading-highlights details,.reading-rule details{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.reading-highlights summary,.reading-rule summary{cursor:pointer;color:var(--blue-d)}
+.reading-rule{padding:12px 0;border-bottom:1px solid var(--line)}
+.reading-rule small{font-size:12px;color:var(--sub);font-weight:400}
+.reading-limited{border-left:3px solid var(--mid);padding-left:12px}
+.zw-top-r .reading-three{grid-template-columns:1fr}
+@media(max-width:900px){.reading-three{grid-template-columns:1fr}}
