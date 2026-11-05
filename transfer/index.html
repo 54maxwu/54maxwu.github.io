@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>裝置快傳｜PairDrop 介面</title>
+<title>裝置快傳</title>
 <link rel="stylesheet" href="style.css">
 <script defer src="../qrcode/jquery-3.7.1.min.js"></script>
 <script defer src="../qrcode/jquery.qrcode.min.js"></script>
@@ -16,8 +16,6 @@
   <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 12a4 4 0 0 0 6 0l4-4a4 4 0 0 0-6-6l-1 1" transform="rotate(-17 12 12) translate(1 1) scale(.91)" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a2 2 0 0 0-2 2c-3 1-4 3-4 6v4l-2 3v2h16v-2l-2-3v-4c0-3-1-5-4-6a2 2 0 0 0-2-2Zm-2 18a2 2 0 1 0 4 0Z"/></symbol>
   <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path fill="currentColor" d="M12 3a9 9 0 0 0 0 18Z"/></symbol>
-  <symbol id="i-lang" viewBox="0 0 24 24"><path fill="currentColor" d="M0 5h24v14H0z"/><text x="2" y="15" fill="var(--bg)" font-size="10" font-weight="bold">A 文</text></symbol>
-  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v6m0-10v2" stroke="currentColor" stroke-width="2"/></symbol>
   <symbol id="i-device" viewBox="0 0 24 24"><path d="M2 4h20v13H2zm6 17h8m-4-4v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-radar" viewBox="0 0 80 80"><path d="M23 61a29 29 0 1 1 34 0M31 51a17 17 0 1 1 18 0" fill="none" stroke="currentColor" stroke-width="7"/><circle cx="40" cy="37" r="7" fill="currentColor"/></symbol>
 </svg>
@@ -26,11 +24,9 @@
   <button id="open-pair" title="配對裝置" aria-label="配對裝置"><svg><use href="#i-link"/></svg></button>
   <button id="notify" title="通知" aria-label="通知"><svg><use href="#i-bell"/></svg></button>
   <button id="theme" title="切換色彩主題" aria-label="切換色彩主題"><svg><use href="#i-theme"/></svg></button>
-  <button id="language" title="語言" aria-label="語言"><svg><use href="#i-lang"/></svg></button>
-  <button id="info" title="關於" aria-label="關於"><svg><use href="#i-info"/></svg></button>
 </header>
 <main>
-  <div id="empty"><h1>在其他裝置上開啟 PairDrop 以傳送檔案</h1><p>配對裝置或加入房間以便在其他網路上可見</p></div>
+  <div id="empty"><h1>在另一台裝置上開啟裝置快傳</h1><p>建立邀請或加入私人房間，即可互傳檔案和文字</p></div>
   <button id="device" hidden><span><svg><use href="#i-device"/></svg></span>已配對的裝置<small>點擊傳送檔案或文字</small></button>
 </main>
 <footer>
@@ -85,13 +81,10 @@
   </div>
   <div id="received"></div>
 </dialog>
-<dialog id="info-dialog">
+<dialog id="notification-dialog" aria-labelledby="notification-title">
   <button class="close" type="button" aria-label="關閉">×</button>
-  <svg class="about-logo"><use href="#i-radar"/></svg>
-  <h2 id="info-title">裝置快傳</h2>
-  <p id="info-text">透過 WebRTC 互傳檔案和文字。</p>
-  <a href="../tool.htm">返回工具箱</a>
-  <a href="https://pairdrop.net/" rel="noopener">PairDrop 原站</a>
+  <h2 id="notification-title">通知</h2>
+  <p id="notification-text"></p>
 </dialog>
 </body>
 </html>

@@ -4,7 +4,18 @@
 *{box-sizing:border-box}
 [hidden],.symbols{display:none!important}
 body{margin:0;min-height:100svh;overflow:hidden;background:var(--bg);color:var(--text)}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-radial-gradient(circle at 50% calc(100% - 116px),transparent 0 38px,var(--ring) 39px 40px,transparent 41px 77px);opacity:.23;mask-image:radial-gradient(circle at 50% calc(100% - 116px),black 0,black 130px,transparent 620px)}
+@property --ring-phase{syntax:"<length>";inherits:false;initial-value:0px}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.23;
+  background:repeating-radial-gradient(circle at 50% calc(100% - 116px),
+    transparent var(--ring-phase) calc(38px + var(--ring-phase)),
+    var(--ring) calc(39px + var(--ring-phase)) calc(40px + var(--ring-phase)),
+    transparent calc(41px + var(--ring-phase)) calc(77px + var(--ring-phase)));
+  mask-image:radial-gradient(circle at 50% calc(100% - 116px),black 0,black 130px,transparent 620px);
+  animation:radar-ripple 2.4s linear infinite;
+}
+@keyframes radar-ripple{to{--ring-phase:77px}}
+@media(prefers-reduced-motion:reduce){body::before{animation:none}}
 .toolbar{position:fixed;z-index:1;top:4px;right:12px;display:flex}
 button,input,textarea{font:inherit}
 button{cursor:pointer}
@@ -53,6 +64,5 @@ progress{width:100%;accent-color:var(--blue)}
 #received a{display:block;margin:8px 0}
 #received pre{white-space:pre-wrap;overflow-wrap:anywhere;text-align:left;font:inherit}
 a{color:var(--blue)}
-.about-logo{width:80px;height:80px;color:var(--blue)}
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 @media(max-width:340px){.toolbar{right:4px}.toolbar button{width:42px}}

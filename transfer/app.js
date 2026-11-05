@@ -464,16 +464,10 @@ $('rename').onclick = () => {
   $('device-name').textContent = name;
   localStorage.setItem('transfer-device-name', name);
 };
-function showInfo(title, description) {
-  $('info-title').textContent = title;
-  $('info-text').textContent = description;
-  showDialog('info-dialog');
-}
-$('info').onclick = () => showInfo('裝置快傳', '透過 WebRTC 互傳檔案和文字。');
-$('language').onclick = () => showInfo('語言', '繁體中文');
 $('notify').onclick = async () => {
   const permission = await window.Notification?.requestPermission();
-  showInfo('通知', permission === 'granted' ? '已啟用傳送請求通知。' : '傳送請求會在網頁中顯示。');
+  $('notification-text').textContent = permission === 'granted' ? '已啟用傳送請求通知。' : '傳送請求會在網頁中顯示。';
+  showDialog('notification-dialog');
 };
 if (valid(initial)) {
   $('code').value = initial.match(/.{5}/g).join('-');
