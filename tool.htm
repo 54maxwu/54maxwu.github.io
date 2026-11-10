@@ -211,6 +211,56 @@ button, input { font: inherit; color: inherit; }
 .recent-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .recent-empty { padding: 4px 12px; font-size: 13px; color: var(--faint); }
 
+/* 工具目錄：分組可收合，所在工具高亮 */
+#dir-list { display: flex; flex-direction: column; gap: 2px; }
+.dir-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+  transition: background .12s;
+}
+.dir-group > summary::-webkit-details-marker { display: none; }
+.dir-group > summary:hover { background: var(--card); }
+.dir-group > summary::after {
+  content: '';
+  margin-left: auto;
+  width: 6px; height: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform .18s var(--ease-out);
+}
+.dir-group[open] > summary::after { transform: rotate(45deg); }
+.dir-group.has-active > summary { color: var(--accent); }
+.dir-tools { display: flex; flex-direction: column; gap: 1px; padding: 2px 0 6px 18px; }
+.dir-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-left: 2px solid var(--line);
+  border-radius: 0 6px 6px 0;
+  background: transparent;
+  text-align: left;
+  font-size: 13.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.dir-item:hover { background: var(--card); border-left-color: var(--c); }
+.dir-item.open-tool { color: var(--text-hi); }
+.dir-item.active-link { background: #172338; border-left-color: var(--accent); color: var(--accent); }
+
 #sidebar-resize {
   position: absolute;
   right: 0; top: 0; bottom: 0;
@@ -545,7 +595,7 @@ button, input { font: inherit; color: inherit; }
     border-bottom: 1px solid var(--line);
   }
   #sidebar::-webkit-scrollbar { height: 0; }
-  .side-title, #cat-bar, .side-sep, #recent-list, #sidebar-resize { display: none; }
+  .side-title, #cat-bar, .side-sep, #recent-list, #dir-list, #sidebar-resize { display: none; }
   #cat-list { flex-direction: row; gap: 6px; }
   .cat { width: auto; padding: 6px 12px; font-size: 13px; gap: 7px; border-color: var(--line); white-space: nowrap; }
   .cat-count { font-size: 12px; }
@@ -599,6 +649,9 @@ button, input { font: inherit; color: inherit; }
     <div class="side-sep"></div>
     <div class="side-title">最近開啟</div>
     <div id="recent-list"></div>
+    <div class="side-sep"></div>
+    <div class="side-title">工具目錄</div>
+    <div id="dir-list"></div>
     <div id="sidebar-resize"></div>
   </aside>
 
@@ -757,6 +810,7 @@ const LS = {
   SW:     'toolhub_sidebarWidth',
   USAGE:  'toolhub_usage',   // { [toolId]: { n: count, t: lastOpenedMs } }
   CAT:    'toolhub_category',
+  DIR:    'toolhub_dirOpen',   // 工具目錄中展開的分組名稱
 };
 
 // ── State ─────────────────────────────────────────────
@@ -818,6 +872,7 @@ function render() {
   renderStats();
   renderCategories();
   renderRecent();
+  renderDirectory();
   renderGrid(false);
 }
 
@@ -943,6 +998,54 @@ function renderRecent() {
       `<span class="recent-name">${esc(link.name)}</span>` +
       `<span class="recent-time">${esc(fmtWhen(u.t))}</span></button>`;
   }).join('');
+}
+
+const dirButtons = new Map();   // toolId -> { button, section }
+function renderDirectory() {
+  const list = document.getElementById('dir-list');
+  if (!dirButtons.size) {
+    let opened;
+    try { opened = new Set(JSON.parse(lsGet(LS.DIR, '[]'))); } catch { opened = new Set(); }
+    TOOL_GROUPS.forEach(g => {
+      const section = document.createElement('details');
+      section.className = 'dir-group';
+      section.open = opened.has(g.name);
+      section.innerHTML = `<summary style="--c:${g.color}"><span class="cat-dot"></span><span class="cat-name">${esc(g.name)}</span></summary>`;
+      const box = document.createElement('div');
+      box.className = 'dir-tools';
+      g.tools.forEach(link => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dir-item';
+        b.style.setProperty('--c', g.color);
+        b.title = link.desc ? link.name + '｜' + link.desc : link.name;
+        b.textContent = link.name;
+        b.addEventListener('click', () => openLink(link));
+        box.appendChild(b);
+        dirButtons.set(link.id, { button: b, section });
+      });
+      section.appendChild(box);
+      section.addEventListener('toggle', () => {
+        const names = [...list.querySelectorAll('.dir-group')].filter(d => d.open)
+          .map(d => d.querySelector('.cat-name').textContent);
+        lsSet(LS.DIR, JSON.stringify(names));
+      });
+      list.appendChild(section);
+    });
+  }
+  const openIds = new Set(tabs.map(t => t.linkId));
+  const activeId = tabs.find(t => t.uid === active)?.linkId;
+  list.querySelectorAll('.dir-group').forEach(d => d.classList.remove('has-active'));
+  dirButtons.forEach(({ button, section }, id) => {
+    button.classList.toggle('open-tool', openIds.has(id));
+    const on = id === activeId;
+    button.classList.toggle('active-link', on);
+    if (on) {
+      button.setAttribute('aria-current', 'true');
+      section.classList.add('has-active');
+      if (!section.open) section.open = true;
+    } else button.removeAttribute('aria-current');
+  });
 }
 
 function renderGrid(animate) {
