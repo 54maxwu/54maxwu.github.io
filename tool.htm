@@ -5,206 +5,210 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Tool Hub</title>
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0f1117">
+<meta name="theme-color" content="#0d1117">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tool Hub">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <style>
+/* ── Tokens ──────────────────────────────────────────── */
+:root {
+  --bg:        #0d1117;
+  --panel:     #11161f;
+  --card:      #151b26;
+  --card-hi:   #1a2230;
+  --line:      #232b3a;
+  --line-hi:   #34405a;
+  --text:      #d6dde6;
+  --text-hi:   #f0f4f8;
+  --muted:     #7d8796;
+  --faint:     #4c5566;
+  --accent:    #58a6ff;
+  --amber:     #f0b429;
+  --green:     #3fb950;
+  --red:       #f85149;
+  --mono: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --topbar-h: 56px;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-  background: #0f1117;
-  color: #c9d1d9;
+  background: var(--bg);
+  color: var(--text);
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-size: 14px;
 }
+button, input { font: inherit; color: inherit; }
 
-/* ── Tab Bar ─────────────────────────────── */
-#tab-bar {
+/* Thin custom scrollbars everywhere */
+* { scrollbar-width: thin; scrollbar-color: var(--line-hi) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-hi); border-radius: 4px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: #4a5878; }
+
+/* ── Top bar ─────────────────────────────────────────── */
+#topbar {
+  height: var(--topbar-h);
+  flex-shrink: 0;
   display: flex;
-  align-items: flex-end;
-  background: #161b27;
-  border-bottom: 1px solid #2a3142;
-  height: 44px;
-  padding: 0 6px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
   overflow-x: auto;
   overflow-y: hidden;
-  flex-shrink: 0;
-  user-select: none;
-}
-#tab-bar::-webkit-scrollbar { height: 3px; }
-#tab-bar::-webkit-scrollbar-thumb { background: #3a4560; border-radius: 2px; }
-
-#tabs-container { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
-
-#tab-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  align-self: center;
-  flex-shrink: 0;
-}
-#close-all-btn,
-#install-btn {
-  display: none;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid #2a3a52;
-  border-radius: 6px;
-  background: transparent;
-  color: #8b949e;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-#close-all-btn.visible,
-#install-btn.visible { display: inline-flex; }
-#close-all-btn:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
-#install-btn:hover   { background: #238636; color: #fff; border-color: #238636; }
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 10px 0 13px;
-  height: 34px;
-  border-radius: 7px 7px 0 0;
-  cursor: pointer;
-  color: #8b949e;
-  font-size: 13px;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
-  flex-shrink: 0;
-  border: 1px solid transparent;
-  border-bottom: none;
-  position: relative;
-  touch-action: manipulation; /* 取消雙擊縮放，讓手機雙擊判定即時 */
 }
-.tab:hover { background: #1f2b3e; color: #c9d1d9; }
-.tab.active { background: #0f1117; color: #58a6ff; border-color: #2a3a52; }
+#topbar::-webkit-scrollbar { height: 0; }
 
-.tab.drag-over-left::before,
-.tab.drag-over-right::after {
-  content: '';
-  position: absolute;
-  top: 4px; bottom: 4px;
-  width: 3px;
-  background: #58a6ff;
-  border-radius: 2px;
-}
-.tab.drag-over-left::before  { left: -2px; }
-.tab.drag-over-right::after  { right: -2px; }
-.tab.dragging { opacity: 0.35; }
-
-.tab-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
-
-.tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  font-size: 15px;
-  line-height: 1;
-  color: #5a6478;
-  flex-shrink: 0;
-  transition: background 0.12s, color 0.12s;
-}
-.tab-close:hover { background: #ef4444; color: #fff; }
-
-/* ── Main Layout ──────────────────────────── */
-#main { display: flex; flex: 1; overflow: hidden; }
-
-/* ── Sidebar ──────────────────────────────── */
-#sidebar {
-  width: 220px;
-  min-width: 160px;
-  max-width: 380px;
-  background: #161b27;
-  border-right: 1px solid #2a3142;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: relative;
-}
-
-#sidebar-header {
-  padding: 10px 14px;
-  border-bottom: 1px solid #2a3142;
-  font-size: 11px;
-  font-weight: 600;
-  color: #5a6478;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  flex-shrink: 0;
-}
-
-#link-list { flex: 1; overflow-y: auto; padding: 5px 6px; }
-#link-list::-webkit-scrollbar { width: 4px; }
-#link-list::-webkit-scrollbar-thumb { background: #3a4560; border-radius: 2px; }
-
-.tool-group + .tool-group { margin-top: 2px; }
-.tool-group > summary {
-  padding: 9px 8px;
-  border-radius: 7px;
-  color: #c9d1d9;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.tool-group > summary:hover { background: #1f2b3e; }
-.tool-group.has-active > summary { color: #93c5fd; }
-.group-tools { padding-left: 12px; }
-
-.link-item {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  font-family: inherit;
-  text-align: left;
+.brand {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 8px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background 0.12s;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-hi);
+  margin-right: 8px;
+  letter-spacing: .01em;
 }
-.link-item:hover { background: #1f2b3e; }
-.link-item.active-link { background: #1a2d45; }
+.brand-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
 
-.link-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: flex;
+.stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  height: 36px;
+  padding: 0 13px;
+  line-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+}
+.stat b { color: var(--amber); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.top-btn {
+  display: none;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-hi);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text-hi);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.top-btn.visible { display: inline-flex; }
+.top-btn:hover { background: var(--card-hi); border-color: #4a5878; }
+#close-all-btn .pip { width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+#close-all-btn:hover { border-color: var(--red); }
+
+#clock {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Main layout ─────────────────────────────────────── */
+#main { flex: 1; min-height: 0; display: flex; }
+
+/* ── Sidebar ─────────────────────────────────────────── */
+#sidebar {
+  width: 280px;
+  min-width: 200px;
+  max-width: 420px;
+  flex-shrink: 0;
+  position: relative;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px 12px 20px;
+}
+
+.side-title {
+  padding: 0 10px 10px;
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
-  flex-shrink: 0;
+  color: var(--muted);
+  letter-spacing: .02em;
 }
 
-.link-name {
-  flex: 1;
-  font-size: 13px;
-  color: #c9d1d9;
+#cat-list { display: flex; flex-direction: column; gap: 2px; }
+
+.cat {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.cat:hover { background: var(--card); }
+.cat.active { background: #172338; border-color: #24365a; }
+.cat.active .cat-name { color: var(--accent); }
+.cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--c); }
+.cat-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-count { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.cat.active .cat-count { color: var(--text-hi); }
+
+#cat-bar {
+  display: flex;
+  height: 6px;
+  margin: 12px 12px 0;
+  border-radius: 3px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  gap: 1px;
 }
+#cat-bar span { background: var(--c); }
 
-/* Resize handle */
+.side-sep { height: 1px; background: var(--line); margin: 18px 4px 16px; }
+
+#recent-list { display: flex; flex-direction: column; gap: 2px; }
+.recent {
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s;
+}
+.recent:hover { background: var(--card); }
+.recent .cat-dot { width: 6px; height: 6px; }
+.recent-name { font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.recent-empty { padding: 4px 12px; font-size: 13px; color: var(--faint); }
+
 #sidebar-resize {
   position: absolute;
   right: -4px; top: 0; bottom: 0;
@@ -213,78 +217,246 @@ body {
   z-index: 10;
 }
 #sidebar-resize:hover, #sidebar-resize.active {
-  background: linear-gradient(to right, transparent 2px, #58a6ff 2px, #58a6ff 4px, transparent 4px);
+  background: linear-gradient(to right, transparent 3px, var(--accent) 3px, var(--accent) 5px, transparent 5px);
 }
 
-/* ── Content ──────────────────────────────── */
-#content { flex: 1; position: relative; background: #0f1117; }
+/* ── Workspace ───────────────────────────────────────── */
+#workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+#tab-bar {
+  display: flex;
+  align-items: flex-end;
+  height: 42px;
+  flex-shrink: 0;
+  padding: 0 10px;
+  gap: 2px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  overflow-y: hidden;
+  user-select: none;
+}
+#tab-bar::-webkit-scrollbar { height: 3px; }
+#tab-bar::-webkit-scrollbar-thumb { border: 0; }
+#tabs-container { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 33px;
+  padding: 0 9px 0 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  touch-action: manipulation; /* 取消雙擊縮放，讓手機雙擊判定即時 */
+  transition: background .12s, color .12s;
+}
+.tab:hover { background: var(--card); color: var(--text); }
+.tab.active { background: var(--bg); color: var(--text-hi); border-color: var(--line); }
+.tab.home { padding: 0 14px; font-weight: 600; }
+.tab.home.active { color: var(--accent); }
+.tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.tab.drag-over-left::before,
+.tab.drag-over-right::after {
+  content: '';
+  position: absolute;
+  top: 4px; bottom: 4px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.tab.drag-over-left::before  { left: -2px; }
+.tab.drag-over-right::after  { right: -2px; }
+.tab.dragging { opacity: .35; }
+
+.tab-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--faint);
+  flex-shrink: 0;
+  transition: background .12s, color .12s;
+}
+.tab-close:hover { background: var(--red); color: #fff; }
+
+#content { flex: 1; min-height: 0; position: relative; background: var(--bg); }
 
 .iframe-pane { position: absolute; inset: 0; display: none; }
 .iframe-pane.active { display: block; }
-.iframe-pane iframe { width: 100%; height: 100%; border: none; }
+.iframe-pane iframe { width: 100%; height: 100%; border: none; background: #fff; }
 
-#empty-state {
-  position: absolute;
-  inset: 0;
+/* ── Home (overview grid) ────────────────────────────── */
+#home { position: absolute; inset: 0; display: flex; flex-direction: column; }
+#home[hidden] { display: none; }
+
+#toolbar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: #3a4560;
+  gap: 12px;
+  padding: 16px 20px 0;
+  flex-shrink: 0;
+}
+#search-wrap { position: relative; width: min(420px, 100%); }
+#search {
+  width: 100%;
+  height: 40px;
+  padding: 0 40px 0 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-hi);
+  outline: none;
+  transition: border-color .12s, box-shadow .12s;
+}
+#search::placeholder { color: var(--faint); }
+#search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88, 166, 255, .14); }
+#search-key {
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 7px;
+  border: 1px solid var(--line-hi);
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
   pointer-events: none;
 }
-#empty-state svg { opacity: 0.5; }
-#empty-state p { font-size: 14px; }
+#search:focus + #search-key { display: none; }
 
-/* ── Login overlay ────────────────────────── */
+#result-count { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+#grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-auto-rows: min-content;
+  gap: 14px;
+  padding: 16px 20px 24px;
+  align-content: start;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 150px;
+  padding: 14px 16px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .14s var(--ease-out), background .14s var(--ease-out), transform .14s var(--ease-out);
+}
+.card:hover { border-color: var(--line-hi); background: var(--card-hi); transform: translateY(-1px); }
+.card:active { transform: translateY(0); }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card.is-open { border-color: #24365a; }
+
+.card-head { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.badge {
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  white-space: nowrap;
+}
+.card-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.card-uses { margin-left: auto; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+.card-uses.zero { color: var(--faint); font-weight: 500; }
+
+.card-title { font-size: 16px; font-weight: 600; color: var(--text-hi); line-height: 1.35; }
+.card-desc { font-size: 13.5px; color: var(--muted); line-height: 1.55; flex: 1; }
+.card-url {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: #6e9ad6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card:hover .card-url { text-decoration: underline; text-underline-offset: 3px; }
+
+.card.enter { animation: card-in .22s var(--ease-out) both; animation-delay: var(--d, 0ms); }
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+#no-result {
+  grid-column: 1 / -1;
+  padding: 60px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ── Login overlay ───────────────────────────────────── */
 #login-overlay {
   position: fixed;
   inset: 0;
-  background: #0f1117;
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
 }
 #login-box {
-  background: #161b27;
-  border: 1px solid #2a3142;
-  border-radius: 14px;
-  padding: 36px 40px;
   width: 320px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  padding: 32px 32px 28px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 #login-box h2 {
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 17px;
   font-weight: 700;
-  color: #e6edf3;
-  text-align: center;
-  letter-spacing: .04em;
+  color: var(--text-hi);
 }
 #login-input {
   width: 100%;
-  background: #0f1117;
-  border: 1.5px solid #2a3142;
+  height: 42px;
+  padding: 0 14px;
+  background: var(--bg);
+  border: 1px solid var(--line-hi);
   border-radius: 8px;
-  padding: 10px 14px;
+  font-family: var(--mono);
   font-size: 14px;
-  font-family: 'Consolas', monospace;
-  color: #e6edf3;
-  outline: none;
-  transition: border-color .15s, box-shadow .15s;
   letter-spacing: 2px;
+  color: var(--text-hi);
+  outline: none;
+  transition: border-color .12s, box-shadow .12s;
 }
-#login-input:focus {
-  border-color: #58a6ff;
-  box-shadow: 0 0 0 3px rgba(88,166,255,.15);
-}
+#login-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88, 166, 255, .14); }
 #login-btn {
-  width: 100%;
-  padding: 10px;
+  height: 42px;
   border: none;
   border-radius: 8px;
   background: #238636;
@@ -292,110 +464,95 @@ body {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: background .15s;
+  transition: background .12s;
 }
 #login-btn:hover { background: #2ea043; }
-#login-err {
-  font-size: 12px;
-  color: #f85149;
-  text-align: center;
-  min-height: 16px;
-}
+#login-btn:disabled { opacity: .6; cursor: wait; }
+#login-err { min-height: 16px; font-size: 12px; color: var(--red); text-align: center; }
 
-/* ── Confirm modal ────────────────────────── */
+/* ── Confirm modal ───────────────────────────────────── */
 #confirm-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .55);
-  backdrop-filter: blur(2px);
   display: none;
   align-items: center;
   justify-content: center;
   z-index: 9998;
-  animation: fade-in .12s ease-out;
+  animation: fade-in .14s ease-out;
 }
 #confirm-overlay.visible { display: flex; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-
 #confirm-box {
-  background: #161b27;
-  border: 1px solid #2a3142;
-  border-radius: 12px;
-  padding: 22px 24px 18px;
-  min-width: 300px;
+  min-width: 320px;
   max-width: 92vw;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+  padding: 22px 24px 18px;
+  background: var(--panel);
+  border: 1px solid var(--line-hi);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  animation: pop-in .14s ease-out;
+  gap: 16px;
+  animation: pop-in .18s var(--ease-out);
 }
-@keyframes pop-in {
-  from { transform: scale(.94); opacity: 0; }
-  to   { transform: scale(1);    opacity: 1; }
-}
-
-#confirm-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #e6edf3;
-  letter-spacing: .03em;
-}
-#confirm-msg {
-  font-size: 13px;
-  color: #c9d1d9;
-  line-height: 1.55;
-}
-#confirm-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
+@keyframes pop-in { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+#confirm-title { font-size: 15px; font-weight: 700; color: var(--text-hi); }
+#confirm-msg { font-size: 14px; color: var(--text); line-height: 1.55; }
+#confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .confirm-btn {
-  padding: 7px 16px;
-  border: 1px solid #2a3a52;
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid var(--line-hi);
   border-radius: 7px;
   background: transparent;
-  color: #c9d1d9;
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background .12s, color .12s, border-color .12s;
+  transition: background .12s, border-color .12s;
 }
-.confirm-btn:hover { background: #1f2b3e; }
-.confirm-btn.danger {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: #fff;
+.confirm-btn:hover { background: var(--card-hi); }
+.confirm-btn.danger { background: #da3633; border-color: #da3633; color: #fff; }
+.confirm-btn.danger:hover { background: var(--red); border-color: var(--red); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-.confirm-btn.danger:hover { background: #dc2626; border-color: #dc2626; }
 
-/* ── Mobile RWD (≤ 640px) ─────────────────── */
-@media (max-width: 640px) {
-  /* Smaller tab bar */
-  #tab-bar { height: 38px; padding: 0 4px; }
-  .tab { height: 30px; padding: 0 8px 0 10px; font-size: 12px; border-radius: 5px 5px 0 0; }
-  .tab-name { max-width: 90px; }
-  #close-all-btn { height: 24px; padding: 0 8px; font-size: 11px; }
+/* ── Mobile (≤ 760px) ────────────────────────────────── */
+@media (max-width: 760px) {
+  :root { --topbar-h: 50px; }
+  #topbar { padding: 0 12px; gap: 8px; }
+  .brand { font-size: 16px; margin-right: 2px; }
+  .stat { height: 32px; line-height: 32px; padding: 0 10px; font-size: 12px; }
+  .stat b { font-size: 15px; }
+  .stat.opt, #clock { display: none; }
+  .top-btn { height: 32px; padding: 0 10px; font-size: 12px; }
 
-  /* Main: stack the tool list above the content */
   #main { flex-direction: column; }
-
-  /* Keep the grouped tool list scrollable above the tool on phones. */
   #sidebar {
     width: 100% !important;
-    min-width: unset;
-    max-width: unset;
-    height: min(30dvh, 180px);
+    min-width: 0;
+    max-width: none;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 12px;
     border-right: none;
-    border-bottom: 1px solid #2a3142;
+    border-bottom: 1px solid var(--line);
   }
-  #sidebar-header, #sidebar-resize { display: none; }
+  #sidebar::-webkit-scrollbar { height: 0; }
+  .side-title, #cat-bar, .side-sep, #recent-list, #sidebar-resize { display: none; }
+  #cat-list { flex-direction: row; gap: 6px; }
+  .cat { width: auto; padding: 6px 12px; font-size: 13px; gap: 7px; border-color: var(--line); white-space: nowrap; }
+  .cat-count { font-size: 12px; }
 
-  /* Content fills the remaining space */
-  #content { flex: 1; min-height: 0; }
-
-  #empty-state p::after { content: ''; }
+  #toolbar { padding: 12px 12px 0; }
+  #result-count { display: none; }
+  #grid { grid-template-columns: 1fr; gap: 10px; padding: 12px 12px 20px; }
+  .card { min-height: 0; }
+  .tab-name { max-width: 96px; }
 }
 </style>
 </head>
@@ -403,20 +560,23 @@ body {
 
 <div id="login-overlay">
   <div id="login-box">
-    <h2>🔐 Tool Hub</h2>
+    <h2><span class="brand-dot"></span>Tool Hub</h2>
     <input id="login-input" type="password" placeholder="請輸入通行碼" autocomplete="off" autofocus>
     <button id="login-btn">登入</button>
     <div id="login-err"></div>
   </div>
 </div>
 
-<div id="tab-bar">
-  <div id="tabs-container"></div>
-  <div id="tab-actions">
-    <button id="close-all-btn" title="關閉全部分頁">× 全部關閉</button>
-    <button id="install-btn" title="安裝為桌面 App">⬇ 安裝</button>
-  </div>
-</div>
+<header id="topbar">
+  <div class="brand"><span class="brand-dot"></span>Tool Hub</div>
+  <div class="stat"><b id="st-tools">0</b>個工具</div>
+  <div class="stat"><b id="st-open">0</b>個分頁開啟</div>
+  <div class="stat opt"><b id="st-total">0</b>次累計開啟</div>
+  <div class="stat opt"><b id="st-top">—</b>最常用</div>
+  <button class="top-btn" id="close-all-btn" title="關閉全部分頁"><span class="pip"></span>全部關閉</button>
+  <button class="top-btn" id="install-btn" title="安裝為桌面 App">安裝 App</button>
+  <div id="clock"></div>
+</header>
 
 <div id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
   <div id="confirm-box">
@@ -430,81 +590,94 @@ body {
 </div>
 
 <div id="main">
-  <div id="sidebar">
-    <div id="sidebar-header">工具列表</div>
-    <div id="link-list"></div>
+  <aside id="sidebar">
+    <div class="side-title">工具分類（點選篩選）</div>
+    <div id="cat-list"></div>
+    <div id="cat-bar" aria-hidden="true"></div>
+    <div class="side-sep"></div>
+    <div class="side-title">最近開啟</div>
+    <div id="recent-list"></div>
     <div id="sidebar-resize"></div>
-  </div>
-  <div id="content">
-    <div id="empty-state">
-      <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-        <rect x="3" y="3" width="18" height="18" rx="2.5"/>
-        <path d="M3 9h18M9 21V9"/>
-      </svg>
-      <p id="empty-hint">點選工具開始使用</p>
+  </aside>
+
+  <section id="workspace">
+    <div id="tab-bar"><div id="tabs-container"></div></div>
+    <div id="content">
+      <div id="home">
+        <div id="toolbar">
+          <div id="search-wrap">
+            <input id="search" type="search" placeholder="搜尋工具名稱 / 說明 / 路徑…" autocomplete="off" spellcheck="false">
+            <kbd id="search-key">/</kbd>
+          </div>
+          <div id="result-count"></div>
+        </div>
+        <div id="grid"></div>
+      </div>
     </div>
-  </div>
+  </section>
 </div>
 
 <script>
 // ╔══════════════════════════════════════════════════════╗
 // ║  在這裡設定分類與工具清單                                     ║
-// ║  { id, name, url, color }                            ║
-// ║  color 可用 hex 或任何 CSS 色彩                        ║
+// ║  分類：{ name, color, tools }                         ║
+// ║  工具：{ id, name, url, color, desc }                  ║
 // ╚══════════════════════════════════════════════════════╝
 const TOOL_GROUPS = [
-  { name: '加密與安全', tools: [
-      { id: 'otp',             name: 'OTP 產生器',              url: 'OTP.htm',                    color: '#a855f7' },
-      { id: 'tip',             name: '文件加密',                url: 'tip/index.html',             color: '#06b6d4' },
-      { id: 'rsa',             name: 'RSA 加密 / 簽章工具',     url: 'rsa.htm',                    color: '#ef4444' },
-      { id: 'aes',             name: 'AES 加密 / 解密工具',     url: 'aes.htm',                    color: '#f97316' },
-      { id: 'aesecb',          name: 'AES ECB 加密 / 解密工具', url: 'aesecb.htm',                 color: '#ec4899' },
+  { name: '加密與安全', color: '#f85149', tools: [
+      { id: 'otp',             name: 'OTP 產生器',              url: 'OTP.htm',                    color: '#a855f7', desc: '輸入金鑰產生 TOTP 一次性驗證碼，倒數顯示剩餘秒數。' },
+      { id: 'tip',             name: '文件加密',                url: 'tip/index.html',             color: '#06b6d4', desc: '用密碼把文字內容加密成可分享的密文頁面。' },
+      { id: 'rsa',             name: 'RSA 加密 / 簽章工具',     url: 'rsa.htm',                    color: '#ef4444', desc: '產生金鑰對，進行 RSA 加解密與簽章驗證。' },
+      { id: 'aes',             name: 'AES 加密 / 解密工具',     url: 'aes.htm',                    color: '#f97316', desc: 'AES-GCM / CBC 加解密，支援自訂金鑰與 IV。' },
+      { id: 'aesecb',          name: 'AES ECB 加密 / 解密工具', url: 'aesecb.htm',                 color: '#ec4899', desc: 'AES-ECB 模式加解密，對接舊系統用。' },
   ] },
-  { name: '文字與資料', tools: [
-      { id: 'diff',            name: '文字比對工具',            url: 'diff.htm',                   color: '#14b8a6' },
-      { id: 'json',            name: 'JSON 格式化工具',         url: 'json.htm',                   color: '#84cc16' },
-      { id: 'opencc',          name: '簡繁轉換工具',            url: 'opencc/index.htm',           color: '#9333ea' },
-      { id: 'encode',          name: '編碼 / 解碼工具',         url: 'encode.htm',                 color: '#0891b2' },
+  { name: '文字與資料', color: '#3fb950', tools: [
+      { id: 'diff',            name: '文字比對工具',            url: 'diff.htm',                   color: '#14b8a6', desc: '左右兩段文字逐行比對，標出新增、刪除與修改。' },
+      { id: 'json',            name: 'JSON 格式化工具',         url: 'json.htm',                   color: '#84cc16', desc: '格式化、壓縮、驗證 JSON，樹狀檢視巢狀結構。' },
+      { id: 'opencc',          name: '簡繁轉換工具',            url: 'opencc/index.htm',           color: '#9333ea', desc: 'OpenCC 簡繁互轉，含台灣用詞轉換。' },
+      { id: 'encode',          name: '編碼 / 解碼工具',         url: 'encode.htm',                 color: '#0891b2', desc: 'Base64、URL、Unicode、HTML 實體等編碼互轉。' },
   ] },
-  { name: '圖片與影像', tools: [
-      { id: 'imgedit',         name: '本地修圖工具',            url: 'imgedit/index.htm',          color: '#f43f5e' },
-      { id: 'imgconv',         name: '圖片轉檔工具箱',          url: 'imgconv.htm',                color: '#059669' },
-      { id: 'idphoto',         name: '證件照製作',              url: 'idphoto.htm',                color: '#14b8a6' },
-      { id: 'base64',          name: '圖片/Base64互轉',         url: 'base64/index.htm',           color: '#3b82f6' },
-      { id: 'imageprovenance', name: '影像溯源分析儀',          url: 'imageprovenance/index.html', color: '#441116' },
-      { id: 'searchpic',       name: '以圖搜圖工具',            url: 'searchpic.htm',              color: '#6366f1' },
+  { name: '圖片與影像', color: '#a371f7', tools: [
+      { id: 'imgedit',         name: '本地修圖工具',            url: 'imgedit/index.htm',          color: '#f43f5e', desc: '裁切、旋轉、調色，全程在瀏覽器本機處理。' },
+      { id: 'imgconv',         name: '圖片轉檔工具箱',          url: 'imgconv.htm',                color: '#059669', desc: 'PNG / JPG / WebP / AVIF 批次轉檔與壓縮。' },
+      { id: 'idphoto',         name: '證件照製作',              url: 'idphoto.htm',                color: '#14b8a6', desc: '依證件規格裁切照片，排版成可列印的相紙。' },
+      { id: 'base64',          name: '圖片/Base64互轉',         url: 'base64/index.htm',           color: '#3b82f6', desc: '圖片轉 Data URI，或把 Base64 還原成圖片。' },
+      { id: 'imageprovenance', name: '影像溯源分析儀',          url: 'imageprovenance/index.html', color: '#441116', desc: '讀取 EXIF、C2PA 等中繼資料，追查影像來源。' },
+      { id: 'searchpic',       name: '以圖搜圖工具',            url: 'searchpic.htm',              color: '#6366f1', desc: '一次把圖片送到多個以圖搜圖引擎。' },
   ] },
-  { name: '網頁與圖碼', tools: [
-      { id: 'qrcode',          name: '二維碼生成/解碼器',       url: 'qrcode/index.html',          color: '#22c55e' },
-      { id: 'ogimage',         name: 'OG 圖片產生器',           url: 'ogimage.htm',                color: '#7c3aed' },
-      { id: 'favicon',         name: 'Favicon 產生器',          url: 'favicon.htm',                color: '#2563eb' },
+  { name: '網頁與圖碼', color: '#58a6ff', tools: [
+      { id: 'qrcode',          name: '二維碼生成/解碼器',       url: 'qrcode/index.html',          color: '#22c55e', desc: '產生自訂顏色的 QR Code，或上傳圖片解碼。' },
+      { id: 'ogimage',         name: 'OG 圖片產生器',           url: 'ogimage.htm',                color: '#7c3aed', desc: '套用模板製作社群分享用的 Open Graph 圖片。' },
+      { id: 'favicon',         name: 'Favicon 產生器',          url: 'favicon.htm',                color: '#2563eb', desc: '從文字或圖片產生全尺寸 favicon 與 manifest。' },
   ] },
-  { name: '網路與裝置', tools: [
-      { id: 'device',          name: '裝置診斷',                url: 'device.html',                color: '#f59e0b' },
-      { id: 'dig',             name: 'DNS Dig 工具',            url: 'dig.htm',                    color: '#0d9488' },
-      { id: 'ip',              name: 'IP 反查工具',             url: 'ip.htm',                     color: '#0284c7' },
-      { id: 'wificard',        name: 'WiFi 名片產生器',         url: 'wificard.htm',               color: '#14b8a6' },
-      { id: 'transfer',        name: '裝置快傳',                url: 'transfer/index.html',       color: '#0d9488' },
+  { name: '網路與裝置', color: '#39c5bb', tools: [
+      { id: 'device',          name: '裝置診斷',                url: 'device.html',                color: '#f59e0b', desc: '檢視瀏覽器、螢幕、網路與硬體支援資訊。' },
+      { id: 'dig',             name: 'DNS Dig 工具',            url: 'dig.htm',                    color: '#0d9488', desc: '透過 DoH 查詢 A、MX、TXT、NS 等 DNS 紀錄。' },
+      { id: 'ip',              name: 'IP 反查工具',             url: 'ip.htm',                     color: '#0284c7', desc: '查詢 IP 的地理位置、ISP 與 ASN，標示在地圖上。' },
+      { id: 'wificard',        name: 'WiFi 名片產生器',         url: 'wificard.htm',               color: '#14b8a6', desc: '產生掃描即可連線的 WiFi QR Code 卡片。' },
+      { id: 'transfer',        name: '裝置快傳',                url: 'transfer/index.html',        color: '#0d9488', desc: '兩台裝置配對後直接點對點傳送檔案。' },
   ] },
-  { name: '語言與符號', tools: [
-      { id: 'emoji',           name: 'emoji 查看器',            url: 'emoji.htm',                  color: '#d326ef' },
-      { id: 'liu',             name: '嘸蝦米兩碼字',            url: 'liu.htm',                    color: '#16a34a' },
-      { id: 'hangul',          name: '韓文拼字盤',              url: '韓文拼字盤.html',            color: '#275d8c' },
-      { id: 'kana',            name: '日文拼字盤',              url: '日文拼字盤.html',            color: '#bc4034' },
+  { name: '語言與符號', color: '#f0b429', tools: [
+      { id: 'emoji',           name: 'emoji 查看器',            url: 'emoji.htm',                  color: '#d326ef', desc: '依分類瀏覽 emoji，點一下複製字元或碼位。' },
+      { id: 'liu',             name: '嘸蝦米兩碼字',            url: 'liu.htm',                    color: '#16a34a', desc: '嘸蝦米輸入法兩碼字分類查詢與練習。' },
+      { id: 'hangul',          name: '韓文拼字盤',              url: '韓文拼字盤.html',            color: '#275d8c', desc: '點選子音母音組字，附發音。' },
+      { id: 'kana',            name: '日文拼字盤',              url: '日文拼字盤.html',            color: '#bc4034', desc: '五十音拼字盤，平假名與片假名切換。' },
   ] },
-  { name: '檔案工具', tools: [
-      { id: 'filesig',         name: '檔案真實格式偵測',        url: 'filesig.htm',                color: '#0e7490' },
+  { name: '檔案工具', color: '#8b949e', tools: [
+      { id: 'filesig',         name: '檔案真實格式偵測',        url: 'filesig.htm',                color: '#0e7490', desc: '讀取檔頭魔術位元組，判斷副檔名是否造假。' },
   ] },
-  { name: '交通與公共查詢', tools: [
-      { id: 'traffic',         name: '台中交通即時影像',        url: 'traffic.htm',                color: '#0ea5e9' },
-      { id: 'bus',             name: '附近公車站牌',            url: 'bus.htm',                    color: '#eab308' },
-      { id: 'missing',         name: '失蹤人口協尋查詢',        url: 'missing.htm',                color: '#e11d48' },
+  { name: '交通與公共查詢', color: '#db6d28', tools: [
+      { id: 'traffic',         name: '台中交通即時影像',        url: 'traffic.htm',                color: '#0ea5e9', desc: '台中市路口即時監視器影像，依地圖瀏覽。' },
+      { id: 'bus',             name: '附近公車站牌',            url: 'bus.htm',                    color: '#eab308', desc: '依目前位置列出附近站牌與到站時間。' },
+      { id: 'missing',         name: '失蹤人口協尋查詢',        url: 'missing.htm',                color: '#e11d48', desc: '查詢警政署公開的失蹤人口協尋資料。' },
   ] },
-  { name: '遊戲', tools: [
-      { id: 'pingl',           name: '猜數字遊戲',               url: 'pingl/guess.htm',            color: '#d946ef' },
+  { name: '遊戲', color: '#db61a2', tools: [
+      { id: 'pingl',           name: '猜數字遊戲',              url: 'pingl/guess.htm',            color: '#d946ef', desc: '1A2B 猜數字，看幾次能猜中。' },
   ] },
 ];
+TOOL_GROUPS.forEach(g => g.tools.forEach(t => { t.group = g; }));
 const LINKS = TOOL_GROUPS.flatMap(group => group.tools);
+const LINK_BY_ID = new Map(LINKS.map(l => [l.id, l]));
 
 // ── RSA-PSS Login ────────────────────────────────────
 (function () {
@@ -580,36 +753,71 @@ const LS = {
   TABS:   'toolhub_tabs',
   ACTIVE: 'toolhub_active',
   SW:     'toolhub_sidebarWidth',
+  USAGE:  'toolhub_usage',   // { [toolId]: { n: count, t: lastOpenedMs } }
+  CAT:    'toolhub_category',
 };
 
-// ── State (tabs only) ─────────────────────────────────
-let tabs   = [];   // { uid, linkId, name, url }
-let active = null; // uid
+// ── State ─────────────────────────────────────────────
+let tabs     = [];   // { uid, linkId, name, url }
+let active   = null; // uid, or null = 總覽
+let usage    = {};
+let category = '';   // '' = 全部
+let query    = '';
+
+function lsGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v == null ? fallback : v; } catch { return fallback; }
+}
+function lsSet(key, value) {
+  try { localStorage.setItem(key, value); } catch {}
+}
 
 // ── Persistence ───────────────────────────────────────
 function load() {
   try {
-    tabs   = JSON.parse(localStorage.getItem(LS.TABS))  || [];
-    active = localStorage.getItem(LS.ACTIVE) || null;
-    // Remove tabs whose linkId no longer exists in LINKS
-    const validIds = new Set(LINKS.map(l => l.id));
-    tabs = tabs.filter(t => validIds.has(t.linkId));
-    if (!tabs.find(t => t.uid === active)) active = tabs[0]?.uid || null;
+    tabs   = JSON.parse(lsGet(LS.TABS, '[]')) || [];
+    active = lsGet(LS.ACTIVE, '') || null;
+    tabs = tabs.filter(t => LINK_BY_ID.has(t.linkId));
+    if (!tabs.find(t => t.uid === active)) active = null;
   } catch { tabs = []; active = null; }
+  try { usage = JSON.parse(lsGet(LS.USAGE, '{}')) || {}; } catch { usage = {}; }
+  category = lsGet(LS.CAT, '');
+  if (category && !TOOL_GROUPS.some(g => g.name === category)) category = '';
 }
 
 function save() {
-  localStorage.setItem(LS.TABS,   JSON.stringify(tabs));
-  localStorage.setItem(LS.ACTIVE, active ?? '');
+  lsSet(LS.TABS,   JSON.stringify(tabs));
+  lsSet(LS.ACTIVE, active ?? '');
 }
 
 // ── Helpers ───────────────────────────────────────────
-const uid      = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-const initial  = s  => (s || '?').trim()[0].toUpperCase();
-const esc      = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const pad = n  => String(n).padStart(2, '0');
+
+function fmtWhen(ms) {
+  if (!ms) return '';
+  const d = new Date(ms), now = new Date();
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm}`;
+}
+
+function matches(link) {
+  if (category && link.group.name !== category) return false;
+  if (!query) return true;
+  const hay = (link.name + ' ' + link.desc + ' ' + link.url + ' ' + link.group.name).toLowerCase();
+  return query.toLowerCase().split(/\s+/).every(w => hay.includes(w));
+}
 
 // ── Render ────────────────────────────────────────────
-function render() { renderTabs(); renderLinks(); renderPanes(); }
+function render() {
+  renderTabs();
+  renderPanes();
+  renderStats();
+  renderCategories();
+  renderRecent();
+  renderGrid(false);
+}
 
 // 快點兩下分頁＝在新視窗開啟該工具（畫面太小被擋住時用）
 // 不用原生 dblclick：分頁點一下會重繪 DOM，dblclick 會被吃掉，改用時間差判定
@@ -619,13 +827,23 @@ function renderTabs() {
   const ct = document.getElementById('tabs-container');
   ct.innerHTML = '';
   document.getElementById('close-all-btn').classList.toggle('visible', tabs.length > 0);
+
+  const home = document.createElement('div');
+  home.className = 'tab home' + (active === null ? ' active' : '');
+  home.textContent = '總覽';
+  home.title = '回到工具總覽';
+  home.addEventListener('click', () => activateTab(null));
+  ct.appendChild(home);
+
   tabs.forEach(tab => {
+    const link = LINK_BY_ID.get(tab.linkId);
     const el = document.createElement('div');
     el.className = 'tab' + (tab.uid === active ? ' active' : '');
     el.dataset.uid = tab.uid;
     el.draggable = true;
     el.title = `${tab.name}（快點兩下＝另開新視窗）`;
-    el.innerHTML = `<span class="tab-name">${esc(tab.name)}</span><span class="tab-close" title="關閉">×</span>`;
+    el.innerHTML = `<span class="tab-dot" style="background:${esc(link.group.color)}"></span>` +
+      `<span class="tab-name">${esc(tab.name)}</span><span class="tab-close" title="關閉">×</span>`;
     el.addEventListener('click', e => {
       if (e.target.classList.contains('tab-close')) { closeTab(tab.uid); return; }
       const now = Date.now();
@@ -644,54 +862,8 @@ function renderTabs() {
     el.addEventListener('dragend',    tabDragEnd);
     ct.appendChild(el);
   });
-}
 
-const toolButtons = new Map();
-let highlightedTool = null;
-
-function renderLinks() {
-  if (!toolButtons.size) {
-    const list = document.getElementById('link-list');
-    TOOL_GROUPS.forEach(group => {
-      const section = document.createElement('details');
-      section.className = 'tool-group';
-      const label = document.createElement('summary');
-      label.textContent = group.name;
-      const tools = document.createElement('div');
-      tools.className = 'group-tools';
-
-      group.tools.forEach(link => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'link-item';
-        button.title = link.name;
-        button.innerHTML = '<span class="link-icon" aria-hidden="true" style="background:' +
-          esc(link.color) + '">' + esc(initial(link.name)) + '</span>' +
-          '<span class="link-name">' + esc(link.name) + '</span>';
-        button.addEventListener('click', () => openLink(link));
-        tools.appendChild(button);
-        toolButtons.set(link.id, { button, section });
-      });
-
-      section.append(label, tools);
-      list.appendChild(section);
-    });
-  }
-
-  const next = toolButtons.get(tabs.find(tab => tab.uid === active)?.linkId);
-  if (highlightedTool === next) return;
-  if (highlightedTool) {
-    highlightedTool.button.classList.remove('active-link');
-    highlightedTool.button.removeAttribute('aria-current');
-    highlightedTool.section.classList.remove('has-active');
-  }
-  if (next) {
-    next.button.classList.add('active-link');
-    next.button.setAttribute('aria-current', 'true');
-    next.section.classList.add('has-active');
-    next.section.open = true;
-  }
-  highlightedTool = next;
+  ct.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 function renderPanes() {
@@ -711,8 +883,8 @@ function renderPanes() {
       pane.dataset.url = tab.url;
       ct.appendChild(pane);
     }
-    // Lazy load: only create + set src on the active tab. Background tabs
-    // stay empty until the user switches to them.
+    // Lazy load: only the active tab gets an iframe; background tabs stay empty
+    // until the user switches to them.
     if (tab.uid === active && !pane.querySelector('iframe')) {
       const frame = document.createElement('iframe');
       // 權限政策必須在 src 載入前就設好，否則 geolocation 等權限不會生效
@@ -726,11 +898,88 @@ function renderPanes() {
   ct.querySelectorAll('.iframe-pane').forEach(p =>
     p.classList.toggle('active', p.dataset.uid === active));
 
-  document.getElementById('empty-state').style.display = tabs.length ? 'none' : 'flex';
+  document.getElementById('home').hidden = active !== null;
+}
+
+function renderStats() {
+  const total = Object.values(usage).reduce((s, u) => s + (u.n || 0), 0);
+  let top = null;
+  for (const [id, u] of Object.entries(usage)) {
+    if (LINK_BY_ID.has(id) && (!top || u.n > top.n)) top = { id, n: u.n };
+  }
+  document.getElementById('st-tools').textContent = LINKS.length;
+  document.getElementById('st-open').textContent  = tabs.length;
+  document.getElementById('st-total').textContent = total.toLocaleString();
+  document.getElementById('st-top').textContent   = top ? LINK_BY_ID.get(top.id).name : '—';
+}
+
+function renderCategories() {
+  const list = document.getElementById('cat-list');
+  const items = [{ name: '', label: '全部', color: 'var(--accent)', n: LINKS.length },
+    ...TOOL_GROUPS.map(g => ({ name: g.name, label: g.name, color: g.color, n: g.tools.length }))];
+
+  list.innerHTML = items.map(it =>
+    `<button type="button" class="cat${it.name === category ? ' active' : ''}" data-cat="${esc(it.name)}" style="--c:${it.color}">` +
+    `<span class="cat-dot"></span><span class="cat-name">${esc(it.label)}</span>` +
+    `<span class="cat-count">${it.n}</span></button>`).join('');
+
+  document.getElementById('cat-bar').innerHTML = TOOL_GROUPS.map(g =>
+    `<span style="--c:${g.color};flex:${g.tools.length}" title="${esc(g.name)} ${g.tools.length}"></span>`).join('');
+}
+
+function renderRecent() {
+  const recent = Object.entries(usage)
+    .filter(([id]) => LINK_BY_ID.has(id))
+    .sort((a, b) => b[1].t - a[1].t)
+    .slice(0, 6);
+  const el = document.getElementById('recent-list');
+  if (!recent.length) { el.innerHTML = '<div class="recent-empty">還沒有開過任何工具</div>'; return; }
+  el.innerHTML = recent.map(([id, u]) => {
+    const link = LINK_BY_ID.get(id);
+    return `<button type="button" class="recent" data-id="${esc(id)}" title="${esc(link.name)}">` +
+      `<span class="cat-dot" style="--c:${link.group.color}"></span>` +
+      `<span class="recent-name">${esc(link.name)}</span>` +
+      `<span class="recent-time">${esc(fmtWhen(u.t))}</span></button>`;
+  }).join('');
+}
+
+function renderGrid(animate) {
+  const grid = document.getElementById('grid');
+  const shown = LINKS.filter(matches);
+  const openIds = new Set(tabs.map(t => t.linkId));
+
+  document.getElementById('result-count').textContent = `顯示 ${shown.length} / ${LINKS.length} 個`;
+
+  if (!shown.length) {
+    grid.innerHTML = `<div id="no-result">找不到符合「${esc(query)}」的工具</div>`;
+    return;
+  }
+
+  grid.innerHTML = shown.map((link, i) => {
+    const u = usage[link.id];
+    const n = u?.n || 0;
+    return `<button type="button" class="card${animate ? ' enter' : ''}${openIds.has(link.id) ? ' is-open' : ''}" ` +
+      `data-id="${esc(link.id)}" style="--c:${link.group.color};--d:${Math.min(i * 18, 260)}ms">` +
+      `<div class="card-head"><span class="badge">${esc(link.group.name)}</span>` +
+      `<span class="card-time">${u ? esc(fmtWhen(u.t)) : '尚未開啟'}</span>` +
+      `<span class="card-uses${n ? '' : ' zero'}">${n ? `開啟 ${n} 次` : openIds.has(link.id) ? '分頁中' : ''}</span></div>` +
+      `<div class="card-title">${esc(link.name)}</div>` +
+      `<p class="card-desc">${esc(link.desc)}</p>` +
+      `<span class="card-url">${esc(link.url)}</span></button>`;
+  }).join('');
 }
 
 // ── Actions ───────────────────────────────────────────
+function recordUse(id) {
+  const u = usage[id] || { n: 0, t: 0 };
+  u.n += 1;
+  u.t = Date.now();
+  usage[id] = u;
+  lsSet(LS.USAGE, JSON.stringify(usage));
+}
+
 function openLink(link) {
+  recordUse(link.id);
   const existing = tabs.find(t => t.linkId === link.id);
   if (existing) { activateTab(existing.uid); return; }
   const tab = { uid: uid(), linkId: link.id, name: link.name, url: link.url };
@@ -749,6 +998,61 @@ function closeTab(id) {
     active = tabs.length ? tabs[Math.min(idx, tabs.length - 1)].uid : null;
   save(); render();
 }
+
+function setCategory(name) {
+  category = name;
+  lsSet(LS.CAT, name);
+  if (active !== null) { active = null; save(); renderTabs(); renderPanes(); }
+  renderCategories();
+  renderGrid(true);
+  document.getElementById('grid').scrollTop = 0;
+}
+
+document.getElementById('cat-list').addEventListener('click', e => {
+  const btn = e.target.closest('.cat');
+  if (btn) setCategory(btn.dataset.cat);
+});
+document.getElementById('recent-list').addEventListener('click', e => {
+  const btn = e.target.closest('.recent');
+  if (btn) openLink(LINK_BY_ID.get(btn.dataset.id));
+});
+document.getElementById('grid').addEventListener('click', e => {
+  const card = e.target.closest('.card');
+  if (card) openLink(LINK_BY_ID.get(card.dataset.id));
+});
+
+// ── Search ────────────────────────────────────────────
+const searchInput = document.getElementById('search');
+searchInput.addEventListener('input', () => {
+  query = searchInput.value.trim();
+  renderGrid(false);
+});
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const first = document.querySelector('#grid .card');
+    if (first) openLink(LINK_BY_ID.get(first.dataset.id));
+  } else if (e.key === 'Escape') {
+    searchInput.value = ''; query = ''; renderGrid(false); searchInput.blur();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (document.getElementById('login-overlay').style.display !== 'none') return;
+  e.preventDefault();
+  if (active !== null) activateTab(null);
+  searchInput.focus();
+  searchInput.select();
+});
+
+// ── Clock ─────────────────────────────────────────────
+(function () {
+  const el = document.getElementById('clock');
+  const tick = () => { el.textContent = new Date().toLocaleTimeString('zh-TW'); };
+  tick();
+  setInterval(tick, 1000);
+})();
 
 // ── Custom confirm modal ──────────────────────────────
 const confirmModal = (() => {
@@ -844,7 +1148,7 @@ function tabDragEnd(e) {
   const sidebar = document.getElementById('sidebar');
   let resizing = false, startX, startW;
 
-  const saved = localStorage.getItem(LS.SW);
+  const saved = lsGet(LS.SW, '');
   if (saved) sidebar.style.width = saved;
 
   handle.addEventListener('mousedown', e => {
@@ -852,10 +1156,12 @@ function tabDragEnd(e) {
     handle.classList.add('active');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+    // iframes swallow mousemove; disable them while dragging
+    document.querySelectorAll('.iframe-pane iframe').forEach(f => { f.style.pointerEvents = 'none'; });
   });
   document.addEventListener('mousemove', e => {
     if (!resizing) return;
-    sidebar.style.width = Math.max(160, Math.min(380, startW + e.clientX - startX)) + 'px';
+    sidebar.style.width = Math.max(200, Math.min(420, startW + e.clientX - startX)) + 'px';
   });
   document.addEventListener('mouseup', () => {
     if (!resizing) return;
@@ -863,7 +1169,8 @@ function tabDragEnd(e) {
     handle.classList.remove('active');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    localStorage.setItem(LS.SW, sidebar.style.width);
+    document.querySelectorAll('.iframe-pane iframe').forEach(f => { f.style.pointerEvents = ''; });
+    lsSet(LS.SW, sidebar.style.width);
   });
 })();
 
@@ -873,7 +1180,7 @@ function tabDragEnd(e) {
 // and steal focus from the password input.
 
 // ── PWA ───────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
@@ -881,7 +1188,6 @@ if ('serviceWorker' in navigator) {
   const btn = document.getElementById('install-btn');
   let deferred = null;
 
-  // Hide if already running as installed app
   if (window.matchMedia('(display-mode: standalone)').matches ||
       window.navigator.standalone === true) {
     return;
