@@ -2,7 +2,6 @@
    Same tokens as tool.htm. Page-specific colours are converted in each page;
    this file only unifies the shell (body, header, cards, scrollbars, controls). */
 :root {
-  color-scheme: dark;
   --th-bg:      #0d1117;
   --th-panel:   #11161f;
   --th-card:    #151b26;
@@ -16,10 +15,14 @@
   --th-ease:    cubic-bezier(.2, .7, .2, 1);
 }
 
-html { background: var(--th-bg); }
-body {
+/* Pages with their own light/dark switch (transfer, imageprovenance) set
+   data-theme="light" — the shell colours step aside in that case. */
+:root:not([data-theme="light"]) { color-scheme: dark; background: var(--th-bg); }
+:root:not([data-theme="light"]) body {
   background: var(--th-bg);
   color: var(--th-text);
+}
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
   accent-color: var(--th-accent);
 }
@@ -55,15 +58,14 @@ body {
   box-shadow: none;
 }
 
-/* Native form controls pick up the dark scheme; keep focus visible */
-input, select, textarea, button { color-scheme: dark; }
+/* Native form controls inherit color-scheme from :root; keep focus visible */
 /* Zero-specificity defaults: only applies where the page left the control unstyled */
-:where(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=image]), textarea, select) {
+:where(:root:not([data-theme="light"])) :where(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=image]), textarea, select) {
   background-color: var(--th-bg);
   color: var(--th-text);
 }
-:where(button) { background-color: var(--th-card-hi); color: var(--th-text); border-color: var(--th-line-hi); }
-select option { background: var(--th-card); color: var(--th-text); }
+:where(:root:not([data-theme="light"])) :where(button) { background-color: var(--th-card-hi); color: var(--th-text); border-color: var(--th-line-hi); }
+:where(:root:not([data-theme="light"])) select option { background: var(--th-card); color: var(--th-text); }
 input::placeholder, textarea::placeholder { color: #5b6577; }
 :focus-visible { outline-color: var(--th-accent); }
 

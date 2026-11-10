@@ -10,7 +10,7 @@
         // 進入頁面前先決定主題,避免閃白/閃黑
         (() => {
             const saved = localStorage.getItem('theme');
-            document.documentElement.dataset.theme = saved === 'dark' || saved === 'light' ? saved : 'light';
+            document.documentElement.dataset.theme = saved === 'dark' || saved === 'light' ? saved : 'dark';
         })();
     </script>
 

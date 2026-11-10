@@ -612,7 +612,7 @@ for (const close of document.querySelectorAll('dialog .close')) {
 }
 const root = document.documentElement;
 const savedTheme = localStorage.getItem('transfer-theme');
-if (savedTheme) root.dataset.theme = savedTheme;
+root.dataset.theme = savedTheme || 'dark';
 $('theme').onclick = () => {
   const dark = root.dataset.theme === 'dark' ||
     (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);

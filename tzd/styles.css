@@ -1,9 +1,9 @@
   *{box-sizing:border-box;margin:0;padding:0}
   :root{
-    --bg:#10131a; --ink:#d9dce2; --sub:#64748b; --line:#222835;
-    --blue:#3b82f6; --blue-d:#2563eb; --blue-l:#162130; --blue-sel:#192738;
+    --bg:#10131a; --ink:#d9dce2; --sub:#8b95a5; --line:#222835;
+    --blue:#3b82f6; --blue-d:#6ea8fe; --blue-l:#162130; --blue-sel:#192738;
     --card:#151b26; --soft:#0e1116;
-    --wood:#16a34a; --fire:#dc2626; --earth:#d97706; --metal:#64748b; --water:#0891b2;
+    --wood:#16a34a; --fire:#dc2626; --earth:#d97706; --metal:#8b95a5; --water:#0891b2;
     --good:#16a34a; --bad:#dc2626; --mid:#d97706;
   }
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -62,7 +62,7 @@
   .go-row{display:flex;gap:10px;align-items:stretch}
   .go{flex:1;padding:13px;background:var(--blue);color:#fff;border:none;border-radius:8px;
     font-size:15px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit}
-  .go:hover{background:var(--blue-d)}
+  .go:hover{background:#2563eb}
   .go:disabled{opacity:.4;cursor:not-allowed}
   .go-save{flex:0 0 auto;padding:13px 20px;background:#151b26;color:var(--blue-d);border:1px solid var(--blue);
     border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap}
@@ -565,7 +565,7 @@
   .zw-dot{position:absolute;top:7px;right:7px;width:9px;height:9px;border-radius:50%;
     box-shadow:0 0 0 2px rgba(0, 0, 0, 0.5)}
   .zw-badge{display:inline-block;font-size:9px;font-weight:700;color:#fff;border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:middle}
-  .zw-badge.ming-b{background:var(--blue-d)} .zw-badge.body-b{background:#7c3aed}
+  .zw-badge.ming-b{background:#2563eb} .zw-badge.body-b{background:#7c3aed}
 
   /* 命盤總評卡 */
   .zw-overview{background:#0e1116;border:1px solid #222835;border-radius:12px;padding:14px 16px;margin-bottom:14px}
