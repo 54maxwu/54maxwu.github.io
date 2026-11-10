@@ -1678,7 +1678,7 @@ async function runBgRemoval(){
         ['bgPaintAdd','bgPaintSub','bgPaintClear'].forEach(id=>{ const el=$(id); if(el) el.disabled=false; });
         requestRender();
         setStatus('AI 去背完成','ok'); toast(bgDevice==='webgpu' ? '去背完成（GPU 加速）' : '去背完成');
-        $('bgReadout').innerHTML='<b>去背完成。</b>「邊緣精修」讓髮絲更乾淨（被吃掉就往左調低，0＝純模型遮罩）。<b>救不回來的地方用筆刷手動修</b>：「🖌 塗回前景」塗回被誤刪處、「🩹 擦成背景」擦掉殘留，可調「筆刷大小」、反覆塗會更實。下載 <b>PNG</b> 保留透明背景（JPG 不支援透明，會以白底輸出）。';
+        $('bgReadout').innerHTML='<b>去背完成</b>（RMBG-1.4 fp16 · '+(bgDevice==='webgpu'?'GPU':'CPU')+'）。「邊緣精修」讓髮絲更乾淨（被吃掉就往左調低，0＝純模型遮罩）。<b>救不回來的地方用筆刷手動修</b>：「🖌 塗回前景」塗回被誤刪處、「🩹 擦成背景」擦掉殘留，可調「筆刷大小」、反覆塗會更實。下載 <b>PNG</b> 保留透明背景（JPG 不支援透明，會以白底輸出）。';
     }catch(err){
         console.error(err);
         setStatus('去背失敗','err'); toast('去背失敗：'+(err && err.message || err));
