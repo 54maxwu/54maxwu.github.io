@@ -194,6 +194,15 @@ textarea#input:focus {
   gap: 8px;
   min-height: 140px;
   justify-content: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.checksum-drop:hover { border-color: #a5f3fc; }
+.checksum-drop.dragover {
+  border-style: solid;
+  border-color: #a5f3fc;
+  background: linear-gradient(180deg, #1c4447, #17222e);
+  box-shadow: 0 0 0 3px rgba(103, 232, 249, .18);
 }
 .checksum-drop strong { font-size: 15px; color: #dee1e6; }
 .checksum-drop small { color: #9eabbd; line-height: 1.5; }
@@ -279,12 +288,12 @@ textarea#input:focus {
       </div>
       <div class="checksum-grid">
         <label class="checksum-drop" for="file-input">
-          <strong>選擇檔案進行本地驗證</strong>
+          <strong>拖曳檔案到這裡，或點擊選擇檔案</strong>
           <small>這裡只在瀏覽器本地計算 MD5 / SHA-1 / SHA-256 / SHA-512，不會上傳到任何雲端。</small>
           <input id="file-input" type="file" hidden>
         </label>
         <div id="checksum-output" class="checksum-list">
-          <div class="checksum-item"><div class="name">提示</div><div class="value">請選擇一個檔案，工具會即時顯示各種雜湊值。</div></div>
+          <div class="checksum-item"><div class="name">提示</div><div class="value">請拖曳或選擇一個檔案，工具會即時顯示各種雜湊值。</div></div>
         </div>
       </div>
     </div>
@@ -498,7 +507,7 @@ async function digestFile(file) {
 function renderChecksum(file, digests) {
   const wrap = document.getElementById('checksum-output');
   if (!file) {
-    wrap.innerHTML = '<div class="checksum-item"><div class="name">提示</div><div class="value">請選擇一個檔案，工具會即時顯示各種雜湊值。</div></div>';
+    wrap.innerHTML = '<div class="checksum-item"><div class="name">提示</div><div class="value">請拖曳或選擇一個檔案，工具會即時顯示各種雜湊值。</div></div>';
     return;
   }
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -755,6 +764,34 @@ fileInput.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   await handleChecksumFile(file);
 });
+const checksumDrop = document.querySelector('.checksum-drop');
+let checksumDragDepth = 0;
+const isFileDrag = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+checksumDrop.addEventListener('dragenter', (e) => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  checksumDragDepth++;
+  checksumDrop.classList.add('dragover');
+});
+checksumDrop.addEventListener('dragover', (e) => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+checksumDrop.addEventListener('dragleave', () => {
+  if (--checksumDragDepth <= 0) { checksumDragDepth = 0; checksumDrop.classList.remove('dragover'); }
+});
+checksumDrop.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  checksumDragDepth = 0;
+  checksumDrop.classList.remove('dragover');
+  const file = e.dataTransfer?.files?.[0];
+  if (file) await handleChecksumFile(file);
+});
+// 防止把檔案拖到區塊外時瀏覽器直接開啟該檔案
+['dragover', 'drop'].forEach(t => window.addEventListener(t, (e) => {
+  if (isFileDrag(e) && !checksumDrop.contains(e.target)) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'; }
+}));
 document.getElementById('checksum-copy-btn').addEventListener('click', copyAllChecksums);
 </script>
 </body>
