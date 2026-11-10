@@ -24,16 +24,16 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #f1f5f9;
+      background: #10131a;
       min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-      color: #1e293b;
+      color: #d9dce2;
     }
 
     /* ── Project-wide standard header ── */
     .app-header {
-      background: #fff;
-      border-bottom: 1px solid #e2e8f0;
+      background: #151b26;
+      border-bottom: 1px solid #222835;
       padding: 14px 24px;
       min-height: 60px;
       display: flex;
@@ -47,7 +47,7 @@
     .app-header h1 {
       font-size: 16px;
       font-weight: 600;
-      color: #1e293b;
+      color: #d9dce2;
       letter-spacing: .02em;
       margin: 0;
     }
@@ -65,31 +65,31 @@
 
     /* ── Element Plus variable overrides ── */
     :root {
-      --el-bg-color:            #ffffff;
-      --el-bg-color-page:       #f1f5f9;
-      --el-bg-color-overlay:    #ffffff;
-      --el-fill-color-blank:    #ffffff;
-      --el-fill-color:          #f8fafc;
-      --el-fill-color-light:    #f1f5f9;
-      --el-fill-color-lighter:  #f8fafc;
-      --el-text-color-primary:  #1e293b;
-      --el-text-color-regular:  #374151;
-      --el-text-color-secondary:#64748b;
+      --el-bg-color:            #151b26;
+      --el-bg-color-page:       #10131a;
+      --el-bg-color-overlay:    #151b26;
+      --el-fill-color-blank:    #151b26;
+      --el-fill-color:          #0e1116;
+      --el-fill-color-light:    #10131a;
+      --el-fill-color-lighter:  #0e1116;
+      --el-text-color-primary:  #d9dce2;
+      --el-text-color-regular:  #d1d4dc;
+      --el-text-color-secondary:#8e9bae;
       --el-text-color-placeholder: #94a3b8;
-      --el-border-color:        #e2e8f0;
-      --el-border-color-light:  #e2e8f0;
-      --el-border-color-lighter:#f1f5f9;
-      --el-border-color-extra-light: #f8fafc;
+      --el-border-color:        #222835;
+      --el-border-color-light:  #222835;
+      --el-border-color-lighter:#1f2430;
+      --el-border-color-extra-light: #1d232e;
       --el-box-shadow-light:    0 1px 4px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
-      --el-card-bg-color:       #ffffff;
-      --el-card-border-color:   #e2e8f0;
+      --el-card-bg-color:       #151b26;
+      --el-card-border-color:   #222835;
     }
 
     /* ── Card ── */
     .el-card {
       border-radius: 10px !important;
       box-shadow: 0 1px 4px rgba(0,0,0,.06) !important;
-      border: 1px solid #e2e8f0 !important;
+      border: 1px solid #222835 !important;
     }
 
     /* ── Button primary ── */
@@ -102,8 +102,8 @@
 
     /* ── Input ── */
     .el-input__wrapper {
-      background: #fff !important;
-      border: 1.5px solid #e2e8f0 !important;
+      background: #151b26 !important;
+      border: 1.5px solid #222835 !important;
       border-radius: 7px !important;
       box-shadow: none !important;
     }
@@ -116,7 +116,7 @@
     /* ── Toolbar (bottom action bar) ── */
     .el-card__footer,
     [class*="toolbar"] {
-      background: #fff !important;
+      background: #151b26 !important;
     }
 
     /* ── Header right-side action group (steg button + lifted file bar) ── */
@@ -131,9 +131,9 @@
       gap: 6px;
       height: 38px;
       padding: 0 14px;
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      color: #1e293b;
+      border: 1px solid #272e3d;
+      background: #151b26;
+      color: #d9dce2;
       font-size: 13px;
       font-weight: 600;
       border-radius: 6px;
@@ -144,19 +144,19 @@
       max-width: 280px;
     }
     #stegBtn:hover {
-      background: #eff6ff;
+      background: #162130;
       border-color: #3b82f6;
-      color: #2563eb;
+      color: #4d80ef;
     }
     #stegBtn:active { transform: scale(.97); }
     #stegBtn.armed {
-      background: #ecfdf5;
+      background: #163225;
       border-color: #10b981;
-      color: #047857;
+      color: #68f3cb;
       padding: 3px 6px 3px 4px;
     }
     #stegBtn.armed:hover {
-      background: #d1fae5;
+      background: #1b3e2c;
       border-color: #059669;
     }
     #stegBtn.armed img {
@@ -180,7 +180,7 @@
       justify-content: center;
       border-radius: 50%;
       background: rgba(4,120,87,.12);
-      color: #047857;
+      color: #68f3cb;
       font-size: 12px;
       cursor: pointer;
       margin-left: 2px;
@@ -204,7 +204,7 @@
     .app-header #dropArea {
       width: auto !important;
       padding: 4px 14px !important;
-      background: #f0f7ff !important;
+      background: #152230 !important;
       border: 1px dashed #94a3b8 !important;
       border-radius: 6px;
       height: 38px;
@@ -214,7 +214,7 @@
       transition: background .15s, border-color .15s;
     }
     .app-header #dropArea:hover {
-      background: #dbeafe !important;
+      background: #192738 !important;
       border-color: #3b82f6 !important;
     }
     .app-header #dropArea .el-icon {
@@ -240,7 +240,9 @@
       font-size: 13px !important;
     }
   </style>
-  </head>
+  <meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../assets/theme.css">
+</head>
   <body>
     <div class="app-header">
       <h1>文件加密</h1>

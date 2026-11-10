@@ -9,18 +9,18 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-            background: #f1f5f9;
+            background: #10131a;
             height: 100vh;
             padding: 0;
-            color: #2c3e50;
+            color: #96adc5;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+            background: #151b26;
+            border-bottom: 1px solid #222835;
             padding: 14px 24px;
             /* 跟其他工具的 header 統一高度 — 即使內容物 (按鈕/pill) 高度不同,
                min-height 鎖住外框高度,讓三個工具切換時 header 不會跳動 */
@@ -37,7 +37,7 @@
         .app-header h1 {
             font-size: 16px;
             font-weight: 600;
-            color: #1e293b;
+            color: #d9dce2;
             letter-spacing: .02em;
             margin: 0;
         }
@@ -54,9 +54,9 @@
         .glass {
             border-radius: 14px;
             backdrop-filter: blur(8px);
-            background-color: rgba(255,255,255,0.45);
+            background-color: rgba(21, 27, 38, 0.7);
             box-shadow: rgba(0,0,0,0.15) 2px 8px 20px;
-            border: 1.5px solid rgba(255,255,255,0.7);
+            border: 1.5px solid rgba(28, 33, 44, 0.7);
             border-bottom: 1.5px solid rgba(40,40,40,0.2);
             border-right: 1.5px solid rgba(40,40,40,0.2);
             padding: 18px;
@@ -78,16 +78,16 @@
             font-size: 0.84rem;
             font-weight: 600;
             transition: all 0.2s;
-            background: rgba(255,255,255,0.4);
-            color: #667;
+            background: rgba(21, 27, 38, 0.7);
+            color: #bfc1c5;
         }
         .tab-btn.active {
             background: rgba(0,160,220,0.2);
-            color: #0a4a70;
+            color: #69bff2;
             border-color: rgba(0,160,220,0.5);
             box-shadow: 0 2px 8px rgba(0,160,220,0.15);
         }
-        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.65); }
+        .tab-btn:hover:not(.active) { background: rgba(21, 27, 38, 0.7); }
 
         .section { display: none; min-height: 0; }
         .section.active {
@@ -117,7 +117,7 @@
             align-items: center;
             font-size: 0.78rem;
             font-weight: 700;
-            color: #4a6070;
+            color: #9db0be;
             padding: 0 2px;
         }
 
@@ -126,7 +126,7 @@
             border-radius: 999px;
             padding: 2px 8px;
             font-size: 0.72rem;
-            color: #1a6a8a;
+            color: #76c5e5;
             font-weight: 600;
         }
 
@@ -135,12 +135,12 @@
 
         textarea {
             width: 100%;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-radius: 8px;
             padding: 10px;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.84rem;
-            background: rgba(255,255,255,0.72);
+            background: rgba(21, 27, 38, 0.72);
             resize: vertical;
             transition: border-color 0.2s, box-shadow 0.2s;
             min-height: 200px;
@@ -153,7 +153,7 @@
             box-shadow: 0 0 0 3px rgba(0,160,220,0.12);
         }
         textarea[readonly] {
-            background: rgba(255,255,255,0.45);
+            background: rgba(21, 27, 38, 0.7);
             cursor: default;
         }
 
@@ -174,8 +174,8 @@
             cursor: pointer;
             font-size: 0.72rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.5);
-            color: #1f7a47;
+            background: rgba(21, 27, 38, 0.7);
+            color: #7ddea8;
             transition: all 0.18s;
         }
         .action-btn:hover  { background: rgba(39,174,96,0.15); }
@@ -190,8 +190,8 @@
             cursor: pointer;
             font-size: 0.72rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.5);
-            color: #c0392b;
+            background: rgba(21, 27, 38, 0.7);
+            color: #dc6c61;
             transition: all 0.18s;
         }
         .clear-btn:hover { background: rgba(255,80,80,0.15); }
@@ -238,10 +238,10 @@
             align-items: center;
             gap: 5px;
         }
-        .card-only-right .result-title { color: #1a7a40; }
-        .card-only-left  .result-title { color: #b03020; }
-        .card-intersect  .result-title { color: #1a5880; }
-        .card-union      .result-title { color: #622a90; }
+        .card-only-right .result-title { color: #78e2a2; }
+        .card-only-left  .result-title { color: #e68175; }
+        .card-intersect  .result-title { color: #77b9e3; }
+        .card-union      .result-title { color: #b281da; }
 
         .res-badge {
             font-size: 0.68rem;
@@ -249,10 +249,10 @@
             border-radius: 999px;
             font-weight: 700;
         }
-        .card-only-right .res-badge { background: rgba(39,174,96,0.2);  color: #1a7a40; }
-        .card-only-left  .res-badge { background: rgba(231,76,60,0.18); color: #b03020; }
-        .card-intersect  .res-badge { background: rgba(41,128,185,0.2); color: #1a5880; }
-        .card-union      .res-badge { background: rgba(142,68,173,0.2); color: #622a90; }
+        .card-only-right .res-badge { background: rgba(39,174,96,0.2);  color: #78e2a2; }
+        .card-only-left  .res-badge { background: rgba(231,76,60,0.18); color: #e68175; }
+        .card-intersect  .res-badge { background: rgba(41,128,185,0.2); color: #77b9e3; }
+        .card-union      .res-badge { background: rgba(142,68,173,0.2); color: #b281da; }
 
         .copy-btn {
             padding: 3px 9px;
@@ -261,13 +261,13 @@
             cursor: pointer;
             font-size: 0.68rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.6);
-            color: #555;
+            background: rgba(21, 27, 38, 0.7);
+            color: #d9d9d9;
             transition: all 0.18s;
             white-space: nowrap;
         }
-        .copy-btn:hover { background: rgba(255,255,255,0.9); }
-        .copy-btn.copied { color: #27ae60; border-color: #27ae60; }
+        .copy-btn:hover { background: rgba(21, 27, 38, 0.9); }
+        .copy-btn.copied { color: #7ae1a5; border-color: #27ae60; }
 
         .result-textarea { min-height: 140px; font-size: 0.8rem; }
 
@@ -314,7 +314,7 @@
             border-radius: 10px;
             overflow: hidden;
             border: 1.5px solid rgba(0,0,0,0.12);
-            background: #1e1e1e; /* VS Code dark */
+            background: #2c3444; /* VS Code dark */
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.83rem;
             line-height: 1.55;
@@ -327,14 +327,14 @@
         .split-diff-header {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            background: #2d2d2d;
+            background: #2f384a;
             border-bottom: 1px solid #444;
         }
         .split-diff-header-cell {
             padding: 6px 14px;
             font-size: 0.75rem;
             font-weight: 700;
-            color: #bbb;
+            color: #6b6b6b;
             letter-spacing: 0.04em;
         }
         .split-diff-header-cell:first-child {
@@ -364,12 +364,12 @@
         .split-diff-body::-webkit-scrollbar { width: 10px; }
         .split-diff-body::-webkit-scrollbar-track { background: rgba(0,0,0,.25); }
         .split-diff-body::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,.25);
+            background: rgba(21, 27, 38, 0.7);
             border-radius: 5px;
             border: 2px solid transparent;
             background-clip: padding-box;
         }
-        .split-diff-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); background-clip: padding-box; border: 2px solid transparent; }
+        .split-diff-body::-webkit-scrollbar-thumb:hover { background: rgba(21, 27, 38, 0.7); background-clip: padding-box; border: 2px solid transparent; }
 
         .diff-col {
             overflow-x: auto;
@@ -384,10 +384,10 @@
         .diff-col::-webkit-scrollbar { height: 8px; }
         .diff-col::-webkit-scrollbar-track { background: transparent; }
         .diff-col::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,.22);
+            background: rgba(21, 27, 38, 0.7);
             border-radius: 4px;
         }
-        .diff-col::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); }
+        .diff-col::-webkit-scrollbar-thumb:hover { background: rgba(21, 27, 38, 0.7); }
         .diff-col:first-child { border-right: 1px solid #3a3a3a; }
 
         .diff-line {
@@ -402,7 +402,7 @@
             text-align: right;
             padding: 0 8px;
             font-size: 0.72rem;
-            color: #555;
+            color: #d9d9d9;
             user-select: none;
             flex-shrink: 0;
             border-right: 1px solid #333;
@@ -424,10 +424,10 @@
 
         /* equal */
         .diff-line.eq {
-            background: #1e1e1e;
+            background: #2c3444;
             color: #ccc;
         }
-        .diff-line.eq .diff-sym { color: #555; }
+        .diff-line.eq .diff-sym { color: #d9d9d9; }
 
         /* remove (left only) */
         .diff-line.rem {
@@ -435,19 +435,19 @@
             color: #f88;
         }
         .diff-line.rem .diff-sym { color: #f55; }
-        .diff-line.rem .diff-linenum { color: #a44; }
+        .diff-line.rem .diff-linenum { color: #c87575; }
 
         /* add (right only) */
         .diff-line.add {
-            background: #143020;
+            background: #2c3444;
             color: #7ef0a0;
         }
-        .diff-line.add .diff-sym { color: #3d9; }
-        .diff-line.add .diff-linenum { color: #3a8; }
+        .diff-line.add .diff-sym { color: #59e3ac; }
+        .diff-line.add .diff-linenum { color: #81d9c0; }
 
         /* placeholder (empty slot for alignment) */
         .diff-line.ph {
-            background: #252525;
+            background: #2c3444;
             color: transparent;
         }
         .diff-line.ph .diff-linenum { color: transparent; border-right-color: #2a2a2a; }
@@ -472,19 +472,19 @@
             gap: 16px;
             align-items: center;
             padding: 8px 14px;
-            background: #2d2d2d;
+            background: #2f384a;
             border-top: 1px solid #444;
             font-size: 0.75rem;
-            color: #aaa;
+            color: #6b6b6b;
         }
-        .stat-add  { color: #3d9; font-weight: 700; }
+        .stat-add  { color: #59e3ac; font-weight: 700; }
         .stat-rem  { color: #f55; font-weight: 700; }
-        .stat-eq   { color: #888; }
+        .stat-eq   { color: #ababab; }
 
         .diff-empty-msg {
             padding: 40px;
             text-align: center;
-            color: #555;
+            color: #d9d9d9;
             font-size: 0.85rem;
         }
         /* Top-level empty placeholder fills the 420px wrap and centers vertically;
@@ -507,17 +507,17 @@
 
         .copy-diff-btn {
             padding: 5px 14px;
-            border: 1px solid rgba(255,255,255,0.15);
+            border: 1px solid rgba(28, 33, 44, 0.15);
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.72rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.08);
-            color: #bbb;
+            background: rgba(21, 27, 38, 0.7);
+            color: #6b6b6b;
             transition: all 0.18s;
         }
-        .copy-diff-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
-        .copy-diff-btn.copied { color: #3d9; border-color: #3d9; }
+        .copy-diff-btn:hover { background: rgba(21, 27, 38, 0.7); color: #fff; }
+        .copy-diff-btn.copied { color: #59e3ac; border-color: #3d9; }
 
         /* ── RESPONSIVE ── */
         @media (max-width: 920px) {
@@ -533,6 +533,8 @@
             .results-grid { grid-template-columns: 1fr; }
         }
     </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
     <div class="app-header">
@@ -551,7 +553,7 @@
             <div class="input-row">
                 <div class="textarea-wrap">
                     <div class="field-label">
-                        <span style="color:#1a5090;font-size:0.82rem">&#9632; 左側清單</span>
+                        <span style="color:#75a9e6;font-size:0.82rem">&#9632; 左側清單</span>
                         <span class="count-badge" id="c1-count">0 行</span>
                     </div>
                     <textarea id="c1" class="left-ta" placeholder="每行一筆資料..." rows="12"></textarea>
@@ -572,7 +574,7 @@
                 </div>
                 <div class="textarea-wrap">
                     <div class="field-label">
-                        <span style="color:#904010;font-size:0.82rem">&#9632; 右側清單</span>
+                        <span style="color:#ef9d6c;font-size:0.82rem">&#9632; 右側清單</span>
                         <span class="count-badge" id="c2-count">0 行</span>
                     </div>
                     <textarea id="c2" class="right-ta" placeholder="每行一筆資料..." rows="12"></textarea>
@@ -581,10 +583,10 @@
             <p class="hint">Ctrl+Enter 快速比對</p>
             <div class="divider"></div>
             <div class="legend">
-                <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div><span style="color:#1a7a40">右框獨有（左框沒有）</span></div>
-                <div class="legend-item"><div class="legend-dot" style="background:#e74c3c"></div><span style="color:#b03020">左框獨有（右框沒有）</span></div>
-                <div class="legend-item"><div class="legend-dot" style="background:#2980b9"></div><span style="color:#1a5880">兩框共有（交集）</span></div>
-                <div class="legend-item"><div class="legend-dot" style="background:#8e44ad"></div><span style="color:#622a90">全部合併（聯集）</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div><span style="color:#78e2a2">右框獨有（左框沒有）</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#e74c3c"></div><span style="color:#e68175">左框獨有（右框沒有）</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#2980b9"></div><span style="color:#77b9e3">兩框共有（交集）</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#8e44ad"></div><span style="color:#b281da">全部合併（聯集）</span></div>
             </div>
             <div class="results-grid">
                 <div class="result-card card-only-right">
@@ -623,7 +625,7 @@
             <div class="linediff-input-row">
                 <div class="textarea-wrap">
                     <div class="field-label">
-                        <span style="color:#1a5090;font-size:0.82rem">&#9632; 舊版／左側</span>
+                        <span style="color:#75a9e6;font-size:0.82rem">&#9632; 舊版／左側</span>
                         <span class="count-badge" id="ld1-count">0 行</span>
                     </div>
                     <textarea id="ld1" class="left-ta" placeholder="原始內容，每行一筆..." rows="10"></textarea>
@@ -644,7 +646,7 @@
                 </div>
                 <div class="textarea-wrap">
                     <div class="field-label">
-                        <span style="color:#904010;font-size:0.82rem">&#9632; 新版／右側</span>
+                        <span style="color:#ef9d6c;font-size:0.82rem">&#9632; 新版／右側</span>
                         <span class="count-badge" id="ld2-count">0 行</span>
                     </div>
                     <textarea id="ld2" class="right-ta" placeholder="修改後內容，每行一筆..." rows="10"></textarea>

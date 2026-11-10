@@ -9,15 +9,15 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-            background: #f1f5f9;
+            background: #10131a;
             min-height: 100vh;
             padding: 0;
-            color: #1e293b;
+            color: #d9dce2;
         }
 
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+            background: #151b26;
+            border-bottom: 1px solid #222835;
             padding: 14px 24px;
             /* 統一全站工具 header 高度為 60px */
             min-height: 60px;
@@ -31,7 +31,7 @@
         .app-header h1 {
             font-size: 16px;
             font-weight: 600;
-            color: #1e293b;
+            color: #d9dce2;
             letter-spacing: .02em;
             margin: 0;
         }
@@ -51,8 +51,8 @@
         /* ── CARD ── */
         .card {
             border-radius: 10px;
-            background: #fff;
-            border: 1px solid #e2e8f0;
+            background: #151b26;
+            border: 1px solid #222835;
             box-shadow: 0 1px 3px rgba(0,0,0,.06);
             padding: 18px 20px;
             display: flex;
@@ -66,10 +66,10 @@
             gap: 8px;
             font-size: 0.88rem;
             font-weight: 700;
-            color: #1e293b;
+            color: #d9dce2;
             margin-bottom: 14px;
             padding-bottom: 10px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #222835;
         }
 
         .card-icon {
@@ -79,10 +79,10 @@
             font-size: 0.88rem;
             flex-shrink: 0;
         }
-        .icon-net  { background: #dbeafe; color: #2563eb; }
-        .icon-sw   { background: #ede9fe; color: #7c3aed; }
-        .icon-cfg  { background: #dcfce7; color: #16a34a; }
-        .icon-hw   { background: #ffedd5; color: #ea580c; }
+        .icon-net  { background: #192738; color: #4d80ef; }
+        .icon-sw   { background: #1c1733; color: #894def; }
+        .icon-cfg  { background: #193924; color: #6fec9d; }
+        .icon-hw   { background: #3a2c1a; color: #f0844c; }
 
         /* ── DATA ROW ── */
         .data-row {
@@ -90,7 +90,7 @@
             align-items: baseline;
             gap: 10px;
             padding: 8px 0;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid #1f2430;
             min-height: 34px;
         }
         .data-row:last-child { border-bottom: none; }
@@ -98,7 +98,7 @@
         .data-label {
             font-size: 0.75rem;
             font-weight: 600;
-            color: #64748b;
+            color: #8e9bae;
             flex-shrink: 0;
             width: 120px;
             line-height: 1.4;
@@ -106,7 +106,7 @@
 
         .data-val {
             font-size: 0.82rem;
-            color: #1e293b;
+            color: #d9dce2;
             flex: 1;
             word-break: break-all;
             line-height: 1.5;
@@ -126,21 +126,21 @@
             font-size: 0.72rem;
             font-weight: 600;
         }
-        .badge-on   { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-        .badge-off  { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-        .badge-info { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .badge-on   { background: #193924; color: #73e89f; border: 1px solid #2f6a44; }
+        .badge-off  { background: #361818; color: #ea7171; border: 1px solid #6a2f2f; }
+        .badge-info { background: #192738; color: #547be8; border: 1px solid #2f496a; }
 
         /* ── DNS RESULT ── */
         .dns-record {
             display: inline-block;
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
+            background: #162130;
+            border: 1px solid #2f496a;
             border-radius: 5px;
             padding: 2px 8px;
             margin: 2px 2px 2px 0;
             font-family: 'Consolas', monospace;
             font-size: 0.75rem;
-            color: #1d4ed8;
+            color: #547be8;
         }
 
         /* ── LOADING SHIMMER ── */
@@ -148,7 +148,7 @@
             display: inline-block;
             width: 80px; height: 13px;
             border-radius: 4px;
-            background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+            background: linear-gradient(90deg, #151922 25%, #1d232f 50%, #151922 75%);
             background-size: 200% 100%;
             animation: shimmer 1.4s infinite;
             vertical-align: middle;
@@ -165,15 +165,15 @@
         .dns-input {
             flex: 1;
             padding: 7px 11px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #222835;
             border-radius: 7px;
             font-size: 0.82rem;
-            background: #f8fafc;
-            color: #1e293b;
+            background: #0e1116;
+            color: #d9dce2;
             transition: border-color 0.15s, box-shadow 0.15s;
             font-family: inherit;
         }
-        .dns-input:focus { outline: none; border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+        .dns-input:focus { outline: none; border-color: #2f4b6a; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
         .dns-btn {
             padding: 7px 14px;
             border: none;
@@ -198,6 +198,8 @@
             .data-label { width: 100px; font-size: 0.72rem; }
         }
     </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
     <div class="app-header">

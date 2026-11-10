@@ -10,69 +10,69 @@
   [hidden] { display: none !important; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-    background: #f1f5f9; color: #2c3e50; min-height: 100vh;
+    background: #10131a; color: #96adc5; min-height: 100vh;
   }
   /* 自訂捲軸 */
   ::-webkit-scrollbar { width: 9px; height: 9px; }
-  ::-webkit-scrollbar-track { background: #eef2f7; }
-  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; }
+  ::-webkit-scrollbar-track { background: #11141b; }
+  ::-webkit-scrollbar-thumb { background: #1d232f; border-radius: 5px; }
   ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
   .app-header {
-    background: #fff; border-bottom: 1px solid #e2e8f0; padding: 14px 24px; min-height: 60px;
+    background: #151b26; border-bottom: 1px solid #222835; padding: 14px 24px; min-height: 60px;
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     box-shadow: 0 1px 3px rgba(0,0,0,.06); position: sticky; top: 0; z-index: 10;
   }
-  .app-header .logo { width: 30px; height: 30px; border-radius: 8px; background: #1e293b; color: #fff;
+  .app-header .logo { width: 30px; height: 30px; border-radius: 8px; background: #2f3749; color: #fff;
     display: flex; align-items: center; justify-content: center; font-size: 17px; }
-  .app-header h1 { font-size: 16px; font-weight: 600; color: #1e293b; }
-  .app-header .tag { font-size: 12px; color: #64748b; }
+  .app-header h1 { font-size: 16px; font-weight: 600; color: #d9dce2; }
+  .app-header .tag { font-size: 12px; color: #8e9bae; }
   .app-header .hd-link { margin-left: auto; background: #b91c1c; color: #fff; text-decoration: none;
     font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 9px; white-space: nowrap;
     box-shadow: 0 1px 3px rgba(0,0,0,.15); }
   .app-header .hd-link:hover { background: #991b1b; }
 
   .page-content { padding: 14px 20px 40px; max-width: 1100px; margin: 0 auto; }
-  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
+  .card { background: #151b26; border: 1px solid #222835; border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
     box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-  .card h2 { font-size: 15px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .card h2 .ic { width: 24px; height: 24px; border-radius: 7px; background: #eef2ff; color: #4338ca;
+  .card h2 { font-size: 15px; color: #d9dce2; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card h2 .ic { width: 24px; height: 24px; border-radius: 7px; background: #161c31; color: #6e66d6;
     display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex: 0 0 auto; }
-  .cap { font-size: 12.5px; color: #64748b; line-height: 1.8; margin-bottom: 10px; }
+  .cap { font-size: 12.5px; color: #8e9bae; line-height: 1.8; margin-bottom: 10px; }
 
   /* ── 查詢區 ── */
   .search-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .search-row input {
-    flex: 1 1 220px; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; outline: none;
+    flex: 1 1 220px; padding: 10px 13px; border: 1px solid #272e3d; border-radius: 10px; font-size: 16px; outline: none;
     min-width: 0; width: 100%;
   }
   .search-row input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
   .tri-pick { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
   .tri-row { display: flex; align-items: center; gap: 8px; }
-  .tri-row .lb { font-size: 12.5px; color: #64748b; font-weight: 600; width: 42px; flex: 0 0 auto; }
+  .tri-row .lb { font-size: 12.5px; color: #8e9bae; font-weight: 600; width: 42px; flex: 0 0 auto; }
   .tri-btns { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
   .tri-btn {
-    border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 9px; padding: 7px 2px; cursor: pointer;
-    font-size: 13px; color: #475569; line-height: 1.35; transition: .12s; text-align: center;
+    border: 1px solid #222835; background: #0e1116; border-radius: 9px; padding: 7px 2px; cursor: pointer;
+    font-size: 13px; color: #9eabbd; line-height: 1.35; transition: .12s; text-align: center;
     -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
   }
   .tri-btn small { display: block; font-size: 10px; color: #94a3b8; }
-  .tri-btn:hover { border-color: #6366f1; color: #4338ca; }
+  .tri-btn:hover { border-color: #6366f1; color: #6e66d6; }
   .tri-btn.on { background: #4338ca; border-color: #4338ca; color: #fff; }
   .tri-btn.on small { color: #c7d2fe; }
-  .howto-sum { cursor: pointer; font-size: 13px; color: #4338ca; font-weight: 600;
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; padding: 10px 12px;
+  .howto-sum { cursor: pointer; font-size: 13px; color: #6e66d6; font-weight: 600;
+    background: #0e1116; border: 1px solid #222835; border-radius: 9px; padding: 10px 12px;
     list-style: none; -webkit-tap-highlight-color: transparent; }
 
   /* ── 8×8 速查表（設計成手機不用橫捲也放得下） ── */
   .grid-wrap { overflow-x: auto; }
   table.g8 { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  table.g8 th, table.g8 td { border: 1px solid #e2e8f0; text-align: center; padding: 5px 2px; font-size: 12px; overflow: hidden; }
-  table.g8 th { background: #f8fafc; color: #64748b; font-weight: 600; white-space: nowrap; }
+  table.g8 th, table.g8 td { border: 1px solid #222835; text-align: center; padding: 5px 2px; font-size: 12px; overflow: hidden; }
+  table.g8 th { background: #0e1116; color: #8e9bae; font-weight: 600; white-space: nowrap; }
   table.g8 th small { color: #94a3b8; font-weight: 400; }
   table.g8 th.corner { width: 46px; font-size: 11px; }
   table.g8 td { cursor: pointer; transition: .1s; -webkit-tap-highlight-color: transparent; }
-  table.g8 td:hover { background: #eef2ff; }
+  table.g8 td:hover { background: #161c31; }
   table.g8 td.sel { background: #4338ca; color: #fff; }
   table.g8 td .sym { font-size: 17px; line-height: 1.15; display: block; }
   table.g8 td .nm { display: block; white-space: nowrap; }
@@ -80,65 +80,65 @@
   /* ── 卦詳情 ── */
   .detail-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
   .hexpic { flex: 0 0 auto; display: flex; flex-direction: column-reverse; gap: 5px; padding: 12px 14px;
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+    background: #0e1116; border: 1px solid #222835; border-radius: 12px; }
   .hexpic .yline { width: 84px; height: 9px; display: flex; gap: 12px; }
-  .hexpic .yline i { flex: 1; background: #1e293b; border-radius: 2px; }
+  .hexpic .yline i { flex: 1; background: #2f3749; border-radius: 2px; }
   .dh-main { flex: 1 1 200px; }
-  .dh-name { font-size: 26px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .dh-name .usym { font-size: 30px; color: #4338ca; }
-  .dh-sub { font-size: 13px; color: #64748b; margin-top: 6px; line-height: 1.8; }
+  .dh-name { font-size: 26px; font-weight: 800; color: #d9dce2; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dh-name .usym { font-size: 30px; color: #6e66d6; }
+  .dh-sub { font-size: 13px; color: #8e9bae; margin-top: 6px; line-height: 1.8; }
   .lv { display: inline-block; padding: 2px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 700; }
-  .lv-上上 { background: #dcfce7; color: #15803d; } .lv-上 { background: #ecfdf5; color: #059669; }
-  .lv-中上 { background: #e0f2fe; color: #0369a1; } .lv-中 { background: #f1f5f9; color: #475569; }
-  .lv-中下 { background: #fef3c7; color: #b45309; } .lv-下 { background: #ffedd5; color: #c2410c; }
-  .lv-下下 { background: #fee2e2; color: #b91c1c; }
+  .lv-上上 { background: #193924; color: #73e89f; } .lv-上 { background: #163225; color: #68f3c8; }
+  .lv-中上 { background: #182a37; color: #68c2f3; } .lv-中 { background: #10131a; color: #9eabbd; }
+  .lv-中下 { background: #40391c; color: #f3a468; } .lv-下 { background: #3a2c1a; color: #f39068; }
+  .lv-下下 { background: #361818; color: #ea7171; }
   .navs { display: flex; gap: 8px; flex: 0 0 auto; }
-  .nav-btn { border: 1px solid #e2e8f0; background: #fff; border-radius: 8px; padding: 7px 13px; cursor: pointer;
-    font-size: 13px; color: #475569; -webkit-tap-highlight-color: transparent; }
-  .nav-btn:hover { border-color: #6366f1; color: #4338ca; }
+  .nav-btn { border: 1px solid #222835; background: #151b26; border-radius: 8px; padding: 7px 13px; cursor: pointer;
+    font-size: 13px; color: #9eabbd; -webkit-tap-highlight-color: transparent; }
+  .nav-btn:hover { border-color: #6366f1; color: #6e66d6; }
 
-  .ci-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 11px 14px;
-    font-size: 15px; color: #78350f; line-height: 1.9; margin-bottom: 12px; }
-  .ci-box b { color: #b45309; margin-right: 8px; }
-  .mean-box { font-size: 14px; color: #334155; line-height: 2; margin-bottom: 14px; }
+  .ci-box { background: #322c16; border: 1px solid #6a5e2f; border-radius: 10px; padding: 11px 14px;
+    font-size: 15px; color: #ed9c6e; line-height: 1.9; margin-bottom: 12px; }
+  .ci-box b { color: #f3a468; margin-right: 8px; }
+  .mean-box { font-size: 14px; color: #99aac2; line-height: 2; margin-bottom: 14px; }
 
   .cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .cat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 13px; }
-  .cat .ct { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 5px; }
-  .cat .cb { font-size: 12.5px; color: #475569; line-height: 1.85; }
-  .tip-box { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 11px 14px;
-    font-size: 13px; color: #3730a3; line-height: 1.9; margin-bottom: 12px; }
-  .xiang-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 14px;
-    font-size: 12.5px; color: #64748b; line-height: 1.9; margin-bottom: 12px; }
-  .xiang-box b { color: #475569; }
+  .cat { background: #0e1116; border: 1px solid #222835; border-radius: 10px; padding: 10px 13px; }
+  .cat .ct { font-size: 13px; font-weight: 700; color: #d9dce2; margin-bottom: 5px; }
+  .cat .cb { font-size: 12.5px; color: #9eabbd; line-height: 1.85; }
+  .tip-box { background: #161c31; border: 1px solid #2f3b6a; border-radius: 10px; padding: 11px 14px;
+    font-size: 13px; color: #8681da; line-height: 1.9; margin-bottom: 12px; }
+  .xiang-box { background: #0e1116; border: 1px dashed #272e3d; border-radius: 10px; padding: 10px 14px;
+    font-size: 12.5px; color: #8e9bae; line-height: 1.9; margin-bottom: 12px; }
+  .xiang-box b { color: #9eabbd; }
 
-  details.yao { border: 1px solid #e2e8f0; border-radius: 10px; padding: 0; overflow: hidden; }
-  details.yao summary { cursor: pointer; padding: 11px 14px; font-size: 13.5px; font-weight: 600; color: #1e293b;
-    background: #f8fafc; list-style: none; }
+  details.yao { border: 1px solid #222835; border-radius: 10px; padding: 0; overflow: hidden; }
+  details.yao summary { cursor: pointer; padding: 11px 14px; font-size: 13.5px; font-weight: 600; color: #d9dce2;
+    background: #0e1116; list-style: none; }
   details.yao summary::before { content: "▸ "; color: #6366f1; }
   details.yao[open] summary::before { content: "▾ "; }
   .yao-body { padding: 4px 14px 12px; }
-  .yao-row { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px dashed #e2e8f0; font-size: 13.5px; line-height: 1.8; }
+  .yao-row { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px dashed #222835; font-size: 13.5px; line-height: 1.8; }
   .yao-row:last-child { border-bottom: none; }
-  .yao-row .yp { flex: 0 0 44px; font-weight: 700; color: #4338ca; }
-  .yao-row .yt { color: #334155; }
+  .yao-row .yp { flex: 0 0 44px; font-weight: 700; color: #6e66d6; }
+  .yao-row .yt { color: #99aac2; }
   .yao-note { font-size: 12px; color: #94a3b8; line-height: 1.8; margin-top: 8px; }
 
   /* ── 全部卦 chips ── */
   .all-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { border: 1px solid #e2e8f0; background: #fff; border-radius: 20px; padding: 4px 11px; font-size: 12.5px;
-    color: #475569; cursor: pointer; transition: .1s; }
-  .chip:hover { border-color: #6366f1; color: #4338ca; }
+  .chip { border: 1px solid #222835; background: #151b26; border-radius: 20px; padding: 4px 11px; font-size: 12.5px;
+    color: #9eabbd; cursor: pointer; transition: .1s; }
+  .chip:hover { border-color: #6366f1; color: #6e66d6; }
   .chip.sel { background: #4338ca; border-color: #4338ca; color: #fff; }
   .chip i { font-style: normal; color: #94a3b8; margin-right: 3px; font-size: 11px; }
   .chip.sel i { color: #c7d2fe; }
   .chip.dim { opacity: .25; }
 
   /* 求卦說明 */
-  .howto { font-size: 12.5px; color: #475569; line-height: 2; }
-  .howto b { color: #1e293b; }
+  .howto { font-size: 12.5px; color: #9eabbd; line-height: 2; }
+  .howto b { color: #d9dce2; }
   .howto ol { margin: 4px 0 4px 20px; }
-  .howto .hl { background: #fffbeb; border-radius: 5px; padding: 0 5px; }
+  .howto .hl { background: #322c16; border-radius: 5px; padding: 0 5px; }
 
   /* ── 手機版 ── */
   @media (max-width: 640px) {
@@ -185,6 +185,8 @@
     table.g8 td .sym { font-size: 15px; }
   }
 </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../assets/theme.css">
 </head>
 <body>
 <header class="app-header">

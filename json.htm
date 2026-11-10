@@ -9,8 +9,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-            background: #f1f5f9;
-            color: #2c3e50;
+            background: #10131a;
+            color: #96adc5;
             /* 桌機:占滿視窗、禁止頁面捲軸,所有內容靠 flex 自己分配高度 */
             height: 100vh;
             overflow: hidden;
@@ -19,8 +19,8 @@
         }
 
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+            background: #151b26;
+            border-bottom: 1px solid #222835;
             padding: 14px 24px;
             /* 跟其他工具的 header 統一高度 — 即使內容物 (按鈕/pill) 高度不同,
                min-height 鎖住外框高度,讓三個工具切換時 header 不會跳動 */
@@ -36,11 +36,11 @@
         .app-header h1 {
             font-size: 16px;
             font-weight: 600;
-            color: #1e293b;
+            color: #d9dce2;
             letter-spacing: .02em;
             margin: 0;
         }
-        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+        .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #8e9bae; }
         .status-pill {
             display: inline-flex;
             align-items: center;
@@ -48,14 +48,14 @@
             font-size: 11px;
             padding: 4px 10px;
             border-radius: 999px;
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
+            border: 1px solid #222835;
+            background: #0e1116;
             font-weight: 600;
             white-space: nowrap;
         }
-        .status-pill.ok { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
-        .status-pill.err { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
-        .status-pill.idle { color: #64748b; }
+        .status-pill.ok { color: #73e89f; background: #163225; border-color: #2f6a44; }
+        .status-pill.err { color: #ea7171; background: #301515; border-color: #6a2f2f; }
+        .status-pill.idle { color: #8e9bae; }
         .status-pill .dot {
             width: 6px; height: 6px; border-radius: 50%; background: currentColor;
         }
@@ -73,9 +73,9 @@
         .glass {
             border-radius: 14px;
             backdrop-filter: blur(8px);
-            background-color: rgba(255,255,255,0.55);
+            background-color: rgba(21, 27, 38, 0.7);
             box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
-            border: 1.5px solid rgba(255,255,255,0.7);
+            border: 1.5px solid rgba(28, 33, 44, 0.7);
             border-bottom: 1.5px solid rgba(40,40,40,0.15);
             border-right: 1.5px solid rgba(40,40,40,0.15);
             padding: 16px;
@@ -89,7 +89,7 @@
            border、padding、border-radius、按鈕 padding 全部對齊,確保 pixel-perfect alignment */
         .action-group {
             display: inline-flex;
-            background: rgba(241,245,249,0.85);
+            background: rgba(16, 19, 26, 0.85);
             border: 1px solid rgba(148,163,184,0.35);
             border-radius: 10px;
             padding: 3px;
@@ -101,7 +101,7 @@
             padding: 7px 22px;
             font-size: 13.5px;
             font-weight: 700;
-            color: #475569;
+            color: #9eabbd;
             cursor: pointer;
             border-radius: 8px;
             letter-spacing: 0.05em;
@@ -109,19 +109,19 @@
             font-family: inherit;
             line-height: 1.2;
         }
-        .action-btn:hover { background: rgba(148,163,184,0.18); color: #1e293b; }
+        .action-btn:hover { background: rgba(148,163,184,0.18); color: #d9dce2; }
         .action-btn:active { transform: scale(0.97); }
-        .action-btn.act-primary { color: #1d4ed8; }
-        .action-btn.act-primary:hover { background: rgba(59,130,246,0.16); color: #1e40af; }
-        .action-btn.act-danger { color: #b91c1c; }
-        .action-btn.act-danger:hover { background: rgba(231,76,60,0.16); color: #7f1d1d; }
+        .action-btn.act-primary { color: #547be8; }
+        .action-btn.act-primary:hover { background: rgba(59,130,246,0.16); color: #748fe7; }
+        .action-btn.act-danger { color: #ea7171; }
+        .action-btn.act-danger:hover { background: rgba(231,76,60,0.16); color: #e17a7a; }
         .meta-tag {
             font-size: 11px;
-            color: #64748b;
+            color: #8e9bae;
             padding: 4px 8px;
-            background: rgba(255,255,255,0.6);
+            background: rgba(21, 27, 38, 0.7);
             border-radius: 6px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #222835;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
             /* 固定寬度,避免容量數字 (0 B / 1.2 MB / 856 KB) 變動時把右側元素推來推去 */
             min-width: 80px;
@@ -146,11 +146,11 @@
             right: 22px;
             bottom: 10px;
             font-size: 11px;
-            color: #64748b;
+            color: #8e9bae;
             padding: 3px 8px;
-            background: rgba(255,255,255,0.92);
+            background: rgba(21, 27, 38, 0.92);
             border-radius: 6px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #222835;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
             min-width: 56px;
             text-align: center;
@@ -222,7 +222,7 @@
         .pane-title {
             font-size: 0.78rem;
             font-weight: 700;
-            color: #4a6070;
+            color: #9db0be;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             display: flex;
@@ -241,17 +241,17 @@
             width: 100%;
             flex: 1;
             min-height: 0;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-left: 4px solid #3498db;
             border-radius: 8px;
             padding: 12px 14px;
             font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
             font-size: 0.86rem;
-            background: rgba(255,255,255,0.78);
+            background: rgba(21, 27, 38, 0.78);
             resize: none;
             line-height: 1.55;
             tab-size: 2;
-            color: #1e293b;
+            color: #d9dce2;
         }
         textarea.input:focus {
             outline: none;
@@ -285,10 +285,10 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: rgba(255,255,255,0.92);
+            background: rgba(21, 27, 38, 0.92);
             border: 1px solid rgba(148,163,184,0.45);
             border-radius: 8px;
-            color: #475569;
+            color: #9eabbd;
             cursor: pointer;
             transition: background-color 0.14s, color 0.14s, transform 0.08s, box-shadow 0.14s;
             box-shadow: 0 1px 3px rgba(0,0,0,0.06);
@@ -297,14 +297,14 @@
         }
         .copy-float:hover {
             background: rgba(59,130,246,0.12);
-            color: #1d4ed8;
+            color: #547be8;
             border-color: rgba(59,130,246,0.45);
             box-shadow: 0 2px 6px rgba(59,130,246,0.15);
         }
         .copy-float:active { transform: scale(0.92); }
         .copy-float.copied {
             background: rgba(34,197,94,0.18);
-            color: #15803d;
+            color: #73e89f;
             border-color: rgba(34,197,94,0.55);
         }
 
@@ -315,13 +315,13 @@
             min-height: 0;
             overflow: auto;
             scrollbar-gutter: stable;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-left: 4px solid #27ae60;
             border-radius: 8px;
             /* No padding-top — let inner views add their own so table mode's
                sticky header can sit flush against the viewport top */
             padding: 0 14px 12px 0;
-            background: rgba(255,255,255,0.78);
+            background: rgba(21, 27, 38, 0.78);
             font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
             font-size: 0.86rem;
             line-height: 1.55;
@@ -355,7 +355,7 @@
         .pretty .lc {
             padding: 0 0 0 12px;
             white-space: pre;
-            color: #1e293b;
+            color: #d9dce2;
         }
         .pretty .lc.fold-trigger { cursor: pointer; }
         .pretty .lc.fold-trigger::before {
@@ -399,13 +399,13 @@
         }
 
         /* token colors */
-        .tok-key    { color: #1d4ed8; }
-        .tok-string { color: #15803d; }
-        .tok-number { color: #b45309; }
-        .tok-bool   { color: #be185d; font-weight: 600; }
+        .tok-key    { color: #547be8; }
+        .tok-string { color: #73e89f; }
+        .tok-number { color: #f3a468; }
+        .tok-bool   { color: #ed6ea3; font-weight: 600; }
         .tok-null   { color: #94a3b8; font-weight: 600; font-style: italic; }
-        .tok-brace  { color: #475569; font-weight: 600; }
-        .tok-punc   { color: #64748b; }
+        .tok-brace  { color: #9eabbd; font-weight: 600; }
+        .tok-punc   { color: #8e9bae; }
         .tok-fold-summary { color: #94a3b8; font-style: italic; margin-left: 4px; }
 
         /* ── Tree view ── */
@@ -414,7 +414,7 @@
             font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
             font-size: 0.86rem;
             line-height: 1.55;
-            color: #1e293b;
+            color: #d9dce2;
         }
         .tree-node { padding-left: 18px; position: relative; }
         .tree-row {
@@ -440,8 +440,8 @@
         }
         .tree-row.collapsed .tree-caret { transform: rotate(-90deg); }
         .tree-row:not(.expandable) .tree-caret { visibility: hidden; }
-        .tree-key { color: #1d4ed8; }
-        .tree-colon { color: #64748b; margin-right: 4px; }
+        .tree-key { color: #547be8; }
+        .tree-colon { color: #8e9bae; margin-right: 4px; }
         .tree-summary { color: #94a3b8; }
         .tree-children { padding-left: 4px; border-left: 1px dashed rgba(148,163,184,0.35); margin-left: -8px; }
         .tree-children.hidden { display: none; }
@@ -458,25 +458,25 @@
             border-spacing: 0;
             font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
             font-size: 0.82rem;
-            color: #1e293b;
+            color: #d9dce2;
         }
         .json-table thead th {
             position: sticky;
             top: 0;
-            background: #f1f5f9;
-            box-shadow: inset 0 -2px 0 #cbd5e1;
+            background: #10131a;
+            box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.5);
             padding: 8px 12px;
             text-align: left;
             font-weight: 700;
-            color: #334155;
+            color: #99aac2;
             white-space: nowrap;
             z-index: 10;
         }
-        .json-table tbody tr:nth-child(even) { background: #f8fafc; }
-        .json-table tbody tr:hover { background: #eff6ff; }
+        .json-table tbody tr:nth-child(even) { background: #0e1116; }
+        .json-table tbody tr:hover { background: #162130; }
         .json-table td {
             padding: 5px 12px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #222835;
             vertical-align: top;
         }
         .json-table td > span,
@@ -494,15 +494,15 @@
             text-align: right;
             font-weight: 600;
         }
-        .json-table .cell-key { color: #1d4ed8; font-weight: 600; }
+        .json-table .cell-key { color: #547be8; font-weight: 600; }
         .json-table .cell-empty { color: #cbd5e1; }
         .json-table .val-null { color: #94a3b8; font-style: italic; }
-        .json-table .val-bool { color: #be185d; font-weight: 600; }
-        .json-table .val-num  { color: #b45309; }
-        .json-table .val-str  { color: #047857; }
+        .json-table .val-bool { color: #ed6ea3; font-weight: 600; }
+        .json-table .val-num  { color: #f3a468; }
+        .json-table .val-str  { color: #68f3cb; }
         .json-table .val-summary {
-            color: #64748b;
-            background: #f1f5f9;
+            color: #8e9bae;
+            background: #10131a;
             padding: 1px 7px;
             border-radius: 4px;
             font-style: italic;
@@ -532,9 +532,9 @@
             border-radius: 999px;
             font-size: 10.5px;
             font-weight: 600;
-            background: rgba(241,245,249,0.85);
+            background: rgba(16, 19, 26, 0.85);
             border: 1px solid rgba(148,163,184,0.35);
-            color: #475569;
+            color: #9eabbd;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
             letter-spacing: 0.02em;
             /* 固定佔位寬度,避免不同筆數 (39 個鍵 / 5 個鍵 / 100 個鍵) 切換時寬度抖動 */
@@ -542,16 +542,16 @@
         }
         /* 沒資料時保留位置,只隱形 (不要 display:none,否則旁邊元素會位移) */
         .stat-badge[hidden] { display: inline-flex !important; visibility: hidden; }
-        .stat-badge.ok { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.4); color: #15803d; }
-        .stat-badge.err { background: rgba(231,76,60,0.12); border-color: rgba(231,76,60,0.45); color: #b91c1c; }
+        .stat-badge.ok { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.4); color: #73e89f; }
+        .stat-badge.err { background: rgba(231,76,60,0.12); border-color: rgba(231,76,60,0.45); color: #ea7171; }
         /* 鍵數:藍底;深度:橙底 — 兩個徽章一眼分得清 */
-        #statKeys  { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.45); color: #1d4ed8; }
-        #statDepth { background: rgba(249,115,22,0.14); border-color: rgba(249,115,22,0.5);  color: #c2410c; }
+        #statKeys  { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.45); color: #547be8; }
+        #statDepth { background: rgba(249,115,22,0.14); border-color: rgba(249,115,22,0.5);  color: #f39068; }
 
         /* ── View-mode toggle (文字 / 樹狀) ── */
         .view-toggle {
             display: inline-flex;
-            background: rgba(241,245,249,0.85);
+            background: rgba(16, 19, 26, 0.85);
             border: 1px solid rgba(148,163,184,0.35);
             border-radius: 8px;
             padding: 2px;
@@ -563,13 +563,13 @@
             padding: 3px 11px;
             font-size: 11px;
             font-weight: 600;
-            color: #64748b;
+            color: #8e9bae;
             cursor: pointer;
             border-radius: 6px;
             transition: all 0.14s;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-        .view-toggle button:hover { color: #1e293b; }
+        .view-toggle button:hover { color: #d9dce2; }
         .view-toggle button.active {
             background: linear-gradient(145deg, #22c55e, #16a34a);
             color: #fff;
@@ -612,7 +612,7 @@
             border-bottom: 1px solid rgba(231,76,60,0.25);
             padding: 8px 14px;
             margin: -12px -14px 10px -14px;
-            color: #b91c1c;
+            color: #ea7171;
             font-weight: 700;
             font-size: 0.82rem;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
@@ -622,7 +622,7 @@
         }
         .error-suggest {
             font-weight: 500;
-            color: #7f1d1d;
+            color: #e17a7a;
             font-size: 0.78rem;
         }
         .diff {
@@ -647,27 +647,27 @@
         .diff .code {
             padding: 0 4px;
             white-space: pre;
-            color: #334155;
+            color: #99aac2;
         }
         .diff .row { display: contents; }
         .diff .row.minus .ln,
         .diff .row.minus .sign,
-        .diff .row.minus .code { background: rgba(231,76,60,0.12); color: #991b1b; }
-        .diff .row.minus .sign { color: #dc2626; }
+        .diff .row.minus .code { background: rgba(231,76,60,0.12); color: #e77474; }
+        .diff .row.minus .sign { color: #e45858; }
         .diff .row.plus  .ln,
         .diff .row.plus  .sign,
-        .diff .row.plus  .code { background: rgba(34,197,94,0.12); color: #14532d; }
-        .diff .row.plus  .sign { color: #16a34a; }
-        .diff .row.context .code { color: #475569; }
+        .diff .row.plus  .code { background: rgba(34,197,94,0.12); color: #7bdfa3; }
+        .diff .row.plus  .sign { color: #6fec9d; }
+        .diff .row.context .code { color: #9eabbd; }
         .diff .col-pointer {
             display: inline-block;
-            color: #dc2626;
+            color: #e45858;
             font-weight: 800;
         }
         .pointer-line {
             grid-column: 3;
             white-space: pre;
-            color: #dc2626;
+            color: #e45858;
             font-weight: 700;
         }
 
@@ -677,8 +677,8 @@
             flex-wrap: wrap;
             gap: 4px;
             padding: 8px 10px;
-            background: rgba(241,245,249,0.65);
-            border: 1.5px solid rgba(200,220,240,0.8);
+            background: rgba(16, 19, 26, 0.7);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-left: 4px solid #8b5cf6;
             border-radius: 8px;
             max-height: 110px;
@@ -690,7 +690,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             font-size: 11px;
             font-weight: 700;
-            color: #4a6070;
+            color: #9db0be;
             letter-spacing: 0.04em;
             margin-right: 4px;
             white-space: nowrap;
@@ -702,30 +702,30 @@
             padding: 3px 9px;
             min-width: 30px;
             justify-content: center;
-            background: rgba(255,255,255,0.85);
+            background: rgba(21, 27, 38, 0.85);
             border: 1px solid rgba(148,163,184,0.4);
             border-radius: 999px;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
             font-size: 11px;
             font-weight: 600;
-            color: #334155;
+            color: #99aac2;
             cursor: pointer;
             transition: all 0.14s;
         }
-        .doc-chip:hover { background: rgba(0,160,220,0.12); border-color: rgba(0,160,220,0.5); color: #0a4a70; }
+        .doc-chip:hover { background: rgba(0,160,220,0.12); border-color: rgba(0,160,220,0.5); color: #69bff2; }
         .doc-chip.active {
             background: linear-gradient(145deg, rgba(0,160,220,0.35), rgba(0,80,160,0.35));
             border-color: rgba(0,80,160,0.5);
-            color: #0a3050;
+            color: #6eb3ed;
             box-shadow: 0 1px 4px rgba(0,160,220,0.25);
         }
         .doc-chip.has-error {
             border-color: rgba(231,76,60,0.55);
-            color: #b91c1c;
+            color: #ea7171;
         }
         .doc-chip.has-error.active {
             background: linear-gradient(145deg, rgba(231,76,60,0.3), rgba(180,30,30,0.3));
-            color: #7f1d1d;
+            color: #e17a7a;
         }
         .doc-chip.all { font-weight: 700; }
 
@@ -733,13 +733,13 @@
         .sample-link {
             background: none;
             border: none;
-            color: #0a4a70;
+            color: #69bff2;
             text-decoration: underline;
             cursor: pointer;
             font-size: 12px;
             margin-left: 6px;
         }
-        .sample-link:hover { color: #1d4ed8; }
+        .sample-link:hover { color: #547be8; }
 
         /* Embedded buttons — compact sizes so they fit inside pane-title (38px) without wrapping */
         .pane-title .action-group { padding: 2px; border-radius: 7px; }
@@ -757,6 +757,8 @@
             letter-spacing: 0.03em;
         }
     </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
     <div class="app-header">

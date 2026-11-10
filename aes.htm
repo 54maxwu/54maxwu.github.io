@@ -10,15 +10,15 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-            background: #f1f5f9;
+            background: #10131a;
             min-height: 100vh;
             padding: 0;
-            color: #2c3e50;
+            color: #96adc5;
         }
 
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+            background: #151b26;
+            border-bottom: 1px solid #222835;
             padding: 14px 24px;
             /* 統一全站工具 header 高度為 60px */
             min-height: 60px;
@@ -33,7 +33,7 @@
         .app-header h1 {
             font-size: 16px;
             font-weight: 600;
-            color: #1e293b;
+            color: #d9dce2;
             letter-spacing: .02em;
         }
         .mode-badge {
@@ -41,18 +41,18 @@
             font-weight: 700;
             padding: 2px 8px;
             border-radius: 999px;
-            background: #dbeafe;
-            color: #1d4ed8;
-            border: 1px solid #bfdbfe;
+            background: #192738;
+            color: #547be8;
+            border: 1px solid #2f496a;
         }
         .key-tip {
             font-size: 0.7rem;
             font-weight: 600;
             padding: 2px 8px;
             border-radius: 999px;
-            background: #fef9c3;
-            color: #854d0e;
-            border: 1px solid #fde68a;
+            background: #423f1d;
+            color: #efb16b;
+            border: 1px solid #6a5e2f;
         }
 
         .page-content { padding: 12px 20px 20px; max-width: 1400px; margin: 0 auto; }
@@ -60,9 +60,9 @@
         .glass {
             border-radius: 14px;
             backdrop-filter: blur(8px);
-            background-color: rgba(255,255,255,0.55);
+            background-color: rgba(21, 27, 38, 0.7);
             box-shadow: rgba(0,0,0,0.12) 2px 8px 20px;
-            border: 1.5px solid rgba(255,255,255,0.7);
+            border: 1.5px solid rgba(28, 33, 44, 0.7);
             border-bottom: 1.5px solid rgba(40,40,40,0.15);
             border-right: 1.5px solid rgba(40,40,40,0.15);
             padding: 20px;
@@ -84,25 +84,25 @@
             align-items: center;
             font-size: 0.76rem;
             font-weight: 700;
-            color: #4a6070;
+            color: #9db0be;
         }
 
         textarea {
             width: 100%;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-radius: 8px;
             padding: 10px 12px;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.82rem;
-            background: rgba(255,255,255,0.8);
+            background: rgba(21, 27, 38, 0.8);
             resize: vertical;
             min-height: 220px;
             line-height: 1.55;
             transition: border-color 0.2s, box-shadow 0.2s;
-            color: #1e293b;
+            color: #d9dce2;
         }
         textarea:focus { outline: none; border-color: rgba(0,160,220,0.5); box-shadow: 0 0 0 3px rgba(0,160,220,0.1); }
-        textarea[readonly] { background: rgba(248,250,252,0.9); cursor: default; }
+        textarea[readonly] { background: rgba(14, 17, 22, 0.9); cursor: default; }
         .input-ta  { border-left: 4px solid #2980b9 !important; }
         .output-ta { border-left: 4px solid #8e44ad !important; }
 
@@ -116,14 +116,14 @@
 
         .key-input {
             flex: 1;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-left: 4px solid #f59e0b;
             border-radius: 8px;
             padding: 9px 12px;
             font-family: 'Consolas', monospace;
             font-size: 0.84rem;
-            background: rgba(255,255,255,0.8);
-            color: #1e293b;
+            background: rgba(21, 27, 38, 0.8);
+            color: #d9dce2;
             transition: border-color 0.2s;
         }
         .key-input:focus { outline: none; border-color: rgba(0,160,220,0.5); box-shadow: 0 0 0 3px rgba(0,160,220,0.1); }
@@ -137,23 +137,23 @@
             flex-shrink: 0;
             white-space: nowrap;
         }
-        .len-ok  { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
-        .len-bad { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-        .len-na  { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        .len-ok  { background: #193924; color: #73e89f; border-color: #2f6a44; }
+        .len-bad { background: #361818; color: #ea7171; border-color: #6a2f2f; }
+        .len-na  { background: #10131a; color: #8e9bae; border-color: #222835; }
 
         .eye-btn {
             padding: 7px 12px;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-radius: 8px;
             cursor: pointer;
             font-size: 0.75rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.8);
-            color: #555;
+            background: rgba(21, 27, 38, 0.8);
+            color: #d9d9d9;
             transition: all 0.15s;
             white-space: nowrap;
         }
-        .eye-btn:hover { background: rgba(255,255,255,1); }
+        .eye-btn:hover { background: #151b26; }
 
         /* ── ACTION BUTTONS ── */
         .btn-row {
@@ -196,17 +196,17 @@
             cursor: pointer;
             font-size: 0.68rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.6);
-            color: #555;
+            background: rgba(21, 27, 38, 0.7);
+            color: #d9d9d9;
             transition: all 0.15s;
         }
-        .copy-btn:hover { background: rgba(255,255,255,1); }
-        .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
+        .copy-btn:hover { background: #151b26; }
+        .copy-btn.copied { color: #5ae28c; border-color: #22c55e; }
 
         /* ── ERR ── */
         .err-msg {
             font-size: 0.75rem;
-            color: #b91c1c;
+            color: #ea7171;
             background: rgba(239,68,68,0.08);
             border-radius: 6px;
             padding: 6px 12px;
@@ -222,6 +222,8 @@
             .key-row { flex-wrap: wrap; }
         }
     </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
     <div class="app-header">

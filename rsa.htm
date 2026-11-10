@@ -9,15 +9,15 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-            background: #f1f5f9;
+            background: #10131a;
             min-height: 100vh;
             padding: 0;
-            color: #2c3e50;
+            color: #96adc5;
         }
 
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+            background: #151b26;
+            border-bottom: 1px solid #222835;
             padding: 14px 24px;
             /* 統一全站工具 header 高度為 60px */
             min-height: 60px;
@@ -34,7 +34,7 @@
         .app-header h1 {
             font-size: 16px;
             font-weight: 600;
-            color: #1e293b;
+            color: #d9dce2;
             letter-spacing: .02em;
             margin: 0;
         }
@@ -43,9 +43,9 @@
         .glass {
             border-radius: 14px;
             backdrop-filter: blur(8px);
-            background-color: rgba(255,255,255,0.45);
+            background-color: rgba(21, 27, 38, 0.7);
             box-shadow: rgba(0,0,0,0.15) 2px 8px 20px;
-            border: 1.5px solid rgba(255,255,255,0.7);
+            border: 1.5px solid rgba(28, 33, 44, 0.7);
             border-bottom: 1.5px solid rgba(40,40,40,0.2);
             border-right: 1.5px solid rgba(40,40,40,0.2);
             padding: 18px;
@@ -62,16 +62,16 @@
             font-size: 0.88rem;
             font-weight: 600;
             transition: all 0.2s;
-            background: rgba(255,255,255,0.4);
-            color: #667;
+            background: rgba(21, 27, 38, 0.7);
+            color: #bfc1c5;
         }
         .tab-btn.active {
             background: rgba(0,160,220,0.2);
-            color: #0a4a70;
+            color: #69bff2;
             border-color: rgba(0,160,220,0.5);
             box-shadow: 0 2px 8px rgba(0,160,220,0.15);
         }
-        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.65); }
+        .tab-btn:hover:not(.active) { background: rgba(21, 27, 38, 0.7); }
 
         .section { display: none; }
         .section.active { display: block; }
@@ -96,15 +96,15 @@
         .key-card-title {
             font-weight: 800;
             font-size: 0.85rem;
-            color: #0a4a70;
+            color: #69bff2;
         }
 
         select {
             padding: 5px 10px;
             border: 1.5px solid rgba(0,160,220,0.3);
             border-radius: 6px;
-            background: rgba(255,255,255,0.6);
-            color: #2c3e50;
+            background: rgba(21, 27, 38, 0.7);
+            color: #96adc5;
             font-size: 0.8rem;
             cursor: pointer;
         }
@@ -120,7 +120,7 @@
             font-size: 0.82rem;
             font-weight: 700;
             background: linear-gradient(135deg, rgba(0,160,220,0.4), rgba(0,80,160,0.4));
-            color: #0a3050;
+            color: #6eb3ed;
             transition: all 0.18s;
             box-shadow: 0 2px 8px rgba(0,0,0,0.12);
         }
@@ -152,18 +152,18 @@
             align-items: center;
             font-size: 0.76rem;
             font-weight: 700;
-            color: #4a6070;
+            color: #9db0be;
         }
 
         /* ── TEXTAREAS ── */
         textarea {
             width: 100%;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-radius: 8px;
             padding: 10px;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.8rem;
-            background: rgba(255,255,255,0.72);
+            background: rgba(21, 27, 38, 0.72);
             resize: vertical;
             transition: border-color 0.2s, box-shadow 0.2s;
             line-height: 1.5;
@@ -173,7 +173,7 @@
             border-color: rgba(0,160,220,0.55);
             box-shadow: 0 0 0 3px rgba(0,160,220,0.12);
         }
-        textarea[readonly] { background: rgba(255,255,255,0.45); cursor: default; }
+        textarea[readonly] { background: rgba(21, 27, 38, 0.7); cursor: default; }
         .pubkey-ta  { border-left: 4px solid #27ae60 !important; }
         .privkey-ta { border-left: 4px solid #e74c3c !important; }
         .plain-ta   { border-left: 4px solid #2980b9 !important; }
@@ -188,13 +188,13 @@
             cursor: pointer;
             font-size: 0.68rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.6);
-            color: #555;
+            background: rgba(21, 27, 38, 0.7);
+            color: #d9d9d9;
             transition: all 0.18s;
             white-space: nowrap;
         }
-        .copy-btn:hover { background: rgba(255,255,255,0.9); }
-        .copy-btn.copied { color: #27ae60; border-color: #27ae60; }
+        .copy-btn:hover { background: rgba(21, 27, 38, 0.9); }
+        .copy-btn.copied { color: #7ae1a5; border-color: #27ae60; }
 
         /* ── OPERATION GRID ── */
         .op-grid {
@@ -223,10 +223,10 @@
             align-items: center;
             gap: 6px;
         }
-        .op-card.encrypt .op-title { color: #622a90; }
-        .op-card.decrypt .op-title { color: #1a5880; }
-        .op-card.sign    .op-title { color: #904010; }
-        .op-card.verify  .op-title { color: #1a7a40; }
+        .op-card.encrypt .op-title { color: #b281da; }
+        .op-card.decrypt .op-title { color: #77b9e3; }
+        .op-card.sign    .op-title { color: #ef9d6c; }
+        .op-card.verify  .op-title { color: #78e2a2; }
 
         /* ── ACTION BTN ── */
         .action-btn {
@@ -247,10 +247,10 @@
         .action-btn:active { transform: scale(0.97); }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .btn-encrypt { background: linear-gradient(135deg, rgba(142,68,173,0.35), rgba(80,20,120,0.35)); color: #3a0060; }
-        .btn-decrypt { background: linear-gradient(135deg, rgba(41,128,185,0.35), rgba(20,60,120,0.35)); color: #0a3050; }
-        .btn-sign    { background: linear-gradient(135deg, rgba(230,126,34,0.35), rgba(150,60,0,0.35));  color: #6a2000; }
-        .btn-verify  { background: linear-gradient(135deg, rgba(39,174,96,0.35),  rgba(20,100,50,0.35)); color: #0a4020; }
+        .btn-encrypt { background: linear-gradient(135deg, rgba(142,68,173,0.35), rgba(80,20,120,0.35)); color: #bc68f3; }
+        .btn-decrypt { background: linear-gradient(135deg, rgba(41,128,185,0.35), rgba(20,60,120,0.35)); color: #6eb3ed; }
+        .btn-sign    { background: linear-gradient(135deg, rgba(230,126,34,0.35), rgba(150,60,0,0.35));  color: #f39268; }
+        .btn-verify  { background: linear-gradient(135deg, rgba(39,174,96,0.35),  rgba(20,100,50,0.35)); color: #72e9a2; }
         .btn-encrypt:hover { box-shadow: 0 4px 14px rgba(142,68,173,0.3); }
         .btn-decrypt:hover { box-shadow: 0 4px 14px rgba(41,128,185,0.3); }
         .btn-sign:hover    { box-shadow: 0 4px 14px rgba(230,126,34,0.3); }
@@ -277,19 +277,19 @@
             display: block;
             background: rgba(39,174,96,0.15);
             border: 2px solid #27ae60;
-            color: #1a7a40;
+            color: #78e2a2;
         }
         .verify-result.fail {
             display: block;
             background: rgba(231,76,60,0.12);
             border: 2px solid #e74c3c;
-            color: #b03020;
+            color: #e68175;
         }
 
         /* ── ERROR ── */
         .err-msg {
             font-size: 0.75rem;
-            color: #c0392b;
+            color: #dc6c61;
             background: rgba(231,76,60,0.1);
             border-radius: 6px;
             padding: 6px 10px;
@@ -311,7 +311,7 @@
             padding: 2px 8px;
             border-radius: 999px;
             background: rgba(0,160,220,0.15);
-            color: #1a6a8a;
+            color: #76c5e5;
             font-weight: 700;
         }
 
@@ -323,7 +323,7 @@
         .toast {
             position: fixed; bottom: 24px; left: 50%;
             transform: translateX(-50%) translateY(20px);
-            background: #1e293b; color: #f1f5f9;
+            background: #2f3749; color: #f1f5f9;
             padding: 10px 18px; border-radius: 8px;
             font-size: 13px; font-weight: 600;
             box-shadow: 0 6px 20px rgba(0,0,0,.4);
@@ -334,6 +334,8 @@
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast.err { background: #7f1d1d; border-color: #991b1b; }
     </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
     <div class="app-header">
@@ -364,14 +366,14 @@
                 <div class="key-grid">
                     <div class="key-field">
                         <div class="field-label">
-                            <span style="color:#1a7a40">&#9632; 公鑰（可公開，用於加密）</span>
+                            <span style="color:#78e2a2">&#9632; 公鑰（可公開，用於加密）</span>
                             <button class="copy-btn" onclick="copyField('enc-pubkey', this)">複製</button>
                         </div>
                         <textarea id="enc-pubkey" class="pubkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>
                     </div>
                     <div class="key-field">
                         <div class="field-label">
-                            <span style="color:#b03020">&#9632; 私鑰（請妥善保存，用於解密）</span>
+                            <span style="color:#e68175">&#9632; 私鑰（請妥善保存，用於解密）</span>
                             <button class="copy-btn" onclick="copyField('enc-privkey', this)">複製</button>
                         </div>
                         <textarea id="enc-privkey" class="privkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>
@@ -453,14 +455,14 @@
                 <div class="key-grid">
                     <div class="key-field">
                         <div class="field-label">
-                            <span style="color:#1a7a40">&#9632; 公鑰（可公開，用於驗章）</span>
+                            <span style="color:#78e2a2">&#9632; 公鑰（可公開，用於驗章）</span>
                             <button class="copy-btn" onclick="copyField('sign-pubkey', this)">複製</button>
                         </div>
                         <textarea id="sign-pubkey" class="pubkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>
                     </div>
                     <div class="key-field">
                         <div class="field-label">
-                            <span style="color:#b03020">&#9632; 私鑰（請妥善保存，用於簽章）</span>
+                            <span style="color:#e68175">&#9632; 私鑰（請妥善保存，用於簽章）</span>
                             <button class="copy-btn" onclick="copyField('sign-privkey', this)">複製</button>
                         </div>
                         <textarea id="sign-privkey" class="privkey-ta" readonly rows="5" placeholder="點擊「隨機生成金鑰」..."></textarea>

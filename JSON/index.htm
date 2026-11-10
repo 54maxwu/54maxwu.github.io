@@ -8,19 +8,19 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;
-  background:#f1f5f9;color:#1e293b;min-height:100vh;font-size:15px;line-height:1.5;
+  background:#10131a;color:#d9dce2;min-height:100vh;font-size:15px;line-height:1.5;
 }
 
 .app-header{
-  background:#fff;border-bottom:1px solid #e2e8f0;
+  background:#151b26;border-bottom:1px solid #222835;
   padding:14px 24px;display:flex;align-items:center;gap:12px;
   /* 統一全站工具 header 高度為 60px */
   min-height:60px;
   box-shadow:0 1px 3px rgba(0,0,0,.06);position:sticky;top:0;z-index:10;
 }
-.app-header h1{font-size:16px;font-weight:600;color:#1e293b;letter-spacing:.02em}
+.app-header h1{font-size:16px;font-weight:600;color:#d9dce2;letter-spacing:.02em}
 .back-btn{
-  background:none;border:1px solid #e2e8f0;color:#64748b;border-radius:5px;
+  background:none;border:1px solid #222835;color:#8e9bae;border-radius:5px;
   padding:4px 10px;font:inherit;font-size:13px;cursor:pointer;transition:.12s;display:none;
 }
 .back-btn:hover{border-color:#3b82f6;color:#3b82f6}
@@ -30,19 +30,19 @@ body{
 .page.active{display:block}
 
 .card{
-  background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;
+  background:#151b26;border:1px solid #222835;border-radius:8px;padding:20px;
   margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);
 }
-.card-title{font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;
+.card-title{font-size:13px;font-weight:600;color:#8e9bae;text-transform:uppercase;
   letter-spacing:.06em;margin-bottom:16px}
 
 textarea,input[type=text]{
-  width:100%;background:#f8fafc;border:1px solid #e2e8f0;color:#1e293b;
+  width:100%;background:#0e1116;border:1px solid #222835;color:#d9dce2;
   border-radius:6px;padding:10px 12px;font:inherit;font-size:14px;
   resize:vertical;transition:.12s;
 }
 textarea:focus,input[type=text]:focus{
-  border-color:#3b82f6;outline:none;background:#fff;
+  border-color:#3b82f6;outline:none;background:#151b26;
   box-shadow:0 0 0 2px rgba(59,130,246,.12);
 }
 textarea::placeholder,input::placeholder{color:#94a3b8}
@@ -55,11 +55,11 @@ textarea::placeholder,input::placeholder{color:#94a3b8}
 }
 .btn-primary{background:#3b82f6;color:#fff;border-color:#3b82f6}
 .btn-primary:hover{background:#2563eb;border-color:#2563eb}
-.btn-secondary{background:#fff;color:#475569;border-color:#e2e8f0}
-.btn-secondary:hover{background:#f8fafc;color:#1e293b;border-color:#cbd5e1}
+.btn-secondary{background:#151b26;color:#9eabbd;border-color:#222835}
+.btn-secondary:hover{background:#0e1116;color:#d9dce2;border-color:#272e3d}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 
-.lbl{font-size:13px;color:#64748b;margin-bottom:6px;display:block;font-weight:500}
+.lbl{font-size:13px;color:#8e9bae;margin-bottom:6px;display:block;font-weight:500}
 
 .form-row{margin-bottom:14px}
 .form-row label{
@@ -68,7 +68,7 @@ textarea::placeholder,input::placeholder{color:#94a3b8}
 }
 
 .err{
-  padding:10px 14px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;
+  padding:10px 14px;background:#301515;color:#ea7171;border:1px solid #6a2f2f;
   border-radius:6px;font-size:13px;margin-bottom:14px;display:none;
 }
 .err.show{display:block}
@@ -78,31 +78,33 @@ textarea::placeholder,input::placeholder{color:#94a3b8}
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
   gap:8px;margin-bottom:12px;
 }
-.results-count{font-size:13px;color:#64748b}
+.results-count{font-size:13px;color:#8e9bae}
 .dl-row{display:flex;gap:6px;flex-wrap:wrap}
 
-.tbl-wrap{overflow-x:auto;border-radius:6px;border:1px solid #e2e8f0}
+.tbl-wrap{overflow-x:auto;border-radius:6px;border:1px solid #222835}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{
-  background:#f8fafc;color:#64748b;font-weight:600;
-  padding:10px 14px;text-align:left;border-bottom:1px solid #e2e8f0;
+  background:#0e1116;color:#8e9bae;font-weight:600;
+  padding:10px 14px;text-align:left;border-bottom:1px solid #222835;
   white-space:nowrap;cursor:pointer;user-select:none;
 }
-thead th:hover{color:#1e293b}
+thead th:hover{color:#d9dce2}
 thead th .sort-icon{margin-left:4px;opacity:.4}
-tbody tr{border-bottom:1px solid #f1f5f9}
+tbody tr{border-bottom:1px solid #1f2430}
 tbody tr:last-child{border-bottom:none}
-tbody tr:hover td{background:#f8fafc}
-tbody td{padding:9px 14px;color:#334155;word-break:break-word;max-width:300px}
+tbody tr:hover td{background:#0e1116}
+tbody td{padding:9px 14px;color:#99aac2;word-break:break-word;max-width:300px}
 
 .empty{padding:40px;text-align:center;color:#94a3b8;font-size:14px}
 
 /* Tooltip */
 .tip{
   font-size:11px;color:#94a3b8;margin-left:4px;
-  cursor:help;border-bottom:1px dotted #cbd5e1;
+  cursor:help;border-bottom:1px dotted #272e3d;
 }
 </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../assets/theme.css">
 </head>
 <body>
 

@@ -10,8 +10,8 @@
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-    background: #f1f5f9;
-    color: #2c3e50;
+    background: #10131a;
+    color: #96adc5;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -19,8 +19,8 @@
   }
 
   .app-header {
-    background: #fff;
-    border-bottom: 1px solid #e2e8f0;
+    background: #151b26;
+    border-bottom: 1px solid #222835;
     padding: 14px 24px;
     min-height: 60px;
     display: flex;
@@ -34,7 +34,7 @@
   .app-header h1 {
     font-size: 16px;
     font-weight: 600;
-    color: #1e293b;
+    color: #d9dce2;
     letter-spacing: .02em;
   }
   .status-pill {
@@ -44,14 +44,14 @@
     font-size: 11px;
     padding: 4px 10px;
     border-radius: 999px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    color: #64748b;
+    border: 1px solid #222835;
+    background: #0e1116;
+    color: #8e9bae;
     font-weight: 600;
     white-space: nowrap;
   }
   .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-  .status-pill.ok { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
+  .status-pill.ok { color: #73e89f; background: #163225; border-color: #2f6a44; }
 
   .page-content {
     flex: 1;
@@ -69,9 +69,9 @@
     position: relative;
     border-radius: 14px;
     backdrop-filter: blur(8px);
-    background-color: rgba(255,255,255,0.55);
+    background-color: rgba(21, 27, 38, 0.7);
     box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
-    border: 1.5px solid rgba(255,255,255,0.7);
+    border: 1.5px solid rgba(28, 33, 44, 0.7);
     border-bottom: 1.5px solid rgba(40,40,40,0.15);
     border-right: 1.5px solid rgba(40,40,40,0.15);
     padding: 18px 20px;
@@ -92,10 +92,10 @@
   .search-input {
     width: 100%;
     padding: 9px 14px 9px 36px;
-    border: 1.5px solid #cbd5e1;
+    border: 1.5px solid #272e3d;
     border-radius: 9px;
-    background: #fff;
-    color: #1e293b;
+    background: #151b26;
+    color: #d9dce2;
     font-size: 14px;
     font-family: inherit;
     outline: none;
@@ -116,9 +116,9 @@
     pointer-events: none;
   }
   .clear-btn {
-    border: 1.5px solid #cbd5e1;
-    background: #fff;
-    color: #475569;
+    border: 1.5px solid #272e3d;
+    background: #151b26;
+    color: #9eabbd;
     cursor: pointer;
     padding: 8px 14px;
     border-radius: 8px;
@@ -127,7 +127,7 @@
     font-family: inherit;
     transition: background .12s, color .12s, border-color .12s;
   }
-  .clear-btn:hover { background: #f8fafc; color: #0d9488; border-color: #0d9488; }
+  .clear-btn:hover { background: #0e1116; color: #69f2e6; border-color: #0d9488; }
   .clear-btn:active { transform: scale(.97); }
 
   /* ── Category tabs ───────────────────── */
@@ -136,7 +136,7 @@
     gap: 6px;
     flex-wrap: wrap;
     padding-bottom: 12px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid #222835;
     margin-bottom: 12px;
     flex-shrink: 0;
   }
@@ -146,14 +146,14 @@
     font-weight: 600;
     border: 1.5px solid transparent;
     border-radius: 999px;
-    background: #f1f5f9;
-    color: #475569;
+    background: #10131a;
+    color: #9eabbd;
     cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
     white-space: nowrap;
     font-family: inherit;
   }
-  .cat-tab:hover { background: #e2e8f0; color: #1e293b; }
+  .cat-tab:hover { background: #151922; color: #d9dce2; }
   .cat-tab .count {
     opacity: .65;
     margin-left: 4px;
@@ -173,7 +173,7 @@
   .content-scroll::-webkit-scrollbar { width: 8px; }
   .content-scroll::-webkit-scrollbar-track { background: transparent; }
   .content-scroll::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #1d232f;
     border-radius: 4px;
   }
   .content-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
@@ -183,20 +183,20 @@
     margin-bottom: 18px;
     border-radius: 12px;
     overflow: hidden;
-    border: 1.5px solid #e2e8f0;
-    background: rgba(255,255,255,.85);
+    border: 1.5px solid #222835;
+    background: rgba(21, 27, 38, 0.85);
     scroll-margin-top: 8px;
   }
   .category-header {
     padding: 10px 16px;
     font-size: 14px;
     font-weight: 700;
-    color: #1e293b;
-    border-bottom: 1.5px solid #e2e8f0;
+    color: #d9dce2;
+    border-bottom: 1.5px solid #222835;
     display: flex;
     align-items: center;
     gap: 10px;
-    background: var(--bg, #f8fafc);
+    background: color-mix(in srgb, var(--accent, #94a3b8) 12%, #11161f);
   }
   .category-header .accent {
     display: inline-block;
@@ -211,8 +211,8 @@
     font-weight: 700;
     padding: 3px 9px;
     border-radius: 999px;
-    background: rgba(255,255,255,.85);
-    color: var(--accent, #475569);
+    background: rgba(21, 27, 38, 0.85);
+    color: var(--accent, #9eabbd);
     border: 1px solid rgba(0,0,0,.06);
   }
 
@@ -228,8 +228,8 @@
     justify-content: space-between;
     gap: 6px;
     padding: 8px 10px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
+    background: #151b26;
+    border: 1px solid #222835;
     border-radius: 7px;
     transition: border-color .12s, box-shadow .12s, transform .08s;
   }
@@ -241,7 +241,7 @@
   .entry .ch {
     font-size: 17px;
     font-weight: 700;
-    color: #1e293b;
+    color: #d9dce2;
     line-height: 1;
   }
   .entry .code-wrap {
@@ -254,7 +254,7 @@
     font-family: ui-monospace, 'SF Mono', Consolas, monospace;
     font-size: 13px;
     font-weight: 700;
-    color: var(--accent, #0d9488);
+    color: var(--accent, #69f2e6);
     letter-spacing: .04em;
   }
   .entry .note {
@@ -267,7 +267,7 @@
   /* Search states */
   .entry.hit {
     border-color: #f59e0b;
-    background: #fffbeb;
+    background: #322c16;
     box-shadow: 0 0 0 2px rgba(245,158,11,.2);
   }
   .category.hidden-cat { display: none; }
@@ -284,12 +284,12 @@
     margin-top: 6px;
     margin-bottom: 4px;
     padding: 14px 18px;
-    background: rgba(255,255,255,.85);
-    border: 1.5px solid #e2e8f0;
+    background: rgba(21, 27, 38, 0.85);
+    border: 1.5px solid #222835;
     border-radius: 10px;
     font-size: 13px;
     line-height: 1.75;
-    color: #475569;
+    color: #9eabbd;
     text-indent: 2em;
   }
 
@@ -308,6 +308,8 @@
     .cat-tab { padding: 5px 10px; font-size: 11px; }
   }
 </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
   <div class="app-header">

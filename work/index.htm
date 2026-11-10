@@ -11,16 +11,16 @@
             height: 100%;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-            background: #f1f5f9;
-            color: #1e293b;
+            background: #10131a;
+            color: #d9dce2;
         }
 
         /* ── LAYOUT SKELETON ── */
         body { display: flex; flex-direction: column; }
 
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+            background: #151b26;
+            border-bottom: 1px solid #222835;
             padding: 11px 20px;
             /* 統一全站工具 header 高度為 60px,工具切換時頂部 bar 不會跳動 */
             min-height: 60px;
@@ -30,7 +30,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,.06);
             flex-shrink: 0;
         }
-        .app-header h1 { font-size: 15px; font-weight: 600; color: #1e293b; letter-spacing: .02em; }
+        .app-header h1 { font-size: 15px; font-weight: 600; color: #d9dce2; letter-spacing: .02em; }
 
         .page-content {
             flex: 1;
@@ -54,9 +54,9 @@
         /* ── GLASS CARD ── */
         .card {
             border-radius: 12px;
-            background: rgba(255,255,255,0.6);
+            background: rgba(21, 27, 38, 0.7);
             box-shadow: rgba(0,0,0,0.08) 1px 4px 14px;
-            border: 1.5px solid rgba(255,255,255,0.7);
+            border: 1.5px solid rgba(28, 33, 44, 0.7);
             border-bottom: 1.5px solid rgba(40,40,40,0.10);
             border-right: 1.5px solid rgba(40,40,40,0.10);
             padding: 14px;
@@ -72,7 +72,7 @@
             align-items: center;
             font-size: 0.74rem;
             font-weight: 700;
-            color: #4a6070;
+            color: #9db0be;
             margin-bottom: 6px;
             flex-shrink: 0;
         }
@@ -82,19 +82,19 @@
             flex: 1;
             min-height: 0;
             width: 100%;
-            border: 1.5px solid rgba(200,220,240,0.8);
+            border: 1.5px solid rgba(52, 77, 101, 0.8);
             border-radius: 8px;
             padding: 9px 11px;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.8rem;
-            background: rgba(255,255,255,0.8);
+            background: rgba(21, 27, 38, 0.8);
             resize: none;
             line-height: 1.55;
-            color: #1e293b;
+            color: #d9dce2;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
         textarea:focus { outline: none; border-color: rgba(0,160,220,0.5); box-shadow: 0 0 0 3px rgba(0,160,220,0.1); }
-        textarea[readonly] { background: rgba(248,250,252,0.9); cursor: default; }
+        textarea[readonly] { background: rgba(14, 17, 22, 0.9); cursor: default; }
         .input-ta  { border-left: 4px solid #2980b9 !important; }
         .globe-ta  { border-left: 4px solid #27ae60 !important; }
         .none-ta   { border-left: 4px solid #e74c3c !important; }
@@ -130,18 +130,18 @@
             cursor: pointer;
             font-size: 0.67rem;
             font-weight: 600;
-            background: rgba(255,255,255,0.6);
-            color: #555;
+            background: rgba(21, 27, 38, 0.7);
+            color: #d9d9d9;
             transition: all 0.15s;
         }
-        .copy-btn:hover { background: #fff; }
-        .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
+        .copy-btn:hover { background: #151b26; }
+        .copy-btn.copied { color: #5ae28c; border-color: #22c55e; }
 
         /* ── LOG ── */
         .log-card {
             flex-shrink: 0;
             border-radius: 10px;
-            background: #1e293b;
+            background: #2f3749;
             border: 1px solid #334155;
             padding: 10px 14px;
             display: flex;
@@ -151,7 +151,7 @@
         .log-label {
             font-size: 0.7rem;
             font-weight: 700;
-            color: #64748b;
+            color: #8e9bae;
             margin-bottom: 4px;
         }
         .log-box {
@@ -166,7 +166,7 @@
         .log-box::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
         .log-finish  { color: #60a5fa; font-weight: 700; }
         .log-summary { color: #f87171; font-weight: 700; }
-        .log-exclude { color: #fbbf24; }
+        .log-exclude { color: #f0c24c; }
 
         /* ── RESPONSIVE ── */
         @media (max-width: 800px) {
@@ -175,6 +175,8 @@
             textarea { min-height: 120px; flex: none; }
         }
     </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../assets/theme.css">
 </head>
 <body>
     <div class="app-header">
@@ -199,7 +201,7 @@
             <!-- GLOBE -->
             <div class="card">
                 <div class="field-label">
-                    <span style="color:#1a7a40">&#9632; Globe</span>
+                    <span style="color:#78e2a2">&#9632; Globe</span>
                     <button class="copy-btn" onclick="copyTA('global', this)">複製</button>
                 </div>
                 <textarea id="global" class="globe-ta" readonly></textarea>
@@ -208,7 +210,7 @@
             <!-- NONE GLOBE -->
             <div class="card">
                 <div class="field-label">
-                    <span style="color:#b03020">&#9632; None Globe</span>
+                    <span style="color:#e68175">&#9632; None Globe</span>
                     <button class="copy-btn" onclick="copyTA('noneglobal', this)">複製</button>
                 </div>
                 <textarea id="noneglobal" class="none-ta" readonly></textarea>

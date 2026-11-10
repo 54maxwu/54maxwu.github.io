@@ -12,14 +12,14 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
-            background: #f1f5f9;
-            color: #2c3e50;
+            background: #10131a;
+            color: #96adc5;
             min-height: 100vh;
         }
 
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+            background: #151b26;
+            border-bottom: 1px solid #222835;
             padding: 14px 24px;
             /* 統一全站工具 header 高度為 60px */
             min-height: 60px;
@@ -34,7 +34,7 @@
         .app-header h1 {
             font-size: 16px;
             font-weight: 600;
-            color: #1e293b;
+            color: #d9dce2;
             letter-spacing: .02em;
             margin: 0;
         }
@@ -43,7 +43,7 @@
             align-items: center;
             gap: 10px;
             font-size: 12px;
-            color: #64748b;
+            color: #8e9bae;
         }
         .status-pill {
             display: inline-flex;
@@ -52,17 +52,17 @@
             font-size: 11px;
             padding: 4px 10px;
             border-radius: 999px;
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
-            color: #64748b;
+            border: 1px solid #222835;
+            background: #0e1116;
+            color: #8e9bae;
             font-weight: 600;
             white-space: nowrap;
             transition: background-color 0.2s, color 0.2s, border-color 0.2s;
         }
-        .status-pill.idle  { color: #64748b; }
-        .status-pill.busy  { color: #b45309; background: #fffbeb; border-color: #fde68a; }
-        .status-pill.ready { color: #15803d; background: #ecfdf5; border-color: #bbf7d0; }
-        .status-pill.err   { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+        .status-pill.idle  { color: #8e9bae; }
+        .status-pill.busy  { color: #f3a468; background: #322c16; border-color: #6a5e2f; }
+        .status-pill.ready { color: #73e89f; background: #163225; border-color: #2f6a44; }
+        .status-pill.err   { color: #ea7171; background: #301515; border-color: #6a2f2f; }
         .status-pill .dot {
             width: 6px; height: 6px; border-radius: 50%; background: currentColor;
         }
@@ -83,9 +83,9 @@
         .glass {
             border-radius: 14px;
             backdrop-filter: blur(8px);
-            background-color: rgba(255,255,255,0.55);
+            background-color: rgba(21, 27, 38, 0.7);
             box-shadow: rgba(0,0,0,0.10) 2px 8px 20px;
-            border: 1.5px solid rgba(255,255,255,0.7);
+            border: 1.5px solid rgba(28, 33, 44, 0.7);
             border-bottom: 1.5px solid rgba(40,40,40,0.15);
             border-right: 1.5px solid rgba(40,40,40,0.15);
             padding: 24px;
@@ -94,7 +94,7 @@
         .section-title {
             font-size: 0.78rem;
             font-weight: 700;
-            color: #4a6070;
+            color: #9db0be;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             margin-bottom: 10px;
@@ -136,7 +136,7 @@
             box-shadow: inset 0 0 0 2px rgba(99,102,241,0.18);
         }
         .upload-empty {
-            color: #475569;
+            color: #9eabbd;
         }
         .upload-icon {
             width: 56px;
@@ -153,12 +153,12 @@
         .upload-empty .upload-hint {
             font-size: 15px;
             font-weight: 600;
-            color: #334155;
+            color: #99aac2;
             margin-bottom: 6px;
         }
         .upload-empty .upload-sub {
             font-size: 12.5px;
-            color: #64748b;
+            color: #8e9bae;
             margin-bottom: 12px;
         }
         .upload-empty .upload-formats {
@@ -180,17 +180,17 @@
             max-height: 360px;
             border-radius: 10px;
             box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-            background: #fff;
+            background: #151b26;
         }
         .preview-meta {
             font-size: 12px;
-            color: #64748b;
+            color: #8e9bae;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
             display: flex;
             gap: 16px;
             align-items: center;
         }
-        .preview-meta strong { color: #1e293b; font-weight: 700; }
+        .preview-meta strong { color: #d9dce2; font-weight: 700; }
         .reset-btn {
             background: linear-gradient(145deg, #ef4444, #dc2626);
             color: #fff;
@@ -221,8 +221,8 @@
             pointer-events: auto;
         }
         .search-btn {
-            background: rgba(255,255,255,0.9);
-            border: 1.5px solid #e2e8f0;
+            background: rgba(21, 27, 38, 0.9);
+            border: 1.5px solid #222835;
             border-radius: 12px;
             padding: 14px 16px;
             display: flex;
@@ -265,13 +265,13 @@
         .engine-info strong {
             display: block;
             font-size: 14px;
-            color: #1e293b;
+            color: #d9dce2;
             margin-bottom: 3px;
             font-weight: 700;
         }
         .engine-info small {
             font-size: 11.5px;
-            color: #64748b;
+            color: #8e9bae;
             line-height: 1.4;
             display: block;
         }
@@ -308,25 +308,25 @@
         .howto {
             margin-top: 22px;
             padding: 14px 16px;
-            background: rgba(255,255,255,0.55);
+            background: rgba(21, 27, 38, 0.7);
             border: 1px solid rgba(148,163,184,0.3);
             border-left: 3px solid #6366f1;
             border-radius: 8px;
             font-size: 12.5px;
-            color: #475569;
+            color: #9eabbd;
             line-height: 1.6;
         }
-        .howto b { color: #1e293b; font-weight: 700; }
+        .howto b { color: #d9dce2; font-weight: 700; }
         .howto kbd {
             display: inline-block;
             padding: 1px 6px;
-            background: #fff;
-            border: 1px solid #cbd5e1;
+            background: #151b26;
+            border: 1px solid #272e3d;
             border-bottom-width: 2px;
             border-radius: 4px;
             font-family: ui-monospace, 'SF Mono', Consolas, monospace;
             font-size: 11px;
-            color: #1e293b;
+            color: #d9dce2;
             margin: 0 2px;
         }
 
@@ -336,7 +336,7 @@
             bottom: 28px;
             left: 50%;
             transform: translateX(-50%) translateY(120%);
-            background: #1e293b;
+            background: #2f3749;
             color: #fff;
             padding: 12px 20px;
             border-radius: 10px;
@@ -361,6 +361,8 @@
         .toast.err  { background: linear-gradient(145deg, #dc2626, #b91c1c); }
         .toast.warn { background: linear-gradient(145deg, #f59e0b, #d97706); }
     </style>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
     <div class="app-header">

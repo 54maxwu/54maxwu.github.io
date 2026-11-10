@@ -5,6 +5,15 @@
   <title>加密文件</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet" integrity="sha384-DoAj5Uf/2fkaJeZQi1AVQWJs8Rh2ivQL8UkrMZm84FzqdC+6seY4C99CWABJIRCv" crossorigin="anonymous">
+<meta name="color-scheme" content="dark">
+  <link rel="stylesheet" href="assets/theme.css">
+  <style>
+    .inputpw label { color: #7d8796; font-size: 14px; }
+    #pass { background: transparent; border-color: #34405a; color: #f0f4f8; outline: none; padding: 4px 2px; }
+    #pass:focus { border-color: #58a6ff; }
+    #output { background: #151b26 !important; color: #d6dde6 !important; border-color: #232b3a !important; font-family: ui-monospace, Consolas, monospace; padding: 16px; }
+    #err { width: 100%; text-align: center; color: #f85149; font-size: 13px; min-height: 18px; }
+  </style>
 </head>
 
 <body>
@@ -32,14 +41,14 @@
           document.getElementsByClassName('result')[0].style.display = 'block'
         } catch (error) {
           if(error.message === 'Malformed UTF-8 data'){
-            alert('解密失敗')
+            document.getElementById('err').textContent = '解密失敗，請確認密碼'
           }
         }
       }
     }
 
   </script>
-  <div class="inputpw flex h-screen items-center justify-center ">
+  <div class="inputpw flex flex-wrap h-screen items-center justify-center content-center">
     <div class="mx-4 mt-4">
       <label aria-placeholder="pass">Secret Key:</label>
       <input id="pass" type="password" class="border-b-2 ml-2">
@@ -48,6 +57,7 @@
       <a href="javascript:Decrypt()"
         class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">解密</a>
     </div>
+    <div id="err" class="mt-3"></div>
   </div>
   <div class="result flex flex-wrap h-screen hidden">
       <textarea rows="40" cols="50"
