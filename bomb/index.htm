@@ -466,7 +466,7 @@
       <div class="gitem"><img src="img/items/speed.png"><div><b>加速</b><span>移動速度 +1</span></div></div>
       <div class="gitem"><img src="img/items/kick.png"><div><b>踢彈</b><span>走向炸彈可把它踢飛出去</span></div></div>
       <div class="gitem"><img src="img/items/pierce.png"><div><b>穿透</b><span>爆風能貫穿磚塊繼續延伸</span></div></div>
-      <div class="gitem"><img src="img/items/shield.png"><div><b>護盾</b><span>擋下一次爆炸，並短暫無敵</span></div></div>
+      <div class="gitem"><img src="img/items/shield.png"><div><b>護盾</b><span>最多一層，擋下一次爆炸並短暫無敵</span></div></div>
     </div>
     <button class="go" id="guideClose" style="width:100%">知道了</button>
   </div>
@@ -811,7 +811,7 @@ function stepWorld(){
       else if(u.kind===PU_SPEED) p.speed=Math.min(5,p.speed+1);
       else if(u.kind===PU_KICK) p.kick=true;
       else if(u.kind===PU_PIERCE) p.pierce=true;
-      else if(u.kind===PU_SHIELD) p.shield=Math.min(5,p.shield+1);
+      else if(u.kind===PU_SHIELD) p.shield=1;
       world.powerups.splice(idx,1);
       sfx('pick');
     }
@@ -1767,7 +1767,7 @@ function applyState(s){
   world.players.forEach((p,i)=>{ const d=s.players[i]; if(!d)return;
     const wasAlive=p.alive;
     p.alive=!!d[2]; p.fire=d[3]; p.maxBombs=d[4]; p.dying=d[6]||0; if(d[7])p.speed=d[7];
-    p.kick=!!d[8]; p.pierce=!!d[9]; p.remote=!!d[10]; p.shield=d[11]||0; p.invuln=d[12]||0;
+    p.kick=!!d[8]; p.pierce=!!d[9]; p.remote=!!d[10]; p.shield=d[11]>0?1:0; p.invuln=d[12]||0;
     if(i===myIndex){
       if(!p.alive){ if(wasAlive){ p.px=d[0]; p.py=d[1]; sfx('die'); } }   // 剛死：定位到權威死亡點播動畫
       else reconcileSelf(p, d, (s.acks&&s.acks[myIndex])||0);  // 活著：拉回權威 + 重播未確認輸入
