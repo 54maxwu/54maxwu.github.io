@@ -259,6 +259,52 @@
     .bombbtn{width:84px;height:84px;font-size:32px}
     #ctrlHint{display:none}
   }
+
+  body{background:radial-gradient(ellipse at 50% 0%,#172332 0%,#080c13 65%);color:#e5f0f6}
+  .app-header{background:rgba(14,29,47,.9);border-bottom-color:#42647a;box-shadow:0 4px 30px #07132366}
+  .app-header h1{color:#f2ead5;letter-spacing:.08em}
+  .card{background:linear-gradient(145deg,#1b2533,#111923);border-color:#426176;border-radius:18px;box-shadow:0 14px 35px #07132344}
+  button.go{background:linear-gradient(135deg,#36516b,#263d55);color:#dbe6f3;font-weight:750;border-radius:12px;box-shadow:0 4px 0 #0d1926}
+  .mode{border-radius:13px;background:#192e43;border-color:#38546a}.mode.on{background:#244b5d;border-color:#7cd8c9}
+  .stage{background:#0c111a;border:1px solid #344456;border-radius:20px;padding:8px;box-shadow:0 24px 70px #0006,inset 0 1px #ffffff33;overflow:hidden}
+  canvas{border-radius:14px}.ptag{background:#15202d;border-color:#35465a;border-radius:12px;color:#eef7fa}
+  .gamebar{padding:10px 0}.pill,.sub,.card .desc{color:#afcbd8}
+  /* 最終 RWD：桌機限制尺寸；直向保留控制區；橫向側置控制。 */
+  html,body{max-width:100%;overscroll-behavior:none}
+  .page-content{width:100%;min-width:0}
+  #game-view{width:100%;min-width:0}
+  #game-view .stage{width:min(100%,780px,calc((100dvh - 190px)*1.1818));aspect-ratio:13/11;height:auto;margin:0 auto;padding:7px;flex:none}
+  #game-view canvas{flex:none;object-fit:contain;max-width:100%;max-height:100%}
+  .gamebar{max-width:780px;margin-left:auto;margin-right:auto}.scores{min-width:0}
+  .dpad,#padDpad{display:block;position:relative;border-radius:50%;background:radial-gradient(circle,#273c50 0 28%,#162332 29% 64%,#33495c 65% 67%,#101923 68%);border:1px solid #41566c;box-shadow:inset 0 3px 14px #0008;touch-action:none;aspect-ratio:1}
+  .dpad .arm,.dpad .ctr{display:none}
+  .stick-knob{position:absolute;left:28%;top:28%;width:44%;height:44%;border-radius:50%;background:radial-gradient(circle at 35% 25%,#637c94,#30465c 70%);border:1px solid #7890a3;box-shadow:0 5px 12px #0008;transform:translate(var(--jx,0px),var(--jy,0px));pointer-events:none;will-change:transform}
+  .dpad.active .stick-knob{border-color:#9bc5de}
+  .bombbtn,#padBomb{background:radial-gradient(circle at 35% 25%,#a85b40,#633328);box-shadow:0 5px 0 #341c19,0 8px 20px #0005;border:1px solid #b77d5b}
+  @media(max-width:760px){
+    body:has(#game-view.show){height:100dvh;overflow:hidden}
+    body:has(#game-view.show) .app-header{height:48px;min-height:48px;padding:5px 8px}
+    body:has(#game-view.show) .page-content{height:calc(100dvh - 48px);padding:5px 6px max(5px,env(safe-area-inset-bottom))}
+    #game-view.show{height:100%;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:6px}
+    #game-view .stage{width:100%;height:100%;aspect-ratio:auto;min-height:0;padding:5px;border-radius:14px}
+    #game-view .gamebar{margin:0!important;padding:0;width:100%}
+    #game-view .scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;gap:3px}
+    #game-view .ptag{min-width:0;padding:3px 5px;overflow:hidden;font-size:10px;gap:3px}
+    .ptag img.pu{width:12px;height:12px;margin-left:0}
+    #game-view .touch.show{display:flex;height:126px;padding:0 10px;gap:16px}
+    #dpadZone,#bombZone{margin:0;padding:0;height:100%;align-items:center}
+    .dpad{width:112px;height:112px}.bombbtn{width:80px;height:80px;font-size:30px}
+    #ctrlHint{display:none}
+  }
+  @media(max-height:500px) and (orientation:landscape) and (max-width:1000px){
+    body:has(#game-view.show){overflow:hidden}.app-header{min-height:38px!important;height:38px!important;padding:3px 10px!important}
+    body:has(#game-view.show) .page-content{height:calc(100dvh - 38px);padding:4px 136px}
+    #game-view.show{height:100%;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:3px}
+    #game-view .stage{width:100%;height:100%;aspect-ratio:auto;min-height:0}
+    #game-view .touch.show{position:fixed;inset:45px 10px 10px;height:auto;pointer-events:none;padding:0;justify-content:space-between}
+    #dpadZone,#bombZone{flex:0 0 116px;pointer-events:auto;height:100%;margin:0;padding:0}
+    #game-view .scores{display:flex;justify-content:center;gap:4px}#ctrlHint{display:none}
+  }
 </style>
 <meta name="color-scheme" content="dark">
 <link rel="stylesheet" href="../assets/theme.css">
@@ -1061,28 +1107,30 @@ function init3D(){
   }catch(e){ console.error('WebGL init failed',e); show3dError(); window.THREE_FAILED=e; return false; }
   renderer.setPixelRatio(Math.min(MOBILE_RENDER?1:(HQ?2:1.5),window.devicePixelRatio||1));
   renderer.setSize(cv.width,cv.height,false);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=0.9;
   if(HQ){
     renderer.shadowMap.enabled=true;
     renderer.shadowMap.type=THREE.PCFSoftShadowMap;                   // 柔和陰影邊緣
     renderer.toneMapping=THREE.ACESFilmicToneMapping;                 // 電影感色調（配 Bloom 才不會過曝）
-    renderer.toneMappingExposure=1.05;
+    renderer.toneMappingExposure=0.9;
   } else {
     renderer.shadowMap.enabled=false;                                 // 關陰影：效能最大來源
   }
   if('outputColorSpace' in renderer) renderer.outputColorSpace=THREE.SRGBColorSpace;
 
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color('#0b1020');
+  scene.background=new THREE.Color('#0c111a');
   // 正交相機 + 近俯視：去掉透視收斂 → 棋盤呈現方正矩形（不再像斜著看），但角色/道具仍是 3D
   const aspect=cv.width/cv.height;
-  const F=11.4;
+  const F=12.6;
   const camera=new THREE.OrthographicCamera(-F*aspect/2, F*aspect/2, F/2, -F/2, 0.1, 80);
   // 正交投影 → 棋盤邊緣平行（平面「棋盤」感，無透視收斂）；中等俯角 → 角色/道具仍有立體感
-  camera.position.set(0,20,10); camera.lookAt(0,0,-0.3);
+  camera.position.set(0,22,12); camera.lookAt(0,0,-0.3);
 
-  scene.add(new THREE.HemisphereLight('#cfe0ff','#202838',HQ?0.65:0.95));
-  scene.add(new THREE.AmbientLight('#5a6680',HQ?0.32:0.5));
-  const dir=new THREE.DirectionalLight('#fff4e0',HQ?1.15:0.9);
+  scene.add(new THREE.HemisphereLight('#9aaccc','#171a23',HQ?0.85:1.05));
+  scene.add(new THREE.AmbientLight('#7185ab',0.28));
+  const dir=new THREE.DirectionalLight('#c6d9f5',HQ?1.5:1.25);
   dir.position.set(7,15,6);
   if(HQ){
     // 投射陰影：正交相機的陰影框涵蓋整個棋盤
@@ -1122,12 +1170,21 @@ function init3D(){
     if(!G3.composer) window.addEventListener('three-post-ready', setupBloom, {once:true});
   }
 
+  // ResizeObserver 同時處理轉向、瀏覽器工具列及桌機側欄寬度變更。
+  G3.resizeObserver=new ResizeObserver(()=>fitGameCanvas());G3.resizeObserver.observe(cv.parentElement);fitGameCanvas();
   const ld=$('loading3d'); if(ld) ld.style.display='none';
   return true;
 }
 
 // 建立 Bloom 後製鏈（RenderPass → UnrealBloomPass → OutputPass）。
 // 只在 HQ 且模組已載入時建立；draw() 會偵測 composer 是否存在來決定用哪條渲染路徑。
+function fitGameCanvas(){
+  if(!G3)return;const box=cv.parentElement.getBoundingClientRect(),ratio=780/660;
+  const w=Math.max(1,Math.min(box.width-16,(box.height-16)*ratio)),h=w/ratio;
+  cv.style.width=w+'px';cv.style.height=h+'px';
+  G3.renderer.setSize(Math.round(w),Math.round(h),false);
+  if(G3.composer)G3.composer.setSize(Math.round(w),Math.round(h));
+}
 function setupBloom(){
   if(!G3 || G3.composer || !window.THREE_POST) return;
   const P=window.THREE_POST;
@@ -1138,7 +1195,7 @@ function setupBloom(){
     composer.addPass(new P.RenderPass(G3.scene,G3.camera));
     // 參數：strength(強度) / radius(擴散) / threshold(亮度門檻，只有夠亮的爆炸/火花才發光)
     // 收斂強度、拉高門檻 → 泛光更乾淨精緻，不糊整個畫面，只讓真正亮的爆炸/火花發光。
-    const bloom=new P.UnrealBloomPass(new THREE.Vector2(cv.width,cv.height), 0.7, 0.5, 0.6);
+    const bloom=new P.UnrealBloomPass(new THREE.Vector2(cv.width,cv.height), 0.32, 0.35, 0.85);
     composer.addPass(bloom);
     composer.addPass(new P.OutputPass());
     G3.composer=composer; G3.bloomPass=bloom;
@@ -1150,26 +1207,16 @@ function show3dError(){ const el=$('loading3d'); if(el){ el.style.display='flex'
 // 平面棋盤：整個地圖（地板格 + 牆 + 磚）畫成一張 2D 貼圖，貼在單一平面上。
 // 這樣背景是「平的」、整個場景只剩 1 個方塊網格 + 少數 3D 角色，效能大幅提升、不卡。
 function makeBoardTex(){
-  const s=46, c=document.createElement('canvas'); c.width=COLS*s; c.height=ROWS*s;
-  const g=c.getContext('2d');
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
-    const t=world.grid[y][x], px=x*s, py=y*s;
-    // 地板棋盤格
-    g.fillStyle=((x+y)&1)?'#243349':'#1b2740'; g.fillRect(px,py,s,s);
-    if(t===T_WALL){
-      g.fillStyle='#566479'; g.fillRect(px+1,py+1,s-2,s-2);
-      g.fillStyle='#6b7d96'; g.fillRect(px+3,py+3,s-6,s-9);
-      g.fillStyle='#3a4659'; g.fillRect(px+3,py+s-7,s-6,4);
-    } else if(t===T_BRICK){
-      g.fillStyle='#b45309'; g.fillRect(px+2,py+2,s-4,s-4);
-      g.fillStyle='#d97706'; g.fillRect(px+2,py+2,s-4,5);
-      g.strokeStyle='#92400e'; g.lineWidth=2; g.strokeRect(px+3,py+3,s-6,s-6);
-    }
+  const n=64,c=document.createElement('canvas');c.width=COLS*n;c.height=ROWS*n;const x=c.getContext('2d');
+  for(let y=0;y<ROWS;y++)for(let a=0;a<COLS;a++){
+    const px=a*n,py=y*n;x.fillStyle=(a+y)%2?'#26313d':'#2c3946';x.fillRect(px,py,n,n);
+    x.strokeStyle='#18212c';x.lineWidth=2;x.strokeRect(px+1,py+1,n-2,n-2);
+    x.fillStyle='rgba(169,195,225,.08)';x.fillRect(px+4,py+4,n-8,2);
+    if(world.grid[y][a]===T_EMPTY){x.fillStyle='#425362';for(let j=0;j<3;j++)x.fillRect(px+12+j*17,py+15+((a*11+y*7+j*13)%34),2,2);}
   }
-  const tex=new THREE.CanvasTexture(c); if('colorSpace' in tex) tex.colorSpace=THREE.SRGBColorSpace;
-  tex.magFilter=THREE.LinearFilter; tex.anisotropy=4;
-  return tex;
+  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;return tex;
 }
+
 function puTex(kind){
   if(G3.puTex[kind]) return G3.puTex[kind];
   const tex=new THREE.TextureLoader().load((typeof PU_DATA!=='undefined'&&PU_DATA[PU_FILE[kind]])||ITEM_IMG(kind));
@@ -1198,62 +1245,138 @@ function shieldCountTex(n){
 }
 
 // ── 平面棋盤（單一貼圖平面 + 薄底座；磚塊被炸掉時重畫貼圖）──
+// 共用倒角幾何與材質，重開地圖時只移除實例。
+function toyBox(w,h,d,r){
+  const shape=new THREE.Shape(),x=-w/2,y=-h/2;
+  shape.moveTo(x+r,y);shape.lineTo(x+w-r,y);shape.quadraticCurveTo(x+w,y,x+w,y+r);shape.lineTo(x+w,y+h-r);shape.quadraticCurveTo(x+w,y+h,x+w-r,y+h);shape.lineTo(x+r,y+h);shape.quadraticCurveTo(x,y+h,x,y+h-r);shape.lineTo(x,y+r);shape.quadraticCurveTo(x,y,x+r,y);
+  const geo=new THREE.ExtrudeGeometry(shape,{depth:d-2*r,bevelEnabled:true,bevelSegments:2,steps:1,bevelSize:r/2,bevelThickness:r,curveSegments:3});geo.translate(0,0,-(d-2*r)/2);return geo;
+}
 function buildBoard(){
   const T=G3;
-  if(T.boardPlane){ T.scene.remove(T.boardPlane); T.boardPlane.geometry.dispose(); if(T.boardPlane.material.map)T.boardPlane.material.map.dispose(); T.boardPlane.material.dispose(); }
-  if(T.slab){ T.scene.remove(T.slab); }
-  T.gridSnap=world.grid.map(r=>r.slice());
-  // HQ 用 Standard 材質才能接收陰影；一般用 Basic 最省。兩者都有 .map，syncBoard 換貼圖的程式不變。
-  const boardMat = HQ ? new THREE.MeshStandardMaterial({map:makeBoardTex(),roughness:0.92,metalness:0.0})
-                      : new THREE.MeshBasicMaterial({map:makeBoardTex()});
-  const plane=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS), boardMat);
-  plane.rotation.x=-Math.PI/2; plane.position.y=0.001; if(HQ) plane.receiveShadow=true; T.boardPlane=plane; T.scene.add(plane);
-  if(!T.slab){ T.slab=new THREE.Mesh(new THREE.BoxGeometry(COLS+0.5,0.4,ROWS+0.5), new THREE.MeshBasicMaterial({color:'#070b16'})); T.slab.position.y=-0.21; }
-  T.scene.add(T.slab);
-}
-function ensureBoard(){ if(G3.boardId!==world.boardId){ buildBoard(); G3.boardId=world.boardId; } }
-// 偵測磚塊被炸掉 → 噴碎屑 + 重畫棋盤貼圖（很少發生，成本可忽略）
-function syncBoard(){
-  const T=G3; if(!T.gridSnap) return; let dirty=false;
+  if(T.boardPlane){T.scene.remove(T.boardPlane);T.boardPlane.geometry.dispose();T.boardPlane.material.map.dispose();T.boardPlane.material.dispose();}
+  if(T.scenery){T.scene.remove(T.scenery);T.scenery.traverse(o=>{if(o.isInstancedMesh)o.dispose();});}
+  T.gridSnap=world.grid.map(r=>r.slice());T.scenery=new THREE.Group();T.scene.add(T.scenery);T.bricks=new Map();
+  if(!T.toyAssets){
+    const mat=(color,roughness=0.55)=>new THREE.MeshStandardMaterial({color,roughness});
+    T.toyAssets={wall:toyBox(0.86,0.62,0.86,0.08),cap:toyBox(0.9,0.1,0.9,0.045),crate:toyBox(0.76,0.55,0.76,0.045),bar:new THREE.BoxGeometry(0.62,0.065,0.045),wallMat:mat('#35465b'),capMat:mat('#596c82'),crateMat:mat('#655344'),trimMat:mat('#352e2a'),bolt:new THREE.SphereGeometry(0.025,6,4),boltMat:mat('#a68b63')};
+  }
+  const A=T.toyAssets;
+  function mesh(geo,mat,parent,x,y,z){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=HQ;m.receiveShadow=HQ;parent.add(m);return m;}
+  const plane=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({map:makeBoardTex(),roughness:0.9}));plane.rotation.x=-Math.PI/2;plane.position.y=0.001;plane.receiveShadow=HQ;T.boardPlane=plane;T.scene.add(plane);
+  if(!T.slab){T.slab=new THREE.Mesh(toyBox(COLS+0.6,0.5,ROWS+0.6,0.16),new THREE.MeshStandardMaterial({color:'#182431',roughness:0.4}));T.slab.position.y=-0.4;T.scene.add(T.slab);}
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
-    if(T.gridSnap[y][x]===T_BRICK && world.grid[y][x]!==T_BRICK){
-      T.gridSnap[y][x]=world.grid[y][x]; dirty=true;
-      spawnBurst(cellWX(x),0.3,cellWZ(y),'#c2772a',8);
+    const cell=world.grid[y][x];if(cell!==T_WALL&&cell!==T_BRICK)continue;
+    const group=new THREE.Group();group.position.set(cellWX(x),0,cellWZ(y));T.scenery.add(group);
+    if(cell===T_WALL){mesh(A.wall,A.wallMat,group,0,0.32,0);mesh(A.cap,A.capMat,group,0,0.65,0);}
+    else{
+      mesh(A.crate,A.crateMat,group,0,0.285,0);
+      for(const z of [-0.39,0.39]){for(const angle of [-0.68,0.68]){const m=mesh(A.bar,A.trimMat,group,0,0.285,z);m.rotation.z=angle;}for(const side of [-1,1])mesh(A.bolt,A.boltMat,group,side*0.27,0.47,z);}
+      T.bricks.set(y*COLS+x,group);
     }
   }
-  if(dirty){ const old=T.boardPlane.material.map; T.boardPlane.material.map=makeBoardTex(); T.boardPlane.material.needsUpdate=true; if(old)old.dispose(); }
 }
 
-// ── 角色 ─────────────────────────────────────────────
-function makePlayerRig(i){
-  const col=new THREE.Color(COLORS[i]);
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.SphereGeometry(0.32,24,18), new THREE.MeshStandardMaterial({color:col,roughness:HQ?0.35:0.45,metalness:HQ?0.15:0.1,envMapIntensity:HQ?0.9:1}));
-  body.position.y=0.34; body.scale.y=1.06; if(HQ) body.castShadow=true; g.add(body);
-  // 平面假陰影（無 shadow map，便宜，給角色落地感）。HQ 有真陰影，改用假陰影就不需要 → 略過。
-  if(!HQ){
-    const sh=new THREE.Mesh(new THREE.CircleGeometry(0.3,18), new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:0.28}));
-    sh.rotation.x=-Math.PI/2; sh.position.y=0.01; g.add(sh);
+// 同材質地圖合併繪製，破壞木箱只更新對應矩陣。
+function batchToyBoard(){
+  const T=G3,batches=new Map(),owners=new Map();
+  for(const [key,group] of T.bricks)group.traverse(m=>{if(m.isMesh)owners.set(m,key);});
+  T.scenery.updateMatrixWorld(true);
+  T.scenery.traverse(m=>{if(!m.isMesh)return;const key=m.geometry.uuid+':'+m.material.uuid;if(!batches.has(key))batches.set(key,[]);batches.get(key).push(m);});
+  const next=new THREE.Group(),handles=new Map();
+  for(const meshes of batches.values()){
+    const first=meshes[0],batch=new THREE.InstancedMesh(first.geometry,first.material,meshes.length);batch.castShadow=HQ;batch.receiveShadow=HQ;
+    meshes.forEach((m,i)=>{batch.setMatrixAt(i,m.matrixWorld);if(owners.has(m)){const key=owners.get(m);if(!handles.has(key))handles.set(key,[]);handles.get(key).push({batch,index:i});}});
+    batch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);batch.computeBoundingSphere();next.add(batch);
   }
-  const belly=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,12), new THREE.MeshStandardMaterial({color:'#f8fafc',roughness:0.7}));
-  belly.position.set(0,0.3,0.17); belly.scale.set(1,1.1,0.55); g.add(belly);
-  const we=new THREE.MeshStandardMaterial({color:'#fff',roughness:0.3});
-  const pe=new THREE.MeshStandardMaterial({color:'#0f172a'});
-  for(const sx of [-1,1]){
-    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.1,12,10),we); eye.position.set(sx*0.12,0.5,0.25); g.add(eye);
-    const pup=new THREE.Mesh(new THREE.SphereGeometry(0.045,8,8),pe); pup.position.set(sx*0.12,0.5,0.33); g.add(pup);
-  }
-  const shield=new THREE.Mesh(new THREE.TorusGeometry(0.43,0.05,8,24), new THREE.MeshBasicMaterial({color:'#38bdf8',transparent:true,opacity:0.75}));
-  shield.rotation.x=Math.PI/2; shield.position.y=0.36; shield.visible=false; g.add(shield);
-  // 頭上護盾層數徽章（看板，永遠面向鏡頭、畫在最上層）
-  const cnt=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false,depthWrite:false}));
-  cnt.scale.set(0.5,0.5,0.5); cnt.position.y=1.0; cnt.visible=false; cnt.renderOrder=20; g.add(cnt);
-  // 「你在這」倒三角標記（只在自己操控的角色頭上，上下飄動）
-  const marker=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.32,4), new THREE.MeshBasicMaterial({color:'#fde047'}));
-  marker.rotation.x=Math.PI; marker.rotation.y=Math.PI/4; marker.position.y=1.35; marker.visible=false; g.add(marker);
-  g.userData={body,shield,cnt,marker};
-  return g;
+  T.scene.remove(T.scenery);T.scenery=next;T.bricks=handles;T.scene.add(next);T.hiddenBrickMatrix=new THREE.Matrix4().makeScale(0,0,0);
 }
+function ensureBoard(){ if(G3.boardId!==world.boardId){ buildBoard();batchToyBoard(); G3.boardId=world.boardId; } }
+// 偵測磚塊被炸掉 → 噴碎屑 + 重畫棋盤貼圖（很少發生，成本可忽略）
+function syncBoard(){
+  const T=G3;if(!T.gridSnap)return;
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    if(T.gridSnap[y][x]===T_BRICK&&world.grid[y][x]!==T_BRICK){
+      T.gridSnap[y][x]=world.grid[y][x];const brick=T.bricks.get(y*COLS+x);if(brick){for(const h of brick){h.batch.setMatrixAt(h.index,T.hiddenBrickMatrix);h.batch.instanceMatrix.needsUpdate=true;}T.bricks.delete(y*COLS+x);}spawnBurst(cellWX(x),0.3,cellWZ(y),'#89715b',MOBILE_RENDER?5:10);
+    }
+  }
+}
+
+function makePlayerRig(i){
+  const g=new THREE.Group(), puppet=new THREE.Group(); g.add(puppet);
+  const suit=new THREE.MeshStandardMaterial({color:COLORS[i],roughness:0.48,metalness:0.22});
+  const white=new THREE.MeshStandardMaterial({color:'#bbc5ce',roughness:0.38});
+  const dark=new THREE.MeshStandardMaterial({color:'#152942',roughness:0.2,metalness:0.28});
+  const sphere=new THREE.SphereGeometry(1,20,14);
+  function ball(parent,mat,x,y,z,sx,sy,sz){const m=new THREE.Mesh(sphere,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=HQ;parent.add(m);return m;}
+  const body=ball(puppet,suit,0,0.37,0,0.25,0.28,0.21);
+  ball(puppet,white,0,0.36,0.18,0.17,0.18,0.065);
+  const badge=ball(puppet,new THREE.MeshStandardMaterial({color:'#ffd879',emissive:'#c48120',emissiveIntensity:0.15}),0,0.4,0.244,0.07,0.07,0.025);
+  const head=new THREE.Group();head.position.y=0.73;puppet.add(head);
+  ball(head,suit,0,0,0,0.34,0.3,0.29);
+  ball(head,white,0,-0.015,0.205,0.274,0.223,0.115);
+  const eyes=[];
+  for(const side of [-1,1]){
+    const eye=ball(head,dark,side*0.105,0.015,0.313,0.039,0.065,0.022);eyes.push(eye);
+    ball(eye,white,-0.24,0.3,0.8,0.25,0.2,0.22);
+    ball(head,new THREE.MeshBasicMaterial({color:'#ff9f9e'}),side*0.188,-0.07,0.297,0.043,0.025,0.012);
+    ball(head,white,side*0.32,0,0,0.055,0.105,0.11);
+  }
+  const smile=new THREE.Mesh(new THREE.TorusGeometry(0.045,0.009,6,16,Math.PI),dark);smile.rotation.z=Math.PI;smile.position.set(0,-0.065,0.326);head.add(smile);
+  const antenna=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.022,0.13,8),white);antenna.position.y=0.32;head.add(antenna);
+  ball(head,new THREE.MeshStandardMaterial({color:'#ffe19b',emissive:'#ffb833',emissiveIntensity:0.45}),0,0.405,0,0.055,0.055,0.055);
+  const arms=[],feet=[];
+  for(const side of [-1,1]){
+    const arm=new THREE.Group();arm.position.set(side*0.25,0.5,0);puppet.add(arm);
+    ball(arm,suit,side*0.045,-0.095,0,0.085,0.145,0.085);ball(arm,white,side*0.065,-0.21,0.025,0.092,0.09,0.09);arms.push(arm);
+    const foot=ball(puppet,suit,side*0.13,0.095,0.055,0.115,0.095,0.17);feet.push(foot);
+    ball(foot,white,0,-0.56,0.1,0.96,0.25,0.94);
+  }
+  const sh=new THREE.Mesh(new THREE.CircleGeometry(0.34,24),new THREE.MeshBasicMaterial({color:'#17314a',transparent:true,opacity:0.2,depthWrite:false}));sh.rotation.x=-Math.PI/2;sh.position.y=0.012;g.add(sh);
+  const shield=new THREE.Mesh(new THREE.TorusGeometry(0.43,0.035,8,32),new THREE.MeshBasicMaterial({color:'#79f5ff',transparent:true,opacity:0.8}));shield.rotation.x=Math.PI/2;shield.position.y=0.4;shield.visible=false;g.add(shield);
+  const cnt=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false,depthWrite:false}));cnt.scale.set(0.42,0.42,0.42);cnt.position.y=1.2;cnt.visible=false;g.add(cnt);
+  const marker=new THREE.Mesh(new THREE.ConeGeometry(0.105,0.18,4),new THREE.MeshBasicMaterial({color:'#fff1a8'}));marker.rotation.x=Math.PI;marker.visible=false;g.add(marker);
+  const armorMat=new THREE.MeshStandardMaterial({color:'#514139',metalness:0.7,roughness:0.4,emissive:'#ce4f1b',emissiveIntensity:0.08});
+  const armor=[];for(const side of [-1,1]){const plate=ball(puppet,armorMat,side*0.27,0.54,-0.025,0.13,0.105,0.15);plate.visible=false;armor.push(plate);}
+  const horns=[];for(const side of [-1,1]){const horn=new THREE.Mesh(new THREE.ConeGeometry(0.085,0.24,6),armorMat);horn.position.set(side*0.23,0.26,-0.035);horn.rotation.z=-side*0.4;horn.visible=false;head.add(horn);horns.push(horn);}
+  const charges=[];for(let j=0;j<3;j++){const charge=ball(puppet,new THREE.MeshStandardMaterial({color:'#b48b58',metalness:0.55,roughness:0.45,emissive:'#b96122',emissiveIntensity:0.15}),-0.12+j*0.12,0.24,0.2,0.038,0.055,0.032);charge.visible=false;charges.push(charge);}
+  const boots=feet.map(foot=>{const boot=ball(foot,armorMat,0,0.1,0.65,0.88,0.45,0.45);boot.visible=false;return boot;});
+  const speedRing=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.012,6,24),new THREE.MeshBasicMaterial({color:'#699fc4',transparent:true,opacity:0.45,depthWrite:false}));speedRing.rotation.x=-Math.PI/2;speedRing.position.y=0.06;speedRing.visible=false;g.add(speedRing);
+  const upgradeRing=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.022,6,28),new THREE.MeshBasicMaterial({color:'#d6ac68',transparent:true,opacity:0,depthWrite:false}));upgradeRing.rotation.x=-Math.PI/2;g.add(upgradeRing);
+  g.userData={body,puppet,head,eyes,arms,feet,shield,cnt,marker,armor,armorMat,horns,charges,boots,speedRing,upgradeRing,badge,upgradeUntil:0,stats:null,phase:i*2.17,idle:0,lastDir:0};return g;
+}
+// 時間來自時鐘而非幀數，144Hz 與 60Hz 螢幕的待機節奏相同。
+function animateToy(rig,p,i){
+  const d=rig.userData,t=G3.time,dt=G3.dt;
+  d.idle=p.moving?0:d.idle+dt;
+  const stats=[p.fire,p.maxBombs,p.speed,p.kick?1:0,p.pierce?1:0,p.shield];
+  if(d.stats&&stats.some((n,k)=>n>d.stats[k])){d.upgradeUntil=t+0.75;spawnBurst(worldX(p.px),0.4,worldZ(p.py),'#d5ac6d',MOBILE_RENDER?5:10);if(i===myIndex)toast('能力提升！');}
+  d.stats=stats;
+  const tier=p.fire>=5||p.maxBombs>=5?2:p.fire>=2||p.maxBombs>=2?1:0;
+  d.charges.forEach((m,k)=>m.visible=p.maxBombs>k+1);
+  d.boots.forEach(m=>m.visible=!!p.kick);
+  d.armor.forEach(m=>{m.visible=tier>0;m.scale.y=0.105*(tier===2?1.25:1);});
+  d.horns.forEach(m=>{m.visible=!!p.pierce||tier===2;});
+  d.armorMat.emissiveIntensity=tier===2?0.32:0.1;
+  d.badge.material.emissiveIntensity=0.15+Math.min(p.fire,6)*0.07;
+  d.speedRing.visible=p.speed>1;d.speedRing.rotation.z=t*(1+p.speed*0.3);
+  const u=Math.max(0,(d.upgradeUntil-t)/0.75);d.upgradeRing.visible=u>0;d.upgradeRing.position.y=0.05+(1-u)*0.8;d.upgradeRing.scale.setScalar(1+(1-u)*1.5);d.upgradeRing.material.opacity=u*0.75;
+  const blend=1-Math.exp(-dt*14),target=dirYaw(p.dir);
+  let delta=Math.atan2(Math.sin(target-rig.rotation.y),Math.cos(target-rig.rotation.y));rig.rotation.y+=delta*blend;
+  const a=t*2.5+d.phase,walk=t*15+d.phase,idle=Math.min(1,d.idle*2);
+  const gesture=(d.idle+d.phase)%9;
+  const wave=idle*(gesture>4&&gesture<6?Math.sin((gesture-4)*Math.PI/2):0);
+  const stretch=idle*(gesture>7?Math.sin((gesture-7)*Math.PI/2):0);
+  d.puppet.position.y=p.moving?Math.abs(Math.sin(walk))*0.045:0.012*Math.sin(a)+stretch*0.035;
+  d.puppet.rotation.z=p.moving?Math.sin(walk)*0.055:Math.sin(a*0.65)*0.035;
+  d.puppet.scale.set(1,1+Math.sin(a)*0.015*idle+Math.sin(u*Math.PI)*0.07,1);
+  d.head.rotation.y=idle*(Math.sin(a*0.47)*0.22+wave*0.15);
+  d.head.rotation.z=idle*Math.sin(a*0.7)*0.055;d.head.rotation.x=idle*Math.sin(a*0.55)*0.045;
+  const blink=(t+d.phase)%4.3;const open=blink<0.15?Math.max(0.08,Math.abs(blink-0.075)/0.075):1;
+  d.eyes.forEach(e=>e.scale.y=0.065*open);
+  d.arms.forEach((arm,k)=>{const side=k===0?-1:1;arm.rotation.x=p.moving?Math.sin(walk+k*Math.PI)*0.65:Math.sin(a+k)*0.08;arm.rotation.z=side*(0.1+stretch*1.7)+(k===1?wave*(1.65+0.22*Math.sin(t*13)):0);});
+  d.feet.forEach((foot,k)=>{foot.position.y=0.095+(p.moving?Math.max(0,Math.sin(walk+k*Math.PI))*0.075:stretch*0.015);foot.rotation.x=p.moving?Math.sin(walk+k*Math.PI)*0.28:0;});
+}
+
 function syncPlayers(){
   const T=G3;
   world.players.forEach((p,i)=>{
@@ -1264,19 +1387,19 @@ function syncPlayers(){
       rig.visible = !(p.invuln>0 && (T.t%10<5));
       rig.scale.setScalar(1);
       rig.position.set(worldX(p.px),0,worldZ(p.py));
-      rig.rotation.y=dirYaw(p.dir);
-      rig.userData.body.position.y = 0.34 + (p.moving? Math.abs(Math.sin(T.t*0.35))*0.08 : 0);
+      animateToy(rig,p,i);
+      // 整個玩偶骨架一起呼吸和走路，臉與身體保持連接。
       rig.userData.shield.visible = p.shield>0;
       if(p.shield>0) rig.userData.shield.scale.setScalar(1+0.06*Math.sin(T.t*0.2));
       // 頭上護盾層數
       const cnt=rig.userData.cnt;
-      if(p.shield>0){ cnt.visible=true; const tx=shieldCountTex(p.shield); if(cnt.material.map!==tx){cnt.material.map=tx;cnt.material.needsUpdate=true;} cnt.position.y=(p.shield&&0)+1.05+0.04*Math.sin(T.t*0.15); }
+      if(p.shield>0){ cnt.visible=true; const tx=shieldCountTex(p.shield); if(cnt.material.map!==tx){cnt.material.map=tx;cnt.material.needsUpdate=true;} cnt.position.y=1.28+0.04*Math.sin(T.t*0.15); }
       else cnt.visible=false;
       // 「你在這」標記：自己操控的角色（線上/單人=myIndex；本地雙人=兩人都標）
       const mine = mode==='local' ? true : (i===myIndex);
       const mk=rig.userData.marker;
       mk.visible=mine;
-      if(mine){ mk.position.y = (p.shield>0?1.55:1.3) + 0.13*Math.abs(Math.sin(T.t*0.11)); mk.rotation.y=T.t*0.04; }
+      if(mine){ mk.position.y = (p.shield>0?1.78:1.5) + 0.13*Math.abs(Math.sin(T.t*0.11)); mk.rotation.y=T.t*0.04; }
     } else if(p.dying>0){
       const tt=1-p.dying/DEATH_DUR;
       rig.visible=true; rig.scale.setScalar(Math.max(0.02,1-tt));
@@ -1288,13 +1411,18 @@ function syncPlayers(){
 
 // ── 炸彈 ─────────────────────────────────────────────
 function makeBombRig(){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.SphereGeometry(0.3,20,16), new THREE.MeshStandardMaterial({color:'#0f172a',roughness:HQ?0.14:0.3,metalness:HQ?0.9:0.55,envMapIntensity:HQ?1.4:1,emissive:'#000000',emissiveIntensity:0}));
-  body.position.y=0.3; if(HQ) body.castShadow=true; g.add(body);
-  const hi=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8), new THREE.MeshBasicMaterial({color:'#475569'})); hi.position.set(-0.1,0.42,0.1); g.add(hi);
-  const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.18,6), new THREE.MeshStandardMaterial({color:'#94a3b8'})); fuse.position.set(0.07,0.62,0); fuse.rotation.z=-0.5; g.add(fuse);
-  const spark=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:'#fbbf24'})); spark.position.set(0.13,0.72,0); g.add(spark);
-  g.userData={body,spark};
+  const g=new THREE.Group(),shell=new THREE.Group();g.add(shell);
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.3,24,18),new THREE.MeshStandardMaterial({color:'#222832',roughness:0.38,metalness:0.72,emissive:'#d94e13',emissiveIntensity:0}));
+  body.position.y=0.31;body.castShadow=HQ;shell.add(body);
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.09,12),new THREE.MeshStandardMaterial({color:'#655747',metalness:0.65,roughness:0.5}));collar.position.y=0.61;shell.add(collar);
+  const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.021,0.025,1,8),new THREE.MeshStandardMaterial({color:'#ac9270',roughness:0.95}));shell.add(fuse);
+  const spark=new THREE.Mesh(new THREE.SphereGeometry(0.024,8,6),new THREE.MeshBasicMaterial({color:'#ffd49a'}));shell.add(spark);
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:haloTex(),color:'#ff7d2d',transparent:true,opacity:0.35,depthWrite:false,blending:THREE.AdditiveBlending}));halo.scale.set(0.22,0.22,0.22);shell.add(halo);
+  const shadow=new THREE.Mesh(new THREE.CircleGeometry(0.32,24),new THREE.MeshBasicMaterial({color:'#000000',transparent:true,opacity:0.38,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=0.014;g.add(shadow);
+  const smoke=[],embers=[];
+  for(let j=0;j<4;j++){const puff=new THREE.Sprite(new THREE.SpriteMaterial({map:haloTex(),color:'#777e88',transparent:true,opacity:0,depthWrite:false}));g.add(puff);smoke.push(puff);}
+  for(let j=0;j<5;j++){const e=new THREE.Mesh(new THREE.SphereGeometry(0.009,5,4),new THREE.MeshBasicMaterial({color:j%2?'#ff9e40':'#ffe0a6',transparent:true,depthWrite:false}));g.add(e);embers.push(e);}
+  g.userData={body,shell,fuse,spark,halo,shadow,smoke,embers};
   return g;
 }
 function syncBombs(){
@@ -1304,17 +1432,28 @@ function syncBombs(){
     const px=b.px!=null?b.px:b.cx*TILE+TILE/2, py=b.py!=null?b.py:b.cy*TILE+TILE/2;
     rig.position.set(worldX(px),0,worldZ(py));
     const urgency = Math.max(0,Math.min(1,1-b.fuse/BOMB_FUSE));   // 接近爆炸才急促脈動（遙控彈在最後 2 秒也會閃）
-    rig.scale.setScalar(1+(0.06+urgency*0.18)*Math.sin(T.t*(0.3+urgency*0.8)));
-    rig.userData.spark.visible = (T.t%8<4);
-    const bm=rig.userData.body.material;
-    if(b.pierce){ bm.emissive.set('#7c3aed'); bm.emissiveIntensity=0.6; }
-    else { bm.emissive.set('#ef4444'); bm.emissiveIntensity=urgency*0.75; }
+    const d=rig.userData,age=Math.max(0,(BOMB_FUSE-b.fuse)/60),t=T.time,seed=b.cx*1.7+b.cy*2.3;
+    // 放下後一次衰減回彈；倒數期間維持重量與體積，不再像氣球縮放。
+    const bounce=age<0.4?Math.abs(Math.sin(age*22))*0.09*Math.exp(-age*9):0;
+    d.shell.position.y=bounce;d.shell.rotation.z=b.moving?Math.sin(t*18+seed)*0.06:0;
+    const length=0.04+0.19*(1-urgency);d.fuse.scale.y=length;d.fuse.position.set(0.025+length*0.15,0.65+length/2,0);d.fuse.rotation.z=-0.3;
+    const tipX=0.025+length*0.3,tipY=0.65+length;
+    d.spark.position.set(tipX,tipY,0);d.spark.scale.setScalar(0.85+0.15*Math.sin(t*37+seed)+0.1*Math.sin(t*61));d.halo.position.copy(d.spark.position);
+    d.halo.material.opacity=0.24+0.08*Math.sin(t*29+seed);d.shadow.material.opacity=0.38-bounce;
+    d.smoke.forEach((p,j)=>{const a=(t*0.8+j/4+seed)%1;p.position.set(tipX+Math.sin(a*4+seed)*a*0.13,tipY+a*0.55,a*0.06);p.scale.setScalar(0.06+a*0.22);p.material.opacity=Math.sin(a*Math.PI)*0.14;});
+    d.embers.forEach((e,j)=>{const a=(t*2.5+j/5+seed)%1,angle=j*2.4+seed;e.position.set(tipX+Math.cos(angle)*a*0.16,tipY+0.22*a-0.34*a*a,Math.sin(angle)*a*0.16);e.material.opacity=1-a;e.scale.setScalar(1-a*0.65);});
+    const bm=d.body.material;bm.emissive.set(b.pierce?'#713b9c':'#d94e13');bm.emissiveIntensity=b.pierce?0.14:Math.max(0,urgency-0.78)*0.8;
   }
   poolHideRest('bomb');
 }
 
 // ── 爆風 ─────────────────────────────────────────────
-function makeBlastMesh(){ return new THREE.Mesh(G3.geo.blast, new THREE.MeshBasicMaterial({color:'#fb923c',transparent:true,opacity:0.8,blending:THREE.AdditiveBlending,depthWrite:false})); }
+function makeBlastMesh(){
+  const m=new THREE.Mesh(G3.geo.blast,new THREE.MeshBasicMaterial({color:'#ffab49',transparent:true,opacity:0.7,blending:THREE.AdditiveBlending,depthWrite:false}));
+  const core=new THREE.Mesh(G3.geo.blast,new THREE.MeshBasicMaterial({color:'#fff3b6',transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false}));core.scale.set(0.58,0.9,0.58);m.add(core);
+  if(!G3.geo.shock)G3.geo.shock=new THREE.TorusGeometry(0.55,0.035,6,24);
+  const ring=new THREE.Mesh(G3.geo.shock,new THREE.MeshBasicMaterial({color:'#ffd76f',transparent:true,opacity:0.7,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=-0.33;m.add(ring);m.userData={core,ring};return m;
+}
 function syncBlasts(){
   poolReset('blast');
   for(const bl of world.blasts){
@@ -1326,6 +1465,9 @@ function syncBlasts(){
     m.scale.setScalar(Math.max(0.05,s));
     m.material.opacity=0.82*life+0.1;
     m.material.color.setRGB(1, 0.55+0.3*life, 0.18*life);
+    m.userData.core.material.opacity=life*0.9;
+    m.userData.ring.scale.setScalar(1+(1-life)*0.65);
+    m.userData.ring.material.opacity=life*0.7;
   }
   poolHideRest('blast');
 }
@@ -1395,6 +1537,17 @@ function updateParticles(){
 function draw(){
   if(!world) return;
   if(!G3){ if(!init3D()) return; }
+  const now=performance.now()/1000;
+  G3.dt=Math.min(0.05,Math.max(0,now-(G3.time||now))); G3.time=now;
+  if(MOBILE_RENDER&&G3.dt>0){
+    G3.frameEMA=(G3.frameEMA||1/60)*0.96+G3.dt*0.04;
+    G3.qualityTime=(G3.qualityTime||0)+G3.dt;
+    if(G3.qualityTime>3){
+      const ratio=G3.renderer.getPixelRatio();
+      if(G3.frameEMA>0.023&&ratio>0.65){G3.renderer.setPixelRatio(Math.max(0.65,ratio-0.1));fitGameCanvas();}
+      G3.qualityTime=0;
+    }
+  }
   G3.t++;
   ensureBoard();
   syncBoard();
@@ -1523,51 +1676,23 @@ document.addEventListener('visibilitychange', ()=>{ if(document.hidden) clearHel
 //  • 分區含遲滯：已有方向時要偏離 ±55° 才換向 → 斜向邊界不抖
 //  • 死區內維持現向（指尖微移不斷訊）
 //  • zone：實際監聽觸控的感應區（可比可見 D-pad 大，盲按容錯）；角度一律以 el 的視覺中心計算
-function bindDpad(el, press, zone){
-  zone=zone||el;
-  const arms={}; el.querySelectorAll('.arm').forEach(a=>arms[a.dataset.d]=a);
-  let dir=null, tid=null;
-  const show=()=>{ for(const k in arms) arms[k].classList.toggle('on',k===dir); };
-  function setDir(d){
-    if(d===dir) return;
-    if(dir) press(dir,false);
-    if(d) press(d,true);
-    dir=d; show();
+function bindDpad(el,press,zone){
+  zone=zone||el;el.setAttribute('aria-label','虛擬搖桿');
+  const knob=document.createElement('div');knob.className='stick-knob';el.appendChild(knob);
+  let dir=null,pointer=null,rect=null;
+  function setDir(next){if(next===dir)return;if(dir)press(dir,false);dir=next;if(dir)press(dir,true);}
+  function reset(){setDir(null);pointer=null;el.style.setProperty('--jx','0px');el.style.setProperty('--jy','0px');el.classList.remove('active');}
+  function move(e){const dx=e.clientX-rect.left-rect.width/2,dy=e.clientY-rect.top-rect.height/2,r=rect.width*0.32,len=Math.hypot(dx,dy),scale=len>r?r/len:1;
+    el.style.setProperty('--jx',dx*scale+'px');el.style.setProperty('--jy',dy*scale+'px');if(len<rect.width*0.13){setDir(null);return;}
+    const ang=Math.atan2(dy,dx),centers={right:0,down:Math.PI/2,left:Math.PI,up:-Math.PI/2};
+    const distance=k=>Math.abs(Math.atan2(Math.sin(ang-centers[k]),Math.cos(ang-centers[k])));
+    if(dir&&distance(dir)<Math.PI*0.31)return;
+    setDir(Object.keys(centers).reduce((best,k)=>distance(k)<distance(best)?k:best,'right'));
   }
-  const CTR={right:0,down:90,left:180,up:-90};   // 各方向的中心角（deg，dx右+ dy下+）
-  function hit(cx,cy){
-    const r=el.getBoundingClientRect();
-    const dx=cx-(r.left+r.width/2), dy=cy-(r.top+r.height/2);
-    const dead=r.width*0.10;
-    if(dx*dx+dy*dy<dead*dead) return dir;        // 死區：維持現向
-    const ang=Math.atan2(dy,dx)*180/Math.PI;
-    const dist=k=>{ const d=Math.abs(ang-CTR[k]); return d>180?360-d:d; };
-    if(dir && dist(dir)<=55) return dir;         // 遲滯：現向 ±55° 內不換
-    let best=dir, bd=1e9;
-    for(const k in CTR){ const d=dist(k); if(d<bd){ bd=d; best=k; } }
-    return best;
-  }
-  zone.addEventListener('touchstart',e=>{
-    e.preventDefault();
-    if(tid!==null) return;                        // 多點觸控只認第一指
-    const t=e.changedTouches[0]; tid=t.identifier;
-    setDir(hit(t.clientX,t.clientY));
-  },{passive:false});
-  zone.addEventListener('touchmove',e=>{
-    e.preventDefault();
-    for(const t of e.changedTouches){ if(t.identifier===tid) setDir(hit(t.clientX,t.clientY)); }
-  },{passive:false});
-  const end=e=>{
-    for(const t of e.changedTouches){ if(t.identifier===tid){ tid=null; setDir(null); } }
-  };
-  zone.addEventListener('touchend',end,{passive:false});
-  zone.addEventListener('touchcancel',end,{passive:false});
-  // 滑鼠拖曳（桌機測試用）
-  let md=false;
-  zone.addEventListener('mousedown',e=>{ md=true; setDir(hit(e.clientX,e.clientY)); });
-  window.addEventListener('mousemove',e=>{ if(md) setDir(hit(e.clientX,e.clientY)); });
-  window.addEventListener('mouseup',()=>{ if(md){ md=false; setDir(null); } });
-  return { reset(){ tid=null; setDir(null); } };
+  zone.addEventListener('pointerdown',e=>{if(pointer!==null)return;e.preventDefault();pointer=e.pointerId;rect=el.getBoundingClientRect();zone.setPointerCapture(pointer);el.classList.add('active');move(e);});
+  zone.addEventListener('pointermove',e=>{if(e.pointerId===pointer){e.preventDefault();move(e);}});
+  for(const event of ['pointerup','pointercancel','lostpointercapture'])zone.addEventListener(event,e=>{if(e.pointerId===pointer)reset();});
+  window.addEventListener('blur',reset);return{reset};
 }
 
 // 觸控：左 D-pad + 右炸彈鈕（監聽都在對半切的感應區上，盲按容錯）
@@ -1650,7 +1775,7 @@ function beginGame(){
   if(mode==='local'){
     $('ctrlHint').innerHTML='玩家1：WASD + 空白鍵（Q 引爆）　|　玩家2：方向鍵 + Enter（右Shift 引爆）';
   } else if(isTouch){
-    $('ctrlHint').innerHTML='左側方向鍵移動（手指滑動即可換向）　·　右側 💣 放炸彈';
+    $('ctrlHint').innerHTML='左側搖桿移動（回到中央停止）　·　右側 💣 放炸彈';
   } else {
     $('ctrlHint').innerHTML='WASD / 方向鍵移動　·　空白鍵 / Enter 放炸彈';
   }
