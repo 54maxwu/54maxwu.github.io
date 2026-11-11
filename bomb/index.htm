@@ -25,7 +25,7 @@
 
     // 高畫質模式（?hq=1 或記住的偏好）：額外載入後製泛光（Bloom）模組。載失敗就靜默降級成一般渲染，不影響遊戲。
     const _q=new URLSearchParams(location.search);
-    const _hq = _q.has('hq') ? _q.get('hq')!=='0' : (()=>{ try{ return localStorage.getItem('bomb_hq')==='1'; }catch(e){ return false; } })();
+    const _hq = !matchMedia('(pointer:coarse)').matches && (_q.has('hq') ? _q.get('hq')!=='0' : (()=>{ try{ return localStorage.getItem('bomb_hq')==='1'; }catch(e){ return false; } })());
     if(_hq){
       Promise.all([
         import('three/addons/postprocessing/EffectComposer.js'),
@@ -1043,10 +1043,12 @@ function poolHideRest(key){ const pl=G3.pools[key]; if(!pl)return; for(let i=pl.
 const HQ = (()=>{
   try{
     const q=new URLSearchParams(location.search);
+    if(matchMedia('(pointer:coarse)').matches)return false;
     if(q.has('hq')) return q.get('hq')!=='0';          // ?hq=0 可強制關閉
     return localStorage.getItem('bomb_hq')==='1';       // 否則看記住的偏好
   }catch(e){ return false; }
 })();
+const MOBILE_RENDER=matchMedia('(pointer:coarse)').matches;
 
 function init3D(){
   if(G3) return true;
@@ -1055,9 +1057,9 @@ function init3D(){
   THREE=window.THREE;
   let renderer;
   try{
-    renderer=new THREE.WebGLRenderer({canvas:cv, antialias:true});
+    renderer=new THREE.WebGLRenderer({canvas:cv, antialias:!MOBILE_RENDER, powerPreference:'high-performance'});
   }catch(e){ console.error('WebGL init failed',e); show3dError(); window.THREE_FAILED=e; return false; }
-  renderer.setPixelRatio(Math.min(HQ?2:1.5,window.devicePixelRatio||1));   // 降採樣，省 fill-rate（HQ 允許到 2x 更銳利）
+  renderer.setPixelRatio(Math.min(MOBILE_RENDER?1:(HQ?2:1.5),window.devicePixelRatio||1));
   renderer.setSize(cv.width,cv.height,false);
   if(HQ){
     renderer.shadowMap.enabled=true;
@@ -1363,11 +1365,13 @@ function syncPowerups(){
 // ── 粒子（死亡 / 磚塊碎屑）──────────────────────────────
 function getPart(){
   for(const m of G3.partPool){ if(!m.userData.inUse){ m.userData.inUse=true; m.visible=true; return m; } }
-  const m=new THREE.Mesh(new THREE.SphereGeometry(1,6,6), new THREE.MeshBasicMaterial({color:'#fff',transparent:true}));
+  if(!G3.geo.particle)G3.geo.particle=new THREE.SphereGeometry(1,6,6);
+  const m=new THREE.Mesh(G3.geo.particle,new THREE.MeshBasicMaterial({color:'#fff',transparent:true}));
   m.userData={inUse:true}; G3.partPool.push(m); G3.scene.add(m); return m;
 }
 function spawnBurst(x,y,z,color,count){
   if(!G3) return;
+  count=Math.min(count,MOBILE_RENDER?8:20,Math.max(0,(MOBILE_RENDER?60:160)-G3.parts.length));
   for(let i=0;i<count;i++){
     const m=getPart(); m.material.color.set(color);
     const a=Math.random()*Math.PI*2, sp=0.05+Math.random()*0.12;
@@ -1586,6 +1590,8 @@ function bindTouch(){
    ============================================================ */
 function updateScores(){
   const el=$('scores');
+  const signature=mode+':'+myIndex+':'+world.players.map(p=>[p.alive,p.fire,p.maxBombs,p.speed,p.kick,p.pierce,p.shield].join(',')).join(';');
+  if(el._signature===signature)return;el._signature=signature;
   let html='';
   const ic=n=>`<img class="pu" src="img/items/${n}.png">`;
   for(const p of world.players){
@@ -1593,7 +1599,7 @@ function updateScores(){
     if(p.kick)extra+=ic('kick'); if(p.pierce)extra+=ic('pierce'); if(p.shield>0)extra+=ic('shield')+p.shield;
     html+=`<div class="ptag${p.alive?'':' dead'}"><span class="dot" style="background:${COLORS[p.i]}"></span>${labelFor(p)} ${ic('fire')}${p.fire} ${ic('bomb')}${p.maxBombs} ${ic('speed')}${p.speed}${extra}</div>`;
   }
-  el.innerHTML=html;
+  if(el._scoreHTML!==html){el.innerHTML=html;el._scoreHTML=html;}
 }
 function labelFor(p){
   if(mode==='online') return p.i===myIndex?'你':'玩家'+(p.i+1);
