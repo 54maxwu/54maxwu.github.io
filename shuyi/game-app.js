@@ -33210,13 +33210,14 @@ void main() {
       uDeath: { value: 0 },
       uScope: { value: 0 },
       uProtect: { value: 0 },
-      uUnderRoof: { value: 0 }
+      uUnderRoof: { value: 0 },
+      uConc: { value: 0 }
     },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: (
       /* glsl */
       `
-    uniform sampler2D tDiffuse; uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect;
+    uniform sampler2D tDiffuse; uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uConc;
     varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     void main(){
@@ -33228,6 +33229,20 @@ void main() {
       col.r = texture2D(tDiffuse, uv + c * ca).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - c * ca).b;
+      // \u7206\u70B8\u9707\u76EA\uFF1A\u6A21\u7CCA + \u91CD\u5F71 + \u53BB\u98FD\u548C\uFF08\u8033\u9CF4\u671F\u9593\u8996\u7DDA\u767C\u6643\uFF09
+      if (uConc > 0.002) {
+        float k = clamp(uConc, 0.0, 1.0);
+        vec2 wob = vec2(sin(uTime * 3.1), cos(uTime * 2.3)) * 0.004 * k;
+        vec3 acc = col * 0.2;
+        for (int i = 0; i < 8; i++) {
+          float a = float(i) * 0.7854 + uTime * 0.5;
+          acc += texture2D(tDiffuse, uv + wob + vec2(cos(a), sin(a)) * 0.006 * k * (1.0 + float(i / 4))).rgb * 0.1;
+        }
+        vec3 ghost = texture2D(tDiffuse, uv + vec2(0.018, 0.006) * k + wob).rgb;
+        col = mix(col, mix(acc, ghost, 0.3), k);
+        float gg = dot(col, vec3(0.299, 0.587, 0.114));
+        col = mix(col, vec3(gg), k * 0.45);
+      }
       float r = length(c * vec2(1.0, 0.8));
       // \u6697\u89D2
       col *= 1.0 - smoothstep(0.35, 0.95, r) * uVignette;
@@ -33245,6 +33260,7 @@ void main() {
       col = mix(col, vec3(0.35, 0.6, 1.0), uProtect * edge * 0.18);
       // \u9583\u767D
       col += uFlash;
+      col *= 1.0 - smoothstep(0.3, 0.9, r) * uConc * 0.45;
       // \u81A0\u7247\u9846\u7C92
       // Preserve original map surfaces without film grain.
       gl_FragColor = vec4(col, 1.0);
@@ -35261,6 +35277,11 @@ void main() {
       this.wrecked = [];
       this.meshByKey = {};
       this.origPos = {};
+      this.origNrm = {};
+      this.movable = [];
+      this.movers = /* @__PURE__ */ new Set();
+      this.blocks = [];
+      this.landed = [];
       this.M = makeMaterials();
       this.buf = {};
       this.extra = {};
@@ -35324,6 +35345,7 @@ void main() {
           this.parts.push(part2);
         }
       }
+      if (!col && this._attach) this._attach.ranges.push({ k, start: vStart, count: 36 });
     }
     collide(x0, x1, y0, y1, n0, n1, kind = "concrete", o = {}) {
       const base = kind === "glass" ? { mat: "mesh", bullet: "pen", sight: false } : kind === "wood" ? { mat: "wood", bullet: "pen", surface: "wood" } : kind === "metal" ? { mat: "metal", bullet: "pass", sight: false } : { mat: "concrete", surface: "concrete" };
@@ -35331,7 +35353,7 @@ void main() {
     }
     info(p) {
       const b = p.box;
-      return { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, z: -(b.n0 + b.n1) / 2, sx: b.x1 - b.x0, sy: b.y1 - b.y0, sz: b.n1 - b.n0, kind: p.kind };
+      return { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, z: -(b.n0 + b.n1) / 2, sx: b.x1 - b.x0, sy: b.y1 - b.y0, sz: b.n1 - b.n0, kind: p.kind, c: p.c };
     }
     destroyPart(p, dir) {
       if (p.dead) return null;
@@ -35422,6 +35444,7 @@ void main() {
       }
     }
     resetParts() {
+      this.resetMotion();
       for (const t of this.falling) {
         this.scene.remove(t.g);
         this.scene.remove(t.stump);
@@ -35457,6 +35480,372 @@ void main() {
         }
       }
       for (const a of touched) a.needsUpdate = true;
+    }
+    // ---------- 結構支撐：失去支撐的部件整塊塌落 ----------
+    // 支撐規則：底下有東西撐著（地面、樓板、或本身有支撐的部件）＝「落地」；
+    // 否則只要側邊緊貼一個「落地」的部件也算有支撐（像窗楣、跨過小缺口的牆）；兩側都斷了才會掉。
+    supportCalc(set) {
+      const W = this.world, e = 0.04, below = /* @__PURE__ */ new Map(), lat = /* @__PURE__ */ new Map(), G = /* @__PURE__ */ new Map(), S = /* @__PURE__ */ new Map();
+      const ok = (c) => c.solid && c.tag !== "glass" && c.tag !== "boundary";
+      for (const p of set) {
+        const b = p.box;
+        G.set(p, false);
+        S.set(p, false);
+        if (b.y0 <= 0.05) {
+          below.set(p, true);
+          lat.set(p, []);
+          continue;
+        }
+        let hard = false;
+        const arr = [];
+        for (const c of W.query(b.x0 + e, -b.n1 + e, b.x1 - e, -b.n0 - e)) {
+          if (!ok(c) || c.part === p) continue;
+          if (c.top < b.y0 - 0.06 || c.bottom > b.y0 - 0.02) continue;
+          if (!c.part) {
+            hard = true;
+            break;
+          }
+          arr.push(c.part);
+        }
+        below.set(p, hard || arr);
+        const L = [];
+        for (const c of W.query(b.x0 - 0.05, -b.n1 - 0.05, b.x1 + 0.05, -b.n0 + 0.05)) {
+          if (!ok(c) || !c.part || c.part === p) continue;
+          if (Math.min(c.top, b.y1) - Math.max(c.bottom, b.y0) < 0.25) continue;
+          L.push(c.part);
+        }
+        lat.set(p, L);
+      }
+      const g = (q) => !set.has(q) || G.get(q), sp = (q) => !set.has(q) || S.get(q);
+      for (let it = 0, ch = true; ch && it < 60; it++) {
+        ch = false;
+        for (const p of set) {
+          const bl = below.get(p);
+          if (!G.get(p) && (bl === true || bl.some(sp))) {
+            G.set(p, true);
+            ch = true;
+          }
+          if (!S.get(p) && (G.get(p) || lat.get(p).some(g))) {
+            S.set(p, true);
+            ch = true;
+          }
+        }
+      }
+      return S;
+    }
+    // 開局前算一次：原本設計上就懸空的部件（招牌、掛件）不參與塌落
+    prepare() {
+      if (this.prepared) return;
+      this.prepared = true;
+      const all = new Set(this.parts.filter((p) => !p.dead && p.kind !== "tree" && p.c && !p.movable)), S = this.supportCalc(all);
+      let n = 0;
+      for (const p of all) if (!S.get(p)) {
+        p.free = true;
+        n++;
+      }
+      for (const q of this.glass) if (q.c && !this.glassHeld(q.c)) q.free = true;
+      console.log("support prepared", { parts: all.size, free: n });
+    }
+    collapse(wrecked, att) {
+      this.prepare();
+      const R = wrecked.map((w) => ({ x0: w.x - w.sx / 2 - 2.5, x1: w.x + w.sx / 2 + 2.5, z0: w.z - w.sz / 2 - 2.5, z1: w.z + w.sz / 2 + 2.5, y0: w.y - w.sy / 2 - 0.1, y1: w.y + w.sy / 2 + 4 }));
+      const set = /* @__PURE__ */ new Set();
+      for (const p of this.parts) {
+        if (p.dead || p.free || p.kind === "tree" || !p.c || p.movable) continue;
+        const b = p.box, x0 = b.x0, x1 = b.x1, z0 = -b.n1, z1 = -b.n0;
+        for (const r of R) if (x1 > r.x0 && x0 < r.x1 && z1 > r.z0 && z0 < r.z1 && b.y1 > r.y0 && b.y0 < r.y1) {
+          set.add(p);
+          break;
+        }
+      }
+      if (!set.size) return 0;
+      const S = this.supportCalc(set), fall = [...set].filter((p) => !S.get(p));
+      if (fall.length) this.startFalls(fall, att);
+      return fall.length;
+    }
+    glassHeld(c) {
+      for (const o of this.world.query(c.minX - 0.08, c.minZ - 0.08, c.maxX + 0.08, c.maxZ + 0.08)) {
+        if (!o.solid || o.tag === "glass" || o.tag === "boundary") continue;
+        if (o.top > c.bottom - 0.08 && o.bottom < c.top + 0.08) return true;
+      }
+      return false;
+    }
+    // 周圍的牆都沒了的玻璃：回傳碰撞體，交給 breakGlass 打碎
+    looseGlass(wrecked) {
+      const out = [];
+      for (const q of this.glass) {
+        const c = q.c;
+        if (!c || c.broken || q.free) continue;
+        if (!wrecked.some((w) => Math.abs(c.x - w.x) < w.sx / 2 + 1.5 && Math.abs(c.z - w.z) < w.sz / 2 + 1.5 && Math.abs(c.y - w.y) < w.sy / 2 + 2)) continue;
+        if (!this.glassHeld(c)) out.push(c);
+      }
+      return out;
+    }
+    // 塌落：把部件幾何複製成獨立方塊往下掉，落地時才碎成碎塊
+    startFalls(list, att) {
+      const made = [];
+      for (const p of list) {
+        if (p.dead) continue;
+        const b = p.box, ctr = new Vector3((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, -(b.n0 + b.n1) / 2), g = new Group();
+        for (const r of p.ranges) {
+          const src = this.meshByKey[r.k].geometry, geo = new BufferGeometry();
+          for (const nm of ["position", "normal", "uv"]) {
+            const a = src.attributes[nm];
+            geo.setAttribute(nm, new BufferAttribute(a.array.slice(r.start * a.itemSize, (r.start + r.count) * a.itemSize), a.itemSize));
+          }
+          geo.translate(-ctr.x, -ctr.y, -ctr.z);
+          const m = new Mesh(geo, this.M[r.k].m);
+          m.castShadow = true;
+          g.add(m);
+        }
+        g.position.copy(ctr);
+        this.scene.add(g);
+        made.push({ p, g, info: this.info(p), att, vy: 0, hy: (b.y1 - b.y0) / 2, delay: Math.random() * 0.15, w: new Vector3((Math.random() - 0.5) * 1.4, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 1.4) });
+      }
+      for (const f of made) {
+        if (!f.p.dead) this.destroyPart(f.p, null);
+        this.blocks.push(f);
+      }
+    }
+    updateBlocks(dt) {
+      if (!this.blocks.length) return;
+      for (const f of this.blocks) {
+        if (f.delay > 0) {
+          f.delay -= dt;
+          continue;
+        }
+        f.vy -= 9.8 * dt;
+        const P = f.g.position;
+        P.y += f.vy * dt;
+        f.g.rotation.x += f.w.x * dt;
+        f.g.rotation.y += f.w.y * dt;
+        f.g.rotation.z += f.w.z * dt;
+        const s = this.world.support(P.x, P.z, 0.05, P.y - f.hy + 0.05), fl = s ? s.y : 0;
+        if (P.y - f.hy <= fl) {
+          const info = { ...f.info, x: P.x, y: fl + f.hy, z: P.z }, ev = { info, att: f.att, v: -f.vy };
+          if (s && s.collider.part) {
+            const h = this.damage(s.collider, 90 + ev.v * 30, { x: Math.random() - 0.5, z: Math.random() - 0.5 });
+            if (h) ev.hit = h;
+          }
+          this.landed.push(ev);
+          this.scene.remove(f.g);
+          f.g.traverse((o) => {
+            if (o.geometry) o.geometry.dispose();
+          });
+          f.done = true;
+        }
+      }
+      this.blocks = this.blocks.filter((f) => !f.done);
+    }
+    // ---------- 爆炸推動課桌椅 ----------
+    mover(p) {
+      if (p.mv) return p.mv;
+      const b = p.box, c = p.c;
+      return p.mv = { ox: 0, oy: 0, oz: 0, yaw: 0, tip: 0, tipV: 0, tipAx: null, tipS: 1, vx: 0, vy: 0, vz: 0, wy: 0, px: (b.x0 + b.x1) / 2, py: b.y0, pz: -(b.n0 + b.n1) / 2, hx: (b.x1 - b.x0) / 2, hy: (b.y1 - b.y0) / 2, hz: (b.n1 - b.n0) / 2, box0: { ...b }, c0: { x: c.x, y: c.y, z: c.z, hx: c.hx, hy: c.hy, hz: c.hz, yaw: c.yaw } };
+    }
+    push(pos, r, power) {
+      let n = 0;
+      for (const p of this.movable) {
+        if (p.dead) continue;
+        const b = p.box, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, cz = -(b.n0 + b.n1) / 2, dx = cx - pos.x, dy = cy - pos.y, dz = cz - pos.z, d = Math.hypot(dx, dy, dz);
+        if (d > r || Math.abs(dy) > 2.2 || d < 1e-3) continue;
+        p.c.solid = false;
+        const h = this.world.raycast(pos.x, pos.y, pos.z, dx / d, dy / d, dz / d, Math.max(0, d - 0.35), "move");
+        p.c.solid = true;
+        if (h) continue;
+        const k = (1 - d / r) * power, L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, m = this.mover(p);
+        m.vx += ux * k * 7;
+        m.vz += uz * k * 7;
+        m.vy = Math.max(m.vy, k * 2.4);
+        m.wy += (Math.random() - 0.5) * 14 * k;
+        if (!m.tipAx && k > 0.28) {
+          const cs = Math.cos(m.yaw), sn = Math.sin(m.yaw), lx = cs * ux - sn * uz, lz = sn * ux + cs * uz;
+          if (Math.abs(lx) > Math.abs(lz)) {
+            m.tipAx = "z";
+            m.tipS = Math.sign(lx) || 1;
+          } else {
+            m.tipAx = "x";
+            m.tipS = Math.sign(lz) || 1;
+          }
+          m.tipV = 1.2 + k * 4;
+        }
+        this.movers.add(p);
+        n++;
+      }
+      return n;
+    }
+    regrid(c, o) {
+      const G = this.world.grid, f = (v) => Math.floor(v / 4), cells = (a, b, cc, d) => {
+        const r = [];
+        for (let x = f(a); x <= f(cc); x++) for (let z = f(b); z <= f(d); z++) r.push(x * 1e3 + z);
+        return r;
+      };
+      const A = cells(o[0], o[1], o[2], o[3]), B = cells(c.minX, c.minZ, c.maxX, c.maxZ);
+      for (const k of A) if (!B.includes(k)) {
+        const a = G.get(k);
+        if (a) {
+          const i = a.indexOf(c);
+          if (i >= 0) a.splice(i, 1);
+        }
+      }
+      for (const k of B) if (!A.includes(k)) {
+        let a = G.get(k);
+        if (!a) G.set(k, a = []);
+        a.push(c);
+      }
+    }
+    setCol(c, x, y, z, hx, hy, hz, yaw) {
+      const o = [c.minX, c.minZ, c.maxX, c.maxZ];
+      c.x = x;
+      c.y = y;
+      c.z = z;
+      c.hx = hx;
+      c.hy = hy;
+      c.hz = hz;
+      c.yaw = yaw;
+      c.c = Math.cos(yaw);
+      c.s = Math.sin(yaw);
+      c.top = y + hy;
+      c.bottom = y - hy;
+      const ex = Math.abs(c.c) * hx + Math.abs(c.s) * hz, ez = Math.abs(c.s) * hx + Math.abs(c.c) * hz;
+      c.minX = x - ex;
+      c.maxX = x + ex;
+      c.minZ = z - ez;
+      c.maxZ = z + ez;
+      this.regrid(c, o);
+    }
+    // 依目前位移／旋轉／翻倒角度改寫頂點，並更新碰撞體與 box
+    applyMotion(p) {
+      const m = p.mv, M2 = this._m || (this._m = new Matrix4()), T = this._t || (this._t = new Matrix4()), N = this._n || (this._n = new Matrix3()), v = this._v || (this._v = new Vector3());
+      const E = m.tipAx === "z" ? [m.tipS * m.hx, 0, 0] : [0, 0, m.tipS * m.hz], ang = m.tipAx === "z" ? -m.tipS * m.tip : m.tipS * m.tip;
+      M2.makeTranslation(m.px + m.ox, m.py + m.oy, m.pz + m.oz).multiply(T.makeRotationY(m.yaw));
+      if (m.tipAx) {
+        M2.multiply(T.makeTranslation(E[0], E[1], E[2])).multiply(m.tipAx === "z" ? T.makeRotationZ(ang) : T.makeRotationX(ang)).multiply(T.makeTranslation(-E[0], -E[1], -E[2]));
+      }
+      N.setFromMatrix4(M2);
+      const e = M2.elements;
+      for (const r of p.ranges) {
+        const g = this.meshByKey[r.k].geometry, A = g.attributes.position.array, NA = g.attributes.normal.array, O = this.origPos[r.k], ON = this.origNrm[r.k], s0 = r.start * 3;
+        for (let i = s0; i < s0 + r.count * 3; i += 3) {
+          v.set(O[i] - m.px, O[i + 1] - m.py, O[i + 2] - m.pz).applyMatrix4(M2);
+          A[i] = v.x;
+          A[i + 1] = v.y;
+          A[i + 2] = v.z;
+          v.set(ON[i], ON[i + 1], ON[i + 2]).applyMatrix3(N);
+          NA[i] = v.x;
+          NA[i + 1] = v.y;
+          NA[i + 2] = v.z;
+        }
+        g.attributes.position.addUpdateRange(s0, r.count * 3);
+        g.attributes.position.needsUpdate = true;
+        g.attributes.normal.addUpdateRange(s0, r.count * 3);
+        g.attributes.normal.needsUpdate = true;
+      }
+      const cs = Math.abs(Math.cos(m.tip)), sn = Math.abs(Math.sin(m.tip));
+      let hx = m.hx, hy = m.hy, hz = m.hz;
+      if (m.tipAx === "z") {
+        hx = cs * m.hx + sn * m.hy;
+        hy = sn * m.hx + cs * m.hy;
+      } else if (m.tipAx === "x") {
+        hy = cs * m.hy + sn * m.hz;
+        hz = sn * m.hy + cs * m.hz;
+      }
+      v.set(0, m.hy, 0).applyMatrix4(M2);
+      this.setCol(p.c, v.x, Math.max(v.y, m.py + m.oy + hy), v.z, hx, hy, hz, m.yaw);
+      const c = p.c;
+      p.box = { x0: c.minX, x1: c.maxX, y0: c.bottom, y1: c.top, n0: -c.maxZ, n1: -c.minZ };
+    }
+    updateMotion(dt) {
+      if (!this.movers.size) return;
+      const W = this.world;
+      for (const p of this.movers) {
+        const m = p.mv, c = p.c;
+        if (p.dead) {
+          this.movers.delete(p);
+          continue;
+        }
+        c.solid = false;
+        if (m.tipAx && (m.tip < Math.PI / 2 || m.tipV !== 0)) {
+          m.tipV += 9 * Math.sin(Math.max(m.tip, 0.15)) * dt;
+          m.tip = Math.max(0, m.tip + m.tipV * dt);
+          if (m.tip >= Math.PI / 2) {
+            m.tip = Math.PI / 2;
+            m.tipV = m.tipV > 2 ? -m.tipV * 0.25 : 0;
+            if (!m.thud) {
+              m.thud = true;
+              this.landed.push({ thud: true, info: this.info(p) });
+            }
+          }
+        }
+        const sp = Math.hypot(m.vx, m.vz);
+        if (sp > 0.01) {
+          const ux = m.vx / sp, uz = m.vz / sp, h = W.raycast(c.x, c.bottom + 0.25, c.z, ux, 0, uz, sp * dt + Math.max(c.hx, c.hz) * 0.8, "move");
+          if (h) {
+            const vn = m.vx * h.nx + m.vz * h.nz;
+            if (vn < 0) {
+              m.vx -= 1.5 * vn * h.nx;
+              m.vz -= 1.5 * vn * h.nz;
+              m.vx *= 0.5;
+              m.vz *= 0.5;
+            }
+          } else {
+            m.ox += m.vx * dt;
+            m.oz += m.vz * dt;
+          }
+        }
+        m.yaw += m.wy * dt;
+        const by = m.py + m.oy, s = W.support(c.x, c.z, 0.12, by + 0.3), fl = s ? s.y : 0;
+        if (by > fl + 2e-3 || m.vy > 0) {
+          m.vy -= 9.8 * dt;
+          m.oy += m.vy * dt;
+          if (m.py + m.oy <= fl) {
+            m.oy = fl - m.py;
+            m.vy = 0;
+          }
+        }
+        const ground = m.py + m.oy <= fl + 3e-3;
+        if (ground && m.vy < 0) {
+          m.vy = 0;
+          m.oy = Math.max(m.oy, fl - m.py);
+        }
+        if (ground) {
+          const f = Math.exp(-4.5 * dt);
+          m.vx *= f;
+          m.vz *= f;
+          m.wy *= Math.exp(-6 * dt);
+        }
+        this.applyMotion(p);
+        c.solid = true;
+        if (ground && m.vy === 0 && sp < 0.04 && Math.abs(m.wy) < 0.04 && (!m.tipAx || m.tip >= Math.PI / 2 && m.tipV === 0)) this.movers.delete(p);
+      }
+    }
+    resetMotion() {
+      for (const f of this.blocks) {
+        this.scene.remove(f.g);
+        f.g.traverse((o) => {
+          if (o.geometry) o.geometry.dispose();
+        });
+      }
+      this.blocks = [];
+      this.landed = [];
+      this.movers.clear();
+      for (const p of this.movable) {
+        const m = p.mv;
+        if (!m) continue;
+        p.box = { ...m.box0 };
+        const o = m.c0;
+        this.setCol(p.c, o.x, o.y, o.z, o.hx, o.hy, o.hz, o.yaw);
+        for (const r of p.ranges) {
+          const g = this.meshByKey[r.k].geometry, s0 = r.start * 3, n = r.count * 3;
+          g.attributes.position.array.set(this.origPos[r.k].subarray(s0, s0 + n), s0);
+          g.attributes.normal.array.set(this.origNrm[r.k].subarray(s0, s0 + n), s0);
+          g.attributes.position.addUpdateRange(s0, n);
+          g.attributes.position.needsUpdate = true;
+          g.attributes.normal.addUpdateRange(s0, n);
+          g.attributes.normal.needsUpdate = true;
+        }
+        p.mv = null;
+      }
     }
     geo(k, g, part2) {
       (this.extra[k] || (this.extra[k] = [])).push({ g: g.index ? g.toNonIndexed() : g, part: part2 });
@@ -35524,7 +35913,11 @@ void main() {
           (idx.get(key) || idx.set(key, []).get(key)).push(p);
         }
       }
-      for (const k of new Set(this.parts.flatMap((p) => p.ranges.map((r) => r.k)))) this.origPos[k] = this.meshByKey[k].geometry.attributes.position.array.slice();
+      for (const k of new Set(this.parts.flatMap((p) => p.ranges.map((r) => r.k)))) {
+        const g = this.meshByKey[k].geometry;
+        this.origPos[k] = g.attributes.position.array.slice();
+        this.origNrm[k] = g.attributes.normal.array.slice();
+      }
       return { meshes, facesCount: faces };
     }
   };
@@ -35631,8 +36024,16 @@ void main() {
           for (let r = 0; r < 5; r++) for (let c = 0; c < 6; c++) {
             const uu = a0 + 1.2 + (L - 2.4) * (c + 0.5) / 6, ww = COR + 2.2 + r * ((D - COR - 3.4) / 5);
             if (ww > D - 0.9) continue;
+            const np = B.parts.length;
             lb("wood", uu - 0.32, uu + 0.32, yb, yb + 0.72, ww - 0.22, ww + 0.22);
+            const dp = B.parts.length > np ? B.parts[B.parts.length - 1] : null;
+            if (dp) {
+              dp.movable = true;
+              B.movable.push(dp);
+              B._attach = dp;
+            }
             lb("wood", uu - 0.2, uu + 0.2, yb, yb + 0.45, ww + 0.35, ww + 0.7, false);
+            B._attach = null;
           }
         }
         if (stair) stairs(lb, a0, a1, yb, yt, f);
@@ -36284,11 +36685,31 @@ void main() {
     for (const [x, n] of [[-45, 10], [-30, 12], [18, 14], [25, 22], [-50, 40], [-48, 55], [26, 40], [24, 58]]) tree(B, x, n, { h: 8, r: 3.2 });
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u5408\u4F75\u7DB2\u683C");
     const vis = B.finish(scene, shadows);
-    return { ...vis, rooms, builder: B, glass: B.glassApi, destruct: { takeWrecked: () => {
-      const w = B.wrecked;
-      B.wrecked = [];
-      return w;
-    }, update: (dt) => B.updateFalling(dt), damage: (c, d, dir) => B.damage(c, d, dir), blast: (p, r, w) => B.blast(p, r, w), reset: () => B.resetParts(), count: B.parts.length } };
+    return { ...vis, rooms, builder: B, glass: B.glassApi, destruct: {
+      takeWrecked: () => {
+        const w = B.wrecked;
+        B.wrecked = [];
+        return w;
+      },
+      takeLanded: () => {
+        const w = B.landed;
+        B.landed = [];
+        return w;
+      },
+      update: (dt) => {
+        B.updateFalling(dt);
+        B.updateBlocks(dt);
+        B.updateMotion(dt);
+      },
+      prepare: () => B.prepare(),
+      collapse: (w, att) => B.collapse(w, att),
+      looseGlass: (w) => B.looseGlass(w),
+      push: (p, r, k) => B.push(p, r, k),
+      damage: (c, d, dir) => B.damage(c, d, dir),
+      blast: (p, r, w) => B.blast(p, r, w),
+      reset: () => B.resetParts(),
+      count: B.parts.length
+    } };
   }
   var REAL_LANDMARKS = [
     ["\u6821\u9580", [70, 4, 26]],
@@ -36455,6 +36876,21 @@ void main() {
       },
       takeWrecked() {
         return destruct ? destruct.takeWrecked() : [];
+      },
+      takeLanded() {
+        return destruct ? destruct.takeLanded() : [];
+      },
+      prepareDestruction() {
+        if (destruct) destruct.prepare();
+      },
+      collapse(w, att) {
+        return destruct ? destruct.collapse(w, att) : 0;
+      },
+      looseGlass(w) {
+        return destruct ? destruct.looseGlass(w) : [];
+      },
+      pushAt(p, r, k) {
+        return destruct ? destruct.push(p, r, k) : 0;
       },
       resetDestruction() {
         if (destruct) destruct.reset();
@@ -36812,6 +37248,55 @@ void main() {
     t.colorSpace = SRGBColorSpace;
     return t;
   }
+  var KIND_COL = { brick: [0.66, 0.36, 0.28], granite: [0.52, 0.51, 0.49], plaster: [0.9, 0.88, 0.84], white: [0.9, 0.88, 0.84], beige: [0.88, 0.8, 0.64], wood: [0.5, 0.36, 0.22], board: [0.2, 0.32, 0.26], bark: [0.4, 0.3, 0.22], tree: [0.4, 0.3, 0.22], green: [0.18, 0.42, 0.3], red: [0.7, 0.2, 0.18], blue: [0.2, 0.35, 0.65], yellow: [0.85, 0.68, 0.25], concrete: [0.72, 0.7, 0.66], stone: [0.7, 0.68, 0.63], quarry: [0.6, 0.36, 0.29], terrazzo: [0.8, 0.76, 0.7], pebble: [0.6, 0.57, 0.52], roof: [0.6, 0.25, 0.18] };
+  var STONY = /* @__PURE__ */ new Set(["brick", "granite", "plaster", "white", "beige", "concrete", "stone", "quarry", "terrazzo", "pebble", "roof"]);
+  var RC = /* @__PURE__ */ new Set(["concrete", "granite", "stone", "white", "beige"]);
+  var StaticSet = class {
+    constructor(scene, geo, mat, max, shadow) {
+      this.max = max;
+      this.items = [];
+      this.dirty = false;
+      this.mesh = new InstancedMesh(geo, mat, max);
+      this.mesh.count = 0;
+      this.mesh.frustumCulled = false;
+      this.mesh.castShadow = !!shadow;
+      this.mesh.receiveShadow = true;
+      scene.add(this.mesh);
+      this._d = new Object3D();
+      this._c = new Color();
+    }
+    add(it) {
+      if (this.items.length >= this.max) this.items.shift();
+      this.items.push(it);
+      this.dirty = true;
+    }
+    remove(fn) {
+      const n = this.items.length;
+      this.items = this.items.filter((it) => !fn(it));
+      if (this.items.length !== n) this.dirty = true;
+    }
+    clear() {
+      this.items = [];
+      this.dirty = true;
+    }
+    flush() {
+      if (!this.dirty) return;
+      this.dirty = false;
+      const D = this._d, M2 = this.mesh;
+      for (let i = 0; i < this.items.length; i++) {
+        const it = this.items[i];
+        D.position.copy(it.p);
+        D.quaternion.copy(it.q);
+        D.scale.copy(it.s);
+        D.updateMatrix();
+        M2.setMatrixAt(i, D.matrix);
+        if (it.col) M2.setColorAt(i, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
+      }
+      M2.count = this.items.length;
+      M2.instanceMatrix.needsUpdate = true;
+      if (M2.instanceColor) M2.instanceColor.needsUpdate = true;
+    }
+  };
   function tracerTex() {
     const c = document.createElement("canvas");
     c.width = 64;
@@ -36894,6 +37379,15 @@ void main() {
       this.chunkMesh.castShadow = true;
       scene.add(this.chunkMesh);
       this._col = new Color();
+      this.rubble = new StaticSet(scene, new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 2600, true);
+      this.jag = new StaticSet(scene, new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 4e3, true);
+      this.rebar = new StaticSet(scene, new CylinderGeometry(0.5, 0.5, 1, 5), new MeshStandardMaterial({ color: 5915702, roughness: 0.7, metalness: 0.55 }), 1400, false);
+      this.caseMax = 260;
+      this.cases = [];
+      this.caseMesh = new InstancedMesh(new CylinderGeometry(1, 1, 1, 7), new MeshStandardMaterial({ color: 13213766, roughness: 0.3, metalness: 0.9 }), this.caseMax);
+      this.caseMesh.count = 0;
+      this.caseMesh.frustumCulled = false;
+      scene.add(this.caseMesh);
       this.shake = 0;
       this.funnelT = 0;
       this.birds = [];
@@ -37000,8 +37494,7 @@ void main() {
     }
     // 物件被打爛：依材質噴出碎塊與粉塵
     debris(b, dir, from) {
-      const C = { brick: [0.66, 0.36, 0.28], granite: [0.52, 0.51, 0.49], plaster: [0.9, 0.88, 0.84], white: [0.9, 0.88, 0.84], beige: [0.88, 0.8, 0.64], wood: [0.5, 0.36, 0.22], board: [0.2, 0.32, 0.26], bark: [0.4, 0.3, 0.22], tree: [0.4, 0.3, 0.22], green: [0.18, 0.42, 0.3], red: [0.7, 0.2, 0.18], blue: [0.2, 0.35, 0.65], yellow: [0.85, 0.68, 0.25] };
-      const base = C[b.kind] || [0.72, 0.7, 0.66], vol = b.sx * b.sy * b.sz, tree2 = b.kind === "tree";
+      const base = KIND_COL[b.kind] || [0.72, 0.7, 0.66], vol = b.sx * b.sy * b.sz, tree2 = b.kind === "tree";
       const n = tree2 ? 40 : Math.max(10, Math.min(46, vol * 55 | 0)), floor = this.world ? -50 : Math.max(b.y - b.sy / 2, -0.2);
       for (let i = 0; i < n; i++) {
         if (this.chunks.length >= this.chunkMax) this.chunks.shift();
@@ -37045,6 +37538,14 @@ void main() {
             } else ch.rest = true;
           }
         }
+        if (ch.rest && this.world) {
+          ch.restT = (ch.restT || 0) + dt;
+          if (ch.restT > 0.6) {
+            this.rubble.add({ p: ch.p, q: ch.q, s: ch.s, col: ch.col });
+            ch.life = ch.max;
+            continue;
+          }
+        }
         const fade = Math.min(1, (ch.max - ch.life) / 0.8);
         D.position.copy(ch.p);
         D.quaternion.copy(ch.q);
@@ -37074,12 +37575,143 @@ void main() {
         }
         if (hit) d.mesh.instanceMatrix.needsUpdate = true;
       }
+      if (b.c) {
+        this.jag.remove((it) => it.owner === b.c);
+        this.rebar.remove((it) => it.owner === b.c);
+      }
+    }
+    // 物件被打爛：原本堆在它上面的殘骸、彈殼重新掉落
+    wakeRubble(b) {
+      const x0 = b.x - b.sx / 2 - 0.2, x1 = b.x + b.sx / 2 + 0.2, z0 = b.z - b.sz / 2 - 0.2, z1 = b.z + b.sz / 2 + 0.2, y0 = b.y - b.sy / 2 - 0.05;
+      this.rubble.remove((it) => {
+        if (it.p.x < x0 || it.p.x > x1 || it.p.z < z0 || it.p.z > z1 || it.p.y < y0) return false;
+        if (this.chunks.length >= this.chunkMax) this.chunks.shift();
+        this.chunks.push({ p: it.p, v: new Vector3((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4), q: it.q, w: new Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4), s: it.s, col: it.col, life: 0, max: 6, floor: -50, rest: false, chk: 0 });
+        return true;
+      });
+      for (const c of this.cases) if (c.rest && c.p.x > x0 && c.p.x < x1 && c.p.z > z0 && c.p.z < z1 && c.p.y >= y0) {
+        c.rest = false;
+        c.chk = 0;
+        c.floor = -50;
+      }
+    }
+    // 斷口：被打掉的石材/磚牆在仍然存在的相鄰結構上留下參差殘塊，鋼筋混凝土另外露出彎曲鋼筋
+    remnants(b) {
+      if (!this.world || !STONY.has(b.kind)) return;
+      const base = KIND_COL[b.kind], e = 0.03, lo = [b.x - b.sx / 2, b.y - b.sy / 2, b.z - b.sz / 2], hi = [b.x + b.sx / 2, b.y + b.sy / 2, b.z + b.sz / 2];
+      const rc = RC.has(b.kind) || b.kind === "brick" && Math.min(b.sx, b.sz) >= 0.28;
+      const cands = this.world.query(lo[0] - e, lo[2] - e, hi[0] + e, hi[2] + e).slice();
+      let faces = 0;
+      for (const c of cands) {
+        if (!c.solid || c.tag === "glass" || c.tag === "boundary" || c === b.c) continue;
+        const clo = [c.minX, c.bottom, c.minZ], chi = [c.maxX, c.top, c.maxZ];
+        const ov = [0, 1, 2].map((i) => Math.min(hi[i], chi[i]) - Math.max(lo[i], clo[i]));
+        let a = -1;
+        for (let i = 0; i < 3; i++) {
+          const o12 = (i + 1) % 3, o22 = (i + 2) % 3;
+          if (ov[i] > -e && ov[i] < 0.06 && ov[o12] > 0.08 && ov[o22] > 0.08) {
+            a = i;
+            break;
+          }
+        }
+        if (a < 0) continue;
+        if (++faces > 8) break;
+        const sgn = (clo[a] + chi[a]) / 2 > (lo[a] + hi[a]) / 2 ? 1 : -1;
+        const plane = sgn > 0 ? hi[a] : lo[a], o1 = (a + 1) % 3, o2 = (a + 2) % 3;
+        const r1 = [Math.max(lo[o1], clo[o1]), Math.min(hi[o1], chi[o1])], r2 = [Math.max(lo[o2], clo[o2]), Math.min(hi[o2], chi[o2])];
+        const w1 = r1[1] - r1[0], w2 = r2[1] - r2[0], depthMax = Math.min(0.26, (hi[a] - lo[a]) * 0.45);
+        const owner = c.part ? c : null;
+        const n = Math.max(2, Math.min(9, Math.round(w1 * w2 / 0.05)));
+        for (let i = 0; i < n; i++) {
+          const s1 = Math.min(w1, 0.06 + Math.random() * 0.2), s2 = Math.min(w2, 0.06 + Math.random() * 0.2), d = 0.03 + Math.random() * depthMax;
+          const p = [0, 0, 0], sz = [0, 0, 0];
+          p[a] = plane - sgn * d / 2;
+          sz[a] = d;
+          p[o1] = r1[0] + s1 / 2 + Math.random() * (w1 - s1);
+          sz[o1] = s1;
+          p[o2] = r2[0] + s2 / 2 + Math.random() * (w2 - s2);
+          sz[o2] = s2;
+          const k = 0.72 + Math.random() * 0.28;
+          this.jag.add({ p: new Vector3(p[0], p[1], p[2]), q: new Quaternion().setFromEuler(new Euler((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5)), s: new Vector3(sz[0], sz[1], sz[2]), col: [base[0] * k, base[1] * k, base[2] * k], owner });
+        }
+        if (!rc || w1 * w2 < 0.03) continue;
+        const nb = 2 + (Math.random() * 3 | 0), dir = [0, 0, 0];
+        dir[a] = -sgn;
+        for (let i = 0; i < nb; i++) {
+          const st = [0, 0, 0];
+          st[a] = plane;
+          st[o1] = r1[0] + Math.min(0.05, w1 / 3) + Math.random() * Math.max(0, w1 - 0.1);
+          st[o2] = r2[0] + Math.min(0.05, w2 / 3) + Math.random() * Math.max(0, w2 - 0.1);
+          let P = new Vector3(st[0], st[1], st[2]);
+          const d1 = new Vector3(dir[0], dir[1], dir[2]).add(new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.5)).normalize();
+          const perp = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(d1).normalize();
+          const d2 = d1.clone().applyAxisAngle(perp, 0.5 + Math.random() * 0.8);
+          for (const [dd, L] of [[d1, 0.14 + Math.random() * 0.4], [d2, 0.06 + Math.random() * 0.25]]) {
+            if (!(dd.lengthSq() > 0.5)) continue;
+            this.rebar.add({ p: P.clone().addScaledVector(dd, L / 2), q: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dd), s: new Vector3(0.016, L, 0.016), owner });
+            P = P.clone().addScaledVector(dd, L);
+          }
+        }
+      }
+    }
+    // 拋出彈殼：落地彈跳、躺平，停留一段時間
+    casing(p, v, type) {
+      const S = { pistol: [55e-4, 0.024], smg: [48e-4, 0.021], rifle: [5e-3, 0.046], sniper: [68e-4, 0.072] }[type] || [5e-3, 0.04];
+      if (this.cases.length >= this.caseMax) this.cases.shift();
+      this.cases.push({ p: p.clone(), v: v.clone(), q: new Quaternion().setFromEuler(new Euler(0, 0, Math.PI / 2)), w: new Vector3((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30), r: S[0], len: S[1], life: 0, max: 25 + Math.random() * 10, floor: -50, rest: false, chk: 0 });
+    }
+    updateCases(dt) {
+      if (!this.cases.length && !this.caseMesh.count) return;
+      const D = this._dummy, M2 = this.caseMesh, dq = new Quaternion(), ax = new Vector3();
+      let n = 0;
+      for (const c of this.cases) {
+        c.life += dt;
+        if (c.life >= c.max) continue;
+        this.refloor(c, dt);
+        if (!c.rest) {
+          c.v.y -= 9.8 * dt;
+          c.v.multiplyScalar(Math.exp(-0.2 * dt));
+          c.p.addScaledVector(c.v, dt);
+          const wl = c.w.length();
+          if (wl > 1e-3) {
+            dq.setFromAxisAngle(ax.copy(c.w).divideScalar(wl), wl * dt);
+            c.q.premultiply(dq);
+          }
+          if (c.p.y < c.floor + c.r) {
+            c.p.y = c.floor + c.r;
+            if (Math.abs(c.v.y) > 0.7) {
+              c.v.y *= -0.35;
+              c.v.x *= 0.55;
+              c.v.z *= 0.55;
+              c.w.multiplyScalar(0.5);
+            } else {
+              c.rest = true;
+              c.q.setFromEuler(new Euler(0, Math.random() * 6.3, Math.PI / 2));
+            }
+          }
+        }
+        const fade = Math.min(1, (c.max - c.life) / 1.5);
+        D.position.copy(c.p);
+        D.quaternion.copy(c.q);
+        D.scale.set(c.r * fade, c.len * fade, c.r * fade);
+        D.updateMatrix();
+        M2.setMatrixAt(n++, D.matrix);
+      }
+      this.cases = this.cases.filter((c) => c.life < c.max);
+      M2.count = n;
+      M2.instanceMatrix.needsUpdate = true;
     }
     clearDecals() {
       for (const d of Object.values(this.decals)) {
         d.mesh.count = 0;
         d.i = 0;
       }
+      this.rubble.clear();
+      this.jag.clear();
+      this.rebar.clear();
+      this.chunks = [];
+      this.shards = [];
+      this.cases = [];
     }
     bloodSplat(p) {
       this.decals.blood.add(p, new Vector3(0, 1, 0), 0.5 + Math.random() * 0.4);
@@ -37174,6 +37806,10 @@ void main() {
     update(dt, t, camera, shipSpeed) {
       this.updateShards(dt);
       this.updateChunks(dt);
+      this.updateCases(dt);
+      this.rubble.flush();
+      this.jag.flush();
+      this.rebar.flush();
       this.add.update(dt);
       this.smoke.update(dt);
       const h = window.innerHeight * Math.min(window.devicePixelRatio, 2);
@@ -39496,8 +40132,8 @@ void main() {
         this._done(v);
         if (p && d < 12) {
           const s = 1 - d / 12;
-          this._muffle(0.5 + 0.5 * s, 1 + 2 * s);
-          this._ring(0.3 + 0.7 * s, 1.5 + 2 * s);
+          this._muffle(0.55 + 0.45 * s, 1.5 + 2.5 * s);
+          this._ring(0.35 + 0.65 * s, 2 + 2.5 * s);
         }
       } catch (e) {
         this._warn("playExplosion", e);
@@ -42078,6 +42714,7 @@ void main() {
   var _v4 = new Vector3();
   var _v23 = new Vector3();
   var _d = new Vector3();
+  var CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1 };
   var Game = class {
     constructor() {
       this.time = 0;
@@ -42111,6 +42748,7 @@ void main() {
       this.world = new CampusWorld();
       this.renderer.scene.userData.camera = this.renderer.camera;
       this.map = await buildCampus(this.renderer.scene, this.world, this.renderer.renderer, document.getElementById("loadTxt"));
+      if (this.map.prepareDestruction) this.map.prepareDestruction();
       this.hud.loading(0.68, "\u6821\u5712\u5929\u7A7A\u8207\u5149\u7167");
       await nextFrame();
       this.env = new CampusEnvironment(this.renderer.renderer, this.renderer.scene, this.opts.quality);
@@ -42209,8 +42847,11 @@ void main() {
       const o = this.opts;
       audio.init();
       audio.setVolumes({ master: o.vol });
-      audio.startAmbient();
+      audio.stopAmbient();
       audio.playUI("start");
+      this.concT = 0;
+      this.concK = 0;
+      this.flash = 0;
       for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
       for (const t of this.tags) this.renderer.scene.remove(t.sprite);
       for (const n of this.nades) this.renderer.scene.remove(n.mesh);
@@ -42436,11 +43077,22 @@ void main() {
         this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === "sniper" ? 10 : 5, 0.06);
         audio.playShot(d.sound, null);
         if (Math.random() < 0.5) audio.playShellDrop(null);
+        if (CASED[d.type]) {
+          const cp = cam.position.clone().addScaledVector(dir, 0.42).addScaledVector(right, 0.17).addScaledVector(up, -0.07);
+          const cv = right.clone().multiplyScalar(1.8 + Math.random() * 1.2).addScaledVector(up, 1.1 + Math.random() * 0.9).addScaledVector(dir, -0.4 + Math.random() * 0.4);
+          if (a.vel) cv.add(a.vel);
+          this.fx.casing(cp, cv, d.type);
+        }
       } else {
         muzzle = a.soldier.muzzleWorld(new Vector3());
         this.fx.muzzle(muzzle, dir, d.type === "sniper" ? 1.6 : d.type === "smg" ? 0.8 : 1);
         a.soldier.kick();
         audio.playShot(d.sound, muzzle);
+        if (CASED[d.type] && muzzle.distanceTo(this.renderer.camera.position) < 35) {
+          const rt = new Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
+          const cp = muzzle.clone().addScaledVector(dir, -0.45).addScaledVector(rt, 0.05);
+          this.fx.casing(cp, rt.multiplyScalar(1.6 + Math.random()).add(new Vector3(0, 1.2 + Math.random() * 0.8, 0)), d.type);
+        }
       }
       a.radarT = 1.6;
       for (const b of this.actors) if (b !== a && b.hear && b.team !== a.team && b.pos.distanceTo(a.pos) < 45) b.hear(a.pos, true);
@@ -42508,7 +43160,7 @@ void main() {
         const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
         if (wreck) {
           this.fx.debris(wreck, dir);
-          for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);
+          this.afterWreck(shooter);
           if (pt.distanceTo(this.renderer.camera.position) < 70) audio.playDestroy(pt, wreck.kind);
           mul *= 0.75;
           from = h.exit;
@@ -42580,7 +43232,7 @@ void main() {
                   this.fx.debris(wreck, base);
                   audio.playDestroy(pt, wreck.kind, 0.7);
                 }
-                if (this.map.takeWrecked) for (const x of this.map.takeWrecked()) this.fx.clearDecalsIn(x);
+                this.afterWreck(a);
               }
               audio.playKnife(heavy ? "heavy" : "light", "wall", a.isPlayer ? null : eye);
             } else audio.playKnife(heavy ? "heavy" : "light", "miss", a.isPlayer ? null : eye);
@@ -42648,7 +43300,17 @@ void main() {
       if (panes.length) audio.playGlassBreak(p, Math.min(1.5, 0.6 + panes.length * 0.15));
       const wrecked = this.map.blastAt ? this.map.blastAt(p, 6.5, 900) : [];
       for (const w of wrecked.slice(0, 40)) this.fx.debris(w, null, p);
-      if (this.map.takeWrecked) for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);
+      this.afterWreck(owner);
+      if (this.map.pushAt) this.map.pushAt(p, 10, 1);
+      const pl = this.player;
+      const cp = this.renderer.camera.position, dv = _v4.copy(cp).sub(p), L = dv.length();
+      if (pl && pl.alive && L < 14) {
+        let k = 1 - L / 14;
+        if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, "sight")) k *= 0.45;
+        this.concK = Math.max(this.concK || 0, k);
+        this.concT = Math.max(this.concT || 0, 1.5 + 2.5 * k);
+        this.flash = Math.max(this.flash || 0, 0.85 * k * k);
+      }
       if (wrecked.length) audio.playDestroy(p, wrecked[0].kind, Math.min(1.8, 0.8 + wrecked.length * 0.1));
       audio.playExplosion(p);
       const camD = this.renderer.camera.position.distanceTo(p);
@@ -42660,14 +43322,60 @@ void main() {
         const dist = c.distanceTo(p);
         if (dist > d.radius) continue;
         const dir = c.clone().sub(p);
-        const L = dir.length();
-        dir.divideScalar(L || 1);
-        const blocked = this.world.raycast(p.x, p.y + 0.2, p.z, dir.x, dir.y, dir.z, Math.max(0, L - 0.3), "bullet");
+        const L2 = dir.length();
+        dir.divideScalar(L2 || 1);
+        const blocked = this.world.raycast(p.x, p.y + 0.2, p.z, dir.x, dir.y, dir.z, Math.max(0, L2 - 0.3), "bullet");
         let dmg = d.dmg * Math.pow(1 - dist / d.radius, 1.1);
         if (blocked) dmg *= 0.2;
         if (dmg > 1) this.damage(a, owner, dmg, "chest", "he", dir, false);
       }
       for (const b of this.actors) if (b.hear && b.pos.distanceTo(p) < 40) b.hear(p, true);
+    }
+    // 物件被打爛後：清彈孔、讓上面的殘骸掉下來、留下斷口、檢查失去支撐的結構與玻璃（連鎖最多 8 輪）
+    afterWreck(att) {
+      const M2 = this.map;
+      if (!M2.takeWrecked) return;
+      for (let it = 0; it < 8; it++) {
+        const w = M2.takeWrecked();
+        if (!w.length) break;
+        for (const x of w) {
+          this.fx.clearDecalsIn(x);
+          this.fx.wakeRubble(x);
+        }
+        for (const x of w) this.fx.remnants(x);
+        if (M2.collapse) M2.collapse(w, att);
+        if (M2.looseGlass) for (const c of M2.looseGlass(w)) {
+          const q = M2.breakGlass(c);
+          if (q) {
+            this.fx.shatter(q, new Vector3(0, -0.3, 0));
+            audio.playGlassBreak(new Vector3(q.x, q.y, q.z), 0.8);
+          }
+        }
+      }
+    }
+    // 塌落的牆塊落地、翻倒的桌子撞地
+    updateLanded() {
+      if (!this.map.takeLanded) return;
+      const ev = this.map.takeLanded();
+      if (!ev.length) return;
+      const cam = this.renderer.camera.position, zero = new Vector3();
+      for (const L of ev) {
+        const i = L.info, pt = new Vector3(i.x, i.y, i.z), d = pt.distanceTo(cam);
+        if (L.thud) {
+          if (d < 40) audio.playImpact(pt, "wood");
+          continue;
+        }
+        this.fx.debris(i, zero);
+        if (L.hit) this.fx.debris(L.hit, zero);
+        if (d < 80) audio.playDestroy(pt, i.kind, Math.min(1.6, 0.6 + i.sx * i.sy * i.sz * 1.5));
+        this.fx.shake = Math.max(this.fx.shake, Math.max(0, 0.6 - d / 25));
+        for (const a of this.actors) {
+          if (!a.alive) continue;
+          if (Math.abs(a.pos.x - i.x) < i.sx / 2 + 0.3 && Math.abs(a.pos.z - i.z) < i.sz / 2 + 0.3 && a.pos.y <= i.y + i.sy / 2 && a.pos.y + 1.8 >= i.y - i.sy / 2)
+            this.damage(a, L.att && L.att !== a ? L.att : null, 30 + Math.min(70, (L.v || 0) * 8 * i.sx * i.sy * i.sz * 3), "head", "he", new Vector3(0, -1, 0), false);
+        }
+      }
+      this.afterWreck(ev[0].att);
     }
     damage(v, att, amt, part2, wid, dir, wall, melee) {
       if (!v.alive || v.protectT > 0) return;
@@ -42886,6 +43594,7 @@ void main() {
       this.fx.update(dt, this.realTime, cam, this.env.shipSpeed);
       this.env.update(dt, this.realTime, cam.position);
       this.map.update(dt, this.realTime);
+      this.updateLanded();
       this.fpsAcc = (this.fpsAcc || 0) + dt;
       this.fpsN = (this.fpsN || 0) + 1;
       if (this.fpsAcc > 1) {
@@ -42913,6 +43622,12 @@ void main() {
       this.dmgFlash = Math.max(0, (this.dmgFlash || 0) - dt * 1.6);
       fxu.uTime.value = this.realTime;
       fxu.uDamage.value = this.dmgFlash;
+      this.concT = Math.max(0, (this.concT || 0) - dt);
+      if (this.concT <= 0) this.concK = 0;
+      this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
+      const alive = this.player && this.player.alive && this.playing;
+      fxu.uConc.value = alive ? (this.concK || 0) * Math.min(1, this.concT / 1.2) : 0;
+      fxu.uFlash.value = alive ? this.flash : 0;
       const p = this.player;
       fxu.uLowHP.value = p && p.alive && this.playing ? Math.max(0, (35 - p.hp) / 35) : 0;
       fxu.uDeath.value = p && !p.alive && this.playing ? Math.min(1, p.deadT * 2) : 0;

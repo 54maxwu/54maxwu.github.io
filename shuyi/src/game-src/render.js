@@ -10,11 +10,11 @@ const FXShader = {
   uniforms: {
     tDiffuse: { value: null }, uTime: { value: 0 }, uDamage: { value: 0 }, uLowHP: { value: 0 },
     uFlash: { value: 0 }, uVignette: { value: 0.28 }, uDeath: { value: 0 }, uScope: { value: 0 },
-    uProtect: { value: 0 }, uUnderRoof: { value: 0 },
+    uProtect: { value: 0 }, uUnderRoof: { value: 0 }, uConc: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect;
+    uniform sampler2D tDiffuse; uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uConc;
     varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     void main(){
@@ -26,6 +26,20 @@ const FXShader = {
       col.r = texture2D(tDiffuse, uv + c * ca).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - c * ca).b;
+      // 爆炸震盪：模糊 + 重影 + 去飽和（耳鳴期間視線發晃）
+      if (uConc > 0.002) {
+        float k = clamp(uConc, 0.0, 1.0);
+        vec2 wob = vec2(sin(uTime * 3.1), cos(uTime * 2.3)) * 0.004 * k;
+        vec3 acc = col * 0.2;
+        for (int i = 0; i < 8; i++) {
+          float a = float(i) * 0.7854 + uTime * 0.5;
+          acc += texture2D(tDiffuse, uv + wob + vec2(cos(a), sin(a)) * 0.006 * k * (1.0 + float(i / 4))).rgb * 0.1;
+        }
+        vec3 ghost = texture2D(tDiffuse, uv + vec2(0.018, 0.006) * k + wob).rgb;
+        col = mix(col, mix(acc, ghost, 0.3), k);
+        float gg = dot(col, vec3(0.299, 0.587, 0.114));
+        col = mix(col, vec3(gg), k * 0.45);
+      }
       float r = length(c * vec2(1.0, 0.8));
       // 暗角
       col *= 1.0 - smoothstep(0.35, 0.95, r) * uVignette;
@@ -43,6 +57,7 @@ const FXShader = {
       col = mix(col, vec3(0.35, 0.6, 1.0), uProtect * edge * 0.18);
       // 閃白
       col += uFlash;
+      col *= 1.0 - smoothstep(0.3, 0.9, r) * uConc * 0.45;
       // 膠片顆粒
       // Preserve original map surfaces without film grain.
       gl_FragColor = vec4(col, 1.0);

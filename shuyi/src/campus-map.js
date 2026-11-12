@@ -32,6 +32,11 @@ export async function buildCampus(scene,world,renderer,progress){
   damageAt(c,dmg,dir){return destruct?destruct.damage(c,dmg,dir):null},
   blastAt(p,r,power){return destruct?destruct.blast(p,r,power):[]},
   takeWrecked(){return destruct?destruct.takeWrecked():[]},
+  takeLanded(){return destruct?destruct.takeLanded():[]},
+  prepareDestruction(){if(destruct)destruct.prepare()},
+  collapse(w,att){return destruct?destruct.collapse(w,att):0},
+  looseGlass(w){return destruct?destruct.looseGlass(w):[]},
+  pushAt(p,r,k){return destruct?destruct.push(p,r,k):0},
   resetDestruction(){if(destruct)destruct.reset()},
   resetGlass(){if(!glassApi)return;glassApi.panes.forEach((p,i)=>{if(p.c&&p.c.broken){p.c.broken=false;p.c.solid=true;p.c.bullet='pen';glassApi.place(i,true)}});glassApi.mesh.instanceMatrix.needsUpdate=true},isSpawn(p){return spawns[p.team].some(s=>Math.hypot(s.x-p.pos.x,s.z-p.pos.z)<12&&Math.abs(s.y-p.pos.y)<3)},pickBotGoal(bot,near){const other=bot.team==='BL'?'GR':'BL';const pool=nav.main;
  // near: flank point within ~25 m of a target; otherwise roam the whole campus (all floors).

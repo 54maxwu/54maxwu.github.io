@@ -57,7 +57,7 @@ function makeMaterials(){
 
 // ---------- geometry + collider builder ----------
 class Builder{
-  constructor(world,scene){this.world=world;this.scene=scene;this.glass=[];this.parts=[];this.noBreak=false;this.falling=[];this.wrecked=[];this.meshByKey={};this.origPos={};this.M=makeMaterials();this.buf={};this.extra={};this.boxes=0}
+  constructor(world,scene){this.world=world;this.scene=scene;this.glass=[];this.parts=[];this.noBreak=false;this.falling=[];this.wrecked=[];this.meshByKey={};this.origPos={};this.origNrm={};this.movable=[];this.movers=new Set();this.blocks=[];this.landed=[];this.M=makeMaterials();this.buf={};this.extra={};this.boxes=0}
   arr(k){return this.buf[k]||(this.buf[k]={p:[],n:[],u:[]})}
   quad(k,a,b,c,d,nrm,uvs){const B=this.arr(k);for(const i of [0,1,2,0,2,3]){const v=[a,b,c,d][i];B.p.push(v[0],v[1],v[2]);B.n.push(...nrm);B.u.push(...uvs[i])}}
   // world box: x0..x1, y0..y1, n0..n1 (north). opts: col (false|object), faces
@@ -83,12 +83,13 @@ class Builder{
     if(col&&kind){const c=this.collide(x0,x1,y0,y1,n0,n1,kind,typeof col==='object'?col:{});
       if(breakable){const vol=hx*hy*hn,hp=Math.round(Math.max(40,Math.min(520,380*Math.sqrt(vol/0.6)))*(HPK[k]||1));
         const part={ranges:[{k,start:vStart,count:36}],c,hp,max:hp,kind:k,box:{x0,x1,y0,y1,n0,n1},cb:c.bullet,cs:c.sight};c.part=part;this.parts.push(part)}}
+    if(!col&&this._attach)this._attach.ranges.push({k,start:vStart,count:36});
   }
   collide(x0,x1,y0,y1,n0,n1,kind='concrete',o={}){
     const base=kind==='glass'?{mat:'mesh',bullet:'pen',sight:false}:kind==='wood'?{mat:'wood',bullet:'pen',surface:'wood'}:kind==='metal'?{mat:'metal',bullet:'pass',sight:false}:{mat:'concrete',surface:'concrete'};
     return this.world.add({x:(x0+x1)/2,y:(y0+y1)/2,z:-(n0+n1)/2,sx:x1-x0,sy:y1-y0,sz:n1-n0,...base,...o});
   }
-  info(p){const b=p.box;return{x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2,z:-(b.n0+b.n1)/2,sx:b.x1-b.x0,sy:b.y1-b.y0,sz:b.n1-b.n0,kind:p.kind}}
+  info(p){const b=p.box;return{x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2,z:-(b.n0+b.n1)/2,sx:b.x1-b.x0,sy:b.y1-b.y0,sz:b.n1-b.n0,kind:p.kind,c:p.c}}
   destroyPart(p,dir){if(p.dead)return null;if(p.kind==='tree')this.fellTree(p,dir);p.dead=true;this.wrecked.push(this.info(p));if(p.c){p.c.solid=false;p.c.bullet='pass';p.c.sight=false}
     for(const r of p.ranges){const a=this.meshByKey[r.k].geometry.attributes.position,A=a.array,s=r.start*3;for(let i=3;i<r.count*3;i++)A[s+i]=A[s+i%3];a.addUpdateRange(s,r.count*3);a.needsUpdate=true}
     for(const q of p.links||[])if(!q.dead)this.destroyPart(q,dir);   // 牆的另一層（磚面＋粉刷面）一起破
@@ -117,10 +118,120 @@ class Builder{
         t.col=c}}
       t.g.quaternion.setFromAxisAngle(t.axis,Math.max(0,t.ang))}
   }
-  resetParts(){
+  resetParts(){this.resetMotion();
     for(const t of this.falling){this.scene.remove(t.g);this.scene.remove(t.stump);t.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});t.stump.geometry.dispose();if(t.col){t.col.solid=false;t.col.bullet='pass';t.col.sight=false}}
     this.falling=[];const touched=new Set();for(const p of this.parts){if(!p.dead){p.hp=p.max;continue}p.dead=false;p.hp=p.max;if(p.c){p.c.solid=true;p.c.bullet=p.cb;p.c.sight=p.cs}
     for(const r of p.ranges){const a=this.meshByKey[r.k].geometry.attributes.position,s=r.start*3;a.array.set(this.origPos[r.k].subarray(s,s+r.count*3),s);a.addUpdateRange(s,r.count*3);touched.add(a)}}for(const a of touched)a.needsUpdate=true}
+  // ---------- 結構支撐：失去支撐的部件整塊塌落 ----------
+  // 支撐規則：底下有東西撐著（地面、樓板、或本身有支撐的部件）＝「落地」；
+  // 否則只要側邊緊貼一個「落地」的部件也算有支撐（像窗楣、跨過小缺口的牆）；兩側都斷了才會掉。
+  supportCalc(set){
+    const W=this.world,e=0.04,below=new Map(),lat=new Map(),G=new Map(),S=new Map();
+    const ok=c=>c.solid&&c.tag!=='glass'&&c.tag!=='boundary';
+    for(const p of set){const b=p.box;G.set(p,false);S.set(p,false);
+      if(b.y0<=0.05){below.set(p,true);lat.set(p,[]);continue}
+      let hard=false;const arr=[];
+      for(const c of W.query(b.x0+e,-b.n1+e,b.x1-e,-b.n0-e)){if(!ok(c)||c.part===p)continue;if(c.top<b.y0-0.06||c.bottom>b.y0-0.02)continue;
+        if(!c.part){hard=true;break}arr.push(c.part)}
+      below.set(p,hard||arr);
+      const L=[];
+      for(const c of W.query(b.x0-0.05,-b.n1-0.05,b.x1+0.05,-b.n0+0.05)){if(!ok(c)||!c.part||c.part===p)continue;if(Math.min(c.top,b.y1)-Math.max(c.bottom,b.y0)<0.25)continue;L.push(c.part)}
+      lat.set(p,L)}
+    const g=q=>!set.has(q)||G.get(q),sp=q=>!set.has(q)||S.get(q);
+    for(let it=0,ch=true;ch&&it<60;it++){ch=false;
+      for(const p of set){const bl=below.get(p);
+        if(!G.get(p)&&(bl===true||bl.some(sp))){G.set(p,true);ch=true}
+        if(!S.get(p)&&(G.get(p)||lat.get(p).some(g))){S.set(p,true);ch=true}}}
+    return S}
+  // 開局前算一次：原本設計上就懸空的部件（招牌、掛件）不參與塌落
+  prepare(){if(this.prepared)return;this.prepared=true;
+    const all=new Set(this.parts.filter(p=>!p.dead&&p.kind!=='tree'&&p.c&&!p.movable)),S=this.supportCalc(all);let n=0;for(const p of all)if(!S.get(p)){p.free=true;n++}
+    for(const q of this.glass)if(q.c&&!this.glassHeld(q.c))q.free=true;
+    console.log('support prepared',{parts:all.size,free:n})}
+  collapse(wrecked,att){this.prepare();
+    const R=wrecked.map(w=>({x0:w.x-w.sx/2-2.5,x1:w.x+w.sx/2+2.5,z0:w.z-w.sz/2-2.5,z1:w.z+w.sz/2+2.5,y0:w.y-w.sy/2-0.1,y1:w.y+w.sy/2+4}));
+    const set=new Set();
+    for(const p of this.parts){if(p.dead||p.free||p.kind==='tree'||!p.c||p.movable)continue;const b=p.box,x0=b.x0,x1=b.x1,z0=-b.n1,z1=-b.n0;
+      for(const r of R)if(x1>r.x0&&x0<r.x1&&z1>r.z0&&z0<r.z1&&b.y1>r.y0&&b.y0<r.y1){set.add(p);break}}
+    if(!set.size)return 0;
+    const S=this.supportCalc(set),fall=[...set].filter(p=>!S.get(p));
+    if(fall.length)this.startFalls(fall,att);return fall.length}
+  glassHeld(c){for(const o of this.world.query(c.minX-0.08,c.minZ-0.08,c.maxX+0.08,c.maxZ+0.08)){if(!o.solid||o.tag==='glass'||o.tag==='boundary')continue;if(o.top>c.bottom-0.08&&o.bottom<c.top+0.08)return true}return false}
+  // 周圍的牆都沒了的玻璃：回傳碰撞體，交給 breakGlass 打碎
+  looseGlass(wrecked){const out=[];
+    for(const q of this.glass){const c=q.c;if(!c||c.broken||q.free)continue;
+      if(!wrecked.some(w=>Math.abs(c.x-w.x)<w.sx/2+1.5&&Math.abs(c.z-w.z)<w.sz/2+1.5&&Math.abs(c.y-w.y)<w.sy/2+2))continue;
+      if(!this.glassHeld(c))out.push(c)}return out}
+  // 塌落：把部件幾何複製成獨立方塊往下掉，落地時才碎成碎塊
+  startFalls(list,att){const made=[];
+    for(const p of list){if(p.dead)continue;const b=p.box,ctr=new THREE.Vector3((b.x0+b.x1)/2,(b.y0+b.y1)/2,-(b.n0+b.n1)/2),g=new THREE.Group();
+      for(const r of p.ranges){const src=this.meshByKey[r.k].geometry,geo=new THREE.BufferGeometry();
+        for(const nm of ['position','normal','uv']){const a=src.attributes[nm];geo.setAttribute(nm,new THREE.BufferAttribute(a.array.slice(r.start*a.itemSize,(r.start+r.count)*a.itemSize),a.itemSize))}
+        geo.translate(-ctr.x,-ctr.y,-ctr.z);const m=new THREE.Mesh(geo,this.M[r.k].m);m.castShadow=true;g.add(m)}
+      g.position.copy(ctr);this.scene.add(g);
+      made.push({p,g,info:this.info(p),att,vy:0,hy:(b.y1-b.y0)/2,delay:Math.random()*0.15,w:new THREE.Vector3((Math.random()-.5)*1.4,(Math.random()-.5)*0.5,(Math.random()-.5)*1.4)})}
+    for(const f of made){if(!f.p.dead)this.destroyPart(f.p,null);this.blocks.push(f)}}
+  updateBlocks(dt){if(!this.blocks.length)return;
+    for(const f of this.blocks){if(f.delay>0){f.delay-=dt;continue}
+      f.vy-=9.8*dt;const P=f.g.position;P.y+=f.vy*dt;f.g.rotation.x+=f.w.x*dt;f.g.rotation.y+=f.w.y*dt;f.g.rotation.z+=f.w.z*dt;
+      const s=this.world.support(P.x,P.z,0.05,P.y-f.hy+0.05),fl=s?s.y:0;
+      if(P.y-f.hy<=fl){const info={...f.info,x:P.x,y:fl+f.hy,z:P.z},ev={info,att:f.att,v:-f.vy};
+        if(s&&s.collider.part){const h=this.damage(s.collider,90+ev.v*30,{x:Math.random()-.5,z:Math.random()-.5});if(h)ev.hit=h}
+        this.landed.push(ev);this.scene.remove(f.g);f.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});f.done=true}}
+    this.blocks=this.blocks.filter(f=>!f.done)}
+  // ---------- 爆炸推動課桌椅 ----------
+  mover(p){if(p.mv)return p.mv;const b=p.box,c=p.c;
+    return p.mv={ox:0,oy:0,oz:0,yaw:0,tip:0,tipV:0,tipAx:null,tipS:1,vx:0,vy:0,vz:0,wy:0,px:(b.x0+b.x1)/2,py:b.y0,pz:-(b.n0+b.n1)/2,hx:(b.x1-b.x0)/2,hy:(b.y1-b.y0)/2,hz:(b.n1-b.n0)/2,box0:{...b},c0:{x:c.x,y:c.y,z:c.z,hx:c.hx,hy:c.hy,hz:c.hz,yaw:c.yaw}}}
+  push(pos,r,power){let n=0;
+    for(const p of this.movable){if(p.dead)continue;const b=p.box,cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2,cz=-(b.n0+b.n1)/2,dx=cx-pos.x,dy=cy-pos.y,dz=cz-pos.z,d=Math.hypot(dx,dy,dz);
+      if(d>r||Math.abs(dy)>2.2||d<1e-3)continue;
+      p.c.solid=false;const h=this.world.raycast(pos.x,pos.y,pos.z,dx/d,dy/d,dz/d,Math.max(0,d-0.35),'move');p.c.solid=true;if(h)continue;   // 牆後的不受影響
+      const k=(1-d/r)*power,L=Math.hypot(dx,dz)||1,ux=dx/L,uz=dz/L,m=this.mover(p);
+      m.vx+=ux*k*7;m.vz+=uz*k*7;m.vy=Math.max(m.vy,k*2.4);m.wy+=(Math.random()-.5)*14*k;
+      if(!m.tipAx&&k>0.28){const cs=Math.cos(m.yaw),sn=Math.sin(m.yaw),lx=cs*ux-sn*uz,lz=sn*ux+cs*uz;   // 往受力方向翻倒
+        if(Math.abs(lx)>Math.abs(lz)){m.tipAx='z';m.tipS=Math.sign(lx)||1}else{m.tipAx='x';m.tipS=Math.sign(lz)||1}m.tipV=1.2+k*4}
+      this.movers.add(p);n++}
+    return n}
+  regrid(c,o){const G=this.world.grid,f=v=>Math.floor(v/4),cells=(a,b,cc,d)=>{const r=[];for(let x=f(a);x<=f(cc);x++)for(let z=f(b);z<=f(d);z++)r.push(x*1000+z);return r};
+    const A=cells(o[0],o[1],o[2],o[3]),B=cells(c.minX,c.minZ,c.maxX,c.maxZ);
+    for(const k of A)if(!B.includes(k)){const a=G.get(k);if(a){const i=a.indexOf(c);if(i>=0)a.splice(i,1)}}
+    for(const k of B)if(!A.includes(k)){let a=G.get(k);if(!a)G.set(k,a=[]);a.push(c)}}
+  setCol(c,x,y,z,hx,hy,hz,yaw){const o=[c.minX,c.minZ,c.maxX,c.maxZ];c.x=x;c.y=y;c.z=z;c.hx=hx;c.hy=hy;c.hz=hz;c.yaw=yaw;c.c=Math.cos(yaw);c.s=Math.sin(yaw);c.top=y+hy;c.bottom=y-hy;
+    const ex=Math.abs(c.c)*hx+Math.abs(c.s)*hz,ez=Math.abs(c.s)*hx+Math.abs(c.c)*hz;c.minX=x-ex;c.maxX=x+ex;c.minZ=z-ez;c.maxZ=z+ez;this.regrid(c,o)}
+  // 依目前位移／旋轉／翻倒角度改寫頂點，並更新碰撞體與 box
+  applyMotion(p){const m=p.mv,M=this._m||(this._m=new THREE.Matrix4()),T=this._t||(this._t=new THREE.Matrix4()),N=this._n||(this._n=new THREE.Matrix3()),v=this._v||(this._v=new THREE.Vector3());
+    const E=m.tipAx==='z'?[m.tipS*m.hx,0,0]:[0,0,m.tipS*m.hz],ang=m.tipAx==='z'?-m.tipS*m.tip:m.tipS*m.tip;
+    M.makeTranslation(m.px+m.ox,m.py+m.oy,m.pz+m.oz).multiply(T.makeRotationY(m.yaw));
+    if(m.tipAx){M.multiply(T.makeTranslation(E[0],E[1],E[2])).multiply(m.tipAx==='z'?T.makeRotationZ(ang):T.makeRotationX(ang)).multiply(T.makeTranslation(-E[0],-E[1],-E[2]))}
+    N.setFromMatrix4(M);const e=M.elements;
+    for(const r of p.ranges){const g=this.meshByKey[r.k].geometry,A=g.attributes.position.array,NA=g.attributes.normal.array,O=this.origPos[r.k],ON=this.origNrm[r.k],s0=r.start*3;
+      for(let i=s0;i<s0+r.count*3;i+=3){v.set(O[i]-m.px,O[i+1]-m.py,O[i+2]-m.pz).applyMatrix4(M);A[i]=v.x;A[i+1]=v.y;A[i+2]=v.z;v.set(ON[i],ON[i+1],ON[i+2]).applyMatrix3(N);NA[i]=v.x;NA[i+1]=v.y;NA[i+2]=v.z}
+      g.attributes.position.addUpdateRange(s0,r.count*3);g.attributes.position.needsUpdate=true;g.attributes.normal.addUpdateRange(s0,r.count*3);g.attributes.normal.needsUpdate=true}
+    const cs=Math.abs(Math.cos(m.tip)),sn=Math.abs(Math.sin(m.tip));let hx=m.hx,hy=m.hy,hz=m.hz;
+    if(m.tipAx==='z'){hx=cs*m.hx+sn*m.hy;hy=sn*m.hx+cs*m.hy}else if(m.tipAx==='x'){hy=cs*m.hy+sn*m.hz;hz=sn*m.hy+cs*m.hz}
+    v.set(0,m.hy,0).applyMatrix4(M);this.setCol(p.c,v.x,Math.max(v.y,m.py+m.oy+hy),v.z,hx,hy,hz,m.yaw);
+    const c=p.c;p.box={x0:c.minX,x1:c.maxX,y0:c.bottom,y1:c.top,n0:-c.maxZ,n1:-c.minZ}}
+  updateMotion(dt){if(!this.movers.size)return;const W=this.world;
+    for(const p of this.movers){const m=p.mv,c=p.c;if(p.dead){this.movers.delete(p);continue}
+      c.solid=false;
+      if(m.tipAx&&(m.tip<Math.PI/2||m.tipV!==0)){m.tipV+=9*Math.sin(Math.max(m.tip,0.15))*dt;m.tip=Math.max(0,m.tip+m.tipV*dt);
+        if(m.tip>=Math.PI/2){m.tip=Math.PI/2;m.tipV=m.tipV>2?-m.tipV*0.25:0;if(!m.thud){m.thud=true;this.landed.push({thud:true,info:this.info(p)})}}}
+      const sp=Math.hypot(m.vx,m.vz);
+      if(sp>0.01){const ux=m.vx/sp,uz=m.vz/sp,h=W.raycast(c.x,c.bottom+0.25,c.z,ux,0,uz,sp*dt+Math.max(c.hx,c.hz)*0.8,'move');
+        if(h){const vn=m.vx*h.nx+m.vz*h.nz;if(vn<0){m.vx-=1.5*vn*h.nx;m.vz-=1.5*vn*h.nz;m.vx*=0.5;m.vz*=0.5}}else{m.ox+=m.vx*dt;m.oz+=m.vz*dt}}
+      m.yaw+=m.wy*dt;
+      const by=m.py+m.oy,s=W.support(c.x,c.z,0.12,by+0.3),fl=s?s.y:0;
+      if(by>fl+0.002||m.vy>0){m.vy-=9.8*dt;m.oy+=m.vy*dt;if(m.py+m.oy<=fl){m.oy=fl-m.py;m.vy=0}}
+      const ground=m.py+m.oy<=fl+0.003;if(ground&&m.vy<0){m.vy=0;m.oy=Math.max(m.oy,fl-m.py)}
+      if(ground){const f=Math.exp(-4.5*dt);m.vx*=f;m.vz*=f;m.wy*=Math.exp(-6*dt)}
+      this.applyMotion(p);c.solid=true;
+      if(ground&&m.vy===0&&sp<0.04&&Math.abs(m.wy)<0.04&&(!m.tipAx||(m.tip>=Math.PI/2&&m.tipV===0)))this.movers.delete(p)}}
+  resetMotion(){
+    for(const f of this.blocks){this.scene.remove(f.g);f.g.traverse(o=>{if(o.geometry)o.geometry.dispose()})}this.blocks=[];this.landed=[];this.movers.clear();
+    for(const p of this.movable){const m=p.mv;if(!m)continue;p.box={...m.box0};const o=m.c0;this.setCol(p.c,o.x,o.y,o.z,o.hx,o.hy,o.hz,o.yaw);
+      for(const r of p.ranges){const g=this.meshByKey[r.k].geometry,s0=r.start*3,n=r.count*3;g.attributes.position.array.set(this.origPos[r.k].subarray(s0,s0+n),s0);g.attributes.normal.array.set(this.origNrm[r.k].subarray(s0,s0+n),s0);
+        g.attributes.position.addUpdateRange(s0,n);g.attributes.position.needsUpdate=true;g.attributes.normal.addUpdateRange(s0,n);g.attributes.normal.needsUpdate=true}
+      p.mv=null}}
   geo(k,g,part){(this.extra[k]||(this.extra[k]=[])).push({g:g.index?g.toNonIndexed():g,part})}
   finish(scene,shadows){
     const meshes=[];let faces=0;
@@ -144,7 +255,7 @@ class Builder{
         const key=thinN?'n|'+[r2(b.x0),r2(b.x1),r2(b.y0),r2(b.y1)].join(','):'x|'+[r2(b.n0),r2(b.n1),r2(b.y0),r2(b.y1)].join(',');
         for(const q of idx.get(key)||[]){const a=q.box,gap=thinN?Math.max(a.n0-b.n1,b.n0-a.n1):Math.max(a.x0-b.x1,b.x0-a.x1);if(gap<=0.02){(p.links||(p.links=[])).push(q);(q.links||(q.links=[])).push(p)}}
         (idx.get(key)||idx.set(key,[]).get(key)).push(p)} }
-    for(const k of new Set(this.parts.flatMap(p=>p.ranges.map(r=>r.k))))this.origPos[k]=this.meshByKey[k].geometry.attributes.position.array.slice();
+    for(const k of new Set(this.parts.flatMap(p=>p.ranges.map(r=>r.k)))){const g=this.meshByKey[k].geometry;this.origPos[k]=g.attributes.position.array.slice();this.origNrm[k]=g.attributes.normal.array.slice()}
     return {meshes,facesCount:faces};
   }
 }
@@ -206,7 +317,7 @@ function bar(B,o){
       if(!pass&&s.type!=='open')for(const e of [a0,a1])if(Math.abs(e-u0)>.01&&Math.abs(e-u1)>.01)lb('plaster',e-.1,e+.1,yb,ceil,COR,D-.3);
       // classroom furnishing
       if(s.type==='class'&&!voidAbove){lb('board',a0+.9,a1-.9,yb+.9,yb+2.1,COR+.2,COR+.25,false);
-        for(let r=0;r<5;r++)for(let c=0;c<6;c++){const uu=a0+1.2+(L-2.4)*(c+.5)/6,ww=COR+2.2+r*((D-COR-3.4)/5);if(ww>D-.9)continue;lb('wood',uu-.32,uu+.32,yb,yb+.72,ww-.22,ww+.22);lb('wood',uu-.2,uu+.2,yb,yb+.45,ww+.35,ww+.7,false)}}
+        for(let r=0;r<5;r++)for(let c=0;c<6;c++){const uu=a0+1.2+(L-2.4)*(c+.5)/6,ww=COR+2.2+r*((D-COR-3.4)/5);if(ww>D-.9)continue;const np=B.parts.length;lb('wood',uu-.32,uu+.32,yb,yb+.72,ww-.22,ww+.22);const dp=B.parts.length>np?B.parts[B.parts.length-1]:null;if(dp){dp.movable=true;B.movable.push(dp);B._attach=dp}lb('wood',uu-.2,uu+.2,yb,yb+.45,ww+.35,ww+.7,false);B._attach=null}}
       if(stair)stairs(lb,a0,a1,yb,yt,f);
     }
     // courtyard face (w = 0): arcade on the ground floor, parapets + piers above
@@ -442,7 +553,8 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
 
   await tick('建立實景校園：合併網格');
   const vis=B.finish(scene,shadows);
-  return {...vis,rooms,builder:B,glass:B.glassApi,destruct:{takeWrecked:()=>{const w=B.wrecked;B.wrecked=[];return w},update:dt=>B.updateFalling(dt),damage:(c,d,dir)=>B.damage(c,d,dir),blast:(p,r,w)=>B.blast(p,r,w),reset:()=>B.resetParts(),count:B.parts.length}};
+  return {...vis,rooms,builder:B,glass:B.glassApi,destruct:{takeWrecked:()=>{const w=B.wrecked;B.wrecked=[];return w},takeLanded:()=>{const w=B.landed;B.landed=[];return w},update:dt=>{B.updateFalling(dt);B.updateBlocks(dt);B.updateMotion(dt)},
+    prepare:()=>B.prepare(),collapse:(w,att)=>B.collapse(w,att),looseGlass:w=>B.looseGlass(w),push:(p,r,k)=>B.push(p,r,k),damage:(c,d,dir)=>B.damage(c,d,dir),blast:(p,r,w)=>B.blast(p,r,w),reset:()=>B.resetParts(),count:B.parts.length}};
 }
 
 // Landmarks at their real positions (game coords: x, y, z=-n).

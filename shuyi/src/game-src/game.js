@@ -20,6 +20,8 @@ const MULTI = ['', '', 'DOUBLE KILL', 'TRIPLE KILL', 'MULTI KILL', 'ULTRA KILL',
 const MULTI_CN = ['', '', '雙殺', '三殺', '四殺', '五殺', '六殺！', '無人能擋', '超神'];
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _d = new THREE.Vector3();
 
+const CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1 };
+
 export class Game {
   constructor() {
     this.time = 0; this.frame = 0;
@@ -46,6 +48,7 @@ export class Game {
     this.world = new World();
     this.renderer.scene.userData.camera = this.renderer.camera;
     this.map = await buildCampus(this.renderer.scene, this.world, this.renderer.renderer, document.getElementById('loadTxt'));
+    if (this.map.prepareDestruction) this.map.prepareDestruction();
     this.hud.loading(0.68, '校園天空與光照');
     await nextFrame();
     this.env = new Environment(this.renderer.renderer, this.renderer.scene, this.opts.quality);
@@ -128,7 +131,8 @@ export class Game {
     if (this.map && this.map.resetDestruction) this.map.resetDestruction();
     if (this.fx) this.fx.clearDecals();
     const o = this.opts;
-    audio.init(); audio.setVolumes({ master: o.vol }); audio.startAmbient(); audio.playUI('start');
+    audio.init(); audio.setVolumes({ master: o.vol }); audio.stopAmbient(); audio.playUI('start');
+    this.concT = 0; this.concK = 0; this.flash = 0;
     for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
     for (const t of this.tags) this.renderer.scene.remove(t.sprite);
     for (const n of this.nades) this.renderer.scene.remove(n.mesh);
@@ -297,11 +301,22 @@ export class Game {
       this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === 'sniper' ? 10 : 5, 0.06);
       audio.playShot(d.sound, null);
       if (Math.random() < 0.5) audio.playShellDrop(null);
+      if (CASED[d.type]) {
+        const cp = cam.position.clone().addScaledVector(dir, 0.42).addScaledVector(right, 0.17).addScaledVector(up, -0.07);
+        const cv = right.clone().multiplyScalar(1.8 + Math.random() * 1.2).addScaledVector(up, 1.1 + Math.random() * 0.9).addScaledVector(dir, -0.4 + Math.random() * 0.4);
+        if (a.vel) cv.add(a.vel);
+        this.fx.casing(cp, cv, d.type);
+      }
     } else {
       muzzle = a.soldier.muzzleWorld(new THREE.Vector3());
       this.fx.muzzle(muzzle, dir, d.type === 'sniper' ? 1.6 : d.type === 'smg' ? 0.8 : 1);
       a.soldier.kick();
       audio.playShot(d.sound, muzzle);
+      if (CASED[d.type] && muzzle.distanceTo(this.renderer.camera.position) < 35) {
+        const rt = new THREE.Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
+        const cp = muzzle.clone().addScaledVector(dir, -0.45).addScaledVector(rt, 0.05);
+        this.fx.casing(cp, rt.multiplyScalar(1.6 + Math.random()).add(new THREE.Vector3(0, 1.2 + Math.random() * 0.8, 0)), d.type);
+      }
     }
     a.radarT = 1.6;
     // 讓附近的機器人聽到
@@ -363,7 +378,7 @@ export class Game {
       const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
       if (wreck) {
         this.fx.debris(wreck, dir);
-        for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);   // 連同背面那層一起清掉彈孔
+        this.afterWreck(shooter);   // 連同背面那層一起清掉彈孔，並檢查上方結構是否失去支撐
         if (pt.distanceTo(this.renderer.camera.position) < 70) audio.playDestroy(pt, wreck.kind);
         mul *= 0.75; from = h.exit; continue;
       }
@@ -423,7 +438,7 @@ export class Game {
               this.fx.slash(pt, nrm, c.mat, heavy);
               const wreck = this.map.damageAt ? this.map.damageAt(c, heavy ? 70 : 34, base) : null;
               if (wreck) { this.fx.debris(wreck, base); audio.playDestroy(pt, wreck.kind, 0.7); }
-              if (this.map.takeWrecked) for (const x of this.map.takeWrecked()) this.fx.clearDecalsIn(x);
+              this.afterWreck(a);
             }
             audio.playKnife(heavy ? 'heavy' : 'light', 'wall', a.isPlayer ? null : eye);
           } else audio.playKnife(heavy ? 'heavy' : 'light', 'miss', a.isPlayer ? null : eye);
@@ -482,7 +497,18 @@ export class Game {
     // 手雷炸毀附近的牆、柱、桌椅與樹木
     const wrecked = this.map.blastAt ? this.map.blastAt(p, 6.5, 900) : [];
     for (const w of wrecked.slice(0, 40)) this.fx.debris(w, null, p);
-    if (this.map.takeWrecked) for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);   // 所有被炸毀的物件（不限前 40 個）
+    this.afterWreck(owner);   // 所有被炸毀的物件（不限前 40 個）
+    // 爆炸把附近的課桌椅推開、掀翻
+    if (this.map.pushAt) this.map.pushAt(p, 10, 1);
+    // 近距離震盪：畫面模糊重影、閃白（耳鳴與悶聲在音效裡）
+    const pl = this.player;
+    const cp = this.renderer.camera.position, dv = _v.copy(cp).sub(p), L = dv.length();
+    if (pl && pl.alive && L < 14) {
+      let k = 1 - L / 14;
+      if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, 'sight')) k *= 0.45;
+      this.concK = Math.max(this.concK || 0, k); this.concT = Math.max(this.concT || 0, 1.5 + 2.5 * k);
+      this.flash = Math.max(this.flash || 0, 0.85 * k * k);
+    }
     if (wrecked.length) audio.playDestroy(p, wrecked[0].kind, Math.min(1.8, 0.8 + wrecked.length * 0.1));
     audio.playExplosion(p);
     const camD = this.renderer.camera.position.distanceTo(p);
@@ -500,6 +526,38 @@ export class Game {
       if (dmg > 1) this.damage(a, owner, dmg, 'chest', 'he', dir, false);
     }
     for (const b of this.actors) if (b.hear && b.pos.distanceTo(p) < 40) b.hear(p, true);
+  }
+  // 物件被打爛後：清彈孔、讓上面的殘骸掉下來、留下斷口、檢查失去支撐的結構與玻璃（連鎖最多 8 輪）
+  afterWreck(att) {
+    const M = this.map; if (!M.takeWrecked) return;
+    for (let it = 0; it < 8; it++) {
+      const w = M.takeWrecked(); if (!w.length) break;
+      for (const x of w) { this.fx.clearDecalsIn(x); this.fx.wakeRubble(x); }
+      for (const x of w) this.fx.remnants(x);
+      if (M.collapse) M.collapse(w, att);
+      if (M.looseGlass) for (const c of M.looseGlass(w)) { const q = M.breakGlass(c); if (q) { this.fx.shatter(q, new THREE.Vector3(0, -0.3, 0)); audio.playGlassBreak(new THREE.Vector3(q.x, q.y, q.z), 0.8); } }
+    }
+  }
+  // 塌落的牆塊落地、翻倒的桌子撞地
+  updateLanded() {
+    if (!this.map.takeLanded) return;
+    const ev = this.map.takeLanded(); if (!ev.length) return;
+    const cam = this.renderer.camera.position, zero = new THREE.Vector3();
+    for (const L of ev) {
+      const i = L.info, pt = new THREE.Vector3(i.x, i.y, i.z), d = pt.distanceTo(cam);
+      if (L.thud) { if (d < 40) audio.playImpact(pt, 'wood'); continue; }
+      this.fx.debris(i, zero);
+      if (L.hit) this.fx.debris(L.hit, zero);
+      if (d < 80) audio.playDestroy(pt, i.kind, Math.min(1.6, 0.6 + i.sx * i.sy * i.sz * 1.5));
+      this.fx.shake = Math.max(this.fx.shake, Math.max(0, 0.6 - d / 25));
+      // 砸到人
+      for (const a of this.actors) {
+        if (!a.alive) continue;
+        if (Math.abs(a.pos.x - i.x) < i.sx / 2 + 0.3 && Math.abs(a.pos.z - i.z) < i.sz / 2 + 0.3 && a.pos.y <= i.y + i.sy / 2 && a.pos.y + 1.8 >= i.y - i.sy / 2)
+          this.damage(a, L.att && L.att !== a ? L.att : null, 30 + Math.min(70, (L.v || 0) * 8 * i.sx * i.sy * i.sz * 3), 'head', 'he', new THREE.Vector3(0, -1, 0), false);
+      }
+    }
+    this.afterWreck(ev[0].att);
   }
   damage(v, att, amt, part, wid, dir, wall, melee) {
     if (!v.alive || v.protectT > 0) return;
@@ -670,6 +728,7 @@ export class Game {
     this.fx.update(dt, this.realTime, cam, this.env.shipSpeed);
     this.env.update(dt, this.realTime, cam.position);
     this.map.update(dt, this.realTime);
+    this.updateLanded();
     // 幀率統計與畫質建議
     this.fpsAcc = (this.fpsAcc || 0) + dt; this.fpsN = (this.fpsN || 0) + 1;
     if (this.fpsAcc > 1) {
@@ -699,6 +758,11 @@ export class Game {
     this.dmgFlash = Math.max(0, (this.dmgFlash || 0) - dt * 1.6);
     fxu.uTime.value = this.realTime;
     fxu.uDamage.value = this.dmgFlash;
+    this.concT = Math.max(0, (this.concT || 0) - dt); if (this.concT <= 0) this.concK = 0;
+    this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
+    const alive = this.player && this.player.alive && this.playing;
+    fxu.uConc.value = alive ? (this.concK || 0) * Math.min(1, this.concT / 1.2) : 0;
+    fxu.uFlash.value = alive ? this.flash : 0;
     const p = this.player;
     fxu.uLowHP.value = p && p.alive && this.playing ? Math.max(0, (35 - p.hp) / 35) : 0;
     fxu.uDeath.value = p && !p.alive && this.playing ? Math.min(1, p.deadT * 2) : 0;

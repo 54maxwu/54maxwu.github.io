@@ -797,8 +797,8 @@ export class AudioSystem {
       if (p && d < 12) {
         // 近距離震盪：世界音發悶 + 耳鳴
         const s = 1 - d / 12;
-        this._muffle(0.5 + 0.5 * s, 1 + 2 * s);
-        this._ring(0.3 + 0.7 * s, 1.5 + 2 * s);
+        this._muffle(0.55 + 0.45 * s, 1.5 + 2.5 * s);
+        this._ring(0.35 + 0.65 * s, 2 + 2.5 * s);
       }
     } catch (e) {
       this._warn('playExplosion', e);
