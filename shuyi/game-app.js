@@ -36953,7 +36953,7 @@ void main() {
     // 玻璃碎裂：整片玻璃化為碎片，沿子彈方向（或爆炸外推）噴出後落地
     shatter(b, dir, from) {
       const area2 = Math.max(b.sx * b.sy, b.sy * b.sz, b.sx * b.sz), n = Math.max(18, Math.min(80, area2 * 26 | 0));
-      const floor = b.y - b.sy / 2 - 0.95;
+      const floor = this.world ? -50 : b.y - b.sy / 2 - 0.95;
       for (let i = 0; i < n; i++) {
         const x = b.x + (Math.random() - 0.5) * b.sx, y = b.y + (Math.random() - 0.5) * b.sy, z = b.z + (Math.random() - 0.5) * b.sz;
         if (this.shards.length >= this.shardMax) this.shards.shift();
@@ -36970,7 +36970,7 @@ void main() {
           vz = dz / L * s;
         }
         const k = 0.8 + Math.random() * 0.25;
-        this.shards.push({ p: new Vector3(x, y, z), v: new Vector3(vx, vy, vz), q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18), s: (0.05 + Math.random() * 0.13) * k, life: 0, max: 2.2 + Math.random() * 1.6, floor, rest: false });
+        this.shards.push({ p: new Vector3(x, y, z), v: new Vector3(vx, vy, vz), q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18), s: (0.05 + Math.random() * 0.13) * k, life: 0, max: 2.2 + Math.random() * 1.6, floor, rest: false, chk: 0 });
         if (i % 3 === 0) this.smoke.emit({ x, y, z, vx: vx * 0.6, vy, vz: vz * 0.6, life: 0, max: 0.8, s0: 0.03, s1: 0.02, r: 0.8, g: 0.9, b: 0.95, a0: 0.6, a1: 0, grav: 9.8, drag: 0.8, floor });
       }
       for (let i = 0; i < 10; i++) this.add.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 2, vy: Math.random() * 1.5, vz: (Math.random() - 0.5) * 2, life: 0, max: 0.25 + Math.random() * 0.3, s0: 0.06, s1: 0.01, r: 1.1, g: 1.2, b: 1.3, a0: 0.9, a1: 0, grav: 6, drag: 1 });
@@ -36983,11 +36983,26 @@ void main() {
       const dust = mat === "wood" ? [0.62, 0.5, 0.36] : [0.62, 0.58, 0.54];
       for (let i = 0; i < 5; i++) this.smoke.emit({ x: p.x + n.x * 0.04, y: p.y + n.y * 0.04, z: p.z + n.z * 0.04, vx: n.x * (0.6 + Math.random()) + (Math.random() - 0.5) * 0.8, vy: 0.3 + Math.random() * 0.6, vz: n.z * (0.6 + Math.random()) + (Math.random() - 0.5) * 0.8, life: 0, max: 0.5 + Math.random() * 0.4, s0: 0.03, s1: 0.12, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: 1.5, drag: 3 });
     }
+    // 碎片落點：查詢該位置實際的支撐面（已被打爛的物件不算），沒有就落到地面
+    floorAt(x, z, y) {
+      const s = this.world.support(x, z, 0.03, y + 0.05);
+      return s ? s.y : 0;
+    }
+    // 定期重查腳下支撐面：下層被打爛後，停在上面的碎片要繼續掉落
+    refloor(o, dt) {
+      if (!this.world || (o.chk -= dt) > 0) return;
+      o.chk = o.rest ? 0.25 : 0.05;
+      const f = this.floorAt(o.p.x, o.p.z, o.p.y);
+      if (f < o.floor - 0.01) {
+        o.floor = f;
+        o.rest = false;
+      } else if (!o.rest) o.floor = f;
+    }
     // 物件被打爛：依材質噴出碎塊與粉塵
     debris(b, dir, from) {
       const C = { brick: [0.66, 0.36, 0.28], granite: [0.52, 0.51, 0.49], plaster: [0.9, 0.88, 0.84], white: [0.9, 0.88, 0.84], beige: [0.88, 0.8, 0.64], wood: [0.5, 0.36, 0.22], board: [0.2, 0.32, 0.26], bark: [0.4, 0.3, 0.22], tree: [0.4, 0.3, 0.22], green: [0.18, 0.42, 0.3], red: [0.7, 0.2, 0.18], blue: [0.2, 0.35, 0.65], yellow: [0.85, 0.68, 0.25] };
       const base = C[b.kind] || [0.72, 0.7, 0.66], vol = b.sx * b.sy * b.sz, tree2 = b.kind === "tree";
-      const n = tree2 ? 40 : Math.max(10, Math.min(46, vol * 55 | 0)), floor = Math.max(b.y - b.sy / 2, -0.2);
+      const n = tree2 ? 40 : Math.max(10, Math.min(46, vol * 55 | 0)), floor = this.world ? -50 : Math.max(b.y - b.sy / 2, -0.2);
       for (let i = 0; i < n; i++) {
         if (this.chunks.length >= this.chunkMax) this.chunks.shift();
         const leaf = tree2 && i % 3 !== 0, x = b.x + (Math.random() - 0.5) * b.sx, y = b.y + (Math.random() - 0.5) * b.sy * (tree2 ? 0.9 : 1), z = b.z + (Math.random() - 0.5) * b.sz;
@@ -36999,7 +37014,7 @@ void main() {
         }
         const k = 0.8 + Math.random() * 0.3, col = leaf ? [0.24 * k, 0.45 * k, 0.2 * k] : [base[0] * k, base[1] * k, base[2] * k];
         const sz = leaf ? 0.12 + Math.random() * 0.14 : 0.06 + Math.random() * 0.16;
-        this.chunks.push({ p: new Vector3(x, y, z), v, q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new Vector3(sz, sz * (leaf ? 0.15 : 0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false });
+        this.chunks.push({ p: new Vector3(x, y, z), v, q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new Vector3(sz, sz * (leaf ? 0.15 : 0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false, chk: 0 });
       }
       const dust = tree2 ? [0.45, 0.5, 0.35] : base.map((c) => c * 0.9 + 0.08);
       for (let i = 0; i < (tree2 ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
@@ -37010,6 +37025,7 @@ void main() {
       for (const ch of this.chunks) {
         ch.life += dt;
         if (ch.life >= ch.max) continue;
+        this.refloor(ch, dt);
         if (!ch.rest) {
           ch.v.y -= 9.8 * dt;
           ch.v.multiplyScalar(Math.exp(-0.3 * dt));
@@ -37121,6 +37137,7 @@ void main() {
       for (const sh of this.shards) {
         sh.life += dt;
         if (sh.life >= sh.max) continue;
+        this.refloor(sh, dt);
         if (!sh.rest) {
           sh.v.y -= 9.8 * dt;
           sh.v.multiplyScalar(Math.exp(-0.4 * dt));
@@ -42100,6 +42117,7 @@ void main() {
       this.env.extraScenes = [this.renderer.vmScene];
       this.env.apply(this.opts.tod);
       this.fx = new Effects(this.renderer.scene, this.T, this.renderer.camera);
+      this.fx.world = this.world;
       this.vm = new ViewModel(this.renderer.vmScene, this.T, this.opts.team);
       this.vm.setVisible(false);
       this.hud.loading(0.8, "\u8A08\u7B97\u5C0B\u8DEF\u7DB2\u683C");

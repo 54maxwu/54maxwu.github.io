@@ -52,6 +52,7 @@ export class Game {
     this.env.extraScenes = [this.renderer.vmScene];
     this.env.apply(this.opts.tod);
     this.fx = new Effects(this.renderer.scene, this.T, this.renderer.camera);
+    this.fx.world = this.world;
     // Campus has no ship funnel or seabirds.
     this.vm = new ViewModel(this.renderer.vmScene, this.T, this.opts.team); this.vm.setVisible(false);
     this.hud.loading(0.8, '計算尋路網格');
