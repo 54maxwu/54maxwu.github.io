@@ -1,0 +1,7 @@
+{
+  "name": "shuyi-campus-battle",
+  "private": true,
+  "description": "樹義國小校園對戰（原始碼）。npm install 後執行 npm run build，輸出 ../index.html 與 ../game-app.js。",
+  "scripts": { "build": "node build.cjs" },
+  "devDependencies": { "esbuild": "0.28.2", "three": "0.186.0" }
+}
