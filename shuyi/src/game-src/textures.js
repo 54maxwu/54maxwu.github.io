@@ -533,12 +533,19 @@ function grating() {
 // ============== 貼花 / 粒子 ==============
 function bulletHole(kind) {
   const S = 64, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const rnd = mulberry32(kind === 'wood' ? 3 : 4);
+  const rnd = mulberry32(kind === 'wood' ? 3 : kind === 'stone' ? 5 : 4);
   if (kind === 'wood') {
     for (let i = 0; i < 10; i++) {
       ctx.strokeStyle = `rgba(210,170,110,${0.5 + rnd() * 0.4})`; ctx.lineWidth = 1 + rnd() * 2;
       const a = rnd() * 6.28; ctx.beginPath(); ctx.moveTo(32, 32); ctx.lineTo(32 + Math.cos(a) * (10 + rnd() * 16), 32 + Math.sin(a) * (10 + rnd() * 16)); ctx.stroke();
     }
+  } else if (kind === 'stone') {
+    // 磚、水泥：不規則崩缺（較淺的碎面）+ 放射細裂紋
+    ctx.fillStyle = 'rgba(214,196,178,0.85)'; ctx.beginPath();
+    for (let i = 0; i <= 14; i++) { const a = i / 14 * Math.PI * 2, r = 12 + rnd() * 9; i ? ctx.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r) : ctx.moveTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(150,130,115,0.6)'; ctx.beginPath(); ctx.arc(32, 32, 11, 0, 7); ctx.fill();
+    for (let i = 0; i < 7; i++) { ctx.strokeStyle = 'rgba(40,35,30,0.55)'; ctx.lineWidth = 1; const a = rnd() * 6.28; ctx.beginPath(); ctx.moveTo(32 + Math.cos(a) * 8, 32 + Math.sin(a) * 8); ctx.lineTo(32 + Math.cos(a) * (18 + rnd() * 12), 32 + Math.sin(a) * (18 + rnd() * 12)); ctx.stroke(); }
   } else {
     const g = ctx.createRadialGradient(32, 32, 4, 32, 32, 20);
     g.addColorStop(0, 'rgba(200,200,195,0.9)'); g.addColorStop(0.4, 'rgba(120,120,115,0.5)'); g.addColorStop(1, 'rgba(60,60,60,0)');
@@ -741,6 +748,7 @@ export function buildTextures(quality = 'high') {
   T.grating = grating();
   T.holeMetal = bulletHole('metal');
   T.holeWood = bulletHole('wood');
+  T.holeStone = bulletHole('stone');
   T.scorch = scorch();
   T.blood = blood();
   T.flash = [muzzleFlash(1, 5), muzzleFlash(2, 6), muzzleFlash(3, 4)];

@@ -33897,7 +33897,7 @@ void main() {
   }
   function bulletHole(kind) {
     const S = 64, c = mkCanvas(S, S), ctx = c.getContext("2d", { willReadFrequently: true });
-    const rnd2 = mulberry32(kind === "wood" ? 3 : 4);
+    const rnd2 = mulberry32(kind === "wood" ? 3 : kind === "stone" ? 5 : 4);
     if (kind === "wood") {
       for (let i = 0; i < 10; i++) {
         ctx.strokeStyle = `rgba(210,170,110,${0.5 + rnd2() * 0.4})`;
@@ -33906,6 +33906,28 @@ void main() {
         ctx.beginPath();
         ctx.moveTo(32, 32);
         ctx.lineTo(32 + Math.cos(a) * (10 + rnd2() * 16), 32 + Math.sin(a) * (10 + rnd2() * 16));
+        ctx.stroke();
+      }
+    } else if (kind === "stone") {
+      ctx.fillStyle = "rgba(214,196,178,0.85)";
+      ctx.beginPath();
+      for (let i = 0; i <= 14; i++) {
+        const a = i / 14 * Math.PI * 2, r = 12 + rnd2() * 9;
+        i ? ctx.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r) : ctx.moveTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "rgba(150,130,115,0.6)";
+      ctx.beginPath();
+      ctx.arc(32, 32, 11, 0, 7);
+      ctx.fill();
+      for (let i = 0; i < 7; i++) {
+        ctx.strokeStyle = "rgba(40,35,30,0.55)";
+        ctx.lineWidth = 1;
+        const a = rnd2() * 6.28;
+        ctx.beginPath();
+        ctx.moveTo(32 + Math.cos(a) * 8, 32 + Math.sin(a) * 8);
+        ctx.lineTo(32 + Math.cos(a) * (18 + rnd2() * 12), 32 + Math.sin(a) * (18 + rnd2() * 12));
         ctx.stroke();
       }
     } else {
@@ -34182,6 +34204,7 @@ void main() {
     T.grating = grating();
     T.holeMetal = bulletHole("metal");
     T.holeWood = bulletHole("wood");
+    T.holeStone = bulletHole("stone");
     T.scorch = scorch();
     T.blood = blood();
     T.flash = [muzzleFlash(1, 5), muzzleFlash(2, 6), muzzleFlash(3, 4)];
@@ -35231,6 +35254,13 @@ void main() {
     constructor(world, scene) {
       this.world = world;
       this.scene = scene;
+      this.glass = [];
+      this.parts = [];
+      this.noBreak = false;
+      this.falling = [];
+      this.wrecked = [];
+      this.meshByKey = {};
+      this.origPos = {};
       this.M = makeMaterials();
       this.buf = {};
       this.extra = {};
@@ -35254,6 +35284,29 @@ void main() {
       if (n1 < n0) [n0, n1] = [n1, n0];
       if (y1 < y0) [y0, y1] = [y1, y0];
       if (x1 - x0 < 1e-3 || y1 - y0 < 1e-3 || n1 - n0 < 1e-3) return;
+      if (k === "glass") {
+        const c = col ? this.collide(x0, x1, y0, y1, n0, n1, "glass", { tag: "glass" }) : null;
+        if (c) c.glassId = this.glass.length;
+        this.glass.push({ x0, x1, y0, y1, n0, n1, c });
+        return;
+      }
+      const kind = this.M[k].col, hx = x1 - x0, hn = n1 - n0, hy = y1 - y0;
+      const breakable = !!(col && kind && !this.noBreak && !(hy < 0.6 && Math.max(hx, hn) > 1.5) && !(hx > 2.5 && hn > 2.5));
+      if (breakable && !this._split) {
+        const L = Math.max(hx, hn), T = Math.min(hx, hn);
+        if (T <= 0.7 && (L > 1.8 || hy > 2.8)) {
+          const nl = Math.max(1, Math.round(L / 1.4)), nv = hy > 2.8 ? 2 : 1;
+          this._split = true;
+          for (let i = 0; i < nl; i++) for (let j = 0; j < nv; j++) {
+            const ya = y0 + hy * j / nv, yb = y0 + hy * (j + 1) / nv;
+            if (hx >= hn) this.box(k, x0 + hx * i / nl, x0 + hx * (i + 1) / nl, ya, yb, n0, n1, col);
+            else this.box(k, x0, x1, ya, yb, n0 + hn * i / nl, n0 + hn * (i + 1) / nl, col);
+          }
+          this._split = false;
+          return;
+        }
+      }
+      const vStart = (this.buf[k] ? this.buf[k].p.length : 0) / 3;
       const z0 = -n1, z1 = -n0, s = this.M[k].s, U = (v) => v / s;
       this.boxes++;
       this.quad(k, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], [[U(-z1), U(y0)], [U(-z0), U(y0)], [U(-z0), U(y1)], [U(-z1), U(y1)]]);
@@ -35262,15 +35315,151 @@ void main() {
       this.quad(k, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], [[U(x0), U(z0)], [U(x1), U(z0)], [U(x1), U(z1)], [U(x0), U(z1)]]);
       this.quad(k, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], [[U(x0), U(y0)], [U(x1), U(y0)], [U(x1), U(y1)], [U(x0), U(y1)]]);
       this.quad(k, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], [[U(-x1), U(y0)], [U(-x0), U(y0)], [U(-x0), U(y1)], [U(-x1), U(y1)]]);
-      const kind = this.M[k].col;
-      if (col && kind) this.collide(x0, x1, y0, y1, n0, n1, kind, typeof col === "object" ? col : {});
+      if (col && kind) {
+        const c = this.collide(x0, x1, y0, y1, n0, n1, kind, typeof col === "object" ? col : {});
+        if (breakable) {
+          const vol = hx * hy * hn, hp = Math.round(Math.max(40, Math.min(520, 380 * Math.sqrt(vol / 0.6))) * (HPK[k] || 1));
+          const part2 = { ranges: [{ k, start: vStart, count: 36 }], c, hp, max: hp, kind: k, box: { x0, x1, y0, y1, n0, n1 }, cb: c.bullet, cs: c.sight };
+          c.part = part2;
+          this.parts.push(part2);
+        }
+      }
     }
     collide(x0, x1, y0, y1, n0, n1, kind = "concrete", o = {}) {
       const base = kind === "glass" ? { mat: "mesh", bullet: "pen", sight: false } : kind === "wood" ? { mat: "wood", bullet: "pen", surface: "wood" } : kind === "metal" ? { mat: "metal", bullet: "pass", sight: false } : { mat: "concrete", surface: "concrete" };
-      this.world.add({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: -(n0 + n1) / 2, sx: x1 - x0, sy: y1 - y0, sz: n1 - n0, ...base, ...o });
+      return this.world.add({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: -(n0 + n1) / 2, sx: x1 - x0, sy: y1 - y0, sz: n1 - n0, ...base, ...o });
     }
-    geo(k, g) {
-      (this.extra[k] || (this.extra[k] = [])).push(g.index ? g.toNonIndexed() : g);
+    info(p) {
+      const b = p.box;
+      return { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, z: -(b.n0 + b.n1) / 2, sx: b.x1 - b.x0, sy: b.y1 - b.y0, sz: b.n1 - b.n0, kind: p.kind };
+    }
+    destroyPart(p, dir) {
+      if (p.dead) return null;
+      if (p.kind === "tree") this.fellTree(p, dir);
+      p.dead = true;
+      this.wrecked.push(this.info(p));
+      if (p.c) {
+        p.c.solid = false;
+        p.c.bullet = "pass";
+        p.c.sight = false;
+      }
+      for (const r of p.ranges) {
+        const a = this.meshByKey[r.k].geometry.attributes.position, A = a.array, s = r.start * 3;
+        for (let i = 3; i < r.count * 3; i++) A[s + i] = A[s + i % 3];
+        a.addUpdateRange(s, r.count * 3);
+        a.needsUpdate = true;
+      }
+      for (const q of p.links || []) if (!q.dead) this.destroyPart(q, dir);
+      return this.info(p);
+    }
+    damage(c, dmg, dir) {
+      const p = c && c.part;
+      if (!p || p.dead) return null;
+      p.hp -= dmg;
+      return p.hp <= 0 ? this.destroyPart(p, dir) : null;
+    }
+    blast(pos, r, power) {
+      const out = [], pn = -pos.z;
+      for (const p of this.parts) {
+        if (p.dead) continue;
+        const b = p.box, dx = Math.max(b.x0 - pos.x, 0, pos.x - b.x1), dy = Math.max(b.y0 - pos.y, 0, pos.y - b.y1), dn = Math.max(b.n0 - pn, 0, pn - b.n1), d = Math.hypot(dx, dy, dn);
+        if (d < r) {
+          p.hp -= power * (1 - d / r);
+          if (p.hp <= 0) out.push(this.destroyPart(p, { x: (b.x0 + b.x1) / 2 - pos.x, z: -(b.n0 + b.n1) / 2 - pos.z }));
+        }
+      }
+      return out;
+    }
+    // 樹木整根斷掉：把樹的幾何複製成獨立群組，以樹基為支點往受力方向倒下，留下樹樁；倒地後的樹幹可當掩體
+    fellTree(p, dir) {
+      const b = p.box, base = new Vector3((b.x0 + b.x1) / 2, 0.35, -(b.n0 + b.n1) / 2), g = new Group();
+      for (const r of p.ranges) {
+        const src = this.meshByKey[r.k].geometry, geo = new BufferGeometry();
+        for (const nm of ["position", "normal", "uv"]) {
+          const a = src.attributes[nm];
+          geo.setAttribute(nm, new BufferAttribute(a.array.slice(r.start * a.itemSize, (r.start + r.count) * a.itemSize), a.itemSize));
+        }
+        geo.translate(-base.x, -base.y, -base.z);
+        const m = new Mesh(geo, this.M[r.k].m);
+        m.castShadow = true;
+        g.add(m);
+      }
+      g.position.copy(base);
+      this.scene.add(g);
+      let fx = dir ? dir.x : Math.random() - 0.5, fz = dir ? dir.z : Math.random() - 0.5;
+      const L = Math.hypot(fx, fz) || 1;
+      fx /= L;
+      fz /= L;
+      const stump = new Mesh(new CylinderGeometry(0.26, 0.32, 0.45, 8), this.M.bark.m);
+      stump.position.set(base.x, 0.22, base.z);
+      stump.castShadow = true;
+      this.scene.add(stump);
+      this.falling.push({ g, stump, axis: new Vector3(fz, 0, -fx), f: [fx, fz], base, len: b.y1 * 0.62, ang: 0, vel: 0.25, done: false, col: null });
+    }
+    updateFalling(dt) {
+      for (const t of this.falling) {
+        if (t.done) continue;
+        t.vel += 7 * Math.sin(Math.max(t.ang, 0.08)) * dt;
+        t.ang += t.vel * dt;
+        const lim = Math.PI / 2 - 0.06;
+        if (t.ang >= lim) {
+          t.ang = lim;
+          if (t.vel > 1) {
+            t.vel *= -0.22;
+          } else {
+            t.done = true;
+            const [fx, fz] = t.f, c = this.world.add({ x: t.base.x + fx * t.len / 2, y: 0.38, z: t.base.z + fz * t.len / 2, sx: t.len, sy: 0.55, sz: 0.55, yaw: Math.atan2(-fz, fx), mat: "wood", bullet: "pen", surface: "wood" });
+            for (let x = Math.floor(c.minX / 4); x <= Math.floor(c.maxX / 4); x++) for (let z = Math.floor(c.minZ / 4); z <= Math.floor(c.maxZ / 4); z++) {
+              const k = x * 1e3 + z;
+              let a = this.world.grid.get(k);
+              if (!a) this.world.grid.set(k, a = []);
+              a.push(c);
+            }
+            t.col = c;
+          }
+        }
+        t.g.quaternion.setFromAxisAngle(t.axis, Math.max(0, t.ang));
+      }
+    }
+    resetParts() {
+      for (const t of this.falling) {
+        this.scene.remove(t.g);
+        this.scene.remove(t.stump);
+        t.g.traverse((o) => {
+          if (o.geometry) o.geometry.dispose();
+        });
+        t.stump.geometry.dispose();
+        if (t.col) {
+          t.col.solid = false;
+          t.col.bullet = "pass";
+          t.col.sight = false;
+        }
+      }
+      this.falling = [];
+      const touched = /* @__PURE__ */ new Set();
+      for (const p of this.parts) {
+        if (!p.dead) {
+          p.hp = p.max;
+          continue;
+        }
+        p.dead = false;
+        p.hp = p.max;
+        if (p.c) {
+          p.c.solid = true;
+          p.c.bullet = p.cb;
+          p.c.sight = p.cs;
+        }
+        for (const r of p.ranges) {
+          const a = this.meshByKey[r.k].geometry.attributes.position, s = r.start * 3;
+          a.array.set(this.origPos[r.k].subarray(s, s + r.count * 3), s);
+          a.addUpdateRange(s, r.count * 3);
+          touched.add(a);
+        }
+      }
+      for (const a of touched) a.needsUpdate = true;
+    }
+    geo(k, g, part2) {
+      (this.extra[k] || (this.extra[k] = [])).push({ g: g.index ? g.toNonIndexed() : g, part: part2 });
     }
     finish(scene, shadows) {
       const meshes = [];
@@ -35285,13 +35474,17 @@ void main() {
           g.setAttribute("uv", new Float32BufferAttribute(B.u, 2));
           parts.push(g);
         }
-        for (const g of this.extra[k] || []) {
+        let off = B && B.p.length ? B.p.length / 3 : 0;
+        for (const { g, part: part2 } of this.extra[k] || []) {
           for (const a of Object.keys(g.attributes)) if (!["position", "normal", "uv"].includes(a)) g.deleteAttribute(a);
           if (!g.attributes.uv) g.setAttribute("uv", new Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
           parts.push(g);
+          if (part2) part2.ranges.push({ k, start: off, count: g.attributes.position.count });
+          off += g.attributes.position.count;
         }
         const geo = parts.length > 1 ? mergeGeometries(parts) : parts[0];
         const mesh = new Mesh(geo, this.M[k].m);
+        this.meshByKey[k] = mesh;
         mesh.castShadow = shadows && !["glass", "water", "grass", "lawn", "asphalt", "pave", "quarry", "terrazzo"].includes(k);
         mesh.receiveShadow = shadows && k !== "glass";
         mesh.name = "real:" + k;
@@ -35299,6 +35492,39 @@ void main() {
         meshes.push(mesh);
         faces += geo.attributes.position.count / 3;
       }
+      const G = this.glass, gm = new InstancedMesh(new BoxGeometry(1, 1, 1), this.M.glass.m, Math.max(1, G.length)), mtx = new Matrix4(), q = new Quaternion();
+      const place = (i, on) => {
+        const p = G[i];
+        mtx.compose(new Vector3((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, -(p.n0 + p.n1) / 2), q, on ? new Vector3(p.x1 - p.x0, p.y1 - p.y0, p.n1 - p.n0) : new Vector3(1e-5, 1e-5, 1e-5));
+        gm.setMatrixAt(i, mtx);
+      };
+      G.forEach((p, i) => place(i, true));
+      gm.count = G.length;
+      gm.renderOrder = 3;
+      gm.name = "real:glass";
+      scene.add(gm);
+      meshes.push(gm);
+      faces += G.length * 12;
+      this.glassApi = { mesh: gm, panes: G, place };
+      {
+        const r2 = (v) => Math.round(v * 50), idx = /* @__PURE__ */ new Map();
+        for (const p of this.parts) {
+          const b = p.box;
+          if (p.kind === "tree") continue;
+          const thinX = b.x1 - b.x0 <= 0.35, thinN = b.n1 - b.n0 <= 0.35;
+          if (!thinX && !thinN) continue;
+          const key = thinN ? "n|" + [r2(b.x0), r2(b.x1), r2(b.y0), r2(b.y1)].join(",") : "x|" + [r2(b.n0), r2(b.n1), r2(b.y0), r2(b.y1)].join(",");
+          for (const q2 of idx.get(key) || []) {
+            const a = q2.box, gap = thinN ? Math.max(a.n0 - b.n1, b.n0 - a.n1) : Math.max(a.x0 - b.x1, b.x0 - a.x1);
+            if (gap <= 0.02) {
+              (p.links || (p.links = [])).push(q2);
+              (q2.links || (q2.links = [])).push(p);
+            }
+          }
+          (idx.get(key) || idx.set(key, []).get(key)).push(p);
+        }
+      }
+      for (const k of new Set(this.parts.flatMap((p) => p.ranges.map((r) => r.k)))) this.origPos[k] = this.meshByKey[k].geometry.attributes.position.array.slice();
       return { meshes, facesCount: faces };
     }
   };
@@ -35327,12 +35553,14 @@ void main() {
     s.absellipse(cx, spring, rx, rise, 0, Math.PI, false);
     return s;
   }
+  var HPK = { brick: 1, stone: 1, granite: 1.3, concrete: 1.2, plaster: 0.5, wood: 0.45, board: 0.4, beige: 0.6, white: 0.7, red: 0.7, blue: 0.7, yellow: 0.7, green: 0.5, metal: 0.8, quarry: 1, terrazzo: 1 };
   function bar(B, o) {
     const { u0, u1, D, toW, segs, open, ends = {} } = o, COR = 3;
     const lb = (k, a0, a1, y0, y1, w0, w1, col = true) => {
       const p = toW(a0, w0), q = toW(a1, w1);
       B.box(k, p[0], q[0], y0, y1, p[1], q[1], col);
     };
+    lb.B = B;
     const isOpen = (u) => open.some(([a, b]) => u >= a - 1e-6 && u <= b + 1e-6);
     const rooms = [];
     for (let f = 0; f < 5; f++) {
@@ -35518,6 +35746,14 @@ void main() {
     }
   }
   function stairs(lb, a0, a1, yb, yt, f) {
+    lb.B.noBreak = true;
+    try {
+      stairsInner(lb, a0, a1, yb, yt, f);
+    } finally {
+      lb.B.noBreak = false;
+    }
+  }
+  function stairsInner(lb, a0, a1, yb, yt, f) {
     const h = yt - yb, mid = (a0 + a1) / 2, steps = 12, rise = h / 2 / steps, run = 3.6 / steps;
     for (let i = 0; i < steps; i++) {
       const t = yb + (i + 1) * rise;
@@ -35572,31 +35808,33 @@ void main() {
     if (gable) mk("brick", endTris);
   }
   function tree(B, x, n, { h = 7, r = 3, kind = "round" } = {}) {
-    const z = -n;
+    const z = -n, c = B.collide(x - 0.25, x + 0.25, 0, h * 0.5, n - 0.25, n + 0.25, "wood"), part2 = { ranges: [], c, hp: 320, max: 320, kind: "tree", box: { x0: x - r * 0.6, x1: x + r * 0.6, y0: 0, y1: h, n0: n - r * 0.6, n1: n + r * 0.6 }, cb: c.bullet, cs: c.sight };
+    c.part = part2;
+    B.parts.push(part2);
+    const geo = B.geo.bind(B), Bp = { geo: (k, g) => geo(k, g, part2) };
     const trunk = new CylinderGeometry(0.18 * h / 7, 0.28 * h / 7, h * 0.55, 7);
     trunk.translate(x, h * 0.275, z);
-    B.geo("bark", trunk);
-    B.collide(x - 0.25, x + 0.25, 0, h * 0.5, n - 0.25, n + 0.25, "wood");
+    Bp.geo("bark", trunk);
     if (kind === "palm") {
       for (let i = 0; i < 7; i++) {
         const leaf = new ConeGeometry(0.35, 2.6, 4);
         leaf.rotateZ(Math.PI / 2.4);
         leaf.rotateY(i / 7 * Math.PI * 2);
         leaf.translate(x, h * 0.55 + 0.3, z);
-        B.geo("leaf", leaf);
+        Bp.geo("leaf", leaf);
       }
       return;
     }
     if (kind === "cone") {
-      const c = new ConeGeometry(r * 0.6, h * 0.75, 9);
-      c.translate(x, h * 0.6, z);
-      B.geo("leaf", c);
+      const cg = new ConeGeometry(r * 0.6, h * 0.75, 9);
+      cg.translate(x, h * 0.6, z);
+      Bp.geo("leaf", cg);
       return;
     }
     for (let i = 0; i < 5; i++) {
       const s = new IcosahedronGeometry(r * (0.55 + rnd() * 0.25), 1);
       s.translate(x + (rnd() - 0.5) * r * 0.9, h * 0.62 + (rnd() - 0.3) * r * 0.6, z + (rnd() - 0.5) * r * 0.9);
-      B.geo("leaf", s);
+      Bp.geo("leaf", s);
     }
   }
   var CAT = { \u73ED\u7D1A\u6559\u5BA4: { bg: "#f7f4ec", fg: "#1d1d1d" }, \u884C\u653F\u8FA6\u516C\u5BA4: { bg: "#2f58a6", fg: "#ffffff" }, \u5C08\u79D1\u6559\u5BA4: { bg: "#b7322a", fg: "#ffffff" }, \u6559\u5B78\u670D\u52D9\u7A7A\u9593: { bg: "#2e7a4c", fg: "#ffffff" } };
@@ -35895,16 +36133,20 @@ void main() {
         B.geo("granite", mill);
       }
       B.box("stone", -24, -22.6, 0, 1.1, -14, -13.2);
+      B.noBreak = true;
       B.box("quarry", -31, -25.5, 0, 0.9, -31, -20);
       for (let i = 0; i < 3; i++) B.box("granite", -25.5 + i * 0.4, -25.1 + i * 0.4, 0, 0.9 - (i + 1) * 0.3, -30, -21);
+      B.noBreak = false;
       B.box("granite", -30.95, -30.7, 2.6, 3.6, -28.2, -22.8, false);
       plaque(scene, "\u747E\u745C\u81FA", { x: -30.68, y: 3.1, n: -25.5, w: 4.6, h: 0.8, face: "e", bg: "#cfc7b6" });
     }
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u5316\u96E8\u81FA\u3001\u64CD\u5834\u3001\u6A02\u7FA4\u6A13");
     {
       const x0 = -14, x1 = 1, n0 = 3.2, n1 = 10;
+      B.noBreak = true;
       B.box("quarry", x0, x1, 0, 1, n0, n1);
       for (let i = 0; i < 4; i++) B.box("granite", x0 + 2, x1 - 2, 0, 1 - (i + 1) * 0.25, n1 + i * 0.35, n1 + (i + 1) * 0.35);
+      B.noBreak = false;
       for (const x of [x0 + 0.6, x1 - 0.6, (x0 + x1) / 2 - 2.4, (x0 + x1) / 2 + 2.4]) B.box("granite", x - 0.45, x + 0.45, 1, 5.6, n1 - 1.1, n1 - 0.2);
       B.box("stone", x0 - 0.4, x1 + 0.4, 5.6, 6.2, n0, n1);
       plaque(scene, "\u5316\u96E8\u81FA", { x: (x0 + x1) / 2, y: 5.9, n: n1 + 0.02, w: 3.2, h: 0.55, face: "n", bg: "#c9c4b8" });
@@ -35951,10 +36193,12 @@ void main() {
       B.collide(x0, x1, h2, h2 + 0.3, n0, n1);
       B.box("white", (x0 + x1) / 2 - 3.2, (x0 + x1) / 2 + 3.2, h2 + 5.4, h2 + 6.6, n0 + 4, n1 - 4, false);
       hipRoof(B, (x0 + x1) / 2 - 4, (x0 + x1) / 2 + 4, h2 + 6.6, n0 + 3.5, n1 - 3.5, 1.8, { gable: true });
+      B.noBreak = true;
       for (let i = 0; i < 30; i++) {
         const t = h1 * (30 - i) / 30;
         B.box("granite", 41, 52, 0, t, n0 - 0.33 * (i + 1), n0 - 0.33 * i);
       }
+      B.noBreak = false;
       B.box("brick", 40.6, 41, 0, h1 + 1, n0 - 10, n0);
       B.box("brick", 52, 52.4, 0, h1 + 1, n0 - 10, n0);
       rooms.push({ name: "\u684C\u7403\u6559\u5BA4", cat: "\u6559\u5B78\u670D\u52D9\u7A7A\u9593", building: "\u6A02\u7FA4\u6A13\uFF08\u6D3B\u52D5\u4E2D\u5FC3\uFF09", floor: 1, x: 47, z: -33, x0, x1, z0: -50, z1: -n0 }, { name: "\u81EA\u7136\u6559\u5BA4\u4E00", cat: "\u5C08\u79D1\u6559\u5BA4", building: "\u6A02\u7FA4\u6A13\uFF08\u6D3B\u52D5\u4E2D\u5FC3\uFF09", floor: 1, x: 40, z: -55, x0, x1: 47, z0: -n1, z1: -50 }, { name: "\u5BB6\u9577\u6703\u66A8\u5FD7\u5DE5\u968A\u8FA6\u516C\u5BA4", cat: "\u884C\u653F\u8FA6\u516C\u5BA4", building: "\u6A02\u7FA4\u6A13\uFF08\u6D3B\u52D5\u4E2D\u5FC3\uFF09", floor: 1, x: 54, z: -55, x0: 47, x1, z0: -n1, z1: -50 }, { name: "\u79AE\u5802\uFF08\u821E\u81FA\u30FB\u97F3\u63A7\u5BA4\uFF09", cat: "\u6559\u5B78\u670D\u52D9\u7A7A\u9593", building: "\u6A02\u7FA4\u6A13\uFF08\u6D3B\u52D5\u4E2D\u5FC3\uFF09", floor: 2, x: 47, z: -39, x0, x1, z0: -n1, z1: -n0 });
@@ -36040,7 +36284,11 @@ void main() {
     for (const [x, n] of [[-45, 10], [-30, 12], [18, 14], [25, 22], [-50, 40], [-48, 55], [26, 40], [24, 58]]) tree(B, x, n, { h: 8, r: 3.2 });
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u5408\u4F75\u7DB2\u683C");
     const vis = B.finish(scene, shadows);
-    return { ...vis, rooms, builder: B };
+    return { ...vis, rooms, builder: B, glass: B.glassApi, destruct: { takeWrecked: () => {
+      const w = B.wrecked;
+      B.wrecked = [];
+      return w;
+    }, update: (dt) => B.updateFalling(dt), damage: (c, d, dir) => B.damage(c, d, dir), blast: (p, r, w) => B.blast(p, r, w), reset: () => B.resetParts(), count: B.parts.length } };
   }
   var REAL_LANDMARKS = [
     ["\u6821\u9580", [70, 4, 26]],
@@ -36099,7 +36347,7 @@ void main() {
   // campus-map.js
   async function buildCampus(scene, world, renderer, progress) {
     const q = new URLSearchParams(location.search), mode = q.get("world") || "real";
-    let visuals, bounds, labels = [], locateFn = () => "", spawnAt, menuCam;
+    let visuals, bounds, labels = [], locateFn = () => "", spawnAt, menuCam, glassApi = null, destruct = null;
     if (mode === "original" || mode === "voxel") {
       visuals = await buildCampusVisuals(scene, renderer, progress, { offset: [-137, -4, 94], world: mode === "original" ? "world" : "world-real" });
       progress.textContent = "\u5EFA\u7ACB\u6821\u5712\u78B0\u649E";
@@ -36124,9 +36372,11 @@ void main() {
       locateFn = (p) => realLocate(r.rooms, p);
       spawnAt = [["BL", -36, -24], ["GR", 55, 44]];
       menuCam = { pos: [105, 62, 105], look: [-6, 6, -4] };
+      glassApi = r.glass;
+      destruct = r.destruct;
     }
-    for (const x of [bounds.x0, bounds.x1]) world.add({ x, y: 25, z: (bounds.z0 + bounds.z1) / 2, sx: 1, sy: 100, sz: bounds.z1 - bounds.z0, tag: "boundary" });
-    for (const z of [bounds.z0, bounds.z1]) world.add({ x: (bounds.x0 + bounds.x1) / 2, y: 25, z, sx: bounds.x1 - bounds.x0, sy: 100, sz: 1, tag: "boundary" });
+    for (const x of [bounds.x0, bounds.x1]) world.add({ x, y: 25, z: (bounds.z0 + bounds.z1) / 2, sx: 1, sy: 100, sz: bounds.z1 - bounds.z0, tag: "boundary", bullet: "pass", sight: false });
+    for (const z of [bounds.z0, bounds.z1]) world.add({ x: (bounds.x0 + bounds.x1) / 2, y: 25, z, sx: bounds.x1 - bounds.x0, sy: 100, sz: 1, tag: "boundary", bullet: "pass", sight: false });
     world.build();
     const nav = await new CampusNav(world, { x0: bounds.x0 + 2, x1: bounds.x1 - 2, z0: bounds.z0 + 2, z1: bounds.z1 - 2, ...mode === "real" ? { clearY: 0.45 } : {} }).build(progress);
     const spawns = { BL: [], GR: [] };
@@ -36148,33 +36398,100 @@ void main() {
       ctx.fillStyle = c.top > 3 ? "#293b3e" : c.top > 1 ? "#44585a" : "#7f8170";
       ctx.fillRect((c.minX - bounds.x0) * S, (c.minZ - bounds.z0) * S, (c.maxX - c.minX) * S, (c.maxZ - c.minZ) * S);
     }
-    const map = { campus: true, mode, name: "\u6A39\u7FA9\u570B\u5C0F", ...visuals, nav, bounds, spawns, menuCam, lampSpots: [], funnelTop: null, radar: { image: canvas, scale: S, x: -bounds.x0, z: -bounds.z0 }, update() {
-      const cam = scene.userData.camera;
-      if (!cam) return;
-      for (const s of labels) {
-        const d = cam.position.distanceTo(s.position);
-        s.material.opacity = d < 6 ? 0 : Math.max(0, Math.min(1, (45 - d) / 15));
-        s.visible = s.material.opacity > 0.02;
-      }
-    }, locate: locateFn, isSpawn(p) {
-      return spawns[p.team].some((s) => Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 12 && Math.abs(s.y - p.pos.y) < 3);
-    }, pickBotGoal(bot, near) {
-      const other = bot.team === "BL" ? "GR" : "BL";
-      const pool = nav.main;
-      if (near) {
-        for (let i = 0; i < 60; i++) {
-          const n2 = nav.nodes[pool[Math.floor(Math.random() * pool.length)]];
-          const d = Math.hypot(n2.x - near.x, n2.z - near.z);
-          if (d > 6 && d < 25) return [n2.x, n2.z, n2.y];
+    const map = {
+      campus: true,
+      mode,
+      name: "\u6A39\u7FA9\u570B\u5C0F",
+      ...visuals,
+      nav,
+      bounds,
+      spawns,
+      menuCam,
+      lampSpots: [],
+      funnelTop: null,
+      radar: { image: canvas, scale: S, x: -bounds.x0, z: -bounds.z0 },
+      update(dt) {
+        if (destruct) destruct.update(Math.min(dt || 0, 0.05));
+        const cam = scene.userData.camera;
+        if (!cam) return;
+        for (const s of labels) {
+          const d = cam.position.distanceTo(s.position);
+          s.material.opacity = d < 6 ? 0 : Math.max(0, Math.min(1, (45 - d) / 15));
+          s.visible = s.material.opacity > 0.02;
         }
+      },
+      locate: locateFn,
+      // Breakable glass (real-scale campus). Returns the pane box in game coords, or null.
+      breakGlass(c) {
+        if (!glassApi || !c || c.tag !== "glass" || c.broken) return null;
+        const p = glassApi.panes[c.glassId];
+        if (!p) return null;
+        c.broken = true;
+        c.solid = false;
+        c.bullet = "pass";
+        glassApi.place(c.glassId, false);
+        glassApi.mesh.instanceMatrix.needsUpdate = true;
+        return { x: (p.x0 + p.x1) / 2, y: (p.y0 + p.y1) / 2, z: -(p.n0 + p.n1) / 2, sx: p.x1 - p.x0, sy: p.y1 - p.y0, sz: p.n1 - p.n0 };
+      },
+      breakGlassNear(pos, r) {
+        if (!glassApi) return [];
+        const out = [];
+        for (const p of glassApi.panes) {
+          if (!p.c || p.c.broken) continue;
+          const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2, cz = -(p.n0 + p.n1) / 2;
+          if (Math.hypot(cx - pos.x, cy - pos.y, cz - pos.z) < r) {
+            const b = this.breakGlass(p.c);
+            if (b) out.push(b);
+          }
+        }
+        return out;
+      },
+      // Destruction (real-scale campus): damage a collider's part, area blast, reset per match.
+      damageAt(c, dmg, dir) {
+        return destruct ? destruct.damage(c, dmg, dir) : null;
+      },
+      blastAt(p, r, power) {
+        return destruct ? destruct.blast(p, r, power) : [];
+      },
+      takeWrecked() {
+        return destruct ? destruct.takeWrecked() : [];
+      },
+      resetDestruction() {
+        if (destruct) destruct.reset();
+      },
+      resetGlass() {
+        if (!glassApi) return;
+        glassApi.panes.forEach((p, i) => {
+          if (p.c && p.c.broken) {
+            p.c.broken = false;
+            p.c.solid = true;
+            p.c.bullet = "pen";
+            glassApi.place(i, true);
+          }
+        });
+        glassApi.mesh.instanceMatrix.needsUpdate = true;
+      },
+      isSpawn(p) {
+        return spawns[p.team].some((s) => Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 12 && Math.abs(s.y - p.pos.y) < 3);
+      },
+      pickBotGoal(bot, near) {
+        const other = bot.team === "BL" ? "GR" : "BL";
+        const pool = nav.main;
+        if (near) {
+          for (let i = 0; i < 60; i++) {
+            const n2 = nav.nodes[pool[Math.floor(Math.random() * pool.length)]];
+            const d = Math.hypot(n2.x - near.x, n2.z - near.z);
+            if (d > 6 && d < 25) return [n2.x, n2.z, n2.y];
+          }
+        }
+        if (bot.stage < 1 && Math.random() < 0.5) {
+          const s = spawns[other][bot.id % spawns[other].length];
+          return [s.x, s.z, s.y];
+        }
+        const n = nav.nodes[pool[Math.floor(Math.random() * pool.length)]];
+        return [n.x, n.z, n.y];
       }
-      if (bot.stage < 1 && Math.random() < 0.5) {
-        const s = spawns[other][bot.id % spawns[other].length];
-        return [s.x, s.z, s.y];
-      }
-      const n = nav.nodes[pool[Math.floor(Math.random() * pool.length)]];
-      return [n.x, n.z, n.y];
-    } };
+    };
     console.log("CAMPUS_READY", { mode, faces: visuals.facesCount, colliders: world.colliders.length, nodes: nav.nodes.length, connected: nav.main.length, spawns });
     return map;
   }
@@ -36450,6 +36767,16 @@ void main() {
       this.q = new Quaternion();
       this.q2 = new Quaternion();
     }
+    // 指定角度與長寬（刀痕用）
+    addAligned(p, n, sx, sy, angle) {
+      const q = this.q.setFromUnitVectors(new Vector3(0, 0, 1), n);
+      q.multiply(this.q2.setFromAxisAngle(new Vector3(0, 0, 1), angle));
+      this.m.compose(new Vector3(p.x + n.x * 4e-3, p.y + n.y * 4e-3, p.z + n.z * 4e-3), q, new Vector3(sx, sy, 1));
+      this.mesh.setMatrixAt(this.i % this.max, this.m);
+      this.i++;
+      this.mesh.count = Math.min(this.i, this.max);
+      this.mesh.instanceMatrix.needsUpdate = true;
+    }
     add(p, n, size) {
       const q = this.q.setFromUnitVectors(new Vector3(0, 0, 1), n);
       q.multiply(this.q2.setFromAxisAngle(new Vector3(0, 0, 1), Math.random() * Math.PI * 2));
@@ -36460,6 +36787,31 @@ void main() {
       this.mesh.instanceMatrix.needsUpdate = true;
     }
   };
+  function slashTex() {
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 32;
+    const x = c.getContext("2d");
+    const body = (w, col) => {
+      x.fillStyle = col;
+      x.beginPath();
+      x.moveTo(4, 16);
+      x.quadraticCurveTo(128, 16 - w, 252, 16);
+      x.quadraticCurveTo(128, 16 + w, 4, 16);
+      x.fill();
+    };
+    body(13, "rgba(205,190,170,0.55)");
+    body(7, "rgba(120,105,90,0.85)");
+    body(3, "rgba(25,20,18,0.95)");
+    for (let i = 0; i < 26; i++) {
+      const px2 = 20 + Math.random() * 216, w = 1 + Math.random() * 2;
+      x.fillStyle = "rgba(220,205,185,0.6)";
+      x.fillRect(px2, 16 + (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 5), w, w);
+    }
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  }
   function tracerTex() {
     const c = document.createElement("canvas");
     c.width = 64;
@@ -36489,8 +36841,10 @@ void main() {
       this.add = new Particles(scene, T.glow, true, 900);
       this.smoke = new Particles(scene, T.puff, false, 900);
       this.decals = {
-        metal: new Decals(scene, T.holeMetal, 160),
-        wood: new Decals(scene, T.holeWood, 100),
+        metal: new Decals(scene, T.holeMetal, 300),
+        wood: new Decals(scene, T.holeWood, 250),
+        concrete: new Decals(scene, T.holeStone, 700),
+        slash: new Decals(scene, slashTex(), 300),
         blood: new Decals(scene, T.blood, 60),
         scorch: new Decals(scene, T.scorch, 12)
       };
@@ -36521,6 +36875,25 @@ void main() {
         this.lights.push({ l, t: 0, peak: 0, dur: 0.06 });
       }
       this.lightI = 0;
+      const sg = new BufferGeometry();
+      sg.setAttribute("position", new Float32BufferAttribute([0, 0.55, 0, -0.5, -0.4, 0.02, 0.48, -0.32, -0.02], 3));
+      sg.computeVertexNormals();
+      this.shardMax = 600;
+      this.shards = [];
+      this._dummy = new Object3D();
+      this.shardMesh = new InstancedMesh(sg, new MeshStandardMaterial({ color: 14085875, roughness: 0.04, metalness: 0.35, transparent: true, opacity: 0.82, side: DoubleSide, depthWrite: false }), this.shardMax);
+      this.shardMesh.count = 0;
+      this.shardMesh.frustumCulled = false;
+      this.shardMesh.renderOrder = 4;
+      scene.add(this.shardMesh);
+      this.chunkMax = 1e3;
+      this.chunks = [];
+      this.chunkMesh = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ roughness: 0.92, metalness: 0 }), this.chunkMax);
+      this.chunkMesh.count = 0;
+      this.chunkMesh.frustumCulled = false;
+      this.chunkMesh.castShadow = true;
+      scene.add(this.chunkMesh);
+      this._col = new Color();
       this.shake = 0;
       this.funnelT = 0;
       this.birds = [];
@@ -36571,9 +36944,126 @@ void main() {
       } else if (mat === "wood") {
         for (let i = 0; i < 8; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: (nx + (Math.random() - 0.5)) * 3, vy: (ny + Math.random()) * 3, vz: (nz + (Math.random() - 0.5)) * 3, life: 0, max: 0.6, s0: 0.03, s1: 0.025, r: 0.55, g: 0.4, b: 0.25, a0: 1, a1: 0.8, grav: 9, drag: 1, floor: 0.01 });
         this.decals.wood.add(p, n, 0.08 + Math.random() * 0.03);
+      } else if (mat !== "mesh") {
+        this.decals.concrete.add(p, n, 0.07 + Math.random() * 0.04);
       }
       const dust = mat === "wood" ? [0.62, 0.52, 0.4] : [0.55, 0.55, 0.53];
       for (let i = 0; i < 3; i++) this.smoke.emit({ x: p.x + nx * 0.05, y: p.y + ny * 0.05, z: p.z + nz * 0.05, vx: nx * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, vy: ny * 0.8 + 0.3, vz: nz * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, life: 0, max: 0.8 + Math.random() * 0.6, s0: 0.12, s1: 0.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
+    }
+    // 玻璃碎裂：整片玻璃化為碎片，沿子彈方向（或爆炸外推）噴出後落地
+    shatter(b, dir, from) {
+      const area2 = Math.max(b.sx * b.sy, b.sy * b.sz, b.sx * b.sz), n = Math.max(18, Math.min(80, area2 * 26 | 0));
+      const floor = b.y - b.sy / 2 - 0.95;
+      for (let i = 0; i < n; i++) {
+        const x = b.x + (Math.random() - 0.5) * b.sx, y = b.y + (Math.random() - 0.5) * b.sy, z = b.z + (Math.random() - 0.5) * b.sz;
+        if (this.shards.length >= this.shardMax) this.shards.shift();
+        let vx, vy, vz;
+        if (dir) {
+          const s = 2 + Math.random() * 3.5;
+          vx = dir.x * s + (Math.random() - 0.5) * 2;
+          vy = dir.y * s + Math.random() * 1.5;
+          vz = dir.z * s + (Math.random() - 0.5) * 2;
+        } else {
+          const dx = x - from.x, dy = y - from.y, dz = z - from.z, L = Math.hypot(dx, dy, dz) || 1, s = 4 + Math.random() * 4;
+          vx = dx / L * s;
+          vy = dy / L * s + 1;
+          vz = dz / L * s;
+        }
+        const k = 0.8 + Math.random() * 0.25;
+        this.shards.push({ p: new Vector3(x, y, z), v: new Vector3(vx, vy, vz), q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18), s: (0.05 + Math.random() * 0.13) * k, life: 0, max: 2.2 + Math.random() * 1.6, floor, rest: false });
+        if (i % 3 === 0) this.smoke.emit({ x, y, z, vx: vx * 0.6, vy, vz: vz * 0.6, life: 0, max: 0.8, s0: 0.03, s1: 0.02, r: 0.8, g: 0.9, b: 0.95, a0: 0.6, a1: 0, grav: 9.8, drag: 0.8, floor });
+      }
+      for (let i = 0; i < 10; i++) this.add.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 2, vy: Math.random() * 1.5, vz: (Math.random() - 0.5) * 2, life: 0, max: 0.25 + Math.random() * 0.3, s0: 0.06, s1: 0.01, r: 1.1, g: 1.2, b: 1.3, a0: 0.9, a1: 0, grav: 6, drag: 1 });
+    }
+    // 刀砍到牆面：留下刀痕與少量碎屑（不是彈孔）
+    slash(p, n, mat, heavy) {
+      const len = (heavy ? 0.42 : 0.3) * (mat === "wood" ? 1.15 : 1) * (0.9 + Math.random() * 0.2);
+      const ang = heavy ? Math.PI / 2 + (Math.random() - 0.5) * 0.4 : (Math.random() < 0.5 ? 0.45 : -0.45) + (Math.random() - 0.5) * 0.3;
+      this.decals.slash.addAligned(p, n, len, len * 0.2, ang);
+      const dust = mat === "wood" ? [0.62, 0.5, 0.36] : [0.62, 0.58, 0.54];
+      for (let i = 0; i < 5; i++) this.smoke.emit({ x: p.x + n.x * 0.04, y: p.y + n.y * 0.04, z: p.z + n.z * 0.04, vx: n.x * (0.6 + Math.random()) + (Math.random() - 0.5) * 0.8, vy: 0.3 + Math.random() * 0.6, vz: n.z * (0.6 + Math.random()) + (Math.random() - 0.5) * 0.8, life: 0, max: 0.5 + Math.random() * 0.4, s0: 0.03, s1: 0.12, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: 1.5, drag: 3 });
+    }
+    // 物件被打爛：依材質噴出碎塊與粉塵
+    debris(b, dir, from) {
+      const C = { brick: [0.66, 0.36, 0.28], granite: [0.52, 0.51, 0.49], plaster: [0.9, 0.88, 0.84], white: [0.9, 0.88, 0.84], beige: [0.88, 0.8, 0.64], wood: [0.5, 0.36, 0.22], board: [0.2, 0.32, 0.26], bark: [0.4, 0.3, 0.22], tree: [0.4, 0.3, 0.22], green: [0.18, 0.42, 0.3], red: [0.7, 0.2, 0.18], blue: [0.2, 0.35, 0.65], yellow: [0.85, 0.68, 0.25] };
+      const base = C[b.kind] || [0.72, 0.7, 0.66], vol = b.sx * b.sy * b.sz, tree2 = b.kind === "tree";
+      const n = tree2 ? 40 : Math.max(10, Math.min(46, vol * 55 | 0)), floor = Math.max(b.y - b.sy / 2, -0.2);
+      for (let i = 0; i < n; i++) {
+        if (this.chunks.length >= this.chunkMax) this.chunks.shift();
+        const leaf = tree2 && i % 3 !== 0, x = b.x + (Math.random() - 0.5) * b.sx, y = b.y + (Math.random() - 0.5) * b.sy * (tree2 ? 0.9 : 1), z = b.z + (Math.random() - 0.5) * b.sz;
+        let v;
+        if (dir) v = new Vector3(dir.x * (1.5 + Math.random() * 3) + (Math.random() - 0.5) * 2.5, Math.random() * 3, dir.z * (1.5 + Math.random() * 3) + (Math.random() - 0.5) * 2.5);
+        else {
+          const dx = x - from.x, dy = y - from.y, dz = z - from.z, L = Math.hypot(dx, dy, dz) || 1, s = 4 + Math.random() * 6;
+          v = new Vector3(dx / L * s, dy / L * s + 2, dz / L * s);
+        }
+        const k = 0.8 + Math.random() * 0.3, col = leaf ? [0.24 * k, 0.45 * k, 0.2 * k] : [base[0] * k, base[1] * k, base[2] * k];
+        const sz = leaf ? 0.12 + Math.random() * 0.14 : 0.06 + Math.random() * 0.16;
+        this.chunks.push({ p: new Vector3(x, y, z), v, q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new Vector3(sz, sz * (leaf ? 0.15 : 0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false });
+      }
+      const dust = tree2 ? [0.45, 0.5, 0.35] : base.map((c) => c * 0.9 + 0.08);
+      for (let i = 0; i < (tree2 ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
+    }
+    updateChunks(dt) {
+      const D = this._dummy, M2 = this.chunkMesh, dq = new Quaternion(), ax = new Vector3();
+      let n = 0;
+      for (const ch of this.chunks) {
+        ch.life += dt;
+        if (ch.life >= ch.max) continue;
+        if (!ch.rest) {
+          ch.v.y -= 9.8 * dt;
+          ch.v.multiplyScalar(Math.exp(-0.3 * dt));
+          ch.p.addScaledVector(ch.v, dt);
+          const wl = ch.w.length();
+          if (wl > 1e-3) {
+            dq.setFromAxisAngle(ax.copy(ch.w).divideScalar(wl), wl * dt);
+            ch.q.premultiply(dq);
+          }
+          if (ch.p.y < ch.floor + ch.s.y / 2) {
+            ch.p.y = ch.floor + ch.s.y / 2;
+            if (Math.abs(ch.v.y) > 1.5) {
+              ch.v.y *= -0.3;
+              ch.v.x *= 0.5;
+              ch.v.z *= 0.5;
+              ch.w.multiplyScalar(0.5);
+            } else ch.rest = true;
+          }
+        }
+        const fade = Math.min(1, (ch.max - ch.life) / 0.8);
+        D.position.copy(ch.p);
+        D.quaternion.copy(ch.q);
+        D.scale.copy(ch.s).multiplyScalar(fade);
+        D.updateMatrix();
+        M2.setMatrixAt(n, D.matrix);
+        M2.setColorAt(n, this._col.setRGB(ch.col[0], ch.col[1], ch.col[2]));
+        n++;
+      }
+      this.chunks = this.chunks.filter((ch) => ch.life < ch.max);
+      M2.count = n;
+      M2.instanceMatrix.needsUpdate = true;
+      if (M2.instanceColor) M2.instanceColor.needsUpdate = true;
+    }
+    // 物件被打爛時，移除貼在它上面的彈孔
+    clearDecalsIn(b) {
+      const m = new Matrix4(), zero = new Matrix4().makeScale(0, 0, 0), e = 0.15;
+      for (const d of Object.values(this.decals)) {
+        let hit = false;
+        for (let i = 0; i < d.mesh.count; i++) {
+          d.mesh.getMatrixAt(i, m);
+          const x = m.elements[12], y = m.elements[13], z = m.elements[14];
+          if (Math.abs(x - b.x) < b.sx / 2 + e && Math.abs(y - b.y) < b.sy / 2 + e && Math.abs(z - b.z) < b.sz / 2 + e) {
+            d.mesh.setMatrixAt(i, zero);
+            hit = true;
+          }
+        }
+        if (hit) d.mesh.instanceMatrix.needsUpdate = true;
+      }
+    }
+    clearDecals() {
+      for (const d of Object.values(this.decals)) {
+        d.mesh.count = 0;
+        d.i = 0;
+      }
     }
     bloodSplat(p) {
       this.decals.blood.add(p, new Vector3(0, 1, 0), 0.5 + Math.random() * 0.4);
@@ -36625,7 +37115,48 @@ void main() {
         this.birds.push({ g: b, wR: wrR, wL: wrL, r: 25 + Math.random() * 30, h: 18 + Math.random() * 16, sp: 0.18 + Math.random() * 0.12, ph: Math.random() * 6.28, cx: -10 + Math.random() * 30, flap: Math.random() * 6 });
       }
     }
+    updateShards(dt) {
+      const D = this._dummy, M2 = this.shardMesh, dq = new Quaternion(), ax = new Vector3();
+      let n = 0;
+      for (const sh of this.shards) {
+        sh.life += dt;
+        if (sh.life >= sh.max) continue;
+        if (!sh.rest) {
+          sh.v.y -= 9.8 * dt;
+          sh.v.multiplyScalar(Math.exp(-0.4 * dt));
+          sh.p.addScaledVector(sh.v, dt);
+          const wl = sh.w.length();
+          if (wl > 1e-3) {
+            dq.setFromAxisAngle(ax.copy(sh.w).divideScalar(wl), wl * dt);
+            sh.q.premultiply(dq);
+          }
+          if (sh.p.y < sh.floor + 5e-3) {
+            sh.p.y = sh.floor + 5e-3;
+            if (Math.abs(sh.v.y) > 1.2) {
+              sh.v.y *= -0.25;
+              sh.v.x *= 0.4;
+              sh.v.z *= 0.4;
+              sh.w.multiplyScalar(0.4);
+            } else {
+              sh.rest = true;
+              sh.q.setFromEuler(new Euler(-Math.PI / 2, Math.random() * 6.3, 0));
+            }
+          }
+        }
+        const fade = Math.min(1, (sh.max - sh.life) / 0.6);
+        D.position.copy(sh.p);
+        D.quaternion.copy(sh.q);
+        D.scale.setScalar(sh.s * fade);
+        D.updateMatrix();
+        M2.setMatrixAt(n++, D.matrix);
+      }
+      this.shards = this.shards.filter((sh) => sh.life < sh.max);
+      M2.count = n;
+      M2.instanceMatrix.needsUpdate = true;
+    }
     update(dt, t, camera, shipSpeed) {
+      this.updateShards(dt);
+      this.updateChunks(dt);
       this.add.update(dt);
       this.smoke.update(dt);
       const h = window.innerHeight * Math.min(window.devicePixelRatio, 2);
@@ -38718,6 +39249,41 @@ void main() {
         this._done(v);
       } catch (e) {
         this._warn("playImpact", e);
+      }
+    }
+    // 玻璃碎裂：高頻爆裂 + 一連串細碎的玻璃叮噹聲，big 越大碎片聲越多越長
+    playGlassBreak(pos, big = 1) {
+      if (!this._ok()) return;
+      try {
+        const p = this._pos(pos);
+        const v = this._voice(p, { g: 2.2, ref: 4, roll: 1.1, max: 110, wet: 0.18 });
+        const t = this._now();
+        this._nz(v, t, { n: "white", a: 3e-4, dur: 0.05, g: 0.9, flt: [{ t: "highpass", f: 2500, q: 0 }] });
+        this._nz(v, t, { n: "pink", a: 1e-3, dur: 0.12, g: 0.5, flt: [{ t: "bandpass", f: 1800, q: 0.8 }] });
+        const n = Math.round((14 + Math.random() * 10) * Math.min(1.6, big));
+        for (let i = 0; i < n; i++) this._metal(v, t + 0.01 + Math.pow(Math.random(), 1.6) * 0.6 * big, rand(3500, 9e3), 0.05 + Math.random() * 0.06, [[1, 1, 0.03 + Math.random() * 0.05], [2.3, 0.5, 0.03]]);
+        for (let i = 0; i < 8; i++) this._click(v, t + 0.15 + Math.random() * 0.7 * big, rand(4e3, 8e3), 0.05, 3, 5e-3);
+        this._done(v);
+      } catch (e) {
+        this._warn("playGlassBreak", e);
+      }
+    }
+    // 物件被打爛：低頻悶響 + 崩落碎屑（木頭／樹木帶斷裂聲）
+    playDestroy(pos, kind, big = 1) {
+      if (!this._ok()) return;
+      try {
+        const wood = /wood|bark|tree|board/.test(kind || "");
+        const p = this._pos(pos);
+        const v = this._voice(p, { g: 2.6, ref: 5, roll: 1, max: 130, wet: 0.25 });
+        const t = this._now();
+        this._tn(v, t, { f: wood ? 140 : 95, f1: 40, a: 2e-3, dur: 0.35 * big, g: 0.9 });
+        this._nz(v, t, { n: "pink", a: 2e-3, dur: 0.5 * big, g: 0.7, flt: [{ t: "lowpass", f: wood ? 1800 : 1200, f1: 300, sw: 0.4, q: 0 }] });
+        if (wood) this._nz(v, t, { n: "white", a: 5e-4, dur: 0.08, g: 0.7, flt: [{ t: "bandpass", f: 2400, q: 1.5 }] });
+        const n = Math.round(18 * big);
+        for (let i = 0; i < n; i++) this._click(v, t + 0.05 + Math.random() * 0.9 * big, rand(800, 3500), 0.08, 3, 0.01);
+        this._done(v);
+      } catch (e) {
+        this._warn("playDestroy", e);
       }
     }
     playRicochet(pos) {
@@ -41619,6 +42185,9 @@ void main() {
     }
     // ================= 流程 =================
     startMatch() {
+      if (this.map && this.map.resetGlass) this.map.resetGlass();
+      if (this.map && this.map.resetDestruction) this.map.resetDestruction();
+      if (this.fx) this.fx.clearDecals();
       const o = this.opts;
       audio.init();
       audio.setVolumes({ master: o.vol });
@@ -41899,11 +42468,34 @@ void main() {
           return pt2;
         }
         if (!h) break;
+        if (h.collider.bullet === "pass" || h.collider.solid === false && h.collider.part) {
+          from = h.exit;
+          continue;
+        }
         const pt = o.clone().addScaledVector(dir, h.t);
         const n = new Vector3(h.nx, h.ny, h.nz);
         const mat = h.collider.mat;
+        if (h.collider.tag === "glass" && this.map.breakGlass) {
+          const pane = this.map.breakGlass(h.collider);
+          if (pane) {
+            this.fx.shatter(pane, dir);
+            if (pt.distanceTo(this.renderer.camera.position) < 60) audio.playGlassBreak(pt);
+          }
+          mul *= 0.9;
+          from = h.exit;
+          continue;
+        }
         this.fx.impact(pt, n, mat, dir);
-        if (pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === "wood" ? "wood" : "metal");
+        if (pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === "wood" ? "wood" : mat === "concrete" ? "concrete" : "metal");
+        const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
+        if (wreck) {
+          this.fx.debris(wreck, dir);
+          for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);
+          if (pt.distanceTo(this.renderer.camera.position) < 70) audio.playDestroy(pt, wreck.kind);
+          mul *= 0.75;
+          from = h.exit;
+          continue;
+        }
         if (h.collider.bullet === "pen") {
           const thick = h.exit - h.t;
           const cost = thick * (mat === "wood" ? 1 : 1.9);
@@ -41958,8 +42550,20 @@ void main() {
           } else {
             const w = this.world.raycast(eye.x, eye.y, eye.z, base.x, base.y, base.z, range, "bullet");
             if (w) {
-              const pt = eye.clone().addScaledVector(base, w.t);
-              this.fx.impact(pt, new Vector3(w.nx, w.ny, w.nz), w.collider.mat, base);
+              const pt = eye.clone().addScaledVector(base, w.t), nrm = new Vector3(w.nx, w.ny, w.nz), c = w.collider;
+              const pane = c.tag === "glass" && this.map.breakGlass ? this.map.breakGlass(c) : null;
+              if (pane) {
+                this.fx.shatter(pane, base);
+                audio.playGlassBreak(pt);
+              } else {
+                this.fx.slash(pt, nrm, c.mat, heavy);
+                const wreck = this.map.damageAt ? this.map.damageAt(c, heavy ? 70 : 34, base) : null;
+                if (wreck) {
+                  this.fx.debris(wreck, base);
+                  audio.playDestroy(pt, wreck.kind, 0.7);
+                }
+                if (this.map.takeWrecked) for (const x of this.map.takeWrecked()) this.fx.clearDecalsIn(x);
+              }
               audio.playKnife(heavy ? "heavy" : "light", "wall", a.isPlayer ? null : eye);
             } else audio.playKnife(heavy ? "heavy" : "light", "miss", a.isPlayer ? null : eye);
           }
@@ -42021,6 +42625,13 @@ void main() {
     explode(p, owner) {
       const d = WEAPONS.he;
       this.fx.explosion(p);
+      const panes = this.map.breakGlassNear ? this.map.breakGlassNear(p, 7) : [];
+      for (const q of panes) this.fx.shatter(q, null, p);
+      if (panes.length) audio.playGlassBreak(p, Math.min(1.5, 0.6 + panes.length * 0.15));
+      const wrecked = this.map.blastAt ? this.map.blastAt(p, 6.5, 900) : [];
+      for (const w of wrecked.slice(0, 40)) this.fx.debris(w, null, p);
+      if (this.map.takeWrecked) for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);
+      if (wrecked.length) audio.playDestroy(p, wrecked[0].kind, Math.min(1.8, 0.8 + wrecked.length * 0.1));
       audio.playExplosion(p);
       const camD = this.renderer.camera.position.distanceTo(p);
       this.fx.shake = Math.max(this.fx.shake, Math.max(0, 1.4 - camD / 18));

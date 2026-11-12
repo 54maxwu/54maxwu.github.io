@@ -57,12 +57,22 @@ function makeMaterials(){
 
 // ---------- geometry + collider builder ----------
 class Builder{
-  constructor(world,scene){this.world=world;this.scene=scene;this.M=makeMaterials();this.buf={};this.extra={};this.boxes=0}
+  constructor(world,scene){this.world=world;this.scene=scene;this.glass=[];this.parts=[];this.noBreak=false;this.falling=[];this.wrecked=[];this.meshByKey={};this.origPos={};this.M=makeMaterials();this.buf={};this.extra={};this.boxes=0}
   arr(k){return this.buf[k]||(this.buf[k]={p:[],n:[],u:[]})}
   quad(k,a,b,c,d,nrm,uvs){const B=this.arr(k);for(const i of [0,1,2,0,2,3]){const v=[a,b,c,d][i];B.p.push(v[0],v[1],v[2]);B.n.push(...nrm);B.u.push(...uvs[i])}}
   // world box: x0..x1, y0..y1, n0..n1 (north). opts: col (false|object), faces
   box(k,x0,x1,y0,y1,n0,n1,col=true){
     if(x1<x0)[x0,x1]=[x1,x0];if(n1<n0)[n0,n1]=[n1,n0];if(y1<y0)[y0,y1]=[y1,y0];if(x1-x0<1e-3||y1-y0<1e-3||n1-n0<1e-3)return;
+    if(k==='glass'){ // breakable pane: instanced, not merged
+      const c=col?this.collide(x0,x1,y0,y1,n0,n1,'glass',{tag:'glass'}):null;if(c)c.glassId=this.glass.length;this.glass.push({x0,x1,y0,y1,n0,n1,c});return}
+    // 可破壞：牆、柱、欄杆、桌子等；樓板、樓梯、地面、平台與屋頂維持不壞（避免穿地與導航失效）
+    const kind=this.M[k].col,hx=x1-x0,hn=n1-n0,hy=y1-y0;
+    const breakable=!!(col&&kind&&!this.noBreak&&!(hy<0.6&&Math.max(hx,hn)>1.5)&&!(hx>2.5&&hn>2.5));
+    if(breakable&&!this._split){const L=Math.max(hx,hn),T=Math.min(hx,hn);
+      if(T<=0.7&&(L>1.8||hy>2.8)){const nl=Math.max(1,Math.round(L/1.4)),nv=hy>2.8?2:1;this._split=true;
+        for(let i=0;i<nl;i++)for(let j=0;j<nv;j++){const ya=y0+hy*j/nv,yb=y0+hy*(j+1)/nv;if(hx>=hn)this.box(k,x0+hx*i/nl,x0+hx*(i+1)/nl,ya,yb,n0,n1,col);else this.box(k,x0,x1,ya,yb,n0+hn*i/nl,n0+hn*(i+1)/nl,col)}
+        this._split=false;return}}
+    const vStart=(this.buf[k]?this.buf[k].p.length:0)/3;
     const z0=-n1,z1=-n0,s=this.M[k].s,U=v=>v/s;this.boxes++;
     this.quad(k,[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[1,0,0],[[U(-z1),U(y0)],[U(-z0),U(y0)],[U(-z0),U(y1)],[U(-z1),U(y1)]]);
     this.quad(k,[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],[-1,0,0],[[U(z0),U(y0)],[U(z1),U(y0)],[U(z1),U(y1)],[U(z0),U(y1)]]);
@@ -70,23 +80,71 @@ class Builder{
     this.quad(k,[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[0,-1,0],[[U(x0),U(z0)],[U(x1),U(z0)],[U(x1),U(z1)],[U(x0),U(z1)]]);
     this.quad(k,[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],[0,0,1],[[U(x0),U(y0)],[U(x1),U(y0)],[U(x1),U(y1)],[U(x0),U(y1)]]);
     this.quad(k,[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[0,0,-1],[[U(-x1),U(y0)],[U(-x0),U(y0)],[U(-x0),U(y1)],[U(-x1),U(y1)]]);
-    const kind=this.M[k].col;if(col&&kind)this.collide(x0,x1,y0,y1,n0,n1,kind,typeof col==='object'?col:{});
+    if(col&&kind){const c=this.collide(x0,x1,y0,y1,n0,n1,kind,typeof col==='object'?col:{});
+      if(breakable){const vol=hx*hy*hn,hp=Math.round(Math.max(40,Math.min(520,380*Math.sqrt(vol/0.6)))*(HPK[k]||1));
+        const part={ranges:[{k,start:vStart,count:36}],c,hp,max:hp,kind:k,box:{x0,x1,y0,y1,n0,n1},cb:c.bullet,cs:c.sight};c.part=part;this.parts.push(part)}}
   }
   collide(x0,x1,y0,y1,n0,n1,kind='concrete',o={}){
     const base=kind==='glass'?{mat:'mesh',bullet:'pen',sight:false}:kind==='wood'?{mat:'wood',bullet:'pen',surface:'wood'}:kind==='metal'?{mat:'metal',bullet:'pass',sight:false}:{mat:'concrete',surface:'concrete'};
-    this.world.add({x:(x0+x1)/2,y:(y0+y1)/2,z:-(n0+n1)/2,sx:x1-x0,sy:y1-y0,sz:n1-n0,...base,...o});
+    return this.world.add({x:(x0+x1)/2,y:(y0+y1)/2,z:-(n0+n1)/2,sx:x1-x0,sy:y1-y0,sz:n1-n0,...base,...o});
   }
-  geo(k,g){(this.extra[k]||(this.extra[k]=[])).push(g.index?g.toNonIndexed():g)}
+  info(p){const b=p.box;return{x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2,z:-(b.n0+b.n1)/2,sx:b.x1-b.x0,sy:b.y1-b.y0,sz:b.n1-b.n0,kind:p.kind}}
+  destroyPart(p,dir){if(p.dead)return null;if(p.kind==='tree')this.fellTree(p,dir);p.dead=true;this.wrecked.push(this.info(p));if(p.c){p.c.solid=false;p.c.bullet='pass';p.c.sight=false}
+    for(const r of p.ranges){const a=this.meshByKey[r.k].geometry.attributes.position,A=a.array,s=r.start*3;for(let i=3;i<r.count*3;i++)A[s+i]=A[s+i%3];a.addUpdateRange(s,r.count*3);a.needsUpdate=true}
+    for(const q of p.links||[])if(!q.dead)this.destroyPart(q,dir);   // 牆的另一層（磚面＋粉刷面）一起破
+    return this.info(p)}
+  damage(c,dmg,dir){const p=c&&c.part;if(!p||p.dead)return null;p.hp-=dmg;return p.hp<=0?this.destroyPart(p,dir):null}
+  blast(pos,r,power){const out=[],pn=-pos.z;for(const p of this.parts){if(p.dead)continue;const b=p.box,dx=Math.max(b.x0-pos.x,0,pos.x-b.x1),dy=Math.max(b.y0-pos.y,0,pos.y-b.y1),dn=Math.max(b.n0-pn,0,pn-b.n1),d=Math.hypot(dx,dy,dn);
+    if(d<r){p.hp-=power*(1-d/r);if(p.hp<=0)out.push(this.destroyPart(p,{x:(b.x0+b.x1)/2-pos.x,z:-(b.n0+b.n1)/2-pos.z}))}}return out}
+  // 樹木整根斷掉：把樹的幾何複製成獨立群組，以樹基為支點往受力方向倒下，留下樹樁；倒地後的樹幹可當掩體
+  fellTree(p,dir){
+    const b=p.box,base=new THREE.Vector3((b.x0+b.x1)/2,0.35,-(b.n0+b.n1)/2),g=new THREE.Group();
+    for(const r of p.ranges){const src=this.meshByKey[r.k].geometry,geo=new THREE.BufferGeometry();
+      for(const nm of ['position','normal','uv']){const a=src.attributes[nm];geo.setAttribute(nm,new THREE.BufferAttribute(a.array.slice(r.start*a.itemSize,(r.start+r.count)*a.itemSize),a.itemSize))}
+      geo.translate(-base.x,-base.y,-base.z);const m=new THREE.Mesh(geo,this.M[r.k].m);m.castShadow=true;g.add(m)}
+    g.position.copy(base);this.scene.add(g);
+    let fx=dir?dir.x:Math.random()-.5,fz=dir?dir.z:Math.random()-.5;const L=Math.hypot(fx,fz)||1;fx/=L;fz/=L;
+    const stump=new THREE.Mesh(new THREE.CylinderGeometry(.26,.32,.45,8),this.M.bark.m);stump.position.set(base.x,.22,base.z);stump.castShadow=true;this.scene.add(stump);
+    this.falling.push({g,stump,axis:new THREE.Vector3(fz,0,-fx),f:[fx,fz],base,len:b.y1*0.62,ang:0,vel:0.25,done:false,col:null});
+  }
+  updateFalling(dt){
+    for(const t of this.falling){if(t.done)continue;
+      t.vel+=7*Math.sin(Math.max(t.ang,0.08))*dt;t.ang+=t.vel*dt;
+      const lim=Math.PI/2-0.06;if(t.ang>=lim){t.ang=lim;if(t.vel>1){t.vel*=-0.22}else{t.done=true;
+        // 倒地樹幹碰撞（繞 Y 軸旋轉的方塊），插入碰撞格網
+        const [fx,fz]=t.f,c=this.world.add({x:t.base.x+fx*t.len/2,y:.38,z:t.base.z+fz*t.len/2,sx:t.len,sy:.55,sz:.55,yaw:Math.atan2(-fz,fx),mat:'wood',bullet:'pen',surface:'wood'});
+        for(let x=Math.floor(c.minX/4);x<=Math.floor(c.maxX/4);x++)for(let z=Math.floor(c.minZ/4);z<=Math.floor(c.maxZ/4);z++){const k=x*1000+z;let a=this.world.grid.get(k);if(!a)this.world.grid.set(k,a=[]);a.push(c)}
+        t.col=c}}
+      t.g.quaternion.setFromAxisAngle(t.axis,Math.max(0,t.ang))}
+  }
+  resetParts(){
+    for(const t of this.falling){this.scene.remove(t.g);this.scene.remove(t.stump);t.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});t.stump.geometry.dispose();if(t.col){t.col.solid=false;t.col.bullet='pass';t.col.sight=false}}
+    this.falling=[];const touched=new Set();for(const p of this.parts){if(!p.dead){p.hp=p.max;continue}p.dead=false;p.hp=p.max;if(p.c){p.c.solid=true;p.c.bullet=p.cb;p.c.sight=p.cs}
+    for(const r of p.ranges){const a=this.meshByKey[r.k].geometry.attributes.position,s=r.start*3;a.array.set(this.origPos[r.k].subarray(s,s+r.count*3),s);a.addUpdateRange(s,r.count*3);touched.add(a)}}for(const a of touched)a.needsUpdate=true}
+  geo(k,g,part){(this.extra[k]||(this.extra[k]=[])).push({g:g.index?g.toNonIndexed():g,part})}
   finish(scene,shadows){
     const meshes=[];let faces=0;
     for(const k of new Set([...Object.keys(this.buf),...Object.keys(this.extra)])){
       const parts=[];const B=this.buf[k];
       if(B&&B.p.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(B.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(B.n,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(B.u,2));parts.push(g)}
-      for(const g of this.extra[k]||[]){for(const a of Object.keys(g.attributes))if(!['position','normal','uv'].includes(a))g.deleteAttribute(a);if(!g.attributes.uv)g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));parts.push(g)}
-      const geo=parts.length>1?mergeGeometries(parts):parts[0];const mesh=new THREE.Mesh(geo,this.M[k].m);
+      let off=B&&B.p.length?B.p.length/3:0;
+      for(const {g,part} of this.extra[k]||[]){for(const a of Object.keys(g.attributes))if(!['position','normal','uv'].includes(a))g.deleteAttribute(a);if(!g.attributes.uv)g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));parts.push(g);
+        if(part)part.ranges.push({k,start:off,count:g.attributes.position.count});off+=g.attributes.position.count}
+      const geo=parts.length>1?mergeGeometries(parts):parts[0];const mesh=new THREE.Mesh(geo,this.M[k].m);this.meshByKey[k]=mesh;
       mesh.castShadow=shadows&&!['glass','water','grass','lawn','asphalt','pave','quarry','terrazzo'].includes(k);mesh.receiveShadow=shadows&&k!=='glass';
       mesh.name='real:'+k;scene.add(mesh);meshes.push(mesh);faces+=geo.attributes.position.count/3;
     }
+    // glass panes: one InstancedMesh; a broken pane is scaled to zero
+    const G=this.glass,gm=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),this.M.glass.m,Math.max(1,G.length)),mtx=new THREE.Matrix4(),q=new THREE.Quaternion();
+    const place=(i,on)=>{const p=G[i];mtx.compose(new THREE.Vector3((p.x0+p.x1)/2,(p.y0+p.y1)/2,-(p.n0+p.n1)/2),q,on?new THREE.Vector3(p.x1-p.x0,p.y1-p.y0,p.n1-p.n0):new THREE.Vector3(1e-5,1e-5,1e-5));gm.setMatrixAt(i,mtx)};
+    G.forEach((p,i)=>place(i,true));gm.count=G.length;gm.renderOrder=3;gm.name='real:glass';scene.add(gm);meshes.push(gm);faces+=G.length*12;
+    this.glassApi={mesh:gm,panes:G,place};
+    { const r2=v=>Math.round(v*50),idx=new Map();
+      for(const p of this.parts){const b=p.box;if(p.kind==='tree')continue;const thinX=b.x1-b.x0<=0.35,thinN=b.n1-b.n0<=0.35;if(!thinX&&!thinN)continue;
+        const key=thinN?'n|'+[r2(b.x0),r2(b.x1),r2(b.y0),r2(b.y1)].join(','):'x|'+[r2(b.n0),r2(b.n1),r2(b.y0),r2(b.y1)].join(',');
+        for(const q of idx.get(key)||[]){const a=q.box,gap=thinN?Math.max(a.n0-b.n1,b.n0-a.n1):Math.max(a.x0-b.x1,b.x0-a.x1);if(gap<=0.02){(p.links||(p.links=[])).push(q);(q.links||(q.links=[])).push(p)}}
+        (idx.get(key)||idx.set(key,[]).get(key)).push(p)} }
+    for(const k of new Set(this.parts.flatMap(p=>p.ranges.map(r=>r.k))))this.origPos[k]=this.meshByKey[k].geometry.attributes.position.array.slice();
     return {meshes,facesCount:faces};
   }
 }
@@ -104,11 +162,14 @@ function placedExtrude(shape,depth,{plane='x',at=0,scale=1}){
 // Spandrel above an arch (rect from springY to topY minus a half-ellipse) of span a0..a1.
 function archShape(a0,a1,spring,rise,top){const s=new THREE.Shape(),cx=(a0+a1)/2,rx=(a1-a0)/2;s.moveTo(a0,spring);s.lineTo(a0,top);s.lineTo(a1,top);s.lineTo(a1,spring);s.absellipse(cx,spring,rx,rise,0,Math.PI,false);return s}
 
+// Toughness per material (multiplies size-based hit points).
+const HPK={brick:1,stone:1,granite:1.3,concrete:1.2,plaster:.5,wood:.45,board:.4,beige:.6,white:.7,red:.7,blue:.7,yellow:.7,green:.5,metal:.8,quarry:1,terrazzo:1};
+
 // ---------- building bar (corridor on courtyard side, rooms behind) ----------
 // toW(u,w) -> [x,n]. w=0 courtyard face, w=D outer face. Corridor w 0..3.
 function bar(B,o){
   const {u0,u1,D,toW,segs,open,ends={}}=o,COR=3;
-  const lb=(k,a0,a1,y0,y1,w0,w1,col=true)=>{const p=toW(a0,w0),q=toW(a1,w1);B.box(k,p[0],q[0],y0,y1,p[1],q[1],col)};
+  const lb=(k,a0,a1,y0,y1,w0,w1,col=true)=>{const p=toW(a0,w0),q=toW(a1,w1);B.box(k,p[0],q[0],y0,y1,p[1],q[1],col)};lb.B=B;
   const isOpen=u=>open.some(([a,b])=>u>=a-1e-6&&u<=b+1e-6);
   const rooms=[];
   for(let f=0;f<5;f++){
@@ -189,7 +250,8 @@ function wallW(lb,k,u0,u1,yb,yt,w0,w1,cuts,glass){ // wall at constant u range, 
   if(glass)for(const c of cuts)if(c[2]>0.5)lb('glass',(u0+u1)/2-.02,(u0+u1)/2+.02,yb+c[2],yb+c[3],c[0],c[1]);
 }
 // Dog-leg stair inside a stair segment: flight A (first half of u) w 4.6->8.2, mid landing w 8.2..9.8, flight B back to w 4.6.
-function stairs(lb,a0,a1,yb,yt,f){
+function stairs(lb,a0,a1,yb,yt,f){lb.B.noBreak=true;try{stairsInner(lb,a0,a1,yb,yt,f)}finally{lb.B.noBreak=false}}
+function stairsInner(lb,a0,a1,yb,yt,f){
   const h=yt-yb,mid=(a0+a1)/2,steps=12,rise=h/2/steps,run=3.6/steps;
   for(let i=0;i<steps;i++){const t=yb+(i+1)*rise;lb('terrazzo',a0+.15,mid-.08,t-.35,t,4.6+i*run,4.6+(i+1)*run);
     const t2=yb+h/2+(i+1)*rise;lb('terrazzo',mid+.08,a1-.15,t2-.35,t2,8.2-(i+1)*run,8.2-i*run)}
@@ -214,10 +276,12 @@ function hipRoof(B,x0,x1,y,n0,n1,rise,{gable=false,upturn=0}={}){
 }
 // Trees
 function tree(B,x,n,{h=7,r=3,kind='round'}={}){
-  const z=-n;const trunk=new THREE.CylinderGeometry(.18*h/7,.28*h/7,h*.55,7);trunk.translate(x,h*.275,z);B.geo('bark',trunk);B.collide(x-.25,x+.25,0,h*.5,n-.25,n+.25,'wood');
-  if(kind==='palm'){for(let i=0;i<7;i++){const leaf=new THREE.ConeGeometry(.35,2.6,4);leaf.rotateZ(Math.PI/2.4);leaf.rotateY(i/7*Math.PI*2);leaf.translate(x,h*.55+.3,z);B.geo('leaf',leaf)}return}
-  if(kind==='cone'){const c=new THREE.ConeGeometry(r*.6,h*.75,9);c.translate(x,h*.6,z);B.geo('leaf',c);return}
-  for(let i=0;i<5;i++){const s=new THREE.IcosahedronGeometry(r*(.55+rnd()*.25),1);s.translate(x+(rnd()-.5)*r*.9,h*.62+(rnd()-.3)*r*.6,z+(rnd()-.5)*r*.9);B.geo('leaf',s)}
+  const z=-n,c=B.collide(x-.25,x+.25,0,h*.5,n-.25,n+.25,'wood'),part={ranges:[],c,hp:320,max:320,kind:'tree',box:{x0:x-r*.6,x1:x+r*.6,y0:0,y1:h,n0:n-r*.6,n1:n+r*.6},cb:c.bullet,cs:c.sight};c.part=part;B.parts.push(part);
+  const geo=B.geo.bind(B),Bp={geo:(k,g)=>geo(k,g,part)};
+  const trunk=new THREE.CylinderGeometry(.18*h/7,.28*h/7,h*.55,7);trunk.translate(x,h*.275,z);Bp.geo('bark',trunk);
+  if(kind==='palm'){for(let i=0;i<7;i++){const leaf=new THREE.ConeGeometry(.35,2.6,4);leaf.rotateZ(Math.PI/2.4);leaf.rotateY(i/7*Math.PI*2);leaf.translate(x,h*.55+.3,z);Bp.geo('leaf',leaf)}return}
+  if(kind==='cone'){const cg=new THREE.ConeGeometry(r*.6,h*.75,9);cg.translate(x,h*.6,z);Bp.geo('leaf',cg);return}
+  for(let i=0;i<5;i++){const s=new THREE.IcosahedronGeometry(r*(.55+rnd()*.25),1);s.translate(x+(rnd()-.5)*r*.9,h*.62+(rnd()-.3)*r*.6,z+(rnd()-.5)*r*.9);Bp.geo('leaf',s)}
 }
 
 // Room categories as in the 115學年度 allocation map legend: 班級教室 / 行政辦公室 / 專科教室 / 教學服務空間.
@@ -324,12 +388,12 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
     { const x0=6,x1=12,n0=-22,n1=-17.5;B.box('granite',x0-.4,x1+.4,0,.45,n0-.4,n0);B.box('granite',x0-.4,x1+.4,0,.45,n1,n1+.4);B.box('granite',x0-.4,x0,0,.45,n0,n1);B.box('granite',x1,x1+.4,0,.45,n0,n1);B.box('water',x0,x1,.05,.3,n0,n1,false);const mill=new THREE.CylinderGeometry(.6,.6,.35,16);mill.translate(9,.45,19.75);B.geo('granite',mill)}
     B.box('stone',-24,-22.6,0,1.1,-14,-13.2);                                            // 霞雲庭 inscription stone
     // 瑾瑜臺 stage in front of the west building + 文苑 steps
-    B.box('quarry',-31,-25.5,0,.9,-31,-20);for(let i=0;i<3;i++)B.box('granite',-25.5+i*.4,-25.1+i*.4,0,.9-(i+1)*.3,-30,-21);
+    B.noBreak=true;B.box('quarry',-31,-25.5,0,.9,-31,-20);for(let i=0;i<3;i++)B.box('granite',-25.5+i*.4,-25.1+i*.4,0,.9-(i+1)*.3,-30,-21);B.noBreak=false;
     B.box('granite',-30.95,-30.7,2.6,3.6,-28.2,-22.8,false);plaque(scene,'瑾瑜臺',{x:-30.68,y:3.1,n:-25.5,w:4.6,h:.8,face:'e',bg:'#cfc7b6'});
   }
   await tick('建立實景校園：化雨臺、操場、樂群樓');
   // 化雨臺: stage on the north face at the north passage, granite columns, upturned red-tile roof (photo N004)
-  { const x0=-14,x1=1,n0=3.2,n1=10;B.box('quarry',x0,x1,0,1.0,n0,n1);for(let i=0;i<4;i++)B.box('granite',x0+2,x1-2,0,1-(i+1)*.25,n1+i*.35,n1+(i+1)*.35);
+  { const x0=-14,x1=1,n0=3.2,n1=10;B.noBreak=true;B.box('quarry',x0,x1,0,1.0,n0,n1);for(let i=0;i<4;i++)B.box('granite',x0+2,x1-2,0,1-(i+1)*.25,n1+i*.35,n1+(i+1)*.35);B.noBreak=false;
     for(const x of [x0+.6,x1-.6,(x0+x1)/2-2.4,(x0+x1)/2+2.4])B.box('granite',x-.45,x+.45,1,5.6,n1-1.1,n1-.2);
     B.box('stone',x0-.4,x1+.4,5.6,6.2,n0,n1);plaque(scene,'化雨臺',{x:(x0+x1)/2,y:5.9,n:n1+.02,w:3.2,h:.55,face:'n',bg:'#c9c4b8'});hipRoof(B,x0-1.6,x1+1.6,6.2,n0-.4,n1+1.6,2.4,{upturn:.9});B.collide(x0-1.6,x1+1.6,6.2,7.6,n0,n1+1.6);}
   // basketball hoops (OSM courts)
@@ -347,7 +411,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
     hipRoof(B,x0-.8,x1+.8,h2,n0-.8,n1+.8,6,{gable:true});B.collide(x0,x1,h2,h2+.3,n0,n1);
     B.box('white',(x0+x1)/2-3.2,(x0+x1)/2+3.2,h2+5.4,h2+6.6,n0+4,n1-4,false);hipRoof(B,(x0+x1)/2-4,(x0+x1)/2+4,h2+6.6,n0+3.5,n1-3.5,1.8,{gable:true});
     // front stairs from the south to the 2F hall entrance (photo N006)
-    for(let i=0;i<30;i++){const t=h1*(30-i)/30;B.box('granite',41,52,0,t,n0-.33*(i+1),n0-.33*i)}B.box('brick',40.6,41,0,h1+1,n0-10,n0);B.box('brick',52,52.4,0,h1+1,n0-10,n0);
+    B.noBreak=true;for(let i=0;i<30;i++){const t=h1*(30-i)/30;B.box('granite',41,52,0,t,n0-.33*(i+1),n0-.33*i)}B.noBreak=false;B.box('brick',40.6,41,0,h1+1,n0-10,n0);B.box('brick',52,52.4,0,h1+1,n0-10,n0);
     rooms.push({name:'桌球教室',cat:'教學服務空間',building:'樂群樓（活動中心）',floor:1,x:47,z:-33,x0:x0,x1:x1,z0:-50,z1:-n0},{name:'自然教室一',cat:'專科教室',building:'樂群樓（活動中心）',floor:1,x:40,z:-55,x0:x0,x1:47,z0:-n1,z1:-50},{name:'家長會暨志工隊辦公室',cat:'行政辦公室',building:'樂群樓（活動中心）',floor:1,x:54,z:-55,x0:47,x1:x1,z0:-n1,z1:-50},{name:'禮堂（舞臺・音控室）',cat:'教學服務空間',building:'樂群樓（活動中心）',floor:2,x:47,z:-39,x0:x0,x1:x1,z0:-n1,z1:-n0});
     plaque(scene,'樂群樓',{x:(x0+x1)/2,y:h2-1.2,n:n0-.02,w:4.2,h:1.0,face:'s',bg:'#d8cdb8'});
     // gym floor markings plane
@@ -378,7 +442,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
 
   await tick('建立實景校園：合併網格');
   const vis=B.finish(scene,shadows);
-  return {...vis,rooms,builder:B};
+  return {...vis,rooms,builder:B,glass:B.glassApi,destruct:{takeWrecked:()=>{const w=B.wrecked;B.wrecked=[];return w},update:dt=>B.updateFalling(dt),damage:(c,d,dir)=>B.damage(c,d,dir),blast:(p,r,w)=>B.blast(p,r,w),reset:()=>B.resetParts(),count:B.parts.length}};
 }
 
 // Landmarks at their real positions (game coords: x, y, z=-n).

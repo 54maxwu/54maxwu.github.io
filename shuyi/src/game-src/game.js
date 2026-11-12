@@ -123,6 +123,9 @@ export class Game {
 
   // ================= 流程 =================
   startMatch() {
+    if (this.map && this.map.resetGlass) this.map.resetGlass();
+    if (this.map && this.map.resetDestruction) this.map.resetDestruction();
+    if (this.fx) this.fx.clearDecals();
     const o = this.opts;
     audio.init(); audio.setVolumes({ master: o.vol }); audio.startAmbient(); audio.playUI('start');
     for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
@@ -342,11 +345,27 @@ export class Game {
         return pt;
       }
       if (!h) break;
+      // 這發子彈途中剛被打爛的物件（例如牆的背面那層）：直接穿過，不再留彈孔
+      if (h.collider.bullet === 'pass' || h.collider.solid === false && h.collider.part) { from = h.exit; continue; }
       const pt = o.clone().addScaledVector(dir, h.t);
       const n = new THREE.Vector3(h.nx, h.ny, h.nz);
       const mat = h.collider.mat;
+      // 玻璃：子彈打破整片玻璃後繼續飛行（稍微減傷）
+      if (h.collider.tag === 'glass' && this.map.breakGlass) {
+        const pane = this.map.breakGlass(h.collider);
+        if (pane) { this.fx.shatter(pane, dir); if (pt.distanceTo(this.renderer.camera.position) < 60) audio.playGlassBreak(pt); }
+        mul *= 0.9; from = h.exit; continue;
+      }
       this.fx.impact(pt, n, mat, dir);
-      if (pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === 'wood' ? 'wood' : 'metal');
+      if (pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === 'wood' ? 'wood' : mat === 'concrete' ? 'concrete' : 'metal');
+      // 可破壞物：累積傷害，打爛後子彈繼續穿過
+      const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
+      if (wreck) {
+        this.fx.debris(wreck, dir);
+        for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);   // 連同背面那層一起清掉彈孔
+        if (pt.distanceTo(this.renderer.camera.position) < 70) audio.playDestroy(pt, wreck.kind);
+        mul *= 0.75; from = h.exit; continue;
+      }
       if (h.collider.bullet === 'pen') {
         const thick = h.exit - h.t;
         const cost = thick * (mat === 'wood' ? 1.0 : 1.9);
@@ -395,8 +414,16 @@ export class Game {
         } else {
           const w = this.world.raycast(eye.x, eye.y, eye.z, base.x, base.y, base.z, range, 'bullet');
           if (w) {
-            const pt = eye.clone().addScaledVector(base, w.t);
-            this.fx.impact(pt, new THREE.Vector3(w.nx, w.ny, w.nz), w.collider.mat, base);
+            const pt = eye.clone().addScaledVector(base, w.t), nrm = new THREE.Vector3(w.nx, w.ny, w.nz), c = w.collider;
+            // 刀：玻璃一刀就破；其他表面留下刀痕，可破壞物也會累積傷害
+            const pane = c.tag === 'glass' && this.map.breakGlass ? this.map.breakGlass(c) : null;
+            if (pane) { this.fx.shatter(pane, base); audio.playGlassBreak(pt); }
+            else {
+              this.fx.slash(pt, nrm, c.mat, heavy);
+              const wreck = this.map.damageAt ? this.map.damageAt(c, heavy ? 70 : 34, base) : null;
+              if (wreck) { this.fx.debris(wreck, base); audio.playDestroy(pt, wreck.kind, 0.7); }
+              if (this.map.takeWrecked) for (const x of this.map.takeWrecked()) this.fx.clearDecalsIn(x);
+            }
             audio.playKnife(heavy ? 'heavy' : 'light', 'wall', a.isPlayer ? null : eye);
           } else audio.playKnife(heavy ? 'heavy' : 'light', 'miss', a.isPlayer ? null : eye);
         }
@@ -447,6 +474,15 @@ export class Game {
   explode(p, owner) {
     const d = WEAPONS.he;
     this.fx.explosion(p);
+    // 手雷震碎附近玻璃
+    const panes = this.map.breakGlassNear ? this.map.breakGlassNear(p, 7) : [];
+    for (const q of panes) this.fx.shatter(q, null, p);
+    if (panes.length) audio.playGlassBreak(p, Math.min(1.5, 0.6 + panes.length * 0.15));
+    // 手雷炸毀附近的牆、柱、桌椅與樹木
+    const wrecked = this.map.blastAt ? this.map.blastAt(p, 6.5, 900) : [];
+    for (const w of wrecked.slice(0, 40)) this.fx.debris(w, null, p);
+    if (this.map.takeWrecked) for (const w of this.map.takeWrecked()) this.fx.clearDecalsIn(w);   // 所有被炸毀的物件（不限前 40 個）
+    if (wrecked.length) audio.playDestroy(p, wrecked[0].kind, Math.min(1.8, 0.8 + wrecked.length * 0.1));
     audio.playExplosion(p);
     const camD = this.renderer.camera.position.distanceTo(p);
     this.fx.shake = Math.max(this.fx.shake, Math.max(0, 1.4 - camD / 18));

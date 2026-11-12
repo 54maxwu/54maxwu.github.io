@@ -548,6 +548,43 @@ export class AudioSystem {
     }
   }
 
+  // 玻璃碎裂：高頻爆裂 + 一連串細碎的玻璃叮噹聲，big 越大碎片聲越多越長
+  playGlassBreak(pos, big = 1) {
+    if (!this._ok()) return;
+    try {
+      const p = this._pos(pos);
+      const v = this._voice(p, { g: 2.2, ref: 4, roll: 1.1, max: 110, wet: 0.18 });
+      const t = this._now();
+      this._nz(v, t, { n: 'white', a: 0.0003, dur: 0.05, g: 0.9, flt: [{ t: 'highpass', f: 2500, q: 0 }] });
+      this._nz(v, t, { n: 'pink', a: 0.001, dur: 0.12, g: 0.5, flt: [{ t: 'bandpass', f: 1800, q: 0.8 }] });
+      const n = Math.round((14 + Math.random() * 10) * Math.min(1.6, big));
+      for (let i = 0; i < n; i++) this._metal(v, t + 0.01 + Math.pow(Math.random(), 1.6) * 0.6 * big, rand(3500, 9000), 0.05 + Math.random() * 0.06, [[1, 1, 0.03 + Math.random() * 0.05], [2.3, 0.5, 0.03]]);
+      for (let i = 0; i < 8; i++) this._click(v, t + 0.15 + Math.random() * 0.7 * big, rand(4000, 8000), 0.05, 3, 0.005);
+      this._done(v);
+    } catch (e) {
+      this._warn('playGlassBreak', e);
+    }
+  }
+
+  // 物件被打爛：低頻悶響 + 崩落碎屑（木頭／樹木帶斷裂聲）
+  playDestroy(pos, kind, big = 1) {
+    if (!this._ok()) return;
+    try {
+      const wood = /wood|bark|tree|board/.test(kind || '');
+      const p = this._pos(pos);
+      const v = this._voice(p, { g: 2.6, ref: 5, roll: 1, max: 130, wet: 0.25 });
+      const t = this._now();
+      this._tn(v, t, { f: wood ? 140 : 95, f1: 40, a: 0.002, dur: 0.35 * big, g: 0.9 });
+      this._nz(v, t, { n: 'pink', a: 0.002, dur: 0.5 * big, g: 0.7, flt: [{ t: 'lowpass', f: wood ? 1800 : 1200, f1: 300, sw: 0.4, q: 0 }] });
+      if (wood) this._nz(v, t, { n: 'white', a: 0.0005, dur: 0.08, g: 0.7, flt: [{ t: 'bandpass', f: 2400, q: 1.5 }] });
+      const n = Math.round(18 * big);
+      for (let i = 0; i < n; i++) this._click(v, t + 0.05 + Math.random() * 0.9 * big, rand(800, 3500), 0.08, 3, 0.01);
+      this._done(v);
+    } catch (e) {
+      this._warn('playDestroy', e);
+    }
+  }
+
   playRicochet(pos) {
     if (!this._ok()) return;
     try {

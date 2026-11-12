@@ -66,6 +66,14 @@ class Decals {
     this.max = max; this.i = 0;
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.q2 = new THREE.Quaternion();
   }
+  // 指定角度與長寬（刀痕用）
+  addAligned(p, n, sx, sy, angle) {
+    const q = this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+    q.multiply(this.q2.setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle));
+    this.m.compose(new THREE.Vector3(p.x + n.x * 0.004, p.y + n.y * 0.004, p.z + n.z * 0.004), q, new THREE.Vector3(sx, sy, 1));
+    this.mesh.setMatrixAt(this.i % this.max, this.m); this.i++;
+    this.mesh.count = Math.min(this.i, this.max); this.mesh.instanceMatrix.needsUpdate = true;
+  }
   add(p, n, size) {
     const q = this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
     q.multiply(this.q2.setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.random() * Math.PI * 2));
@@ -75,6 +83,18 @@ class Decals {
     this.mesh.count = Math.min(this.i, this.max);
     this.mesh.instanceMatrix.needsUpdate = true;
   }
+}
+
+// 刀痕：細長、兩端尖的刻痕，中間深色、邊緣崩出較淺的碎面
+function slashTex() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+  const x = c.getContext('2d');
+  const body = (w, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(4, 16); x.quadraticCurveTo(128, 16 - w, 252, 16); x.quadraticCurveTo(128, 16 + w, 4, 16); x.fill(); };
+  body(13, 'rgba(205,190,170,0.55)');
+  body(7, 'rgba(120,105,90,0.85)');
+  body(3, 'rgba(25,20,18,0.95)');
+  for (let i = 0; i < 26; i++) { const px = 20 + Math.random() * 216, w = 1 + Math.random() * 2; x.fillStyle = 'rgba(220,205,185,0.6)'; x.fillRect(px, 16 + (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 5), w, w); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
 function tracerTex() {
@@ -95,8 +115,10 @@ export class Effects {
     this.add = new Particles(scene, T.glow, true, 900);
     this.smoke = new Particles(scene, T.puff, false, 900);
     this.decals = {
-      metal: new Decals(scene, T.holeMetal, 160),
-      wood: new Decals(scene, T.holeWood, 100),
+      metal: new Decals(scene, T.holeMetal, 300),
+      wood: new Decals(scene, T.holeWood, 250),
+      concrete: new Decals(scene, T.holeStone, 700),
+      slash: new Decals(scene, slashTex(), 300),
       blood: new Decals(scene, T.blood, 60),
       scorch: new Decals(scene, T.scorch, 12),
     };
@@ -122,6 +144,18 @@ export class Effects {
       scene.add(l); this.lights.push({ l, t: 0, peak: 0, dur: 0.06 });
     }
     this.lightI = 0;
+    // 玻璃碎片：三角形實體碎片（InstancedMesh），會旋轉、落地彈跳後淡出
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.55, 0, -0.5, -0.4, 0.02, 0.48, -0.32, -0.02], 3));
+    sg.computeVertexNormals();
+    this.shardMax = 600; this.shards = []; this._dummy = new THREE.Object3D();
+    this.shardMesh = new THREE.InstancedMesh(sg, new THREE.MeshStandardMaterial({ color: 0xd6eef3, roughness: 0.04, metalness: 0.35, transparent: true, opacity: 0.82, side: THREE.DoubleSide, depthWrite: false }), this.shardMax);
+    this.shardMesh.count = 0; this.shardMesh.frustumCulled = false; this.shardMesh.renderOrder = 4; scene.add(this.shardMesh);
+    // 破壞碎塊：小方塊（磚塊、水泥、木屑、樹葉），依材質上色
+    this.chunkMax = 1000; this.chunks = [];
+    this.chunkMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 }), this.chunkMax);
+    this.chunkMesh.count = 0; this.chunkMesh.frustumCulled = false; this.chunkMesh.castShadow = true; scene.add(this.chunkMesh);
+    this._col = new THREE.Color();
     this.shake = 0;
     this.funnelT = 0;
     this.birds = [];
@@ -166,11 +200,86 @@ export class Effects {
     } else if (mat === 'wood') {
       for (let i = 0; i < 8; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: (nx + (Math.random() - 0.5)) * 3, vy: (ny + Math.random()) * 3, vz: (nz + (Math.random() - 0.5)) * 3, life: 0, max: 0.6, s0: 0.03, s1: 0.025, r: 0.55, g: 0.4, b: 0.25, a0: 1, a1: 0.8, grav: 9, drag: 1, floor: 0.01 });
       this.decals.wood.add(p, n, 0.08 + Math.random() * 0.03);
+    } else if (mat !== 'mesh') {
+      // 磚、水泥、石材：留下崩缺彈孔
+      this.decals.concrete.add(p, n, 0.07 + Math.random() * 0.04);
     }
     // 塵煙
     const dust = mat === 'wood' ? [0.62, 0.52, 0.4] : [0.55, 0.55, 0.53];
     for (let i = 0; i < 3; i++) this.smoke.emit({ x: p.x + nx * 0.05, y: p.y + ny * 0.05, z: p.z + nz * 0.05, vx: nx * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, vy: ny * 0.8 + 0.3, vz: nz * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, life: 0, max: 0.8 + Math.random() * 0.6, s0: 0.12, s1: 0.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
   }
+  // 玻璃碎裂：整片玻璃化為碎片，沿子彈方向（或爆炸外推）噴出後落地
+  shatter(b, dir, from) {
+    const area = Math.max(b.sx * b.sy, b.sy * b.sz, b.sx * b.sz), n = Math.max(18, Math.min(80, area * 26 | 0));
+    const floor = b.y - b.sy / 2 - 0.95;
+    for (let i = 0; i < n; i++) {
+      const x = b.x + (Math.random() - 0.5) * b.sx, y = b.y + (Math.random() - 0.5) * b.sy, z = b.z + (Math.random() - 0.5) * b.sz;
+      if (this.shards.length >= this.shardMax) this.shards.shift();
+      let vx, vy, vz;
+      if (dir) { const s = 2 + Math.random() * 3.5; vx = dir.x * s + (Math.random() - 0.5) * 2; vy = dir.y * s + Math.random() * 1.5; vz = dir.z * s + (Math.random() - 0.5) * 2; }
+      else { const dx = x - from.x, dy = y - from.y, dz = z - from.z, L = Math.hypot(dx, dy, dz) || 1, s = 4 + Math.random() * 4; vx = dx / L * s; vy = dy / L * s + 1; vz = dz / L * s; }
+      const k = 0.8 + Math.random() * 0.25;
+      this.shards.push({ p: new THREE.Vector3(x, y, z), v: new THREE.Vector3(vx, vy, vz), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new THREE.Vector3((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18), s: (0.05 + Math.random() * 0.13) * k, life: 0, max: 2.2 + Math.random() * 1.6, floor, rest: false });
+      if (i % 3 === 0) this.smoke.emit({ x, y, z, vx: vx * 0.6, vy, vz: vz * 0.6, life: 0, max: 0.8, s0: 0.03, s1: 0.02, r: 0.8, g: 0.9, b: 0.95, a0: 0.6, a1: 0, grav: 9.8, drag: 0.8, floor });
+    }
+    for (let i = 0; i < 10; i++) this.add.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 2, vy: Math.random() * 1.5, vz: (Math.random() - 0.5) * 2, life: 0, max: 0.25 + Math.random() * 0.3, s0: 0.06, s1: 0.01, r: 1.1, g: 1.2, b: 1.3, a0: 0.9, a1: 0, grav: 6, drag: 1 });
+  }
+  // 刀砍到牆面：留下刀痕與少量碎屑（不是彈孔）
+  slash(p, n, mat, heavy) {
+    const len = (heavy ? 0.42 : 0.3) * (mat === 'wood' ? 1.15 : 1) * (0.9 + Math.random() * 0.2);
+    const ang = heavy ? Math.PI / 2 + (Math.random() - 0.5) * 0.4 : (Math.random() < 0.5 ? 0.45 : -0.45) + (Math.random() - 0.5) * 0.3;
+    this.decals.slash.addAligned(p, n, len, len * 0.2, ang);
+    const dust = mat === 'wood' ? [0.62, 0.5, 0.36] : [0.62, 0.58, 0.54];
+    for (let i = 0; i < 5; i++) this.smoke.emit({ x: p.x + n.x * 0.04, y: p.y + n.y * 0.04, z: p.z + n.z * 0.04, vx: n.x * (0.6 + Math.random()) + (Math.random() - 0.5) * 0.8, vy: 0.3 + Math.random() * 0.6, vz: n.z * (0.6 + Math.random()) + (Math.random() - 0.5) * 0.8, life: 0, max: 0.5 + Math.random() * 0.4, s0: 0.03, s1: 0.12, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: 1.5, drag: 3 });
+  }
+  // 物件被打爛：依材質噴出碎塊與粉塵
+  debris(b, dir, from) {
+    const C = { brick: [0.66, 0.36, 0.28], granite: [0.52, 0.51, 0.49], plaster: [0.9, 0.88, 0.84], white: [0.9, 0.88, 0.84], beige: [0.88, 0.8, 0.64], wood: [0.5, 0.36, 0.22], board: [0.2, 0.32, 0.26], bark: [0.4, 0.3, 0.22], tree: [0.4, 0.3, 0.22], green: [0.18, 0.42, 0.3], red: [0.7, 0.2, 0.18], blue: [0.2, 0.35, 0.65], yellow: [0.85, 0.68, 0.25] };
+    const base = C[b.kind] || [0.72, 0.7, 0.66], vol = b.sx * b.sy * b.sz, tree = b.kind === 'tree';
+    const n = tree ? 40 : Math.max(10, Math.min(46, vol * 55 | 0)), floor = Math.max(b.y - b.sy / 2, -0.2);
+    for (let i = 0; i < n; i++) {
+      if (this.chunks.length >= this.chunkMax) this.chunks.shift();
+      const leaf = tree && i % 3 !== 0, x = b.x + (Math.random() - 0.5) * b.sx, y = b.y + (Math.random() - 0.5) * b.sy * (tree ? 0.9 : 1), z = b.z + (Math.random() - 0.5) * b.sz;
+      let v;
+      if (dir) v = new THREE.Vector3(dir.x * (1.5 + Math.random() * 3) + (Math.random() - 0.5) * 2.5, Math.random() * 3, dir.z * (1.5 + Math.random() * 3) + (Math.random() - 0.5) * 2.5);
+      else { const dx = x - from.x, dy = y - from.y, dz = z - from.z, L = Math.hypot(dx, dy, dz) || 1, s = 4 + Math.random() * 6; v = new THREE.Vector3(dx / L * s, dy / L * s + 2, dz / L * s); }
+      const k = 0.8 + Math.random() * 0.3, col = leaf ? [0.24 * k, 0.45 * k, 0.2 * k] : [base[0] * k, base[1] * k, base[2] * k];
+      const sz = leaf ? 0.12 + Math.random() * 0.14 : 0.06 + Math.random() * 0.16;
+      this.chunks.push({ p: new THREE.Vector3(x, y, z), v, q: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new THREE.Vector3(sz, sz * (leaf ? 0.15 : 0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false });
+    }
+    const dust = tree ? [0.45, 0.5, 0.35] : base.map(c => c * 0.9 + 0.08);
+    for (let i = 0; i < (tree ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
+  }
+  updateChunks(dt) {
+    const D = this._dummy, M = this.chunkMesh, dq = new THREE.Quaternion(), ax = new THREE.Vector3();
+    let n = 0;
+    for (const ch of this.chunks) {
+      ch.life += dt; if (ch.life >= ch.max) continue;
+      if (!ch.rest) {
+        ch.v.y -= 9.8 * dt; ch.v.multiplyScalar(Math.exp(-0.3 * dt)); ch.p.addScaledVector(ch.v, dt);
+        const wl = ch.w.length(); if (wl > 1e-3) { dq.setFromAxisAngle(ax.copy(ch.w).divideScalar(wl), wl * dt); ch.q.premultiply(dq); }
+        if (ch.p.y < ch.floor + ch.s.y / 2) { ch.p.y = ch.floor + ch.s.y / 2; if (Math.abs(ch.v.y) > 1.5) { ch.v.y *= -0.3; ch.v.x *= 0.5; ch.v.z *= 0.5; ch.w.multiplyScalar(0.5); } else ch.rest = true; }
+      }
+      const fade = Math.min(1, (ch.max - ch.life) / 0.8);
+      D.position.copy(ch.p); D.quaternion.copy(ch.q); D.scale.copy(ch.s).multiplyScalar(fade); D.updateMatrix(); M.setMatrixAt(n, D.matrix);
+      M.setColorAt(n, this._col.setRGB(ch.col[0], ch.col[1], ch.col[2])); n++;
+    }
+    this.chunks = this.chunks.filter(ch => ch.life < ch.max);
+    M.count = n; M.instanceMatrix.needsUpdate = true; if (M.instanceColor) M.instanceColor.needsUpdate = true;
+  }
+  // 物件被打爛時，移除貼在它上面的彈孔
+  clearDecalsIn(b) {
+    const m = new THREE.Matrix4(), zero = new THREE.Matrix4().makeScale(0, 0, 0), e = 0.15;
+    for (const d of Object.values(this.decals)) {
+      let hit = false;
+      for (let i = 0; i < d.mesh.count; i++) {
+        d.mesh.getMatrixAt(i, m); const x = m.elements[12], y = m.elements[13], z = m.elements[14];
+        if (Math.abs(x - b.x) < b.sx / 2 + e && Math.abs(y - b.y) < b.sy / 2 + e && Math.abs(z - b.z) < b.sz / 2 + e) { d.mesh.setMatrixAt(i, zero); hit = true; }
+      }
+      if (hit) d.mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+  clearDecals() { for (const d of Object.values(this.decals)) { d.mesh.count = 0; d.i = 0; } }
   bloodSplat(p) { this.decals.blood.add(p, new THREE.Vector3(0, 1, 0), 0.5 + Math.random() * 0.4); }
   explosion(p) {
     this.light(p, 60, 0.35, 0xff9040, 22);
@@ -211,7 +320,25 @@ export class Effects {
       this.birds.push({ g: b, wR: wrR, wL: wrL, r: 25 + Math.random() * 30, h: 18 + Math.random() * 16, sp: 0.18 + Math.random() * 0.12, ph: Math.random() * 6.28, cx: -10 + Math.random() * 30, flap: Math.random() * 6 });
     }
   }
+  updateShards(dt) {
+    const D = this._dummy, M = this.shardMesh, dq = new THREE.Quaternion(), ax = new THREE.Vector3();
+    let n = 0;
+    for (const sh of this.shards) {
+      sh.life += dt; if (sh.life >= sh.max) continue;
+      if (!sh.rest) {
+        sh.v.y -= 9.8 * dt; sh.v.multiplyScalar(Math.exp(-0.4 * dt)); sh.p.addScaledVector(sh.v, dt);
+        const wl = sh.w.length(); if (wl > 1e-3) { dq.setFromAxisAngle(ax.copy(sh.w).divideScalar(wl), wl * dt); sh.q.premultiply(dq); }
+        if (sh.p.y < sh.floor + 0.005) { sh.p.y = sh.floor + 0.005; if (Math.abs(sh.v.y) > 1.2) { sh.v.y *= -0.25; sh.v.x *= 0.4; sh.v.z *= 0.4; sh.w.multiplyScalar(0.4); } else { sh.rest = true; sh.q.setFromEuler(new THREE.Euler(-Math.PI / 2, Math.random() * 6.3, 0)); } }
+      }
+      const fade = Math.min(1, (sh.max - sh.life) / 0.6);
+      D.position.copy(sh.p); D.quaternion.copy(sh.q); D.scale.setScalar(sh.s * fade); D.updateMatrix(); M.setMatrixAt(n++, D.matrix);
+    }
+    this.shards = this.shards.filter(sh => sh.life < sh.max);
+    M.count = n; M.instanceMatrix.needsUpdate = true;
+  }
   update(dt, t, camera, shipSpeed) {
+    this.updateShards(dt);
+    this.updateChunks(dt);
     this.add.update(dt); this.smoke.update(dt);
     const h = window.innerHeight * Math.min(window.devicePixelRatio, 2);
     const sc = h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
