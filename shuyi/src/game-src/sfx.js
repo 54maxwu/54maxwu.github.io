@@ -1,0 +1,34 @@
+// 錄音音效（來源：Pixabay，依 Pixabay Content License 免費使用）。建置時以二進位內嵌。
+import ak47 from '../sfx/ak47.mp3';
+import awm from '../sfx/awm.mp3';
+import bolt from '../sfx/bolt.mp3';
+import boltback from '../sfx/boltback.mp3';
+import boltfwd from '../sfx/boltfwd.mp3';
+import collapse from '../sfx/collapse.mp3';
+import deagle from '../sfx/deagle.mp3';
+import dry from '../sfx/dry.mp3';
+import explosion from '../sfx/explosion.mp3';
+import explosion2 from '../sfx/explosion2.mp3';
+import glass from '../sfx/glass.mp3';
+import glass2 from '../sfx/glass2.mp3';
+import impc from '../sfx/impc.mp3';
+import impc2 from '../sfx/impc2.mp3';
+import impf from '../sfx/impf.mp3';
+import impm from '../sfx/impm.mp3';
+import knife from '../sfx/knife.mp3';
+import land from '../sfx/land.mp3';
+import m4a1 from '../sfx/m4a1.mp3';
+import m870 from '../sfx/m870.mp3';
+import magin from '../sfx/magin.mp3';
+import magout from '../sfx/magout.mp3';
+import mp5 from '../sfx/mp5.mp3';
+import pump from '../sfx/pump.mp3';
+import shell from '../sfx/shell.mp3';
+import step1 from '../sfx/step1.mp3';
+import step2 from '../sfx/step2.mp3';
+import step3 from '../sfx/step3.mp3';
+import step4 from '../sfx/step4.mp3';
+import tinnitus from '../sfx/tinnitus.mp3';
+import whiz from '../sfx/whiz.mp3';
+
+export const SFX = { ak47, awm, bolt, boltback, boltfwd, collapse, deagle, dry, explosion, explosion2, glass, glass2, impc, impc2, impf, impm, knife, land, m4a1, m870, magin, magout, mp5, pump, shell, step1, step2, step3, step4, tinnitus, whiz };

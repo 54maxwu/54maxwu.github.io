@@ -78,7 +78,7 @@ export class Game {
     this.loop = this.loop.bind(this);
     requestAnimationFrame(this.loop);
     if (this.qs.has('autostart')) setTimeout(() => this.startMatch(), 300);
-    window.__game = this;
+    window.__game = this; window.__audio = audio;
   }
   lampLights() {
     // 管道內的少量真實點光源

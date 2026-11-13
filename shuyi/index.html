@@ -1,11 +1,12 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>樹義國小 · 校園對戰 3D</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%2314202c'/%3E%3Cg fill='none' stroke='%23f5b321' stroke-width='5'%3E%3Ccircle cx='32' cy='32' r='16'/%3E%3Cpath d='M32 6v14M32 44v14M6 32h14M44 32h14'/%3E%3C/g%3E%3Ccircle cx='32' cy='32' r='4' fill='%23e0522e'/%3E%3C/svg%3E">
-<meta name="description" content="樹義國小校園對戰：依官網校園圖與照片 1:1 重建的網頁 3D 遊戲：團隊競技，女生隊 vs 男生隊，機器人對戰。">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#7a2e22">
+<title>樹義國小校園對戰</title>
+<meta name="description" content="以臺中市樹義國小真實校園 1:1 重建的網頁 3D 對戰遊戲：女生隊對男生隊，可單機與電腦對戰。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2387c6ea'/%3E%3Cpath d='M6 52h52v6H6z' fill='%234c9a3e'/%3E%3Cpath d='M10 24h44v28H10z' fill='%23b4533d'/%3E%3Cpath d='M10 33h44v2H10zM10 43h44v2H10z' fill='%23c9c4b8'/%3E%3Cpath d='M15 27h6v4h-6zM29 27h6v4h-6zM43 27h6v4h-6zM15 37h6v4h-6zM43 37h6v4h-6z' fill='%232f6b4f'/%3E%3Cpath d='M28 38h8v14h-8z' fill='%23502a20'/%3E%3Cpath d='M24 24l8-12 8 12z' fill='%23a33a2a'/%3E%3Ccircle cx='32' cy='19' r='2.5' fill='%23fff3c4'/%3E%3C/svg%3E">
 <style>:root{
   --bl:#e0522e; --bl2:#ff7a45; --gr:#2f8ff0; --gr2:#6fb6ff;
   --hud:#f3efe6; --hudDim:rgba(243,239,230,.6); --panel:rgba(8,12,16,.55); --panel2:rgba(10,14,20,.82);
@@ -184,9 +185,23 @@ button{font-family:inherit}
 .card img{width:100%;height:56px;object-fit:contain}
 .card b{display:block;font-family:var(--num);letter-spacing:2px;margin-top:4px}
 .card small{color:var(--hudDim);font-size:11px}
-#touch{position:absolute;inset:0;pointer-events:none}
-#touch .pad{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25)}
-#touch .btn{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.35);display:grid;place-items:center;font-size:13px;color:#fff}
+/* 觸控操作（touch.js）：按鍵以右下角為基準排成弧形，留出手機瀏海與底部手勢區 */
+#touch{position:absolute;inset:0;pointer-events:none;--sr:env(safe-area-inset-right,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px)}
+#touch.on{touch-action:none}
+#touch .stick{position:absolute;left:calc(120px + var(--sl));top:calc(100% - 140px - var(--sb));width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06),rgba(255,255,255,.14));border:2px solid rgba(255,255,255,.22);opacity:.45;transition:opacity .15s;pointer-events:none}
+#touch .stick.active{opacity:1;transition:none}
+#touch .knob{position:absolute;left:50%;top:50%;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.32);border:2px solid rgba(255,255,255,.6);transform:translate(-50%,-50%)}
+#touch .tbtn{position:absolute;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:50%;display:grid;place-items:center;width:52px;height:52px;font-size:13px;font-weight:700;color:#fff;background:rgba(10,18,28,.42);border:2px solid rgba(255,255,255,.3);text-shadow:0 1px 2px #000;transition:transform .06s,background .06s}
+#touch .tbtn.down{transform:scale(.92);background:rgba(255,255,255,.28)}
+#touch .tbtn.lit{background:rgba(245,179,33,.45);border-color:#f5b321}
+#touch .fire{right:calc(30px + var(--sr));bottom:calc(110px + var(--sb));width:88px;height:88px;font-size:16px;background:rgba(200,40,30,.42);border-color:rgba(255,140,120,.7)}
+#touch .fire2{left:calc(224px + var(--sl));top:calc(100px + env(safe-area-inset-top,0px));width:58px;height:58px;background:rgba(200,40,30,.35);border-color:rgba(255,140,120,.55)}
+#touch .scope{right:calc(132px + var(--sr));bottom:calc(176px + var(--sb))}
+#touch .jump{right:calc(128px + var(--sr));bottom:calc(104px + var(--sb));width:60px;height:60px}
+#touch .crouch{right:calc(198px + var(--sr));bottom:calc(112px + var(--sb))}
+#touch .reload{right:calc(34px + var(--sr));bottom:calc(212px + var(--sb))}
+#touch .swap{right:calc(100px + var(--sr));bottom:calc(238px + var(--sb))}
+#touch .nade{right:calc(198px + var(--sr));bottom:calc(178px + var(--sb))}
 @media (max-width:760px){
   .menuBox{grid-template-columns:1fr;padding:18px}
   .title h1{font-size:40px}
@@ -202,5 +217,5 @@ button{font-family:inherit}
 <canvas id="c"></canvas>
 <div id="ui"></div>
 <script></script>
-<script src="game-app.js?v=abe23abab85d"></script></body>
+<script src="game-app.js?v=7920201527fa"></script></body>
 </html>

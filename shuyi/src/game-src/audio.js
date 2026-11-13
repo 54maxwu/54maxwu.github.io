@@ -1,3 +1,4 @@
+import { SFX } from './sfx.js';
 /**
  * 程式化合成音效模組（運輸船 FPS）
  * 只使用 Web Audio API（+ 可選 speechSynthesis），無外部音訊檔案、無依賴。
@@ -91,6 +92,12 @@ const GUNS = {
     echo: [[0.17, 0.16], [0.4, 0.07]],
   },
 };
+
+// 錄音音量（以合成版的響度為基準校準）
+const SHOT_G = 1.0, RELOAD_G = 1.6, STEP_G = 0.9, LAND_G = 0.9, IMPACT_G = 0.55, GLASS_G = 0.6, DESTROY_G = 0.55, WHIZ_G = 0.5, KNIFE_G = 0.9, EXPL_G = 1.3, RING_G = 0.25, SHELL_G = 0.9;
+
+// 各段錄音相對上面基準的微調（離線渲染比對合成版響度後得出）
+const NG = { ak47: 0.8, m4a1: 0.4, awm: 1.05, mp5: 0.13, m870: 0.84, deagle: 1.12, magout: 0.17, magin: 0.21, bolt: 0.6, boltback: 0.6, boltfwd: 0.6, pump: 0.25, dry: 0.39, step1: 0.87, step2: 0.87, step3: 0.87, step4: 0.87, land: 0.62, impc: 0.18, impc2: 0.18, impm: 2.0, impf: 0.355, glass: 0.48, glass2: 0.48, collapse: 1.5, whiz: 0.145, knife: 0.24, explosion: 0.94, explosion2: 0.94, shell: 2.6 };
 
 // 換彈/切槍的"重量感"：數值越小音高越低越沉
 const WEIGHT = { m870: 0.78, ak47: 0.85, m4a1: 1, awm: 0.8, mp5: 1.12, deagle: 1.05, knife: 1.2, grenade: 1.1 };
@@ -246,6 +253,7 @@ export class AudioSystem {
       this.ctx = ctx;
       this._offline = !!G.OfflineAudioContext && ctx instanceof G.OfflineAudioContext;
       this._build();
+      this._loadSamples();
       this._resume();
       if (!this._offline && typeof setInterval === 'function') {
         // 兜底排程：即使遊戲暫停呼叫 update()，心跳/環境事件仍能繼續
@@ -338,7 +346,13 @@ export class AudioSystem {
       const drv = this._drive(v, P.drive * (sup ? 0.55 : 1), 0.7);
       const U = P.punch;
 
-      if (!sup) {
+      if (!sup && this._has(weaponId)) {
+        // 錄音槍聲；遠處再疊一層低沉尾音與回聲，保留距離感
+        this._play(v, t, weaponId, { g: SHOT_G * (P.sg || 1), rate: r * (local ? 1 : 1 - 0.06 * far) });
+        const T = P.tail;
+        if (!local) this._nz(v, t + 0.006, { n: 'brown', a: 0.015, dur: T.dur * k * (1 + 0.6 * far), g: T.g * far * 1.2, flt: [{ t: 'lowpass', f: T.f * r, f1: T.f * 0.45 * r, sw: T.dur, q: 0 }] });
+        if (!local && d > 30) this._nz(v, t + 0.08 + d / 600, { n: 'pink', a: 0.008, dur: 0.22 * k, g: 0.1 + 0.15 * far, flt: [{ t: 'lowpass', f: 1500 * r, q: 0 }, { t: 'highpass', f: 160, q: 0 }] });
+      } else if (!sup) {
         const C = P.crack, B = P.body, M = P.mid, T = P.tail;
         // (a) 極短高頻瞬態爆裂
         this._nz(v, t, { n: 'white', a: 0.0002, dur: C.dur * k, g: C.g * (local ? 1 : 1 - 0.6 * far), flt: [{ t: 'highpass', f: C.hp * r, q: 0 }] });
@@ -366,7 +380,7 @@ export class AudioSystem {
         this._nz(v, t + 0.004, { n: 'brown', a: 0.01, dur: 0.12, g: 0.06, flt: [{ t: 'lowpass', f: 700, q: 0 }] });
       }
       // (d) 本地槍機金屬咔嗒
-      if (local) this._mech(v, t + P.mech.delay * jit(0.12), P.mech.f * r, P.mech.g * (sup ? 1.3 : 1));
+      if (local && !this._has(weaponId)) this._mech(v, t + P.mech.delay * jit(0.12), P.mech.f * r, P.mech.g * (sup ? 1.3 : 1));
       this._done(v);
     } catch (e) {
       this._warn('playShot', e);
@@ -380,6 +394,12 @@ export class AudioSystem {
       const fm = (WEIGHT[weaponId] || 1) * jit(0.04);
       const v = this._voice(null, { g: 0.42, wet: 0.06 });
       const t = this._now();
+      // 錄音：彈匣拔出／插入、拉栓、泵動（霰彈槍的「拉回」錄音已包含推回，推回階段不再發聲）
+      const rr = (0.9 + 0.1 * fm) * jit(0.03), RG = RELOAD_G;
+      const rec = weaponId === 'm870' ? { boltback: 'pump', boltforward: '-' } : { magout: 'magout', magin: 'magin', bolt: 'bolt', boltback: 'boltback', boltforward: 'boltfwd' };
+      const nm = rec[stage];
+      if (nm === '-') { this._done(v); return; }
+      if (nm && this._play(v, t, nm, { g: RG, rate: rr })) { this._done(v); return; }
       switch (stage) {
         case 'magout': {
           this._click(v, t, 3000 * fm, 0.45); // 彈匣卡榫
@@ -445,6 +465,7 @@ export class AudioSystem {
   playDryFire() {
     if (!this._ok()) return;
     try {
+      if (this._has('dry')) { const v = this._voice(null, { g: 0.45, wet: 0.04 }); this._play(v, this._now(), 'dry', { g: RELOAD_G, rate: jit(0.04) }); this._done(v); return; }
       const v = this._voice(null, { g: 0.45, wet: 0.04 });
       const t = this._now();
       this._nz(v, t, { n: 'white', a: 0.0002, dur: 0.006, g: 0.6, flt: [{ t: 'highpass', f: 4000, q: 0 }] });
@@ -468,9 +489,13 @@ export class AudioSystem {
       const lvl = (crouch ? 0.32 : run ? 1 : 0.6) * jit(0.12);
       const v = this._voice(p, { g: (local ? 0.45 : 1.8) * lvl, ref: 2.5, roll: 1.25, max: 60, wet: local ? 0.04 : 0.1 });
       const t = this._now(), r = jit(0.06), br = crouch ? 0.45 : 1;
-      this._surf(v, t, surface, 1, r, 0, br); // 腳跟
-      const gap = crouch ? 0.09 : run ? 0.045 : 0.07;
-      this._surf(v, t + gap * jit(0.15), surface, 0.45, r * 1.06, 0, br * 0.8); // 前腳掌
+      const st = surface === 'metal' || surface === 'grass' ? null : this._pick('step1', 'step2', 'step3', 'step4');
+      if (st) this._play(v, t, st, { g: STEP_G * (crouch ? 0.5 : 1), rate: r * (crouch ? 1.08 : 1) });
+      else {
+        this._surf(v, t, surface, 1, r, 0, br); // 腳跟
+        const gap = crouch ? 0.09 : run ? 0.045 : 0.07;
+        this._surf(v, t + gap * jit(0.15), surface, 0.45, r * 1.06, 0, br * 0.8); // 前腳掌
+      }
       if (run) this._nz(v, t, { n: 'white', a: 0.02, dur: 0.08, g: 0.06, flt: [{ t: 'bandpass', f: 2200 * r, q: 0.8 }] }); // 衣物/裝備
       this._done(v);
     } catch (e) {
@@ -486,8 +511,10 @@ export class AudioSystem {
       const v = this._voice(p, { g: (local ? 0.5 : 1.6) * (0.45 + 0.65 * s), ref: 3, roll: 1.2, max: 70, wet: 0.08 });
       const t = this._now(), r = jit(0.06);
       this._tn(v, t, { f: 95 * r, f1: 45, sw: 0.1, a: 0.002, dur: 0.1 + 0.12 * s, g: 0.55 + 0.3 * s }); // 身體下墜悶響
-      this._surf(v, t, surface, 0.9, r, s, 1);
-      this._surf(v, t + 0.03 * jit(0.2), surface, 0.5, r * 1.05, s * 0.5, 0.8);
+      if (!this._play(v, t, 'land', { g: LAND_G * (0.6 + 0.6 * s), rate: r })) {
+        this._surf(v, t, surface, 0.9, r, s, 1);
+        this._surf(v, t + 0.03 * jit(0.2), surface, 0.5, r * 1.05, s * 0.5, 0.8);
+      }
       this._nz(v, t + 0.01, { n: 'white', a: 0.01, dur: 0.1, g: 0.08 + 0.08 * s, flt: [{ t: 'bandpass', f: 2200, q: 0.8 }] });
       if (s > 0.4) this._metal(v, t + rand(0.03, 0.09), rand(2200, 3400), 0.04 * s, [[1, 1, 0.06], [1.9, 0.5, 0.04]]);
       this._done(v);
@@ -521,6 +548,11 @@ export class AudioSystem {
       const p = this._pos(pos);
       const v = this._voice(p, { g: 1.8, ref: 3, roll: 1.2, max: 90, wet: 0.1 });
       const t = this._now(), r = jit(0.06);
+      const rec = material === 'flesh' ? 'impf' : material === 'metal' ? 'impm' : material === 'mesh' ? null : this._pick('impc', 'impc2');
+      if (rec && this._play(v, t, rec, { g: IMPACT_G, rate: r * (material === 'wood' ? 1.25 : 1) })) {
+        if (material === 'metal' && Math.random() < 0.5) this._metal(v, t, rand(1700, 3000), 0.08, [[1, 1, 0.12], [1.47, 0.8, 0.08], [2.09, 0.6, 0.06]]);
+        this._done(v); return;
+      }
       switch (material) {
         case 'metal':
           this._nz(v, t, { n: 'white', a: 0.0002, dur: 0.003, g: 0.6, flt: [{ t: 'highpass', f: 3000 * r, q: 0 }] });
@@ -573,6 +605,12 @@ export class AudioSystem {
       const p = this._pos(pos);
       const v = this._voice(p, { g: 2.2, ref: 4, roll: 1.1, max: 110, wet: 0.18 });
       const t = this._now();
+      const gl = this._pick('glass', 'glass2');
+      if (gl) {
+        this._play(v, t, gl, { g: GLASS_G, rate: jit(0.06) });
+        if (big > 1.1) this._play(v, t + rand(0.05, 0.15), gl === 'glass' ? 'glass2' : 'glass', { g: GLASS_G * 0.6, rate: jit(0.08) });
+        this._done(v); return;
+      }
       this._nz(v, t, { n: 'white', a: 0.0003, dur: 0.05, g: 0.9, flt: [{ t: 'highpass', f: 2500, q: 0 }] });
       this._nz(v, t, { n: 'pink', a: 0.001, dur: 0.12, g: 0.5, flt: [{ t: 'bandpass', f: 1800, q: 0.8 }] });
       const n = Math.round((14 + Math.random() * 10) * Math.min(1.6, big));
@@ -592,6 +630,11 @@ export class AudioSystem {
       const p = this._pos(pos);
       const v = this._voice(p, { g: 2.6, ref: 5, roll: 1, max: 130, wet: 0.25 });
       const t = this._now();
+      if (!wood && this._play(v, t, 'collapse', { g: DESTROY_G * Math.min(1.4, 0.6 + 0.4 * big), rate: clamp(1.15 - 0.15 * big, 0.8, 1.15) * jit(0.05) })) {
+        const n = Math.round(8 * big);
+        for (let i = 0; i < n; i++) this._click(v, t + 0.1 + Math.random() * 0.9 * big, rand(800, 3500), 0.06, 3, 0.01);
+        this._done(v); return;
+      }
       this._tn(v, t, { f: wood ? 140 : 95, f1: 40, a: 0.002, dur: 0.35 * big, g: 0.9 });
       this._nz(v, t, { n: 'pink', a: 0.002, dur: 0.5 * big, g: 0.7, flt: [{ t: 'lowpass', f: wood ? 1800 : 1200, f1: 300, sw: 0.4, q: 0 }] });
       if (wood) this._nz(v, t, { n: 'white', a: 0.0005, dur: 0.08, g: 0.7, flt: [{ t: 'bandpass', f: 2400, q: 1.5 }] });
@@ -626,6 +669,7 @@ export class AudioSystem {
       const p = this._pos(pos);
       const v = this._voice(p, { g: 1.8, ref: 1.5, roll: 1, max: 40, wet: 0.04 });
       const t = this._now(), d = rand(0.12, 0.2);
+      if (this._play(v, t, 'whiz', { g: WHIZ_G, rate: jit(0.1) })) { this._done(v); return; }
       this._nz(v, t, { n: 'white', a: 0.0002, dur: 0.002, g: 0.35, flt: [{ t: 'highpass', f: 4000, q: 0 }] }); // 超音速"啪"
       this._nz(v, t, { n: 'white', a: d * 0.35, dur: d * 0.65, g: 0.45, flt: [{ t: 'bandpass', f: 5200, f1: 900, sw: d, q: 2.5 }] });
       this._tn(v, t, { f: 2000, f1: 600, sw: d, a: d * 0.3, dur: d * 0.7, g: 0.07 });
@@ -753,8 +797,10 @@ export class AudioSystem {
       const v = this._voice(p, { g: local ? 0.6 : 0.9, ref: 2, roll: 1.2, max: 50, wet: 0.08 });
       const t = this._now(), r = jit(0.06);
       const a = heavy ? 0.11 : 0.06, dur = heavy ? 0.26 : 0.15;
-      this._whoosh(v, t, { a, dur, g: heavy ? 0.55 : 0.45, f0: 450 * r, fp: (heavy ? 2200 : 3000) * r, f1: 800 * r, q: 1.4 });
-      this._whoosh(v, t, { n: 'white', a: a * 0.9, dur: dur * 0.7, g: 0.12, f0: 2500 * r, fp: 6000 * r, f1: 3000 * r, q: 2.5 }); // 刃口嘯聲
+      if (!this._play(v, t, 'knife', { g: KNIFE_G * (heavy ? 1.2 : 1), rate: r * (heavy ? 0.8 : 1.05) })) {
+        this._whoosh(v, t, { a, dur, g: heavy ? 0.55 : 0.45, f0: 450 * r, fp: (heavy ? 2200 : 3000) * r, f1: 800 * r, q: 1.4 });
+        this._whoosh(v, t, { n: 'white', a: a * 0.9, dur: dur * 0.7, g: 0.12, f0: 2500 * r, fp: 6000 * r, f1: 3000 * r, q: 2.5 }); // 刃口嘯聲
+      }
       const th = t + a * (heavy ? 1.1 : 0.9);
       const hv = heavy ? 1.3 : 1;
       if (result === 'flesh') {
@@ -822,6 +868,17 @@ export class AudioSystem {
       const p = this._pos(pos), d = p ? this._dist(p) : 0;
       const v = this._voice(p, { g: 1.25, ref: 10, roll: 0.8, max: 500, wet: 0.55, wd: 60, air: 0.6 });
       const t = this._now(), r = jit(0.05), k = jit(0.05);
+      const ex = this._pick('explosion', 'explosion2');
+      if (ex) {
+        this._play(v, t, ex, { g: EXPL_G, rate: r * 0.97 });
+        this._tn(v, t, { f: 70 * r, f1: 28, sw: 0.4, a: 0.004, dur: 0.6, g: 0.5 });   // 補一點胸腔感的低頻
+        this._nz(v, t + 0.02, { n: 'brown', a: 0.06, dur: 2.6 * k, g: 0.45, flt: [{ t: 'lowpass', f: 240, f1: 80, sw: 2.2, q: 0 }] });
+        const n = 10 + ((Math.random() * 6) | 0);
+        for (let i = 0; i < n; i++) { const dt = 0.15 + 1.6 * Math.pow(Math.random(), 1.7); this._click(v, t + dt, rand(1200, 6000), 0.12 * (1 - dt / 2) * rand(0.4, 1), 3, rand(0.008, 0.03)); }
+        this._done(v);
+        if (p && d < 12) { const s = 1 - d / 12; this._muffle(0.55 + 0.45 * s, 1.5 + 2.5 * s); this._ring(0.35 + 0.65 * s, 2 + 2.5 * s); }
+        return;
+      }
       const drv = this._drive(v, 2.2, 0.75);
       // 爆裂瞬態
       this._nz(v, t, { n: 'white', a: 0.0004, dur: 0.012, g: 0.7, flt: [{ t: 'highpass', f: 1500 * r, q: 0 }] });
@@ -920,6 +977,7 @@ export class AudioSystem {
       const p = this._pos(pos), local = !p;
       const v = this._voice(p, { g: local ? 0.28 : 0.6, ref: 1.5, roll: 1.4, max: 30, wet: 0.06 });
       let t = this._now() + rand(0.3, 0.6); // 自帶隨機延遲
+      if (this._play(v, t, 'shell', { g: SHELL_G, rate: jit(0.08) })) { this._done(v); return; }
       const f = rand(3300, 4600), n = 2 + ((Math.random() * 3) | 0);
       let gap = rand(0.07, 0.11), amp = 1;
       for (let i = 0; i < n; i++) {
@@ -1217,6 +1275,51 @@ export class AudioSystem {
   // =========================================================================
   _ok() {
     return !!this.ctx && this.ctx.state !== 'closed';
+  }
+
+  // 解碼內嵌的錄音；解碼完成前（或失敗時）各音效自動退回合成音
+  _loadSamples() {
+    this._smp = {};
+    for (const [k, u8] of Object.entries(SFX)) {
+      try {
+        const ab = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+        const done = (buf) => {
+          const d = buf.getChannelData(0);
+          let i = 0;
+          while (i < d.length && Math.abs(d[i]) < 0.003) i++;   // 去掉 MP3 編碼器前導靜音
+          this._smp[k] = { buf, off: Math.max(0, i - 32) / buf.sampleRate };
+        };
+        const pr = this.ctx.decodeAudioData(ab, done, () => {});
+        if (pr && pr.catch) pr.catch(() => {});
+      } catch (e) { this._warn('decode ' + k, e); }
+    }
+  }
+
+  _has(name) { return !!(this._smp && this._smp[name]); }
+
+  // 從候選中隨機挑一個已載入的錄音
+  _pick(...names) {
+    const ok = names.filter((n) => this._has(n));
+    return ok.length ? ok[(Math.random() * ok.length) | 0] : null;
+  }
+
+  // 在 voice 上播放一段錄音。o: {g, rate, off, dur, to}；沒有這段錄音時回傳 false
+  _play(v, t, name, o = {}) {
+    const S = name && this._smp && this._smp[name];
+    if (!S) return false;
+    const c = this.ctx, src = c.createBufferSource();
+    src.buffer = S.buf;
+    const rate = num(o.rate, 1);
+    src.playbackRate.value = rate;
+    const g = c.createGain();
+    g.gain.value = num(o.g, 1) * (NG[name] ?? 1);
+    src.connect(g);
+    g.connect(o.to || v.input);
+    v.nodes.push(g);
+    const off = S.off + num(o.off, 0), dur = Math.max(0.01, Math.min(S.buf.duration - off, num(o.dur, 1e9)));
+    src.start(t, off, dur);
+    this._track(v, src, t + dur / rate);
+    return true;
   }
 
   _now() {
@@ -1664,6 +1767,13 @@ export class AudioSystem {
   _ring(level, dur) {
     const v = this._voice(null, { bus: 'ui', g: 1, wet: 0, pool: false });
     const t = this._now(), f = rand(3700, 4300), g = 0.012 + 0.035 * level;
+    if (this._has('tinnitus')) {
+      const gg = this.ctx.createGain(), L = Math.min(dur, 4);
+      gg.connect(v.input); v.nodes.push(gg);
+      this._env(gg.gain, t, 0.05, L, RING_G * (0.3 + 0.7 * level), L * 0.2);
+      this._play(v, t, 'tinnitus', { to: gg, dur: L + 0.1 });
+      this._done(v); return;
+    }
     this._tn(v, t, { f, a: 0.05, hold: dur * 0.25, dur: dur * 0.75, g });
     this._tn(v, t, { f: f * 1.006, a: 0.08, hold: dur * 0.2, dur: dur * 0.7, g: g * 0.5 });
     this._done(v);

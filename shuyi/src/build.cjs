@@ -2,7 +2,7 @@
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),esbuild=require('esbuild');
 const out=path.join(__dirname,'..');
 (async()=>{
-  await esbuild.build({entryPoints:[path.join(__dirname,'game-src/main.js')],bundle:true,format:'iife',target:['es2020'],outfile:path.join(out,'game-app.js'),legalComments:'none'});
+  await esbuild.build({entryPoints:[path.join(__dirname,'game-src/main.js')],bundle:true,format:'iife',target:['es2020'],outfile:path.join(out,'game-app.js'),legalComments:'none',loader:{'.mp3':'binary'}});
   let html=fs.readFileSync(path.join(__dirname,'game-src/index.html'),'utf8');
   html=html.replace('/*__CSS__*/',()=>fs.readFileSync(path.join(__dirname,'game-src/style.css'),'utf8')).replace('/*__JS__*/','');
   const v=crypto.createHash('sha256').update(fs.readFileSync(path.join(out,'game-app.js'))).digest('hex').slice(0,12);

@@ -176,9 +176,23 @@ button{font-family:inherit}
 .card img{width:100%;height:56px;object-fit:contain}
 .card b{display:block;font-family:var(--num);letter-spacing:2px;margin-top:4px}
 .card small{color:var(--hudDim);font-size:11px}
-#touch{position:absolute;inset:0;pointer-events:none}
-#touch .pad{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25)}
-#touch .btn{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.35);display:grid;place-items:center;font-size:13px;color:#fff}
+/* 觸控操作（touch.js）：按鍵以右下角為基準排成弧形，留出手機瀏海與底部手勢區 */
+#touch{position:absolute;inset:0;pointer-events:none;--sr:env(safe-area-inset-right,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px)}
+#touch.on{touch-action:none}
+#touch .stick{position:absolute;left:calc(120px + var(--sl));top:calc(100% - 140px - var(--sb));width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06),rgba(255,255,255,.14));border:2px solid rgba(255,255,255,.22);opacity:.45;transition:opacity .15s;pointer-events:none}
+#touch .stick.active{opacity:1;transition:none}
+#touch .knob{position:absolute;left:50%;top:50%;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.32);border:2px solid rgba(255,255,255,.6);transform:translate(-50%,-50%)}
+#touch .tbtn{position:absolute;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:50%;display:grid;place-items:center;width:52px;height:52px;font-size:13px;font-weight:700;color:#fff;background:rgba(10,18,28,.42);border:2px solid rgba(255,255,255,.3);text-shadow:0 1px 2px #000;transition:transform .06s,background .06s}
+#touch .tbtn.down{transform:scale(.92);background:rgba(255,255,255,.28)}
+#touch .tbtn.lit{background:rgba(245,179,33,.45);border-color:#f5b321}
+#touch .fire{right:calc(30px + var(--sr));bottom:calc(110px + var(--sb));width:88px;height:88px;font-size:16px;background:rgba(200,40,30,.42);border-color:rgba(255,140,120,.7)}
+#touch .fire2{left:calc(224px + var(--sl));top:calc(100px + env(safe-area-inset-top,0px));width:58px;height:58px;background:rgba(200,40,30,.35);border-color:rgba(255,140,120,.55)}
+#touch .scope{right:calc(132px + var(--sr));bottom:calc(176px + var(--sb))}
+#touch .jump{right:calc(128px + var(--sr));bottom:calc(104px + var(--sb));width:60px;height:60px}
+#touch .crouch{right:calc(198px + var(--sr));bottom:calc(112px + var(--sb))}
+#touch .reload{right:calc(34px + var(--sr));bottom:calc(212px + var(--sb))}
+#touch .swap{right:calc(100px + var(--sr));bottom:calc(238px + var(--sb))}
+#touch .nade{right:calc(198px + var(--sr));bottom:calc(178px + var(--sb))}
 @media (max-width:760px){
   .menuBox{grid-template-columns:1fr;padding:18px}
   .title h1{font-size:40px}
