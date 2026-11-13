@@ -32500,7 +32500,7 @@ void main() {
       r.toneMapping = ACESFilmicToneMapping;
       r.toneMappingExposure = 0.75;
       r.shadowMap.enabled = true;
-      r.shadowMap.type = PCFSoftShadowMap;
+      r.shadowMap.type = PCFShadowMap;
       this.scene = new Scene();
       this.camera = new PerspectiveCamera(78, 16 / 9, 0.05, 6e4);
       this.vmScene = new Scene();
@@ -37384,6 +37384,7 @@ void main() {
     return points.map(([n, up, right]) => [n, up * D, right * D]);
   }
   function sampleRecoil(pts, n) {
+    if (pts.length === 1) return [pts[0][1], pts[0][2]];
     if (n >= pts[pts.length - 1][0]) {
       const a = pts[pts.length - 2], b = pts[pts.length - 1];
       const span = b[0] - a[0];

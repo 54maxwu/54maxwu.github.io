@@ -108,7 +108,7 @@ export class Renderer {
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 0.75;
     r.shadowMap.enabled = true;
-    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.type = THREE.PCFShadowMap;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(78, 16 / 9, 0.05, 60000);

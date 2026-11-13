@@ -24,6 +24,7 @@ function path(points) {
 }
 
 function sampleRecoil(pts, n) {
+  if (pts.length === 1) return [pts[0][1], pts[0][2]];     // 單發武器：每發都一樣
   if (n >= pts[pts.length - 1][0]) {
     const a = pts[pts.length - 2], b = pts[pts.length - 1];
     const span = b[0] - a[0];
