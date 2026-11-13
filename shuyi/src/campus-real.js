@@ -67,7 +67,7 @@ class Builder{
       const c=col?this.collide(x0,x1,y0,y1,n0,n1,'glass',{tag:'glass'}):null;if(c)c.glassId=this.glass.length;this.glass.push({x0,x1,y0,y1,n0,n1,c});return}
     // 可破壞：牆、柱、欄杆、桌子等；樓板、樓梯、地面、平台與屋頂維持不壞（避免穿地與導航失效）
     const kind=this.M[k].col,hx=x1-x0,hn=n1-n0,hy=y1-y0;
-    const breakable=!!(col&&kind&&!this.noBreak&&!(hy<0.6&&Math.max(hx,hn)>1.5)&&!(hx>2.5&&hn>2.5));
+    const breakable=!!(col&&kind&&!this.noBreak&&(this.forceBreak||!(hy<0.6&&Math.max(hx,hn)>1.5))&&!(hx>2.5&&hn>2.5));   // forceBreak：外凸的陽台樓板等，雖是薄板也可打爛
     if(breakable&&!this._split){const L=Math.max(hx,hn),T=Math.min(hx,hn);
       if(T<=0.7&&(L>1.8||hy>2.8)){const nl=Math.max(1,Math.round(L/1.4)),nv=hy>2.8?2:1;this._split=true;
         for(let i=0;i<nl;i++)for(let j=0;j<nv;j++){const ya=y0+hy*j/nv,yb=y0+hy*(j+1)/nv;if(hx>=hn)this.box(k,x0+hx*i/nl,x0+hx*(i+1)/nl,ya,yb,n0,n1,col);else this.box(k,x0,x1,ya,yb,n0+hn*i/nl,n0+hn*(i+1)/nl,col)}
@@ -312,7 +312,7 @@ function bar(B,o){
       if(s.panel&&f>=2){lb('beige',a0+.4,a1-.4,yb,yt,D,D+.12)}
       wallU(lb,'brick',a0,a1,yb,ceil,D-.3,D,cuts,'glass');
       // balcony in front of the first window of classrooms (upper floors)
-      if(f>=1&&s.type==='class'&&cuts.length){const [c0,c1]=cuts[0];lb('concrete',c0-.3,c1+.3,yb-SLAB,yb,D,D+1.2);lb('brick',c0-.3,c1+.3,yb,yb+1.0,D+1.0,D+1.2);lb('brick',c0-.3,c0-.1,yb,yb+1.0,D,D+1.2);lb('brick',c1+.1,c1+.3,yb,yb+1.0,D,D+1.2);lb('stone',c0-.35,c1+.35,yb+1.0,yb+1.1,D+.95,D+1.25,false);lb('green',c0-.3,c1+.3,yb+1.1,yb+1.14,D+1.08,D+1.12,false)}
+      if(f>=1&&s.type==='class'&&cuts.length){const [c0,c1]=cuts[0];B.forceBreak=true;lb('concrete',c0-.3,c1+.3,yb-SLAB,yb,D,D+1.2);B.forceBreak=false;lb('brick',c0-.3,c1+.3,yb,yb+1.0,D+1.0,D+1.2);lb('brick',c0-.3,c0-.1,yb,yb+1.0,D,D+1.2);lb('brick',c1+.1,c1+.3,yb,yb+1.0,D,D+1.2);lb('stone',c0-.35,c1+.35,yb+1.0,yb+1.1,D+.95,D+1.25,false);lb('green',c0-.3,c1+.3,yb+1.1,yb+1.14,D+1.08,D+1.12,false)}
       // partitions at segment ends (plaster)
       if(!pass&&s.type!=='open')for(const e of [a0,a1])if(Math.abs(e-u0)>.01&&Math.abs(e-u1)>.01)lb('plaster',e-.1,e+.1,yb,ceil,COR,D-.3);
       // classroom furnishing
