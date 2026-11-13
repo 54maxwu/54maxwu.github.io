@@ -19338,8 +19338,8 @@
      * @param {string} path - The base path.
      * @return {Loader} A reference to this instance.
      */
-    setPath(path) {
-      this.path = path;
+    setPath(path2) {
+      this.path = path2;
       return this;
     }
     /**
@@ -20285,120 +20285,6 @@
       this.cameras = array;
     }
   };
-  var Timer = class {
-    /**
-     * Constructs a new timer.
-     */
-    constructor() {
-      this._previousTime = 0;
-      this._currentTime = 0;
-      this._startTime = performance.now();
-      this._delta = 0;
-      this._elapsed = 0;
-      this._timescale = 1;
-      this._document = null;
-      this._pageVisibilityHandler = null;
-    }
-    /**
-     * Connect the timer to the given document.Calling this method is not mandatory to
-     * use the timer but enables the usage of the Page Visibility API to avoid large time
-     * delta values.
-     *
-     * @param {Document} document - The document.
-     */
-    connect(document2) {
-      this._document = document2;
-      if (document2.hidden !== void 0) {
-        this._pageVisibilityHandler = handleVisibilityChange.bind(this);
-        document2.addEventListener("visibilitychange", this._pageVisibilityHandler, false);
-      }
-    }
-    /**
-     * Disconnects the timer from the DOM and also disables the usage of the Page Visibility API.
-     */
-    disconnect() {
-      if (this._pageVisibilityHandler !== null) {
-        this._document.removeEventListener("visibilitychange", this._pageVisibilityHandler);
-        this._pageVisibilityHandler = null;
-      }
-      this._document = null;
-    }
-    /**
-     * Returns the time delta in seconds.
-     *
-     * @return {number} The time delta in second.
-     */
-    getDelta() {
-      return this._delta / 1e3;
-    }
-    /**
-     * Returns the elapsed time in seconds.
-     *
-     * @return {number} The elapsed time in second.
-     */
-    getElapsed() {
-      return this._elapsed / 1e3;
-    }
-    /**
-     * Returns the timescale.
-     *
-     * @return {number} The timescale.
-     */
-    getTimescale() {
-      return this._timescale;
-    }
-    /**
-     * Sets the given timescale which scale the time delta computation
-     * in `update()`.
-     *
-     * @param {number} timescale - The timescale to set.
-     * @return {Timer} A reference to this timer.
-     */
-    setTimescale(timescale) {
-      this._timescale = timescale;
-      return this;
-    }
-    /**
-     * Resets the time computation for the current simulation step.
-     *
-     * @return {Timer} A reference to this timer.
-     */
-    reset() {
-      this._currentTime = performance.now() - this._startTime;
-      return this;
-    }
-    /**
-     * Can be used to free all internal resources. Usually called when
-     * the timer instance isn't required anymore.
-     */
-    dispose() {
-      this.disconnect();
-    }
-    /**
-     * Updates the internal state of the timer. This method should be called
-     * once per simulation step and before you perform queries against the timer
-     * (e.g. via `getDelta()`).
-     *
-     * @param {number} timestamp - The current time in milliseconds. Can be obtained
-     * from the `requestAnimationFrame` callback argument. If not provided, the current
-     * time will be determined with `performance.now`.
-     * @return {Timer} A reference to this timer.
-     */
-    update(timestamp) {
-      if (this._pageVisibilityHandler !== null && this._document.hidden === true) {
-        this._delta = 0;
-      } else {
-        this._previousTime = this._currentTime;
-        this._currentTime = (timestamp !== void 0 ? timestamp : performance.now()) - this._startTime;
-        this._delta = (this._currentTime - this._previousTime) * this._timescale;
-        this._elapsed += this._delta;
-      }
-      return this;
-    }
-  };
-  function handleVisibilityChange() {
-    if (this._document.hidden === false) this.reset();
-  }
   var _RESERVED_CHARS_RE = "\\[\\]\\.:\\/";
   var _reservedRe = new RegExp("[" + _RESERVED_CHARS_RE + "]", "g");
   var _wordChar = "[^" + _RESERVED_CHARS_RE + "]";
@@ -20412,10 +20298,10 @@
   );
   var _supportedObjectNames = ["material", "materials", "bones", "map"];
   var Composite = class {
-    constructor(targetGroup, path, optionalParsedPath) {
-      const parsedPath = optionalParsedPath || PropertyBinding.parseTrackName(path);
+    constructor(targetGroup, path2, optionalParsedPath) {
+      const parsedPath = optionalParsedPath || PropertyBinding.parseTrackName(path2);
       this._targetGroup = targetGroup;
-      this._bindings = targetGroup.subscribe_(path, parsedPath);
+      this._bindings = targetGroup.subscribe_(path2, parsedPath);
     }
     getValue(array, offset) {
       this.bind();
@@ -20449,9 +20335,9 @@
      * @param {string} path - The path.
      * @param {?Object} [parsedPath] - The parsed path.
      */
-    constructor(rootNode, path, parsedPath) {
-      this.path = path;
-      this.parsedPath = parsedPath || _PropertyBinding.parseTrackName(path);
+    constructor(rootNode, path2, parsedPath) {
+      this.path = path2;
+      this.parsedPath = parsedPath || _PropertyBinding.parseTrackName(path2);
       this.node = _PropertyBinding.findNode(rootNode, this.parsedPath.nodeName);
       this.rootNode = rootNode;
       this.getValue = this._getValue_unbound;
@@ -20466,11 +20352,11 @@
      * @param {?Object} [parsedPath] - The parsed path.
      * @return {PropertyBinding|Composite} The created property binding or composite.
      */
-    static create(root, path, parsedPath) {
+    static create(root, path2, parsedPath) {
       if (!(root && root.isAnimationObjectGroup)) {
-        return new _PropertyBinding(root, path, parsedPath);
+        return new _PropertyBinding(root, path2, parsedPath);
       } else {
-        return new _PropertyBinding.Composite(root, path, parsedPath);
+        return new _PropertyBinding.Composite(root, path2, parsedPath);
       }
     }
     /**
@@ -24755,10 +24641,10 @@
     container.map[uniformObject.id] = uniformObject;
   }
   function parseUniform(activeInfo, addr, container) {
-    const path = activeInfo.name, pathLength = path.length;
+    const path2 = activeInfo.name, pathLength = path2.length;
     RePathPart.lastIndex = 0;
     while (true) {
-      const match = RePathPart.exec(path), matchEnd = RePathPart.lastIndex;
+      const match = RePathPart.exec(path2), matchEnd = RePathPart.lastIndex;
       let id = match[1];
       const idIsIndex = match[2] === "]", subscript = match[3];
       if (idIsIndex) id = id | 0;
@@ -32518,811 +32404,169 @@ void main() {
     }
   };
 
-  // node_modules/three/examples/jsm/shaders/CopyShader.js
-  var CopyShader = {
-    name: "CopyShader",
-    uniforms: {
-      "tDiffuse": { value: null },
-      "opacity": { value: 1 }
-    },
-    vertexShader: (
-      /* glsl */
-      `
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vUv = uv;
-			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-
-		}`
-    ),
-    fragmentShader: (
-      /* glsl */
-      `
-
-		uniform float opacity;
-
-		uniform sampler2D tDiffuse;
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vec4 texel = texture2D( tDiffuse, vUv );
-			gl_FragColor = opacity * texel;
-
-
-		}`
-    )
-  };
-
-  // node_modules/three/examples/jsm/postprocessing/Pass.js
-  var Pass = class {
-    /**
-     * Constructs a new pass.
-     */
-    constructor() {
-      this.isPass = true;
-      this.enabled = true;
-      this.needsSwap = true;
-      this.clear = false;
-      this.renderToScreen = false;
-    }
-    /**
-     * Sets the size of the pass.
-     *
-     * @abstract
-     * @param {number} width - The width to set.
-     * @param {number} height - The height to set.
-     */
-    setSize() {
-    }
-    /**
-     * This method holds the render logic of a pass. It must be implemented in all derived classes.
-     *
-     * @abstract
-     * @param {WebGLRenderer} renderer - The renderer.
-     * @param {WebGLRenderTarget} writeBuffer - The write buffer. This buffer is intended as the rendering
-     * destination for the pass.
-     * @param {WebGLRenderTarget} readBuffer - The read buffer. The pass can access the result from the
-     * previous pass from this buffer.
-     * @param {number} deltaTime - The delta time in seconds.
-     * @param {boolean} maskActive - Whether masking is active or not.
-     */
-    render() {
-      console.error("THREE.Pass: .render() must be implemented in derived pass.");
-    }
-    /**
-     * Frees the GPU-related resources allocated by this instance. Call this
-     * method whenever the pass is no longer used in your app.
-     *
-     * @abstract
-     */
-    dispose() {
-    }
-  };
-  var _camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  var FullscreenTriangleGeometry = class extends BufferGeometry {
-    constructor() {
-      super();
-      this.setAttribute("position", new Float32BufferAttribute([-1, 3, 0, -1, -1, 0, 3, -1, 0], 3));
-      this.setAttribute("uv", new Float32BufferAttribute([0, 2, 0, 0, 2, 0], 2));
-    }
-  };
-  var _geometry2 = new FullscreenTriangleGeometry();
-  var FullScreenQuad = class {
-    /**
-     * Constructs a new full screen quad.
-     *
-     * @param {?Material} material - The material to render te full screen quad with.
-     */
-    constructor(material) {
-      this._mesh = new Mesh(_geometry2, material);
-    }
-    /**
-     * Frees the GPU-related resources allocated by this instance. Call this
-     * method whenever the instance is no longer used in your app.
-     */
-    dispose() {
-      this._mesh.geometry.dispose();
-    }
-    /**
-     * Renders the full screen quad.
-     *
-     * @param {WebGLRenderer} renderer - The renderer.
-     */
-    render(renderer) {
-      renderer.render(this._mesh, _camera);
-    }
-    /**
-     * The quad's material.
-     *
-     * @type {?Material}
-     */
-    get material() {
-      return this._mesh.material;
-    }
-    set material(value) {
-      this._mesh.material = value;
-    }
-  };
-
-  // node_modules/three/examples/jsm/postprocessing/ShaderPass.js
-  var ShaderPass = class extends Pass {
-    /**
-     * Constructs a new shader pass.
-     *
-     * @param {Object|ShaderMaterial} [shader] - A shader object holding vertex and fragment shader as well as
-     * defines and uniforms. It's also valid to pass a custom shader material.
-     * @param {string} [textureID='tDiffuse'] - The name of the texture uniform that should sample
-     * the read buffer.
-     */
-    constructor(shader, textureID = "tDiffuse") {
-      super();
-      this.textureID = textureID;
-      this.uniforms = null;
-      this.material = null;
-      if (shader instanceof ShaderMaterial) {
-        this.uniforms = shader.uniforms;
-        this.material = shader;
-      } else if (shader) {
-        this.uniforms = UniformsUtils.clone(shader.uniforms);
-        this.material = new ShaderMaterial({
-          name: shader.name !== void 0 ? shader.name : "unspecified",
-          defines: Object.assign({}, shader.defines),
-          uniforms: this.uniforms,
-          vertexShader: shader.vertexShader,
-          fragmentShader: shader.fragmentShader
-        });
-      }
-      this._fsQuad = new FullScreenQuad(this.material);
-    }
-    /**
-     * Performs the shader pass.
-     *
-     * @param {WebGLRenderer} renderer - The renderer.
-     * @param {WebGLRenderTarget} writeBuffer - The write buffer. This buffer is intended as the rendering
-     * destination for the pass.
-     * @param {WebGLRenderTarget} readBuffer - The read buffer. The pass can access the result from the
-     * previous pass from this buffer.
-     * @param {number} deltaTime - The delta time in seconds.
-     * @param {boolean} maskActive - Whether masking is active or not.
-     */
-    render(renderer, writeBuffer, readBuffer) {
-      if (this.uniforms[this.textureID]) {
-        this.uniforms[this.textureID].value = readBuffer.texture;
-      }
-      this._fsQuad.material = this.material;
-      if (this.renderToScreen) {
-        renderer.setRenderTarget(null);
-        this._fsQuad.render(renderer);
-      } else {
-        renderer.setRenderTarget(writeBuffer);
-        if (this.clear) renderer.clear(renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil);
-        this._fsQuad.render(renderer);
-      }
-    }
-    /**
-     * Frees the GPU-related resources allocated by this instance. Call this
-     * method whenever the pass is no longer used in your app.
-     */
-    dispose() {
-      this.material.dispose();
-      this._fsQuad.dispose();
-    }
-  };
-
-  // node_modules/three/examples/jsm/postprocessing/MaskPass.js
-  var MaskPass = class extends Pass {
-    /**
-     * Constructs a new mask pass.
-     *
-     * @param {Scene} scene - The 3D objects in this scene will define the mask.
-     * @param {Camera} camera - The camera.
-     */
-    constructor(scene, camera) {
-      super();
-      this.scene = scene;
-      this.camera = camera;
-      this.clear = true;
-      this.needsSwap = false;
-      this.inverse = false;
-    }
-    /**
-     * Performs a mask pass with the configured scene and camera.
-     *
-     * @param {WebGLRenderer} renderer - The renderer.
-     * @param {WebGLRenderTarget} writeBuffer - The write buffer. This buffer is intended as the rendering
-     * destination for the pass.
-     * @param {WebGLRenderTarget} readBuffer - The read buffer. The pass can access the result from the
-     * previous pass from this buffer.
-     * @param {number} deltaTime - The delta time in seconds.
-     * @param {boolean} maskActive - Whether masking is active or not.
-     */
-    render(renderer, writeBuffer, readBuffer) {
-      const context = renderer.getContext();
-      const state = renderer.state;
-      state.buffers.color.setMask(false);
-      state.buffers.depth.setMask(false);
-      state.buffers.color.setLocked(true);
-      state.buffers.depth.setLocked(true);
-      let writeValue, clearValue;
-      if (this.inverse) {
-        writeValue = 0;
-        clearValue = 1;
-      } else {
-        writeValue = 1;
-        clearValue = 0;
-      }
-      state.buffers.stencil.setTest(true);
-      state.buffers.stencil.setOp(context.REPLACE, context.REPLACE, context.REPLACE);
-      state.buffers.stencil.setFunc(context.ALWAYS, writeValue, 4294967295);
-      state.buffers.stencil.setClear(clearValue);
-      state.buffers.stencil.setLocked(true);
-      renderer.setRenderTarget(readBuffer);
-      if (this.clear) renderer.clear();
-      renderer.render(this.scene, this.camera);
-      renderer.setRenderTarget(writeBuffer);
-      if (this.clear) renderer.clear();
-      renderer.render(this.scene, this.camera);
-      state.buffers.color.setLocked(false);
-      state.buffers.depth.setLocked(false);
-      state.buffers.color.setMask(true);
-      state.buffers.depth.setMask(true);
-      state.buffers.stencil.setLocked(false);
-      state.buffers.stencil.setFunc(context.EQUAL, 1, 4294967295);
-      state.buffers.stencil.setOp(context.KEEP, context.KEEP, context.KEEP);
-      state.buffers.stencil.setLocked(true);
-    }
-  };
-  var ClearMaskPass = class extends Pass {
-    /**
-     * Constructs a new clear mask pass.
-     */
-    constructor() {
-      super();
-      this.needsSwap = false;
-    }
-    /**
-     * Performs the clear of the currently defined mask.
-     *
-     * @param {WebGLRenderer} renderer - The renderer.
-     * @param {WebGLRenderTarget} writeBuffer - The write buffer. This buffer is intended as the rendering
-     * destination for the pass.
-     * @param {WebGLRenderTarget} readBuffer - The read buffer. The pass can access the result from the
-     * previous pass from this buffer.
-     * @param {number} deltaTime - The delta time in seconds.
-     * @param {boolean} maskActive - Whether masking is active or not.
-     */
-    render(renderer) {
-      renderer.state.buffers.stencil.setLocked(false);
-      renderer.state.buffers.stencil.setTest(false);
-    }
-  };
-
-  // node_modules/three/examples/jsm/postprocessing/EffectComposer.js
-  var EffectComposer = class {
-    /**
-     * Constructs a new effect composer.
-     *
-     * @param {WebGLRenderer} renderer - The renderer.
-     * @param {WebGLRenderTarget} [renderTarget] - This render target and a clone will
-     * be used as the internal read and write buffers. If not given, the composer creates
-     * the buffers automatically.
-     */
-    constructor(renderer, renderTarget) {
-      this.renderer = renderer;
-      this._pixelRatio = renderer.getPixelRatio();
-      if (renderTarget === void 0) {
-        const size = renderer.getSize(new Vector2());
-        this._width = size.width;
-        this._height = size.height;
-        renderTarget = new WebGLRenderTarget(this._width * this._pixelRatio, this._height * this._pixelRatio, { type: HalfFloatType });
-        renderTarget.texture.name = "EffectComposer.rt1";
-      } else {
-        this._width = renderTarget.width;
-        this._height = renderTarget.height;
-      }
-      this.renderTarget1 = renderTarget;
-      this.renderTarget2 = renderTarget.clone();
-      this.renderTarget2.texture.name = "EffectComposer.rt2";
-      this.writeBuffer = this.renderTarget1;
-      this.readBuffer = this.renderTarget2;
-      this.renderToScreen = true;
-      this.passes = [];
-      this.copyPass = new ShaderPass(CopyShader);
-      this.copyPass.material.blending = NoBlending;
-      this.timer = new Timer();
-    }
-    /**
-     * Swaps the internal read/write buffers.
-     */
-    swapBuffers() {
-      const tmp3 = this.readBuffer;
-      this.readBuffer = this.writeBuffer;
-      this.writeBuffer = tmp3;
-    }
-    /**
-     * Adds the given pass to the pass chain.
-     *
-     * @param {Pass} pass - The pass to add.
-     */
-    addPass(pass) {
-      this.passes.push(pass);
-      pass.setSize(this._width * this._pixelRatio, this._height * this._pixelRatio);
-    }
-    /**
-     * Inserts the given pass at a given index.
-     *
-     * @param {Pass} pass - The pass to insert.
-     * @param {number} index - The index into the pass chain.
-     */
-    insertPass(pass, index) {
-      this.passes.splice(index, 0, pass);
-      pass.setSize(this._width * this._pixelRatio, this._height * this._pixelRatio);
-    }
-    /**
-     * Removes the given pass from the pass chain.
-     *
-     * @param {Pass} pass - The pass to remove.
-     */
-    removePass(pass) {
-      const index = this.passes.indexOf(pass);
-      if (index !== -1) {
-        this.passes.splice(index, 1);
-      }
-    }
-    /**
-     * Returns `true` if the pass for the given index is the last enabled pass in the pass chain.
-     *
-     * @param {number} passIndex - The pass index.
-     * @return {boolean} Whether the pass for the given index is the last pass in the pass chain.
-     */
-    isLastEnabledPass(passIndex) {
-      for (let i = passIndex + 1; i < this.passes.length; i++) {
-        if (this.passes[i].enabled) {
-          return false;
-        }
-      }
-      return true;
-    }
-    /**
-     * Executes all enabled post-processing passes in order to produce the final frame.
-     *
-     * @param {number} deltaTime - The delta time in seconds. If not given, the composer computes
-     * its own time delta value.
-     */
-    render(deltaTime) {
-      this.timer.update();
-      if (deltaTime === void 0) {
-        deltaTime = this.timer.getDelta();
-      }
-      const currentRenderTarget = this.renderer.getRenderTarget();
-      let maskActive = false;
-      for (let i = 0, il = this.passes.length; i < il; i++) {
-        const pass = this.passes[i];
-        if (pass.enabled === false) continue;
-        pass.renderToScreen = this.renderToScreen && this.isLastEnabledPass(i);
-        pass.render(this.renderer, this.writeBuffer, this.readBuffer, deltaTime, maskActive);
-        if (pass.needsSwap) {
-          if (maskActive) {
-            const context = this.renderer.getContext();
-            const stencil = this.renderer.state.buffers.stencil;
-            stencil.setFunc(context.NOTEQUAL, 1, 4294967295);
-            this.copyPass.render(this.renderer, this.writeBuffer, this.readBuffer, deltaTime);
-            stencil.setFunc(context.EQUAL, 1, 4294967295);
-          }
-          this.swapBuffers();
-        }
-        if (MaskPass !== void 0) {
-          if (pass instanceof MaskPass) {
-            maskActive = true;
-          } else if (pass instanceof ClearMaskPass) {
-            maskActive = false;
-          }
-        }
-      }
-      this.renderer.setRenderTarget(currentRenderTarget);
-    }
-    /**
-     * Resets the internal state of the EffectComposer.
-     *
-     * @param {WebGLRenderTarget} [renderTarget] - This render target has the same purpose like
-     * the one from the constructor. If set, it is used to setup the read and write buffers.
-     */
-    reset(renderTarget) {
-      if (renderTarget === void 0) {
-        const size = this.renderer.getSize(new Vector2());
-        this._pixelRatio = this.renderer.getPixelRatio();
-        this._width = size.width;
-        this._height = size.height;
-        renderTarget = this.renderTarget1.clone();
-        renderTarget.setSize(this._width * this._pixelRatio, this._height * this._pixelRatio);
-      }
-      this.renderTarget1.dispose();
-      this.renderTarget2.dispose();
-      this.renderTarget1 = renderTarget;
-      this.renderTarget2 = renderTarget.clone();
-      this.writeBuffer = this.renderTarget1;
-      this.readBuffer = this.renderTarget2;
-    }
-    /**
-     * Resizes the internal read and write buffers as well as all passes. Similar to {@link WebGLRenderer#setSize},
-     * this method honors the current pixel ration.
-     *
-     * @param {number} width - The width in logical pixels.
-     * @param {number} height - The height in logical pixels.
-     */
-    setSize(width, height) {
-      this._width = width;
-      this._height = height;
-      const effectiveWidth = this._width * this._pixelRatio;
-      const effectiveHeight = this._height * this._pixelRatio;
-      this.renderTarget1.setSize(effectiveWidth, effectiveHeight);
-      this.renderTarget2.setSize(effectiveWidth, effectiveHeight);
-      for (let i = 0; i < this.passes.length; i++) {
-        this.passes[i].setSize(effectiveWidth, effectiveHeight);
-      }
-    }
-    /**
-     * Sets device pixel ratio. This is usually used for HiDPI device to prevent blurring output.
-     * Setting the pixel ratio will automatically resize the composer.
-     *
-     * @param {number} pixelRatio - The pixel ratio to set.
-     */
-    setPixelRatio(pixelRatio) {
-      this._pixelRatio = pixelRatio;
-      this.setSize(this._width, this._height);
-    }
-    /**
-     * Frees the GPU-related resources allocated by this instance. Call this
-     * method whenever the composer is no longer used in your app.
-     */
-    dispose() {
-      this.renderTarget1.dispose();
-      this.renderTarget2.dispose();
-      this.copyPass.dispose();
-    }
-  };
-
-  // node_modules/three/examples/jsm/postprocessing/RenderPass.js
-  var RenderPass = class extends Pass {
-    /**
-     * Constructs a new render pass.
-     *
-     * @param {Scene} scene - The scene to render.
-     * @param {Camera} camera - The camera.
-     * @param {?Material} [overrideMaterial=null] - The override material. If set, this material is used
-     * for all objects in the scene.
-     * @param {?(number|Color|string)} [clearColor=null] - The clear color of the render pass.
-     * @param {?number} [clearAlpha=null] - The clear alpha of the render pass.
-     */
-    constructor(scene, camera, overrideMaterial = null, clearColor = null, clearAlpha = null) {
-      super();
-      this.scene = scene;
-      this.camera = camera;
-      this.overrideMaterial = overrideMaterial;
-      this.clearColor = clearColor;
-      this.clearAlpha = clearAlpha;
-      this.clear = true;
-      this.clearDepth = false;
-      this.needsSwap = false;
-      this.isRenderPass = true;
-      this._oldClearColor = new Color();
-    }
-    /**
-     * Performs a beauty pass with the configured scene and camera.
-     *
-     * @param {WebGLRenderer} renderer - The renderer.
-     * @param {WebGLRenderTarget} writeBuffer - The write buffer. This buffer is intended as the rendering
-     * destination for the pass.
-     * @param {WebGLRenderTarget} readBuffer - The read buffer. The pass can access the result from the
-     * previous pass from this buffer.
-     * @param {number} deltaTime - The delta time in seconds.
-     * @param {boolean} maskActive - Whether masking is active or not.
-     */
-    render(renderer, writeBuffer, readBuffer) {
-      const oldAutoClear = renderer.autoClear;
-      renderer.autoClear = false;
-      let oldClearAlpha, oldOverrideMaterial;
-      if (this.overrideMaterial !== null) {
-        oldOverrideMaterial = this.scene.overrideMaterial;
-        this.scene.overrideMaterial = this.overrideMaterial;
-      }
-      if (this.clearColor !== null) {
-        renderer.getClearColor(this._oldClearColor);
-        renderer.setClearColor(this.clearColor, renderer.getClearAlpha());
-      }
-      if (this.clearAlpha !== null) {
-        oldClearAlpha = renderer.getClearAlpha();
-        renderer.setClearAlpha(this.clearAlpha);
-      }
-      if (this.clearDepth == true) {
-        renderer.clearDepth();
-      }
-      renderer.setRenderTarget(this.renderToScreen ? null : readBuffer);
-      if (this.clear === true) {
-        renderer.clear(renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil);
-      }
-      renderer.render(this.scene, this.camera);
-      if (this.clearColor !== null) {
-        renderer.setClearColor(this._oldClearColor);
-      }
-      if (this.clearAlpha !== null) {
-        renderer.setClearAlpha(oldClearAlpha);
-      }
-      if (this.overrideMaterial !== null) {
-        this.scene.overrideMaterial = oldOverrideMaterial;
-      }
-      renderer.autoClear = oldAutoClear;
-    }
-  };
-
-  // node_modules/three/examples/jsm/shaders/OutputShader.js
-  var OutputShader = {
-    name: "OutputShader",
-    uniforms: {
-      "tDiffuse": { value: null },
-      "toneMappingExposure": { value: 1 }
-    },
-    vertexShader: (
-      /* glsl */
-      `
-		precision highp float;
-
-		uniform mat4 modelViewMatrix;
-		uniform mat4 projectionMatrix;
-
-		attribute vec3 position;
-		attribute vec2 uv;
-
-		varying vec2 vUv;
-
-		void main() {
-
-			vUv = uv;
-			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-
-		}`
-    ),
-    fragmentShader: (
-      /* glsl */
-      `
-
-		precision highp float;
-
-		uniform sampler2D tDiffuse;
-
-		#include <tonemapping_pars_fragment>
-		#include <colorspace_pars_fragment>
-
-		varying vec2 vUv;
-
-		void main() {
-
-			gl_FragColor = texture2D( tDiffuse, vUv );
-
-			// tone mapping
-
-			#ifdef LINEAR_TONE_MAPPING
-
-				gl_FragColor.rgb = LinearToneMapping( gl_FragColor.rgb );
-
-			#elif defined( REINHARD_TONE_MAPPING )
-
-				gl_FragColor.rgb = ReinhardToneMapping( gl_FragColor.rgb );
-
-			#elif defined( CINEON_TONE_MAPPING )
-
-				gl_FragColor.rgb = CineonToneMapping( gl_FragColor.rgb );
-
-			#elif defined( ACES_FILMIC_TONE_MAPPING )
-
-				gl_FragColor.rgb = ACESFilmicToneMapping( gl_FragColor.rgb );
-
-			#elif defined( AGX_TONE_MAPPING )
-
-				gl_FragColor.rgb = AgXToneMapping( gl_FragColor.rgb );
-
-			#elif defined( NEUTRAL_TONE_MAPPING )
-
-				gl_FragColor.rgb = NeutralToneMapping( gl_FragColor.rgb );
-
-			#elif defined( CUSTOM_TONE_MAPPING )
-
-				gl_FragColor.rgb = CustomToneMapping( gl_FragColor.rgb );
-
-			#endif
-
-			// color space
-
-			#ifdef SRGB_TRANSFER
-
-				gl_FragColor = sRGBTransferOETF( gl_FragColor );
-
-			#endif
-
-		}`
-    )
-  };
-
-  // node_modules/three/examples/jsm/postprocessing/OutputPass.js
-  var OutputPass = class extends Pass {
-    /**
-     * Constructs a new output pass.
-     */
-    constructor() {
-      super();
-      this.isOutputPass = true;
-      this.uniforms = UniformsUtils.clone(OutputShader.uniforms);
-      this.material = new RawShaderMaterial({
-        name: OutputShader.name,
-        uniforms: this.uniforms,
-        vertexShader: OutputShader.vertexShader,
-        fragmentShader: OutputShader.fragmentShader
-      });
-      this._fsQuad = new FullScreenQuad(this.material);
-      this._outputColorSpace = null;
-      this._toneMapping = null;
-    }
-    /**
-     * Performs the output pass.
-     *
-     * @param {WebGLRenderer} renderer - The renderer.
-     * @param {WebGLRenderTarget} writeBuffer - The write buffer. This buffer is intended as the rendering
-     * destination for the pass.
-     * @param {WebGLRenderTarget} readBuffer - The read buffer. The pass can access the result from the
-     * previous pass from this buffer.
-     * @param {number} deltaTime - The delta time in seconds.
-     * @param {boolean} maskActive - Whether masking is active or not.
-     */
-    render(renderer, writeBuffer, readBuffer) {
-      this.uniforms["tDiffuse"].value = readBuffer.texture;
-      this.uniforms["toneMappingExposure"].value = renderer.toneMappingExposure;
-      if (this._outputColorSpace !== renderer.outputColorSpace || this._toneMapping !== renderer.toneMapping) {
-        this._outputColorSpace = renderer.outputColorSpace;
-        this._toneMapping = renderer.toneMapping;
-        this.material.defines = {};
-        if (ColorManagement.getTransfer(this._outputColorSpace) === SRGBTransfer) this.material.defines.SRGB_TRANSFER = "";
-        if (this._toneMapping === LinearToneMapping) this.material.defines.LINEAR_TONE_MAPPING = "";
-        else if (this._toneMapping === ReinhardToneMapping) this.material.defines.REINHARD_TONE_MAPPING = "";
-        else if (this._toneMapping === CineonToneMapping) this.material.defines.CINEON_TONE_MAPPING = "";
-        else if (this._toneMapping === ACESFilmicToneMapping) this.material.defines.ACES_FILMIC_TONE_MAPPING = "";
-        else if (this._toneMapping === AgXToneMapping) this.material.defines.AGX_TONE_MAPPING = "";
-        else if (this._toneMapping === NeutralToneMapping) this.material.defines.NEUTRAL_TONE_MAPPING = "";
-        else if (this._toneMapping === CustomToneMapping) this.material.defines.CUSTOM_TONE_MAPPING = "";
-        this.material.needsUpdate = true;
-      }
-      if (this.renderToScreen === true) {
-        renderer.setRenderTarget(null);
-        this._fsQuad.render(renderer);
-      } else {
-        renderer.setRenderTarget(writeBuffer);
-        if (this.clear) renderer.clear(renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil);
-        this._fsQuad.render(renderer);
-      }
-    }
-    /**
-     * Frees the GPU-related resources allocated by this instance. Call this
-     * method whenever the pass is no longer used in your app.
-     */
-    dispose() {
-      this.material.dispose();
-      this._fsQuad.dispose();
-    }
-  };
-
   // game-src/render.js
-  var FXShader = {
-    uniforms: {
-      tDiffuse: { value: null },
-      uTime: { value: 0 },
-      uDamage: { value: 0 },
-      uLowHP: { value: 0 },
-      uFlash: { value: 0 },
-      uVignette: { value: 0.28 },
-      uDeath: { value: 0 },
-      uScope: { value: 0 },
-      uProtect: { value: 0 },
-      uUnderRoof: { value: 0 },
-      uConc: { value: 0 }
-    },
-    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-    fragmentShader: (
-      /* glsl */
-      `
-    uniform sampler2D tDiffuse; uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uConc;
-    varying vec2 vUv;
-    float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
-    void main(){
-      vec2 uv = vUv;
-      vec2 c = uv - 0.5;
-      // \u53D7\u50B7\u6642\u8F15\u5FAE\u8272\u5DEE
-      float ca = uDamage * 0.004 + uDeath * 0.006;
-      vec3 col;
-      col.r = texture2D(tDiffuse, uv + c * ca).r;
-      col.g = texture2D(tDiffuse, uv).g;
-      col.b = texture2D(tDiffuse, uv - c * ca).b;
-      // \u7206\u70B8\u9707\u76EA\uFF1A\u6A21\u7CCA + \u91CD\u5F71 + \u53BB\u98FD\u548C\uFF08\u8033\u9CF4\u671F\u9593\u8996\u7DDA\u767C\u6643\uFF09
-      if (uConc > 0.002) {
-        float k = clamp(uConc, 0.0, 1.0);
-        vec2 wob = vec2(sin(uTime * 3.1), cos(uTime * 2.3)) * 0.004 * k;
-        vec3 acc = col * 0.2;
-        for (int i = 0; i < 8; i++) {
-          float a = float(i) * 0.7854 + uTime * 0.5;
-          acc += texture2D(tDiffuse, uv + wob + vec2(cos(a), sin(a)) * 0.006 * k * (1.0 + float(i / 4))).rgb * 0.1;
-        }
-        vec3 ghost = texture2D(tDiffuse, uv + vec2(0.018, 0.006) * k + wob).rgb;
-        col = mix(col, mix(acc, ghost, 0.3), k);
-        float gg = dot(col, vec3(0.299, 0.587, 0.114));
-        col = mix(col, vec3(gg), k * 0.45);
-      }
-      float r = length(c * vec2(1.0, 0.8));
-      // \u6697\u89D2
-      col *= 1.0 - smoothstep(0.35, 0.95, r) * uVignette;
-      // \u53D7\u64CA\u7D05\u908A
-      float edge = smoothstep(0.25, 0.8, r);
-      col = mix(col, vec3(0.55, 0.02, 0.0), edge * clamp(uDamage, 0.0, 1.0) * 0.75);
-      // \u4F4E\u8840\u91CF\u53BB\u98FD\u548C + \u8108\u52D5
-      float g = dot(col, vec3(0.299, 0.587, 0.114));
-      float pulse = 0.5 + 0.5 * sin(uTime * 7.0);
-      col = mix(col, vec3(g) * vec3(1.08, 0.92, 0.9), uLowHP * 0.55);
-      col = mix(col, vec3(0.5, 0.0, 0.0), uLowHP * edge * (0.25 + 0.2 * pulse));
-      // \u6B7B\u4EA1\uFF1A\u7070\u6697
-      col = mix(col, vec3(g) * 0.6, uDeath * 0.8);
-      // \u51FA\u751F\u4FDD\u8B77\uFF1A\u6DE1\u85CD\u908A
-      col = mix(col, vec3(0.35, 0.6, 1.0), uProtect * edge * 0.18);
-      // \u9583\u767D
-      col += uFlash;
-      col *= 1.0 - smoothstep(0.3, 0.9, r) * uConc * 0.45;
-      // \u81A0\u7247\u9846\u7C92
-      // Preserve original map surfaces without film grain.
-      gl_FragColor = vec4(col, 1.0);
-    }`
-    )
+  var QUALITY = {
+    low: { dpr: 1, msaa: 0 },
+    medium: { dpr: 1.15, msaa: 2 },
+    high: { dpr: 1.5, msaa: 4 }
   };
+  var SCREEN_VS = (
+    /* glsl */
+    `
+varying vec2 vUv;
+void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`
+  );
+  var SCREEN_FS = (
+    /* glsl */
+    `
+uniform sampler2D tScene;
+uniform vec2 uTexel;
+uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uUnderRoof, uConc;
+varying vec2 vUv;
+
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// \u5FC3\u8DF3\uFF1A\u4E00\u9577\u4E00\u77ED\u5169\u4E0B\uFF0C\u6BD4\u55AE\u7D14\u6B63\u5F26\u66F4\u50CF\u771F\u7684\u5FC3\u8DF3
+float heartbeat(float t) {
+  float p = fract(t * 1.25);
+  return exp(-pow((p - 0.08) * 22.0, 2.0)) + 0.6 * exp(-pow((p - 0.26) * 22.0, 2.0));
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec2 fromC = uv - 0.5;
+  float aspect = uTexel.y / uTexel.x;
+  float rad = length(fromC * vec2(aspect, 1.0)) / length(vec2(aspect * 0.5, 0.5));   // \u4E2D\u5FC3 0\u3001\u89D2\u843D 1
+
+  // \u7206\u70B8\u9707\u76EA\uFF1A\u756B\u9762\u7DE9\u6162\u6F02\u79FB\u3001\u653E\u5C04\u72C0\u6A21\u7CCA\u3001\u932F\u4F4D\u91CD\u5F71
+  float k = clamp(uConc, 0.0, 1.0);
+  vec2 drift = vec2(sin(uTime * 2.7) , sin(uTime * 1.9 + 1.3)) * 0.005 * k;
+  uv += drift;
+
+  vec3 col;
+  float split = (uDamage * 0.003 + uDeath * 0.005 + k * 0.004) * rad;
+  if (split > 0.00005) {
+    vec2 dir = normalize(fromC + 1e-5) * split;
+    col = vec3(texture2D(tScene, uv + dir).r, texture2D(tScene, uv).g, texture2D(tScene, uv - dir).b);
+  } else {
+    col = texture2D(tScene, uv).rgb;
+  }
+
+  if (k > 0.002) {
+    vec3 blur = col;
+    for (int i = 1; i <= 6; i++) {
+      float s = float(i) / 6.0;
+      blur += texture2D(tScene, mix(uv, vec2(0.5), s * 0.035 * k)).rgb;
+    }
+    blur /= 7.0;
+    vec3 ghost = texture2D(tScene, uv + vec2(0.014, -0.004) * k).rgb;
+    col = mix(col, blur * 0.75 + ghost * 0.25, k);
+    col = mix(col, vec3(luma(col)), k * 0.4);
+  }
+
+  // \u4F4E\u8840\u91CF\uFF1A\u984F\u8272\u6D41\u5931\uFF0C\u908A\u7DE3\u96A8\u5FC3\u8DF3\u6CDB\u7D05
+  float edge = smoothstep(0.45, 1.05, rad);
+  float L = luma(col);
+  col = mix(col, vec3(L) * vec3(1.06, 0.95, 0.93), uLowHP * 0.5);
+  col = mix(col, vec3(0.45, 0.02, 0.02) * (0.4 + L), uLowHP * edge * (0.2 + 0.35 * heartbeat(uTime)));
+
+  // \u525B\u53D7\u5230\u50B7\u5BB3\uFF1A\u5916\u5708\u7D05\u8272
+  col = mix(col, vec3(0.6, 0.03, 0.0), edge * clamp(uDamage, 0.0, 1.0) * 0.7);
+
+  // \u51FA\u751F\u4FDD\u8B77\uFF1A\u6DE1\u85CD\u5916\u6846
+  col = mix(col, vec3(0.3, 0.58, 1.0), uProtect * edge * 0.2);
+
+  // \u9663\u4EA1\uFF1A\u892A\u6210\u6697\u7070
+  col = mix(col, vec3(L * 0.55), uDeath * 0.8);
+
+  // \u6697\u89D2\uFF08\u958B\u93E1\u6642\u52A0\u91CD\uFF09
+  col *= 1.0 - smoothstep(0.55, 1.2, rad) * clamp(uVignette + uScope * 0.5 + k * 0.4, 0.0, 1.0);
+
+  // \u9583\u5149\u5F48\uFF0F\u7206\u70B8\u9583\u767D
+  col += vec3(uFlash);
+
+  gl_FragColor = vec4(max(col, 0.0), 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`
+  );
   var Renderer = class {
-    constructor(canvas2, quality) {
+    constructor(canvas2, quality = "high") {
       this.quality = quality;
-      const r = this.renderer = new WebGLRenderer({ canvas: canvas2, antialias: true, powerPreference: "high-performance", stencil: false });
-      r.setPixelRatio(Math.min(window.devicePixelRatio, quality === "high" ? 1.5 : quality === "medium" ? 1.15 : 1));
+      this.cfg = QUALITY[quality] || QUALITY.high;
+      const r = this.renderer = new WebGLRenderer({ canvas: canvas2, antialias: false, stencil: false, powerPreference: "high-performance" });
+      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.cfg.dpr));
+      r.outputColorSpace = SRGBColorSpace;
       r.toneMapping = ACESFilmicToneMapping;
       r.toneMappingExposure = 0.75;
-      r.outputColorSpace = SRGBColorSpace;
       r.shadowMap.enabled = true;
       r.shadowMap.type = PCFSoftShadowMap;
       this.scene = new Scene();
       this.camera = new PerspectiveCamera(78, 16 / 9, 0.05, 6e4);
       this.vmScene = new Scene();
       this.vmCamera = new PerspectiveCamera(58, 16 / 9, 0.01, 50);
-      const size = r.getDrawingBufferSize(new Vector2());
-      const rt = new WebGLRenderTarget(size.x, size.y, { type: HalfFloatType, samples: quality === "low" ? 0 : 4 });
-      this.composer = new EffectComposer(r, rt);
-      this.worldPass = new RenderPass(this.scene, this.camera);
-      this.vmPass = new RenderPass(this.vmScene, this.vmCamera);
-      this.vmPass.clear = false;
-      this.vmPass.clearDepth = true;
-      this.composer.addPass(this.worldPass);
-      this.composer.addPass(this.vmPass);
-      this.fx = new ShaderPass(FXShader);
-      this.composer.addPass(this.fx);
-      this.composer.addPass(new OutputPass());
+      this.target = new WebGLRenderTarget(4, 4, {
+        type: HalfFloatType,
+        samples: this.cfg.msaa,
+        depthBuffer: true
+      });
+      const tri = new BufferGeometry();
+      tri.setAttribute("position", new Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
+      tri.setAttribute("uv", new Float32BufferAttribute([0, 0, 2, 0, 0, 2], 2));
+      const u = (v) => ({ value: v });
+      this.screenMat = new ShaderMaterial({
+        uniforms: {
+          tScene: u(this.target.texture),
+          uTexel: u(new Vector2(1, 1)),
+          uTime: u(0),
+          uDamage: u(0),
+          uLowHP: u(0),
+          uFlash: u(0),
+          uVignette: u(0.28),
+          uDeath: u(0),
+          uScope: u(0),
+          uProtect: u(0),
+          uUnderRoof: u(0),
+          uConc: u(0)
+        },
+        vertexShader: SCREEN_VS,
+        fragmentShader: SCREEN_FS,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: true
+      });
+      this.screenQuad = new Mesh(tri, this.screenMat);
+      this.screenQuad.frustumCulled = false;
+      this.screenScene = new Scene();
+      this.screenScene.add(this.screenQuad);
+      this.screenCam = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      this.fx = { uniforms: this.screenMat.uniforms };
       this.resize();
       window.addEventListener("resize", () => this.resize());
     }
     resize() {
       const w = window.innerWidth, h = window.innerHeight;
       this.renderer.setSize(w, h, false);
-      this.composer.setSize(w, h);
-      this.camera.aspect = w / h;
-      this.camera.updateProjectionMatrix();
-      this.vmCamera.aspect = w / h;
-      this.vmCamera.updateProjectionMatrix();
+      const px2 = this.renderer.getDrawingBufferSize(new Vector2());
+      this.target.setSize(px2.x, px2.y);
+      this.screenMat.uniforms.uTexel.value.set(1 / px2.x, 1 / px2.y);
+      for (const cam of [this.camera, this.vmCamera]) {
+        cam.aspect = w / h;
+        cam.updateProjectionMatrix();
+      }
     }
     render() {
-      this.composer.render();
+      const r = this.renderer;
+      const autoClear = r.autoClear;
+      r.setRenderTarget(this.target);
+      r.autoClear = true;
+      r.render(this.scene, this.camera);
+      r.autoClear = false;
+      r.clearDepth();
+      r.render(this.vmScene, this.vmCamera);
+      r.setRenderTarget(null);
+      r.render(this.screenScene, this.screenCam);
+      r.autoClear = autoClear;
     }
   };
 
@@ -33635,13 +32879,13 @@ void main() {
   // campus-visuals.js
   async function buildCampusVisuals(scene, renderer, progress, { offset = [0, 0, 0], world = "world" } = {}) {
     const meta = await fetch(`/${world}.json`).then((r) => r.json()), vox = new Uint16Array(await fetch(`/${world}.bin`).then((r) => r.arrayBuffer()));
-    const { W, D, H, bounds: b, palette } = meta;
+    const { W, D: D2, H, bounds: b, palette } = meta;
     const names = palette.map((p) => p.Name.replace("minecraft:", ""));
     const empty = (i) => !i || /^(air|cave_air|void_air|light|structure_void)$/.test(names[i]);
     const special = (i) => /glass|leaves|water|grass$|flower|torch|pane|fence|door|slab|stairs|carpet|rail|wire|banner|sign|ladder|vine/.test(names[i]);
     const skip = (i) => empty(i) || /redstone_wire|tripwire|wall_sign|wall_banner|rail$|button|pressure_plate|lever/.test(names[i]);
     function get(x, y, z) {
-      return x < 0 || x >= W || z < 0 || z >= D || y < 0 || y >= H ? 0 : vox[(y * D + z) * W + x];
+      return x < 0 || x >= W || z < 0 || z >= D2 || y < 0 || y >= H ? 0 : vox[(y * D2 + z) * W + x];
     }
     const meshes = [];
     const textures = /* @__PURE__ */ new Set();
@@ -33734,10 +32978,10 @@ void main() {
       scene.add(mesh2);
       meshes.push(mesh2);
     }
-    for (let zz = 0; zz < D; zz += 32) {
+    for (let zz = 0; zz < D2; zz += 32) {
       for (let xx = 0; xx < W; xx += 32) {
         let o = batch(), a = batch();
-        for (let y = 0; y < H; y++) for (let z = zz; z < Math.min(D, zz + 32); z++) for (let x = xx; x < Math.min(W, xx + 32); x++) {
+        for (let y = 0; y < H; y++) for (let z = zz; z < Math.min(D2, zz + 32); z++) for (let x = xx; x < Math.min(W, xx + 32); x++) {
           let i = get(x, y, z);
           if (skip(i)) continue;
           let n = names[i], p = palette[i].Properties || {}, lo = [0, 0, 0], hi = [1, 1, 1], cull = true;
@@ -33783,7 +33027,7 @@ void main() {
         mesh(o, mat);
         mesh(a, glassmat);
       }
-      progress.textContent = `\u5EFA\u7ACB\u5834\u666F ${Math.round((zz + 32) / D * 100)}%`;
+      progress.textContent = `\u5EFA\u7ACB\u5834\u666F ${Math.round((zz + 32) / D2 * 100)}%`;
       await new Promise(requestAnimationFrame);
     }
     let ground = new Mesh(new PlaneGeometry(1600, 1600), new MeshLambertMaterial({ color: 9413755 }));
@@ -34326,12 +33570,12 @@ void main() {
         }
       }
       if (!found) return null;
-      let path = [];
+      let path2 = [];
       for (let id = b.id; id !== -1; id = this.parent[id]) {
         let n = this.nodes[id];
-        path.push([n.x, n.z, n.y]);
+        path2.push([n.x, n.z, n.y]);
       }
-      return path.reverse();
+      return path2.reverse();
     }
     randomFree(rnd2, x0 = this.x0, z0 = this.z0, x1 = this.x1, z1 = this.z1) {
       const pool = this.ground;
@@ -35348,7 +34592,7 @@ void main() {
   }
   var HPK = { brick: 1, stone: 1, granite: 1.3, concrete: 1.2, plaster: 0.5, wood: 0.45, board: 0.4, beige: 0.6, white: 0.7, red: 0.7, blue: 0.7, yellow: 0.7, green: 0.5, metal: 0.8, quarry: 1, terrazzo: 1 };
   function bar(B, o) {
-    const { u0, u1, D, toW, segs, open, ends = {} } = o, COR = 3;
+    const { u0, u1, D: D2, toW, segs, open, ends = {} } = o, COR = 3;
     const lb = (k, a0, a1, y0, y1, w0, w1, col = true) => {
       const p = toW(a0, w0), q = toW(a1, w1);
       B.box(k, p[0], q[0], y0, y1, p[1], q[1], col);
@@ -35369,15 +34613,15 @@ void main() {
           }
         }
         if (f === 0) {
-          if (!pass) lb(s.type === "open" ? "quarry" : "terrazzo", a0, a1, 0, 0.05, 0, D);
+          if (!pass) lb(s.type === "open" ? "quarry" : "terrazzo", a0, a1, 0, 0.05, 0, D2);
         } else if (!voidAbove) {
           if (stair) {
             lb("concrete", a0, a1, yb - SLAB, yb, 0, 4.6);
-            lb("concrete", a0, a1, yb - SLAB, yb, 9.8, D);
+            lb("concrete", a0, a1, yb - SLAB, yb, 9.8, D2);
             lb("terrazzo", a0, a1, yb, yb + 0.02, 0, 4.6, false);
           } else {
-            lb("concrete", a0, a1, yb - SLAB, yb, 0, D);
-            lb("terrazzo", a0, a1, yb, yb + 0.02, 0, D, false);
+            lb("concrete", a0, a1, yb - SLAB, yb, 0, D2);
+            lb("terrazzo", a0, a1, yb, yb + 0.02, 0, D2, false);
           }
         }
         if (!stair && !pass && s.type !== "open" && s.type !== "void") {
@@ -35404,26 +34648,26 @@ void main() {
           }
         }
         if (s.panel && f >= 2) {
-          lb("beige", a0 + 0.4, a1 - 0.4, yb, yt, D, D + 0.12);
+          lb("beige", a0 + 0.4, a1 - 0.4, yb, yt, D2, D2 + 0.12);
         }
-        wallU(lb, "brick", a0, a1, yb, ceil, D - 0.3, D, cuts2, "glass");
+        wallU(lb, "brick", a0, a1, yb, ceil, D2 - 0.3, D2, cuts2, "glass");
         if (f >= 1 && s.type === "class" && cuts2.length) {
           const [c0, c1] = cuts2[0];
-          lb("concrete", c0 - 0.3, c1 + 0.3, yb - SLAB, yb, D, D + 1.2);
-          lb("brick", c0 - 0.3, c1 + 0.3, yb, yb + 1, D + 1, D + 1.2);
-          lb("brick", c0 - 0.3, c0 - 0.1, yb, yb + 1, D, D + 1.2);
-          lb("brick", c1 + 0.1, c1 + 0.3, yb, yb + 1, D, D + 1.2);
-          lb("stone", c0 - 0.35, c1 + 0.35, yb + 1, yb + 1.1, D + 0.95, D + 1.25, false);
-          lb("green", c0 - 0.3, c1 + 0.3, yb + 1.1, yb + 1.14, D + 1.08, D + 1.12, false);
+          lb("concrete", c0 - 0.3, c1 + 0.3, yb - SLAB, yb, D2, D2 + 1.2);
+          lb("brick", c0 - 0.3, c1 + 0.3, yb, yb + 1, D2 + 1, D2 + 1.2);
+          lb("brick", c0 - 0.3, c0 - 0.1, yb, yb + 1, D2, D2 + 1.2);
+          lb("brick", c1 + 0.1, c1 + 0.3, yb, yb + 1, D2, D2 + 1.2);
+          lb("stone", c0 - 0.35, c1 + 0.35, yb + 1, yb + 1.1, D2 + 0.95, D2 + 1.25, false);
+          lb("green", c0 - 0.3, c1 + 0.3, yb + 1.1, yb + 1.14, D2 + 1.08, D2 + 1.12, false);
         }
         if (!pass && s.type !== "open") {
-          for (const e of [a0, a1]) if (Math.abs(e - u0) > 0.01 && Math.abs(e - u1) > 0.01) lb("plaster", e - 0.1, e + 0.1, yb, ceil, COR, D - 0.3);
+          for (const e of [a0, a1]) if (Math.abs(e - u0) > 0.01 && Math.abs(e - u1) > 0.01) lb("plaster", e - 0.1, e + 0.1, yb, ceil, COR, D2 - 0.3);
         }
         if (s.type === "class" && !voidAbove) {
           lb("board", a0 + 0.9, a1 - 0.9, yb + 0.9, yb + 2.1, COR + 0.2, COR + 0.25, false);
           for (let r = 0; r < 5; r++) for (let c = 0; c < 6; c++) {
-            const uu = a0 + 1.2 + (L - 2.4) * (c + 0.5) / 6, ww = COR + 2.2 + r * ((D - COR - 3.4) / 5);
-            if (ww > D - 0.9) continue;
+            const uu = a0 + 1.2 + (L - 2.4) * (c + 0.5) / 6, ww = COR + 2.2 + r * ((D2 - COR - 3.4) / 5);
+            if (ww > D2 - 0.9) continue;
             const np = B.parts.length;
             lb("wood", uu - 0.32, uu + 0.32, yb, yb + 0.72, ww - 0.22, ww + 0.22);
             const dp = B.parts.length > np ? B.parts[B.parts.length - 1] : null;
@@ -35471,7 +34715,7 @@ void main() {
         }
       }
       if (f >= 1) {
-        lb("stone", u0, u1, yb - SLAB - 0.05, yb + 0.12, D, D + 0.08, false);
+        lb("stone", u0, u1, yb - SLAB - 0.05, yb + 0.12, D2, D2 + 0.08, false);
         lb("stone", u0, u1, yb - SLAB - 0.05, yb + 0.12, -0.08, 0, false);
       }
     }
@@ -35479,25 +34723,25 @@ void main() {
     for (const s of S) {
       if (s.type === "stair") {
         lb("concrete", s.a0, s.a1, ROOF - SLAB, ROOF, 0, 4.6);
-        lb("concrete", s.a0, s.a1, ROOF - SLAB, ROOF, 9.8, D);
+        lb("concrete", s.a0, s.a1, ROOF - SLAB, ROOF, 9.8, D2);
         penthouse(B, lb, s.a0, s.a1, toW);
-      } else lb("concrete", s.a0, s.a1, ROOF - SLAB, ROOF, 0, D);
+      } else lb("concrete", s.a0, s.a1, ROOF - SLAB, ROOF, 0, D2);
     }
-    lb("stone", u0, u1, ROOF - SLAB - 0.05, ROOF + 0.12, D, D + 0.08, false);
+    lb("stone", u0, u1, ROOF - SLAB - 0.05, ROOF + 0.12, D2, D2 + 0.08, false);
     lb("stone", u0, u1, ROOF - SLAB - 0.05, ROOF + 0.12, -0.08, 0, false);
-    lb("brick", u0, u1, ROOF, ROOF + 1, D - 0.3, D);
+    lb("brick", u0, u1, ROOF, ROOF + 1, D2 - 0.3, D2);
     lb("brick", u0, u1, ROOF, ROOF + 1, 0, 0.3);
-    lb("stone", u0, u1, ROOF + 1, ROOF + 1.1, D - 0.35, D + 0.05, false);
+    lb("stone", u0, u1, ROOF + 1, ROOF + 1.1, D2 - 0.35, D2 + 0.05, false);
     lb("stone", u0, u1, ROOF + 1, ROOF + 1.1, -0.05, 0.35, false);
     for (const [e, kind] of [[u0, ends.u0], [u1, ends.u1]]) {
       if (kind === "none") continue;
       const s0 = e === u0 ? e : e - 0.3, s1 = s0 + 0.3;
       for (let f = 0; f < 5; f++) {
         const yb = FB[f], yt = f < 4 ? FB[f + 1] : ROOF;
-        const win = [[D - 4, D - 2, 0.9, 2.6]], cuts = kind === "corridor" ? [[0.3, 2.7, 0, 2.4], ...win] : f === 0 ? [[0.4, 2.6, 0, 2.6], ...win] : [[1, 2.2, 1, 2.4], ...win];
-        wallW(lb, "brick", s0, s1, yb, yt - SLAB, 0, D, cuts, "glass");
+        const win = [[D2 - 4, D2 - 2, 0.9, 2.6]], cuts = kind === "corridor" ? [[0.3, 2.7, 0, 2.4], ...win] : f === 0 ? [[0.4, 2.6, 0, 2.6], ...win] : [[1, 2.2, 1, 2.4], ...win];
+        wallW(lb, "brick", s0, s1, yb, yt - SLAB, 0, D2, cuts, "glass");
       }
-      lb("brick", s0, s1, ROOF, ROOF + 1, 0, D);
+      lb("brick", s0, s1, ROOF, ROOF + 1, 0, D2);
     }
     return rooms;
   }
@@ -35782,15 +35026,15 @@ void main() {
     plaque(scene, "\u81FA\u4E2D\u5E02\u5357\u5340 \u6A39\u7FA9\u570B\u6C11\u5C0F\u5B78", { x: SITE.x1 - 0.37, y: 1.45, n: -31.25, w: 3.2, h: 1.05, face: "e", sub: "SHU I ELEMENTARY SCHOOL" });
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u7FA9\u5B78\u6A13\uFF08\u5317\u68DF\uFF09");
     const rooms = [];
-    const allRooms = (bname, list, toW, D) => {
+    const allRooms = (bname, list, toW, D2) => {
       for (const r of list) {
-        const p = toW(r.a0, 0), q = toW(r.a1, D), c = toW((r.a0 + r.a1) / 2, D / 2);
+        const p = toW(r.a0, 0), q = toW(r.a1, D2), c = toW((r.a0 + r.a1) / 2, D2 / 2);
         rooms.push({ name: r.name, cls: r.cls, cat: r.cat, building: bname, floor: r.floor, x: c[0], z: -c[1], x0: Math.min(p[0], q[0]), x1: Math.max(p[0], q[0]), z0: Math.min(-p[1], -q[1]), z1: Math.max(-p[1], -q[1]) });
       }
     };
     const PX = (u0, u1) => (px2) => u0 + (px2 - 433) / 1029 * (u1 - u0);
     {
-      const u0 = -48.1, u1 = 42.5, X = PX(u0, u1), D = 14.6, toW = (u, w) => [u, -11.4 + w];
+      const u0 = -48.1, u1 = 42.5, X = PX(u0, u1), D2 = 14.6, toW = (u, w) => [u, -11.4 + w];
       const names = { 1: ["\u5929\u6C34\u5802|2-7", "\u592A\u539F\u5802|1-4", "\u5E73\u539F\u5802|1-5", "\u4E2D\u5C71\u5802|1-6", "\u5E73\u967D\u5802|1-7", "\u5B89\u5B9A\u5802|1-8", "\u6C5D\u5357\u5802|1-9", "\u6821\u9577\u5BA4"], 2: ["\u5EF6\u9675\u5802|2-8", "\u59CB\u5E73\u5802|2-9", "\u4EAC\u5146\u5802|2-10", "\u6C9B\u570B\u5802|4-4", "\u5B8F\u8FB2\u5802|4-3", "\u4E0B\u7941\u5802|4-2", "\u4E0A\u8C37\u5802|4-1", "\u8A9E\u8A00\u6559\u5BA4\u4E00"], 3: ["\u5F6D\u57CE\u5802|6-7", "\u9673\u7559\u5802|6-8", "\u6E05\u6CB3\u5802|6-9", "\u9AD8\u967D\u5802|4-5", "\u9AD8\u5E73\u5802|4-6", "\u82D1\u967D\u5802|4-7", "\u7BC4\u967D\u5802|4-8", "\u8A9E\u8A00\u6559\u5BA4\u4E8C"], 4: ["\u9F4A\u967D\u5802|6-6", "\u81E8\u6DEE\u5802|6-5", "\u937E\u9675\u5802|6-4", "\u862D\u9675\u5802|6-3", "\u96B4\u897F\u5802|6-2", "\u8B59\u570B\u5802|6-1", "\u6FDF\u967D\u5802|6-10", "\u8A9E\u8A00\u6559\u5BA4\u4E09"] };
       const segs = (f) => {
         const s = (a, b, type, name) => {
@@ -35801,11 +35045,11 @@ void main() {
         const N = names[f];
         return [s(433, 487, "toilet", "\u5EC1\u6240"), s(487, 545, "lift", "\u96FB\u68AF"), s(545, 595, "stair"), s(595, 677, "class", N[0]), s(677, 759, "class", N[1]), s(759, 839, "class", N[2]), s(839, 921, "class", N[3]), s(921, 976, "toilet", "\u5EC1\u6240"), s(976, 1028, "stair"), s(1028, 1083, "toilet", "\u5EC1\u6240"), s(1083, 1166, "class", N[4]), s(1166, 1248, "class", N[5]), s(1248, 1331, "class", N[6]), s(1331, 1381, "stair"), s(1381, 1462, f === 1 ? "office" : "class", N[7])];
       };
-      allRooms("\u7FA9\u5B78\u6A13", bar(B, { u0, u1, D, toW, segs, open: [[u0, 20.7]], plane: "x", faceAt: -11.4, corFace: "s", junction: [[20.7, 23.7]], bridges: [[-34, -31]], ends: { u0: "wall", u1: "wall" } }), toW, D);
+      allRooms("\u7FA9\u5B78\u6A13", bar(B, { u0, u1, D: D2, toW, segs, open: [[u0, 20.7]], plane: "x", faceAt: -11.4, corFace: "s", junction: [[20.7, 23.7]], bridges: [[-34, -31]], ends: { u0: "wall", u1: "wall" } }), toW, D2);
     }
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u4EBA\u5091\u6A13\uFF08\u5357\u68DF\uFF09");
     {
-      const u0 = -49.7, u1 = 41.8, X = PX(u0, u1), D = 15.8, toW = (u, w) => [u, -40.2 - w];
+      const u0 = -49.7, u1 = 41.8, X = PX(u0, u1), D2 = 15.8, toW = (u, w) => [u, -40.2 - w];
       const names = { 1: ["\u767E\u6FDF\u5802|2-5", "\u897F\u5E73\u5802|2-3", "\u897F\u6CB3\u5802|2-2", "\u5433\u8208\u5802|2-1", "\u89E3\u6881\u5802\uFF08\u5718\u9AD4\u8AEE\u5546\u5BA4\uFF09", "\u5EE3\u5E73\u5802\uFF08\u8F14\u5C0E\u5BA4\uFF09", "\u6C7E\u967D\u5802\uFF08\u4EBA\u4E8B\u6703\u8A08\uFF09", "\u81EA\u7136\u6559\u5BA4\u4E8C"], 2: ["\u6771\u6D77\u5802|2-6", "\u6CB3\u6771\u5802|2-4", "\u5357\u660C\u5802|3-5", "\u4E0A\u9EE8\u5802|3-4", "\u6771\u9B6F\u5802|3-3", "\u6CB3\u5357\u5802|3-2", "\u6CB3\u9593\u5802|3-1", "\u97F3\u6A02\u6559\u5BA4\u4E00"], 3: ["\u6566\u714C\u5802|5-9", "\u6E24\u6D77\u5802|5-10", "\u65B0\u912D\u5802|5-1", "\u9245\u9E7F\u5802|3-6", "\u76E7\u6C5F\u5802|3-7", "\u7A4E\u5DDD\u5802|3-8", "\u8C6B\u7AE0\u5802\uFF08\u7F8E\u8853\u6559\u5BA4\uFF09", "\u97F3\u6A02\u6559\u5BA4\u4E8C"], 4: ["\u9F4A\u90E1\u5802|5-8", "\u69AE\u5B89\u5802|5-7", "\u6703\u7A3D\u5802|5-5", "\u99AE\u7FBD\u5802|5-4", "\u96C1\u9580\u5802|5-3", "\u535A\u9675\u5802|5-2", "\u6649\u967D\u5802|5-6", "\u97F3\u6A02\u6559\u5BA4\u4E09"] };
       const segs = (f) => {
         const s = (a, b, type, name) => {
@@ -35817,11 +35061,11 @@ void main() {
         const office = f === 1 ? "office" : "class";
         return [s(433, 489, "office", "\u5132\u85CF\u5BA4"), s(489, 545, "stair"), s(545, 595, "toilet", "\u5EC1\u6240"), s(595, 677, "class", N[0]), s(677, 759, "class", N[1]), s(759, 839, "class", N[2]), s(839, 921, "class", N[3]), s(921, 976, "toilet", "\u5EC1\u6240"), s(976, 1028, "stair"), s(1028, 1083, "toilet", "\u5EC1\u6240"), s(1083, 1166, office, N[4]), s(1166, 1248, office, N[5]), s(1248, 1331, office, N[6]), s(1331, 1462, "class", N[7])];
       };
-      allRooms("\u4EBA\u5091\u6A13", bar(B, { u0, u1, D, toW, segs, open: [[u0, 20.7]], plane: "x", faceAt: -40.7, corFace: "n", junction: [[20.7, 23.7]], bridges: [[-34, -31]], ends: { u0: "wall", u1: "wall" } }), toW, D);
+      allRooms("\u4EBA\u5091\u6A13", bar(B, { u0, u1, D: D2, toW, segs, open: [[u0, 20.7]], plane: "x", faceAt: -40.7, corFace: "n", junction: [[20.7, 23.7]], bridges: [[-34, -31]], ends: { u0: "wall", u1: "wall" } }), toW, D2);
     }
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u6A39\u5FB7\u6A13\uFF08\u6771\u68DF\u3001\u5927\u9580\u7A7F\u5802\uFF09");
     {
-      const D = 18.7, toW = (u, w) => [20.7 + w, u];
+      const D2 = 18.7, toW = (u, w) => [20.7 + w, u];
       const segs = (f) => {
         const s = (a, b, type, name, o = {}) => {
           const [nm, cls] = (name || "").split("|");
@@ -35833,7 +35077,7 @@ void main() {
         if (f === 3) return [s(-40.2, -31.5, "class", "\u5C71\u967D\u5802|3-9"), s(-31.5, -21, "class", "\u79B9\u967D\u5802\uFF08\u81EA\u7136\u6559\u5BA4\u56DB\uFF09", { panel: true }), s(-21, -11.4, "class", "\u8D99\u967D\u5802|4-9")];
         return [s(-40.2, -31.5, "office", "\u8FA6\u516C\u5BA4"), s(-31.5, -21, "hall", "\u4EC1\u98A8\u81FA", { panel: true }), s(-21, -11.4, "office", "\u8FA6\u516C\u5BA4")];
       };
-      allRooms("\u6A39\u5FB7\u6A13", bar(B, { u0: -40.2, u1: -11.4, D, toW, segs, open: [[-40.2, -11.4]], plane: "n", faceAt: 20.7, corFace: "w", ends: { u0: "none", u1: "none" } }), toW, D);
+      allRooms("\u6A39\u5FB7\u6A13", bar(B, { u0: -40.2, u1: -11.4, D: D2, toW, segs, open: [[-40.2, -11.4]], plane: "n", faceAt: 20.7, corFace: "w", ends: { u0: "none", u1: "none" } }), toW, D2);
       const c = document.createElement("canvas");
       c.width = 256;
       c.height = 1024;
@@ -35862,7 +35106,7 @@ void main() {
     }
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u660E\u54F2\u6A13\uFF08\u897F\u68DF\u3001\u747E\u745C\u81FA\uFF09");
     {
-      const D = 19.3, toW = (u, w) => [-31 - w, u];
+      const D2 = 19.3, toW = (u, w) => [-31 - w, u];
       const segs = (f) => {
         const s = (a, b, type, name, o = {}) => {
           const [nm, cls] = (name || "").split("|");
@@ -35875,7 +35119,7 @@ void main() {
         if (f === 3) return [s(-34.6, -19.8, "office", "\u8996\u807D\u6559\u5BA4"), st];
         return [s(-34.6, -19.8, "void", "\u8996\u807D\u6559\u5BA4\uFF08\u6311\u9AD8\uFF09", { void: true }), st];
       };
-      allRooms("\u660E\u54F2\u6A13", bar(B, { u0: -34.6, u1: -16, D, toW, segs, open: [[-34.6, -16]], plane: "n", faceAt: -31.5, corFace: "e", ends: { u0: "corridor", u1: "corridor" } }), toW, D);
+      allRooms("\u660E\u54F2\u6A13", bar(B, { u0: -34.6, u1: -16, D: D2, toW, segs, open: [[-34.6, -16]], plane: "n", faceAt: -31.5, corFace: "e", ends: { u0: "corridor", u1: "corridor" } }), toW, D2);
       for (let f = 1; f < 5; f++) {
         const yb = FB[f];
         for (const [n0, n1] of [[-16, -11.4], [-40.2, -34.6]]) {
@@ -36682,14 +35926,14 @@ void main() {
     flush() {
       if (!this.dirty) return;
       this.dirty = false;
-      const D = this._d, M2 = this.mesh;
+      const D2 = this._d, M2 = this.mesh;
       for (let i = 0; i < this.items.length; i++) {
         const it = this.items[i];
-        D.position.copy(it.p);
-        D.quaternion.copy(it.q);
-        D.scale.copy(it.s);
-        D.updateMatrix();
-        M2.setMatrixAt(i, D.matrix);
+        D2.position.copy(it.p);
+        D2.quaternion.copy(it.q);
+        D2.scale.copy(it.s);
+        D2.updateMatrix();
+        M2.setMatrixAt(i, D2.matrix);
         if (it.col) M2.setColorAt(i, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
       }
       M2.count = this.items.length;
@@ -36913,7 +36157,7 @@ void main() {
       for (let i = 0; i < (tree2 ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
     }
     updateChunks(dt) {
-      const D = this._dummy, M2 = this.chunkMesh, dq = new Quaternion(), ax = new Vector3();
+      const D2 = this._dummy, M2 = this.chunkMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const ch of this.chunks) {
         ch.life += dt;
@@ -36947,11 +36191,11 @@ void main() {
           }
         }
         const fade2 = Math.min(1, (ch.max - ch.life) / 0.8);
-        D.position.copy(ch.p);
-        D.quaternion.copy(ch.q);
-        D.scale.copy(ch.s).multiplyScalar(fade2);
-        D.updateMatrix();
-        M2.setMatrixAt(n, D.matrix);
+        D2.position.copy(ch.p);
+        D2.quaternion.copy(ch.q);
+        D2.scale.copy(ch.s).multiplyScalar(fade2);
+        D2.updateMatrix();
+        M2.setMatrixAt(n, D2.matrix);
         M2.setColorAt(n, this._col.setRGB(ch.col[0], ch.col[1], ch.col[2]));
         n++;
       }
@@ -37062,7 +36306,7 @@ void main() {
     }
     updateCases(dt) {
       if (!this.cases.length && !this.caseMesh.count) return;
-      const D = this._dummy, M2 = this.caseMesh, dq = new Quaternion(), ax = new Vector3();
+      const D2 = this._dummy, M2 = this.caseMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const c of this.cases) {
         c.life += dt;
@@ -37091,11 +36335,11 @@ void main() {
           }
         }
         const fade2 = Math.min(1, (c.max - c.life) / 1.5);
-        D.position.copy(c.p);
-        D.quaternion.copy(c.q);
-        D.scale.set(c.r * fade2, c.len * fade2, c.r * fade2);
-        D.updateMatrix();
-        M2.setMatrixAt(n++, D.matrix);
+        D2.position.copy(c.p);
+        D2.quaternion.copy(c.q);
+        D2.scale.set(c.r * fade2, c.len * fade2, c.r * fade2);
+        D2.updateMatrix();
+        M2.setMatrixAt(n++, D2.matrix);
       }
       this.cases = this.cases.filter((c) => c.life < c.max);
       M2.count = n;
@@ -37164,7 +36408,7 @@ void main() {
       }
     }
     updateShards(dt) {
-      const D = this._dummy, M2 = this.shardMesh, dq = new Quaternion(), ax = new Vector3();
+      const D2 = this._dummy, M2 = this.shardMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const sh of this.shards) {
         sh.life += dt;
@@ -37193,11 +36437,11 @@ void main() {
           }
         }
         const fade2 = Math.min(1, (sh.max - sh.life) / 0.6);
-        D.position.copy(sh.p);
-        D.quaternion.copy(sh.q);
-        D.scale.setScalar(sh.s * fade2);
-        D.updateMatrix();
-        M2.setMatrixAt(n++, D.matrix);
+        D2.position.copy(sh.p);
+        D2.quaternion.copy(sh.q);
+        D2.scale.setScalar(sh.s * fade2);
+        D2.updateMatrix();
+        M2.setMatrixAt(n++, D2.matrix);
       }
       this.shards = this.shards.filter((sh) => sh.life < sh.max);
       M2.count = n;
@@ -38135,41 +37379,74 @@ void main() {
   };
 
   // game-src/weapons.js
+  var D = Math.PI / 180;
+  function path(points) {
+    return points.map(([n, up, right]) => [n, up * D, right * D]);
+  }
+  function sampleRecoil(pts, n) {
+    if (n >= pts[pts.length - 1][0]) {
+      const a = pts[pts.length - 2], b = pts[pts.length - 1];
+      const span = b[0] - a[0];
+      const t = (n - b[0]) % (span * 2) / span;
+      const f = t <= 1 ? 1 - t : t - 1;
+      return [a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+    }
+    for (let i = 1; i < pts.length; i++) {
+      if (n < pts[i][0]) {
+        const a = pts[i - 1], b = pts[i], t = (n - a[0]) / (b[0] - a[0]);
+        return [a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+      }
+    }
+    return [pts[0][1], pts[0][2]];
+  }
+  function gun(o) {
+    return {
+      auto: false,
+      headMul: 3.5,
+      limbMul: 0.8,
+      speed: 1,
+      falloff: 0.98,
+      pen: 1,
+      armorPen: 0.75,
+      sound: o.id,
+      hudName: o.name,
+      ...o
+    };
+  }
   var WEAPONS = {
-    ak47: {
+    ak47: gun({
       id: "ak47",
       name: "AK-47",
       slot: 0,
       type: "rifle",
       auto: true,
-      dmg: 36,
-      headMul: 4,
+      dmg: 35,
+      headMul: 4.2,
       limbMul: 0.78,
       rpm: 600,
       mag: 30,
       reserve: 90,
       reload: 2.45,
       draw: 0.85,
-      speed: 0.93,
+      speed: 0.92,
       range: 220,
-      falloff: 0.985,
-      pen: 1.2,
+      falloff: 0.986,
+      pen: 1.25,
       armorPen: 0.78,
-      spread: { base: 28e-4, move: 0.045, air: 0.16, crouch: 0.6, perShot: 55e-4, max: 0.05, recover: 7 },
-      recoil: { up: 0.0105, upMax: 0.11, side: 62e-4, sideStart: 5, recover: 6.5, freq: 0.42, phase: 0 },
-      sound: "ak47",
-      hudName: "AK-47"
-    },
-    m4a1: {
+      spread: { base: 26e-4, move: 0.046, air: 0.16, crouch: 0.6, perShot: 55e-4, max: 0.05, recover: 7 },
+      // 前 8 發幾乎直直往上，之後先往左、再大幅往右擺
+      recoil: { pattern: path([[0, 0.66, 0], [3, 0.62, 0.04], [8, 0.42, -0.12], [12, 0.2, -0.42], [17, 0.12, 0.48], [22, 0.1, -0.36]]), upMax: 0.11, recover: 6.5 }
+    }),
+    m4a1: gun({
       id: "m4a1",
       name: "M4A1",
       slot: 0,
       type: "rifle",
       auto: true,
-      dmg: 32,
+      dmg: 31,
       headMul: 4,
       limbMul: 0.8,
-      rpm: 700,
+      rpm: 720,
       mag: 30,
       reserve: 90,
       reload: 2.3,
@@ -38179,21 +37456,19 @@ void main() {
       falloff: 0.985,
       pen: 1,
       armorPen: 0.72,
-      spread: { base: 24e-4, move: 0.04, air: 0.15, crouch: 0.6, perShot: 44e-4, max: 0.042, recover: 8 },
-      recoil: { up: 82e-4, upMax: 0.085, side: 48e-4, sideStart: 6, recover: 7, freq: 0.5, phase: Math.PI },
-      sound: "m4a1",
-      hudName: "M4A1"
-    },
-    awm: {
+      spread: { base: 22e-4, move: 0.04, air: 0.15, crouch: 0.6, perShot: 43e-4, max: 0.042, recover: 8 },
+      // 上跳較小，橫向先往右再緩慢回左
+      recoil: { pattern: path([[0, 0.52, 0], [4, 0.47, 0.06], [9, 0.3, 0.3], [14, 0.16, -0.26], [20, 0.12, 0.22]]), upMax: 0.085, recover: 7 }
+    }),
+    awm: gun({
       id: "awm",
       name: "AWM",
       slot: 0,
       type: "sniper",
-      auto: false,
-      dmg: 118,
-      headMul: 2.2,
+      dmg: 115,
+      headMul: 2.3,
       limbMul: 0.82,
-      rpm: 41,
+      rpm: 42,
       mag: 5,
       reserve: 20,
       reload: 3.5,
@@ -38205,12 +37480,10 @@ void main() {
       armorPen: 0.95,
       bolt: 1.35,
       spread: { base: 0.06, scoped: 4e-4, move: 0.09, air: 0.22, crouch: 0.85, perShot: 0, max: 0.2, recover: 3 },
-      recoil: { up: 0.035, upMax: 0.035, side: 4e-3, sideStart: 0, recover: 4 },
-      zoom: [30, 11],
-      sound: "awm",
-      hudName: "AWM"
-    },
-    mp5: {
+      recoil: { pattern: path([[0, 2, 0.15]]), upMax: 0.035, recover: 4 },
+      zoom: [30, 11]
+    }),
+    mp5: gun({
       id: "mp5",
       name: "MP5",
       slot: 0,
@@ -38218,7 +37491,7 @@ void main() {
       auto: true,
       dmg: 25,
       headMul: 3.6,
-      limbMul: 0.85,
+      limbMul: 0.86,
       rpm: 800,
       mag: 30,
       reserve: 120,
@@ -38226,27 +37499,24 @@ void main() {
       draw: 0.6,
       speed: 1,
       range: 120,
-      falloff: 0.945,
+      falloff: 0.946,
       pen: 0.6,
       armorPen: 0.6,
-      spread: { base: 4e-3, move: 0.022, air: 0.12, crouch: 0.7, perShot: 35e-4, max: 0.04, recover: 9 },
-      recoil: { up: 58e-4, upMax: 0.06, side: 4e-3, sideStart: 5, recover: 8, freq: 0.75, phase: 0.6 },
-      sound: "mp5",
-      hudName: "MP5"
-    },
-    // 霰彈槍：近距離一槍斃命，距離一拉開彈丸散開、傷害急遽衰減
-    m870: {
+      spread: { base: 38e-4, move: 0.022, air: 0.12, crouch: 0.7, perShot: 35e-4, max: 0.04, recover: 9 },
+      // 小幅、快速的左右抖動
+      recoil: { pattern: path([[0, 0.36, 0], [5, 0.3, -0.12], [9, 0.18, 0.2], [13, 0.12, -0.18]]), upMax: 0.06, recover: 8 }
+    }),
+    m870: gun({
       id: "m870",
       name: "M870",
       slot: 0,
       type: "shotgun",
-      auto: false,
-      dmg: 22,
+      dmg: 21,
       pellets: 9,
-      pelletSpread: 0.052,
+      pelletSpread: 0.05,
       headMul: 2,
       limbMul: 0.8,
-      rpm: 75,
+      rpm: 72,
       mag: 7,
       reserve: 28,
       reload: 3.1,
@@ -38259,20 +37529,18 @@ void main() {
       bolt: 0.72,
       pump: true,
       spread: { base: 8e-3, move: 0.03, air: 0.1, crouch: 0.85, perShot: 0, max: 0.01, recover: 5 },
-      recoil: { up: 0.05, upMax: 0.07, side: 0.012, sideStart: 0, recover: 5 },
-      sound: "m870",
-      hudName: "M870"
-    },
-    deagle: {
+      recoil: { pattern: path([[0, 2.9, 0.4]]), upMax: 0.07, recover: 5 }
+    }),
+    deagle: gun({
       id: "deagle",
       name: "\u6C99\u6F20\u4E4B\u9DF9",
       slot: 1,
       type: "pistol",
-      auto: false,
+      hudName: "DESERT EAGLE",
       dmg: 54,
       headMul: 3.8,
       limbMul: 0.75,
-      rpm: 260,
+      rpm: 250,
       mag: 7,
       reserve: 35,
       reload: 2,
@@ -38282,18 +37550,18 @@ void main() {
       falloff: 0.98,
       pen: 1,
       armorPen: 0.8,
-      spread: { base: 4e-3, move: 0.05, air: 0.18, crouch: 0.7, perShot: 0.028, max: 0.07, recover: 5 },
-      recoil: { up: 0.03, upMax: 0.09, side: 8e-3, sideStart: 1, recover: 5, freq: 1.1, phase: 1 },
-      sound: "deagle",
-      hudName: "DESERT EAGLE"
-    },
+      spread: { base: 36e-4, move: 0.05, air: 0.18, crouch: 0.7, perShot: 0.028, max: 0.07, recover: 5 },
+      recoil: { pattern: path([[0, 1.75, 0.1], [1, 1.75, -0.35], [3, 1.6, 0.45]]), upMax: 0.09, recover: 5 }
+    }),
     knife: {
       id: "knife",
       name: "\u8ECD\u5200",
       slot: 2,
       type: "melee",
       auto: true,
-      dmgLight: 52,
+      sound: "knife",
+      hudName: "KNIFE",
+      dmgLight: 50,
       dmgHeavy: 100,
       rangeLight: 1.9,
       rangeHeavy: 1.6,
@@ -38301,8 +37569,6 @@ void main() {
       rateHeavy: 1.05,
       draw: 0.4,
       speed: 1.08,
-      sound: "knife",
-      hudName: "KNIFE",
       mag: 0,
       reserve: 0
     },
@@ -38311,44 +37577,46 @@ void main() {
       name: "\u624B\u96F7",
       slot: 3,
       type: "grenade",
-      auto: false,
-      dmg: 115,
+      sound: "grenade",
+      hudName: "HE GRENADE",
+      dmg: 170,
+      armorPen: 0.9,
       radius: 7.5,
       fuse: 2.6,
       count: 1,
       draw: 0.5,
       speed: 1,
-      sound: "grenade",
-      hudName: "HE GRENADE",
       mag: 1,
       reserve: 0
     }
   };
-  var PRIMARIES = ["ak47", "m4a1", "awm", "mp5", "m870"];
+  var PRIMARIES = Object.values(WEAPONS).filter((w) => w.slot === 0).map((w) => w.id);
   var WeaponState = class {
     constructor(id) {
-      this.def = WEAPONS[id];
       this.id = id;
+      this.def = WEAPONS[id];
       this.mag = this.def.mag;
       this.reserve = this.def.reserve;
       this.nextFire = 0;
       this.reloadUntil = 0;
+      this.boltUntil = 0;
+      this.lastShot = -10;
       this.shotsFired = 0;
       this.spreadAcc = 0;
-      this.lastShot = -10;
-      this.boltUntil = 0;
     }
     get reloading() {
       return this.reloadUntil > 0;
     }
+    get usesAmmo() {
+      return this.def.type !== "melee" && this.def.type !== "grenade";
+    }
     canReload() {
-      const d = this.def;
-      return d.type !== "melee" && d.type !== "grenade" && this.mag < d.mag && this.reserve > 0 && !this.reloading;
+      return this.usesAmmo && !this.reloading && this.mag < this.def.mag && this.reserve > 0;
     }
     finishReload() {
-      const need = this.def.mag - this.mag, take = Math.min(need, this.reserve);
-      this.mag += take;
-      this.reserve -= take;
+      const moved = Math.min(this.def.mag - this.mag, this.reserve);
+      this.mag += moved;
+      this.reserve -= moved;
       this.reloadUntil = 0;
     }
     refill() {
@@ -38361,38 +37629,33 @@ void main() {
   function currentSpread(ws, st) {
     const s = ws.def.spread;
     if (!s) return 0;
-    let v = s.base;
-    if (ws.def.type === "sniper") v = st.scoped && st.scopeReady ? s.scoped : s.base;
-    const sp = st.speed || 0;
-    v += s.move * Math.min(1, Math.max(0, (sp - 1.6) / 3.4));
-    if (!st.onGround) v += s.air;
-    v += ws.spreadAcc;
-    if (st.crouch && st.onGround) v *= s.crouch;
-    return Math.min(v, s.max + s.base + (st.onGround ? 0 : s.air));
+    const sniperSteady = ws.def.type === "sniper" && st.scoped && st.scopeReady;
+    let cone = sniperSteady ? s.scoped : s.base;
+    const run = Math.min(1, Math.max(0, ((st.speed || 0) - 1.6) / 3.4));
+    cone += s.move * run + ws.spreadAcc;
+    if (!st.onGround) cone += s.air;
+    else if (st.crouch) cone *= s.crouch;
+    const cap = s.base + s.max + (st.onGround ? 0 : s.air);
+    return Math.min(cone, cap);
   }
   function recoilKick(ws, rnd2) {
     const r = ws.def.recoil;
-    const n = ws.shotsFired;
-    const up = r.up * (n < 3 ? 1.25 : 1) * (0.96 + rnd2() * 0.08);
-    let side;
-    if (n >= r.sideStart) side = r.side * (Math.sin((n - r.sideStart) * (r.freq || 0.5) + (r.phase || 0)) * 1.3 + (rnd2() - 0.5) * 0.2);
-    else side = n ? r.side * 0.15 * (n & 1 ? 1 : -1) : 0;
-    return [up, side];
+    if (!r) return [0, 0];
+    const [up, right] = sampleRecoil(r.pattern, ws.shotsFired);
+    return [up * (0.96 + rnd2() * 0.08), right + (rnd2() - 0.5) * 0.1 * D];
   }
   function jitterDir(dir, spread, rnd2) {
-    if (spread <= 0) return dir;
-    const ax = Math.abs(dir.x) < 0.9 ? [1, 0, 0] : [0, 1, 0];
-    let ux = dir.y * ax[2] - dir.z * ax[1], uy = dir.z * ax[0] - dir.x * ax[2], uz = dir.x * ax[1] - dir.y * ax[0];
-    const ul = Math.hypot(ux, uy, uz);
-    ux /= ul;
-    uy /= ul;
-    uz /= ul;
-    const vx = dir.y * uz - dir.z * uy, vy = dir.z * ux - dir.x * uz, vz = dir.x * uy - dir.y * ux;
-    const a = rnd2() * Math.PI * 2, r = Math.sqrt(rnd2()) * spread;
-    const ca = Math.cos(a) * r, sa = Math.sin(a) * r;
-    dir.x += ux * ca + vx * sa;
-    dir.y += uy * ca + vy * sa;
-    dir.z += uz * ca + vz * sa;
+    if (!(spread > 0)) return dir;
+    const sign2 = dir.z >= 0 ? 1 : -1;
+    const a = -1 / (sign2 + dir.z), b = dir.x * dir.y * a;
+    const t1x = 1 + sign2 * dir.x * dir.x * a, t1y = sign2 * b, t1z = -sign2 * dir.x;
+    const t2x = b, t2y = sign2 + dir.y * dir.y * a, t2z = -dir.y;
+    const r = spread * Math.abs(rnd2() + rnd2() - 1);
+    const ang = rnd2() * Math.PI * 2;
+    const c = Math.cos(ang) * r, s = Math.sin(ang) * r;
+    dir.x += t1x * c + t2x * s;
+    dir.y += t1y * c + t2y * s;
+    dir.z += t1z * c + t2z * s;
     return dir.normalize();
   }
 
@@ -42397,7 +41660,7 @@ void main() {
         this.thinkT = 0.13 + Math.random() * 0.06;
         this.think();
       }
-      const D = this.diff;
+      const D2 = this.diff;
       let wishX = 0, wishZ = 0, fire = false, firePressed = false, alt = false, crouch = now < this.crouchUntil, walk = false;
       let sw = null;
       if (this.nadePlan) {
@@ -42418,12 +41681,12 @@ void main() {
         p.addScaledVector(tgt.vel, 0.08);
         const dx = p.x - e.x, dy = p.y - e.y, dz = p.z - e.z, hd = Math.hypot(dx, dz);
         const trueYaw = Math.atan2(-dx, -dz), truePitch = Math.atan2(dy, hd);
-        const k = Math.exp(-D.track * dt);
+        const k = Math.exp(-D2.track * dt);
         this.errY *= k;
         this.errP *= k;
         const wob = 4e-3 * (1 + tgt.speed / 4);
         dYaw = trueYaw + this.errY + Math.sin(now * 3.1 + this.id) * wob;
-        dPitch = truePitch + this.errP + Math.cos(now * 2.7 + this.id) * wob * 0.6 - this.punchP * D.comp;
+        dPitch = truePitch + this.errP + Math.cos(now * 2.7 + this.id) * wob * 0.6 - this.punchP * D2.comp;
         this.lookYaw = void 0;
         this.lookPitch = void 0;
         const aimErr = Math.hypot(wrapPi(this.yaw - trueYaw), this.pitch - truePitch);
@@ -42457,7 +41720,7 @@ void main() {
           this.strafeDir = Math.random() < 0.5 ? -1 : 1;
           if (Math.random() < 0.2) this.strafeDir = 0;
         }
-        const moveK = d.type === "sniper" ? 0 : D.strafe;
+        const moveK = d.type === "sniper" ? 0 : D2.strafe;
         const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
         wishX = rx * this.strafeDir * moveK;
         wishZ = rz * this.strafeDir * moveK;
@@ -42473,7 +41736,7 @@ void main() {
           wishX += -Math.sin(this.yaw) * 0.5;
           wishZ += -Math.cos(this.yaw) * 0.5;
         }
-        if (Math.random() < D.bunny * dt && this.onGround && d.type !== "sniper") this.wantJump = true;
+        if (Math.random() < D2.bunny * dt && this.onGround && d.type !== "sniper") this.wantJump = true;
       } else {
         if (this.scoped && !this.visible && now - this.lastSeenT > 2) alt = true;
         if (this.path && this.pi < this.path.length) {
@@ -42507,7 +41770,7 @@ void main() {
           wishZ += dz / d * 0.6;
         }
       }
-      const turn = D.turn * dt * (this.visible ? 1 : 0.7);
+      const turn = D2.turn * dt * (this.visible ? 1 : 0.7);
       const ey = wrapPi(dYaw - this.yaw);
       this.yaw = wrapPi(this.yaw + MathUtils.clamp(ey, -turn, turn));
       this.pitch += MathUtils.clamp(dPitch - this.pitch, -turn * 0.6, turn * 0.6);
@@ -43341,15 +42604,20 @@ void main() {
       for (const a of this.actors) {
         if (!a.alive) continue;
         if (a.team === owner.team && a !== owner) continue;
-        const c = a.soldier.chestWorld(new Vector3());
-        const dist = c.distanceTo(p);
+        const pts = [new Vector3(a.pos.x, a.pos.y + 0.3, a.pos.z), a.soldier.chestWorld(new Vector3()), a.soldier.headWorld(new Vector3())];
+        let dist = Infinity, dir = null, open = false;
+        for (const c of pts) {
+          const v = c.clone().sub(p), L2 = v.length();
+          v.divideScalar(L2 || 1);
+          if (L2 < dist) {
+            dist = L2;
+            dir = v;
+          }
+          if (!open && L2 < d.radius && !this.world.raycast(p.x, p.y + 0.2, p.z, v.x, v.y, v.z, Math.max(0, L2 - 0.3), "bullet")) open = true;
+        }
         if (dist > d.radius) continue;
-        const dir = c.clone().sub(p);
-        const L2 = dir.length();
-        dir.divideScalar(L2 || 1);
-        const blocked = this.world.raycast(p.x, p.y + 0.2, p.z, dir.x, dir.y, dir.z, Math.max(0, L2 - 0.3), "bullet");
         let dmg = d.dmg * Math.pow(1 - dist / d.radius, 1.1);
-        if (blocked) dmg *= 0.2;
+        if (!open) dmg *= 0.3;
         if (dmg > 1) this.damage(a, owner, dmg, "chest", "he", dir, false);
       }
       for (const b of this.actors) if (b.hear && b.pos.distanceTo(p) < 40) b.hear(p, true);

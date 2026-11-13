@@ -534,13 +534,17 @@ export class Game {
     for (const a of this.actors) {
       if (!a.alive) continue;
       if (a.team === owner.team && a !== owner) continue;
-      const c = a.soldier.chestWorld(new THREE.Vector3());
-      const dist = c.distanceTo(p);
+      // 以身體離爆點最近的部位（腳、胸、頭）算距離；任一部位沒被擋住就算直接受爆
+      const pts = [new THREE.Vector3(a.pos.x, a.pos.y + 0.3, a.pos.z), a.soldier.chestWorld(new THREE.Vector3()), a.soldier.headWorld(new THREE.Vector3())];
+      let dist = Infinity, dir = null, open = false;
+      for (const c of pts) {
+        const v = c.clone().sub(p), L = v.length(); v.divideScalar(L || 1);
+        if (L < dist) { dist = L; dir = v; }
+        if (!open && L < d.radius && !this.world.raycast(p.x, p.y + 0.2, p.z, v.x, v.y, v.z, Math.max(0, L - 0.3), 'bullet')) open = true;
+      }
       if (dist > d.radius) continue;
-      const dir = c.clone().sub(p); const L = dir.length(); dir.divideScalar(L || 1);
-      const blocked = this.world.raycast(p.x, p.y + 0.2, p.z, dir.x, dir.y, dir.z, Math.max(0, L - 0.3), 'bullet');
       let dmg = d.dmg * Math.pow(1 - dist / d.radius, 1.1);
-      if (blocked) dmg *= 0.2;
+      if (!open) dmg *= 0.3;   // 隔著掩體只受到部分衝擊
       if (dmg > 1) this.damage(a, owner, dmg, 'chest', 'he', dir, false);
     }
     for (const b of this.actors) if (b.hear && b.pos.distanceTo(p) < 40) b.hear(p, true);
