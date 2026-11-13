@@ -37951,8 +37951,6 @@ void main() {
       <div class="row3">${field("\u9748\u654F\u5EA6", slider("sens", 0.2, 3, 0.05))}${FOV}${VOL}</div>
       <button class="go" id="btnStart">\u958B\u59CB\u4E0A\u8AB2</button>
       <div class="note">\u6309\u4E0B\u958B\u59CB\u5F8C\u6ED1\u9F20\u6703\u88AB\u9396\u5B9A\uFF0C\u6309 Esc \u66AB\u505C\u3002\u5207\u63DB\u756B\u8CEA\u6703\u91CD\u65B0\u8F09\u5165\u9801\u9762\u3002</div>
-      <div class="mlinks"><span>\u904A\u6232\u5F15\u64CE\u6539\u7DE8\u81EA</span><a href="https://github.com/riba2534/claude-opus-5-5-demo" target="_blank" rel="noopener noreferrer">riba2534/claude-opus-5-5-demo</a><span>\xB7</span><a href="https://x.com/riba2534" target="_blank" rel="noopener noreferrer">X @riba2534</a></div>
-      <div class="mlinks credits"><span>\u5730\u5716\u8CC7\u6599 \xA9</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap \u8CA2\u737B\u8005\uFF08ODbL\uFF09</a><span>\xB7</span><span>\u6821\u5712\u914D\u7F6E\u8207\u5802\u865F\uFF1A</span><a href="https://tanghao.neocities.org/" target="_blank" rel="noopener noreferrer">\u81FA\u4E2D\u5E02\u5357\u5340\u6A39\u7FA9\u570B\u6C11\u5C0F\u5B78\uFF08CC BY-NC-SA\uFF09</a></div>
     </section>
   </div>
 </div>
@@ -38389,6 +38387,30 @@ void main() {
   // game-src/audio.js
   var clamp2 = (v, a, b) => Math.max(a, Math.min(b, v));
   var pick = (...names) => names[Math.floor(Math.random() * names.length)];
+  var CAL = {
+    ak47: 4,
+    m4a1: 0.8,
+    awm: 1.1,
+    mp5: -4.9,
+    m870: -0.3,
+    deagle: 3,
+    magin: -4.1,
+    bolt: 4.4,
+    boltback: 4.4,
+    boltfwd: 5.5,
+    dry: 4.1,
+    impc: 1.7,
+    impc2: -3.1,
+    impf: -1.1,
+    impm: 6,
+    step1: 1.4,
+    step2: 2,
+    step3: 1.8,
+    step4: -2.1,
+    explosion: 2.2,
+    explosion2: -0.7,
+    shell: 8
+  };
   var AudioSystem = class {
     constructor() {
       this.ctx = null;
@@ -38461,6 +38483,7 @@ void main() {
       if (!this.ctx) return;
       const sample = this.samples[name];
       if (!sample) return;
+      gain *= Math.pow(10, (CAL[name] || 0) / 20);
       if (pos && Math.hypot(pos.x - this.listener.x, pos.y - this.listener.y, pos.z - this.listener.z) > 250) return;
       while (this.active.length >= 48) this.active.shift().stop();
       const c = this.ctx, source = c.createBufferSource(), g = c.createGain(), nodes = [source, g];
@@ -38508,10 +38531,10 @@ void main() {
     playDryFire() {
       this.play("dry", null, { gain: 0.4 });
     }
-    playFootstep(pos, surface, opts = {}) {
+    playFootstep(pos, surface2, opts = {}) {
       this.play(pick("step1", "step2", "step3", "step4"), pos, { gain: opts.crouch ? 0.13 : opts.run ? 0.5 : 0.32, rate: 0.95 + Math.random() * 0.1 });
     }
-    playLand(pos, surface, strength = 1) {
+    playLand(pos, surface2, strength = 1) {
       this.play("land", pos, { gain: 0.25 + 0.5 * clamp2(strength, 0, 1) });
     }
     playJump(pos) {
@@ -38533,8 +38556,9 @@ void main() {
       this.play("whiz", pos, { gain: 0.6 });
     }
     playHitmarker(headshot, armored) {
-      this.play(headshot ? "shell" : armored ? "impm" : "dry", null, { ui: true, gain: 0.24, rate: headshot ? 1.8 : 1.4, duration: 0.09 });
+      this.play(headshot ? "impm" : armored ? "impm" : "dry", null, { ui: true, gain: headshot ? 0.9 : 0.7, rate: headshot ? 1.7 : armored ? 1.1 : 1.4, duration: headshot ? 0.16 : 0.09 });
     }
+    // 爆頭用清脆的金屬聲，原本的彈殼聲幾乎聽不到
     playArmorBreak(pos) {
       this.play("glass2", pos, { gain: 0.35, duration: 0.3, rate: 1.3 });
     }
@@ -40391,21 +40415,587 @@ void main() {
     return e;
   }
 
-  // game-src/game.js
-  var nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-  var MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "MULTI KILL", "ULTRA KILL", "RAMPAGE", "UNSTOPPABLE", "GODLIKE"];
-  var MULTI_CN = ["", "", "\u96D9\u6BBA", "\u4E09\u6BBA", "\u56DB\u6BBA", "\u4E94\u6BBA", "\u516D\u6BBA\uFF01", "\u7121\u4EBA\u80FD\u64CB", "\u8D85\u795E"];
+  // game-src/combat.js
+  var STREAK = [null, null, ["DOUBLE KILL", "\u96D9\u6BBA"], ["TRIPLE KILL", "\u4E09\u6BBA"], ["MULTI KILL", "\u56DB\u6BBA"], ["ULTRA KILL", "\u4E94\u6BBA"], ["RAMPAGE", "\u516D\u6BBA\uFF01"], ["UNSTOPPABLE", "\u7121\u4EBA\u80FD\u64CB"], ["GODLIKE", "\u8D85\u795E"]];
+  var EJECTS_CASINGS = /* @__PURE__ */ new Set(["rifle", "smg", "pistol", "sniper", "shotgun"]);
+  var TEAM_TEXT = { BL: "#ff9b70", GR: "#8cc8ff" };
+  var titleCase = (s) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   var _v2 = new Vector3();
-  var _v22 = new Vector3();
+  var _w2 = new Vector3();
   var _d2 = new Vector3();
-  var CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1, shotgun: 1 };
+  var combat = {
+    // ───────── 開槍 ─────────
+    fireWeapon(a, ws, spread2) {
+      const d = ws.def;
+      const eye = a.eye(new Vector3());
+      const dir = jitterDir(a.forward(new Vector3()), spread2, Math.random);
+      const muzzle = a.isPlayer ? this.playerShotFx(a, d, dir) : this.botShotFx(a, d, dir);
+      a.radarT = 1.6;
+      this.alertBots(a.pos, a.team, 45, true);
+      const pellets = d.pellets || 1;
+      let end = null;
+      for (let i = 0; i < pellets; i++) {
+        const pd = pellets > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
+        this._quiet = i > 0;
+        end = this.traceBullet(a, eye, pd, d);
+        if (i === 0 && (d.type === "sniper" || Math.random() < 0.33)) this.fx.tracer(muzzle, end);
+      }
+      this._quiet = false;
+      this.nearMiss(a, eye, dir, end);
+    },
+    // 玩家開槍：第一人稱槍口、畫面閃光、拋殼（泵動槍延遲到拉護木時才拋）
+    playerShotFx(a, d, dir) {
+      const cam = this.renderer.camera;
+      const right = new Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+      const up = new Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+      const muzzle = cam.position.clone().addScaledVector(dir, 0.9).addScaledVector(right, 0.14).addScaledVector(up, -0.1);
+      this.vm.fire();
+      this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === "sniper" ? 10 : 5, 0.06);
+      audio.playShot(d.sound, null);
+      if (Math.random() < 0.5) audio.playShellDrop(null);
+      if (d.pump) {
+        const t = this.time, same = () => a.alive && a.weapon.def === d;
+        this.after(t + 0.2, () => same() && audio.playReload(d.id, "boltback"));
+        this.after(t + 0.42, () => same() && audio.playReload(d.id, "boltforward"));
+        this.after(t + 0.32, () => {
+          if (!same()) return;
+          const c = this.renderer.camera;
+          const r = new Vector3(1, 0, 0).applyQuaternion(c.quaternion), u = new Vector3(0, 1, 0).applyQuaternion(c.quaternion);
+          const f = a.forward(new Vector3());
+          this.fx.casing(c.position.clone().addScaledVector(f, 0.38).addScaledVector(r, 0.15).addScaledVector(u, -0.08), r.multiplyScalar(2.2).addScaledVector(u, 1.4), d.type);
+        });
+      } else if (EJECTS_CASINGS.has(d.type)) {
+        const at2 = cam.position.clone().addScaledVector(dir, 0.42).addScaledVector(right, 0.17).addScaledVector(up, -0.07);
+        const v = right.clone().multiplyScalar(1.8 + Math.random() * 1.2).addScaledVector(up, 1.1 + Math.random() * 0.9).addScaledVector(dir, -0.4 + Math.random() * 0.4);
+        if (a.vel) v.add(a.vel);
+        this.fx.casing(at2, v, d.type);
+      }
+      return muzzle;
+    },
+    // 其他角色開槍：第三人稱槍口火焰、身體後座、近處才拋彈殼
+    botShotFx(a, d, dir) {
+      const muzzle = a.soldier.muzzleWorld(new Vector3());
+      this.fx.muzzle(muzzle, dir, d.type === "sniper" ? 1.6 : d.type === "smg" ? 0.8 : 1);
+      a.soldier.kick();
+      audio.playShot(d.sound, muzzle);
+      if (EJECTS_CASINGS.has(d.type) && muzzle.distanceTo(this.renderer.camera.position) < 35) {
+        const right = new Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
+        const at2 = muzzle.clone().addScaledVector(dir, -0.45).addScaledVector(right, 0.05);
+        this.fx.casing(at2, right.multiplyScalar(1.6 + Math.random()).add(new Vector3(0, 1.2 + Math.random() * 0.8, 0)), d.type);
+      }
+      return muzzle;
+    },
+    // 敵方子彈從玩家耳邊 1.3 m 內擦過：呼嘯聲＋短暫模糊與震動（壓制感）
+    nearMiss(a, eye, dir, end) {
+      const p = this.player;
+      if (!p?.alive || a === p || a.team === p.team) return;
+      const head = p.eye(_v2);
+      const along = _d2.copy(head).sub(eye).dot(dir);
+      if (along <= 2 || along >= eye.distanceTo(end)) return;
+      const closest = eye.clone().addScaledVector(dir, along);
+      const miss = closest.distanceTo(head);
+      if (miss >= 1.3) return;
+      const k = 1 - miss / 1.3;
+      audio.playBulletWhiz(closest);
+      this.suppK = Math.max(this.suppK || 0, k);
+      this.suppT = 0.4;
+      this.fx.shake = Math.max(this.fx.shake, 0.12 + 0.2 * k);
+    },
+    // 彈道：依序檢查路徑上的牆面與角色。玻璃會碎、可破壞物會被打爛、薄牆可穿透（傷害遞減）
+    traceBullet(shooter, o, dir, d) {
+      const range = d.range;
+      const walls = this.world.raycastAll(o.x, o.y, o.z, dir.x, dir.y, dir.z, range);
+      let power = d.pen, keep = 1, wallbang = false, from = 0;
+      this.frame++;
+      for (let i = 0; i <= walls.length; i++) {
+        const h = walls[i];
+        const victim = this.firstActorHit(shooter, o, dir, from, h ? h.t : range);
+        if (victim) {
+          const { actor, t, part } = victim;
+          const pt2 = o.clone().addScaledVector(dir, t);
+          const partMul = part === "head" ? d.headMul : part === "arm" || part === "leg" ? d.limbMul : 1;
+          const dmg = d.dmg * keep * Math.pow(d.falloff, t / 10) * partMul;
+          const back = _v2.copy(dir).negate();
+          this.fx.impact(pt2, back, "flesh", dir);
+          if (part === "head") this.fx.impact(pt2, back, "flesh", dir);
+          if (!this._quiet) audio.playImpact(pt2, "flesh");
+          this.damage(actor, shooter, dmg, part, d.id, dir, wallbang);
+          return pt2;
+        }
+        if (!h) break;
+        const c = h.collider;
+        if (c.bullet === "pass" || c.solid === false && c.part) {
+          from = h.exit;
+          continue;
+        }
+        const pt = o.clone().addScaledVector(dir, h.t);
+        const near = pt.distanceTo(this.renderer.camera.position);
+        if (c.tag === "glass" && this.map.breakGlass) {
+          const pane = this.map.breakGlass(c);
+          if (pane) {
+            this.fx.shatter(pane, dir);
+            if (near < 60) audio.playGlassBreak(pt);
+          }
+          keep *= 0.9;
+          from = h.exit;
+          continue;
+        }
+        const mat = c.mat;
+        this.fx.impact(pt, new Vector3(h.nx, h.ny, h.nz), mat, dir);
+        if (!this._quiet && near < 40) audio.playImpact(pt, mat === "wood" ? "wood" : mat === "concrete" ? "concrete" : "metal");
+        const wreck = this.map.damageAt?.(c, d.dmg * keep, dir);
+        if (wreck) {
+          this.fx.debris(wreck, dir);
+          this.afterWreck(shooter);
+          if (near < 70) audio.playDestroy(pt, wreck.kind);
+          keep *= 0.75;
+          from = h.exit;
+          continue;
+        }
+        if (c.bullet === "pen") {
+          const cost = (h.exit - h.t) * (mat === "wood" ? 1 : 1.9);
+          if (power > cost) {
+            power -= cost;
+            keep *= 0.6;
+            wallbang = true;
+            from = h.exit;
+            this.fx.impact(o.clone().addScaledVector(dir, h.exit), dir.clone(), mat, dir);
+            continue;
+          }
+        } else if (mat === "metal" && Math.random() < 0.08) audio.playRicochet(pt);
+        return pt;
+      }
+      return o.clone().addScaledVector(dir, range);
+    },
+    firstActorHit(shooter, o, dir, from, limit) {
+      let best = null;
+      for (const a of this.actors) {
+        if (!a.alive || a === shooter || a.team === shooter.team) continue;
+        const r = a.soldier.hitTest(o, dir, best ? best.t : limit, this.frame);
+        if (r && r.t > from - 0.01 && r.t < (best ? best.t : limit)) best = { actor: a, t: r.t, part: r.part };
+      }
+      return best;
+    },
+    // ───────── 近戰 ─────────
+    // 以準心為中心左右各掃兩條射線找人；命中判定延遲到刀揮到的那一刻
+    melee(a, heavy) {
+      const d = WEAPONS.knife;
+      const range = heavy ? d.rangeHeavy : d.rangeLight;
+      const eye = a.eye(new Vector3());
+      const aim = a.forward(new Vector3());
+      if (a.isPlayer) this.vm.melee(heavy);
+      this.frame++;
+      let hit = null;
+      for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
+        const dir = aim.clone().applyAxisAngle(new Vector3(0, 1, 0), off);
+        for (const b of this.actors) {
+          if (!b.alive || b === a || b.team === a.team) continue;
+          const r = b.soldier.hitTest(eye, dir, range, this.frame);
+          if (r && (!hit || r.t < hit.t)) hit = { actor: b, t: r.t, part: r.part, dir };
+        }
+        if (hit) break;
+      }
+      const style = heavy ? "heavy" : "light", from = a.isPlayer ? null : eye;
+      this.after(this.time + (heavy ? 0.33 : 0.1), () => {
+        if (!a.alive) return;
+        if (hit?.actor.alive) {
+          const facing = hit.actor.forward(new Vector3()).setY(0).normalize();
+          const behind = facing.dot(_v2.copy(hit.dir).setY(0).normalize()) > 0.5;
+          let dmg = heavy ? d.dmgHeavy : d.dmgLight;
+          if (behind) dmg *= heavy ? 2 : 1.6;
+          if (hit.part === "head") dmg *= 1.3;
+          this.fx.impact(eye.clone().addScaledVector(hit.dir, hit.t), hit.dir.clone().negate(), "flesh", hit.dir);
+          audio.playKnife(style, "flesh", from);
+          this.damage(hit.actor, a, dmg, hit.part, "knife", hit.dir, false, true);
+          return;
+        }
+        const w = this.world.raycast(eye.x, eye.y, eye.z, aim.x, aim.y, aim.z, range, "bullet");
+        if (!w) {
+          audio.playKnife(style, "miss", from);
+          return;
+        }
+        const pt = eye.clone().addScaledVector(aim, w.t), c = w.collider;
+        const pane = c.tag === "glass" ? this.map.breakGlass?.(c) : null;
+        if (pane) {
+          this.fx.shatter(pane, aim);
+          audio.playGlassBreak(pt);
+        } else {
+          this.fx.slash(pt, new Vector3(w.nx, w.ny, w.nz), c.mat, heavy);
+          const wreck = this.map.damageAt?.(c, heavy ? 70 : 34, aim);
+          if (wreck) {
+            this.fx.debris(wreck, aim);
+            audio.playDestroy(pt, wreck.kind, 0.7);
+          }
+          this.afterWreck(a);
+        }
+        audio.playKnife(style, "wall", from);
+      });
+    },
+    // ───────── 手雷 ─────────
+    throwGrenade(a) {
+      const eye = a.eye(new Vector3());
+      const dir = a.forward(new Vector3());
+      const right = new Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
+      const pos = eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
+      const vel = dir.clone().multiplyScalar(16).add(new Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
+      const mesh = buildGunMerged("he");
+      mesh.scale.setScalar(1.3);
+      mesh.position.copy(pos);
+      this.renderer.scene.add(mesh);
+      this.nades.push({ mesh, pos, vel, fuse: WEAPONS.he.fuse, owner: a, spin: new Vector3(Math.random() * 10, Math.random() * 10, 0) });
+      audio.playGrenadeThrow();
+      if (a.isPlayer) audio.announce("Fire in the hole!");
+      this.alertBots(pos, a.team, 20, false);
+    },
+    // 手雷飛行：每幀分 3 小步，撞到面就沿法線反彈並損失速度；落地後滾動摩擦
+    updateNades(dt) {
+      this.nades = this.nades.filter((n) => {
+        n.fuse -= dt;
+        const h = dt / 3;
+        for (let s = 0; s < 3; s++) {
+          n.vel.y -= 14 * h;
+          const sp = n.vel.length();
+          if (sp < 1e-4) continue;
+          const d = _w2.copy(n.vel).divideScalar(sp);
+          const hit = this.world.raycast(n.pos.x, n.pos.y, n.pos.z, d.x, d.y, d.z, sp * h + 0.07, "move");
+          if (!hit) {
+            n.pos.addScaledVector(n.vel, h);
+            continue;
+          }
+          const nrm = new Vector3(hit.nx, hit.ny, hit.nz);
+          n.pos.addScaledVector(d, Math.max(0, hit.t - 0.07));
+          const into = n.vel.dot(nrm);
+          n.vel.addScaledVector(nrm, -1.45 * into).multiplyScalar(0.55);
+          if (Math.abs(into) > 2) audio.playGrenadeBounce(n.pos.clone());
+          if (nrm.y > 0.7 && Math.abs(n.vel.y) < 1.2) {
+            n.vel.y = 0;
+            n.vel.x *= 0.8;
+            n.vel.z *= 0.8;
+          }
+          n.spin.multiplyScalar(0.6);
+        }
+        n.mesh.position.copy(n.pos);
+        n.mesh.rotation.x += n.spin.x * dt;
+        n.mesh.rotation.y += n.spin.y * dt;
+        if (n.fuse > 0) return true;
+        this.explode(n.pos.clone(), n.owner);
+        this.renderer.scene.remove(n.mesh);
+        return false;
+      });
+    },
+    explode(p, owner) {
+      const he = WEAPONS.he;
+      this.fx.explosion(p);
+      const panes = this.map.breakGlassNear?.(p, 7) || [];
+      for (const q of panes) this.fx.shatter(q, null, p);
+      if (panes.length) audio.playGlassBreak(p, Math.min(1.5, 0.6 + panes.length * 0.15));
+      const wrecked = this.map.blastAt?.(p, 6.5, 900) || [];
+      for (const w of wrecked.slice(0, 40)) this.fx.debris(w, null, p);
+      this.afterWreck(owner);
+      this.map.pushAt?.(p, 10, 1);
+      this.concussPlayer(p);
+      if (wrecked.length) audio.playDestroy(p, wrecked[0].kind, Math.min(1.8, 0.8 + wrecked.length * 0.1));
+      audio.playExplosion(p);
+      this.fx.shake = Math.max(this.fx.shake, Math.max(0, 1.4 - this.renderer.camera.position.distanceTo(p) / 18));
+      for (const a of this.actors) {
+        if (!a.alive || a.team === owner.team && a !== owner) continue;
+        let dist = Infinity, dir = null, exposed = false;
+        for (const c of [new Vector3(a.pos.x, a.pos.y + 0.3, a.pos.z), a.soldier.chestWorld(new Vector3()), a.soldier.headWorld(new Vector3())]) {
+          const v = c.sub(p), L = v.length();
+          v.divideScalar(L || 1);
+          if (L < dist) {
+            dist = L;
+            dir = v;
+          }
+          if (!exposed && L < he.radius && !this.world.raycast(p.x, p.y + 0.2, p.z, v.x, v.y, v.z, Math.max(0, L - 0.3), "bullet")) exposed = true;
+        }
+        if (dist > he.radius) continue;
+        const dmg = he.dmg * Math.pow(1 - dist / he.radius, 1.1) * (exposed ? 1 : 0.3);
+        if (dmg > 1) this.damage(a, owner, dmg, "chest", "he", dir, false);
+      }
+      this.alertBots(p, null, 40, true);
+    },
+    // 玩家在 14 m 內：視線被擋只算 45%；震盪時間與閃白依距離
+    concussPlayer(p) {
+      const pl = this.player;
+      const cam = this.renderer.camera.position, dv = _v2.copy(cam).sub(p), L = dv.length();
+      if (!pl?.alive || L >= 14) return;
+      let k = 1 - L / 14;
+      if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, "sight")) k *= 0.45;
+      this.concK = Math.max(this.concK || 0, k);
+      this.concT = Math.max(this.concT || 0, 1.5 + 2.5 * k);
+      this.flash = Math.max(this.flash || 0, 0.85 * k * k);
+    },
+    // ───────── 破壞系統的連鎖 ─────────
+    // 東西被打爛後：清掉上面的彈孔、讓堆在上面的殘骸掉下、留下斷口、檢查失去支撐的結構與鬆脫的玻璃（最多連鎖 8 輪）
+    afterWreck(att) {
+      const M = this.map;
+      if (!M.takeWrecked) return;
+      for (let round = 0; round < 8; round++) {
+        const list = M.takeWrecked();
+        if (!list.length) break;
+        for (const x of list) {
+          this.fx.clearDecalsIn(x);
+          this.fx.wakeRubble(x);
+        }
+        for (const x of list) this.fx.remnants(x);
+        M.collapse?.(list, att);
+        for (const c of M.looseGlass?.(list) || []) {
+          const q = M.breakGlass(c);
+          if (q) {
+            this.fx.shatter(q, new Vector3(0, -0.3, 0));
+            audio.playGlassBreak(new Vector3(q.x, q.y, q.z), 0.8);
+          }
+        }
+      }
+    },
+    // 塌落的牆塊落地、翻倒的桌子撞地：碎屑、聲音、震動，正下方的人受傷
+    updateLanded() {
+      const events2 = this.map.takeLanded?.();
+      if (!events2?.length) return;
+      const cam = this.renderer.camera.position, still = new Vector3();
+      for (const L of events2) {
+        const i = L.info, pt = new Vector3(i.x, i.y, i.z), d = pt.distanceTo(cam);
+        if (L.thud) {
+          if (d < 40) audio.playImpact(pt, "wood");
+          continue;
+        }
+        this.fx.debris(i, still);
+        if (L.hit) this.fx.debris(L.hit, still);
+        if (d < 80) audio.playDestroy(pt, i.kind, Math.min(1.6, 0.6 + i.sx * i.sy * i.sz * 1.5));
+        this.fx.shake = Math.max(this.fx.shake, Math.max(0, 0.6 - d / 25));
+        for (const a of this.actors) {
+          if (!a.alive) continue;
+          const under = Math.abs(a.pos.x - i.x) < i.sx / 2 + 0.3 && Math.abs(a.pos.z - i.z) < i.sz / 2 + 0.3 && a.pos.y <= i.y + i.sy / 2 && a.pos.y + 1.8 >= i.y - i.sy / 2;
+          if (under) this.damage(a, L.att && L.att !== a ? L.att : null, 30 + Math.min(70, (L.v || 0) * 8 * i.sx * i.sy * i.sz * 3), "head", "he", new Vector3(0, -1, 0), false);
+        }
+      }
+      this.afterWreck(events2[0].att);
+    },
+    // 掉落中的碎塊、碎玻璃砸到人：依重量與落速受傷（每塊只算一次，砸到後速度大減）
+    debrisHits() {
+      const down = new Vector3();
+      const test = (list, glass) => {
+        for (const c of list) {
+          if (c.rest || c.hit || c.v.y > -3) continue;
+          const sx = glass ? c.s : c.s.x, sy = glass ? c.s : c.s.y, sz = glass ? c.s : c.s.z;
+          if (!glass && sy < 0.25 * sx) continue;
+          for (const a of this.actors) {
+            if (!a.alive) continue;
+            const r = a.radius + Math.max(sx, sz) / 2;
+            if (Math.abs(c.p.x - a.pos.x) > r || Math.abs(c.p.z - a.pos.z) > r || c.p.y < a.pos.y || c.p.y > a.pos.y + a.height + 0.15) continue;
+            c.hit = true;
+            if (glass) {
+              if (this.time - (a._glassT ?? -9) < 0.3) break;
+              a._glassT = this.time;
+            }
+            let dmg = glass ? 3 + sx * 40 : Math.min(70, sx * sy * sz * 2400 * c.v.length() * 0.6);
+            if (dmg >= 2) {
+              const head = c.p.y > a.pos.y + a.height - 0.35;
+              if (head) dmg *= 1.6;
+              this.damage(a, null, dmg, head ? "head" : "chest", glass ? "glass" : "debris", down.copy(c.v).normalize().clone(), false);
+            }
+            c.v.multiplyScalar(0.3);
+            break;
+          }
+        }
+      };
+      test(this.fx.chunks, false);
+      test(this.fx.shards, true);
+    },
+    // ───────── 傷害與擊殺 ─────────
+    // 護甲：腿部以外的傷害有一部分由護甲吸收（依武器的穿甲比例），護甲也會被磨損
+    damage(v, att, amt, part, cause, dir, wallbang, melee) {
+      if (!v.alive || v.protectT > 0) return;
+      if (att && att !== v && att.team === v.team) return;
+      const armorBefore = v.armor, armored = armorBefore > 0 && part !== "leg";
+      let hpLoss = amt;
+      if (armored) {
+        const pen = WEAPONS[cause]?.armorPen ?? 0.75;
+        hpLoss = amt * pen;
+        v.armor = Math.max(0, v.armor - amt * (1 - pen) * 1.4);
+      }
+      v.hp -= hpLoss;
+      v.lastAttacker = att;
+      v.lastHurt = this.time;
+      const killed = v.hp <= 0, broke = armorBefore > 0 && v.armor <= 0;
+      if (att && att !== v) att.stats.hits++;
+      if (!killed) {
+        v.tagT = Math.max(v.tagT || 0, melee ? 0.5 : 0.3);
+        if (v.onGround && !(v.slideT > 0)) {
+          v.vel.x *= 0.6;
+          v.vel.z *= 0.6;
+        }
+        if (!v.isPlayer) v.soldier.flinch(part);
+      }
+      if (v.isPlayer) {
+        if (att && att !== v) this.hud.damageFrom(Math.atan2(-(att.pos.x - v.pos.x), -(att.pos.z - v.pos.z)));
+        v.aimPunch += Math.min(0.05, hpLoss * 12e-4);
+        audio.playHurt(Math.min(100, hpLoss));
+        if (broke) audio.playArmorBreak(null);
+        this.dmgFlash = Math.min(1.2, (this.dmgFlash || 0) + hpLoss / 45);
+        if (v.hp <= 30 && !killed) audio.setLowHealth(true);
+      } else v.onDamaged?.(att);
+      if (att?.isPlayer && att !== v) {
+        this.hud.hitmarker(part === "head", killed, broke);
+        if (killed || this.time - (this._hmT ?? -1) > 0.03) {
+          audio.playHitmarker(part === "head", armored && part !== "head");
+          this._hmT = this.time;
+        }
+        if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new Vector3()));
+      }
+      if (killed) this.kill(v, att, cause, part === "head" && !melee, wallbang, dir);
+    },
+    kill(v, att, cause, headshot, wallbang, dir) {
+      v.alive = false;
+      v.hp = 0;
+      v.deadT = 0;
+      v.respawnT = 4;
+      v.stats.d++;
+      v.scoped = 0;
+      v.soldier.die(dir.x, dir.z, headshot, this.world, v.vel, dir.y || 0);
+      audio.playDeath(v.soldier.chestWorld(new Vector3()));
+      const p = this.player, byOther = att && att !== v;
+      if (byOther) {
+        att.stats.k++;
+        if (headshot) att.stats.hs++;
+        this.score[att.team]++;
+        att.multi = this.time - att.lastKillT < 5 ? att.multi + 1 : 1;
+        att.lastKillT = this.time;
+        att.streak++;
+      }
+      this.hud.killFeed(byOther ? att : null, v, cause, headshot, wallbang, att === p || v === p);
+      if (att === p && v !== p) this.celebrate(att, v, cause, headshot, wallbang);
+      if (v === p) {
+        p.startDeathCam(att);
+        this.vm.setVisible(false);
+        audio.setLowHealth(false);
+        const weapon = WEAPONS[cause]?.name || cause;
+        this.killedBy = byOther ? `\u88AB <span style="color:${TEAM_TEXT[att.team]}">${att.name}</span> \u7528 ${weapon}${headshot ? ' <span style="color:#ff5040">\u7206\u982D</span>' : ""}\u64CA\u6BBA` : CAUSES[cause]?.death || "\u4F60\u9663\u4EA1\u4E86";
+      }
+      this.fx.bloodSplat(v.pos);
+      if (this.score.BL >= this.goal || this.score.GR >= this.goal) setTimeout(() => {
+        if (this.playing) this.endMatch();
+      }, 1200);
+    },
+    // 玩家擊殺：印章＋播報（連殺優先，其次爆頭、刀殺、手雷、穿牆）
+    celebrate(att, v, cause, headshot, wallbang) {
+      const n = Math.min(att.multi, 8);
+      let title = "KILL", sub = `\u64CA\u6BBA ${v.name}`, call = null;
+      if (n >= 2) {
+        [title, sub] = [STREAK[n][0], `${STREAK[n][1]}\u30FB${sub}`];
+        call = titleCase(STREAK[n][0]) + "!";
+      } else if (headshot) {
+        [title, sub, call] = ["HEADSHOT", `\u7206\u982D\u30FB${sub}`, "Headshot!"];
+      } else if (cause === "knife") {
+        [title, sub] = ["KNIFE KILL", `\u5200\u6BBA\u30FB${sub}`];
+      } else if (cause === "he") {
+        [title, sub] = ["GRENADE KILL", `\u624B\u96F7\u64CA\u6BBA\u30FB${sub}`];
+      } else if (wallbang) {
+        [title, sub] = ["WALLBANG", `\u7A7F\u7246\u64CA\u6BBA\u30FB${sub}`];
+      }
+      if (call) setTimeout(() => audio.announce(call), 150);
+      this.hud.badge(title, sub, headshot);
+      audio.playKillConfirm(headshot);
+    },
+    // 讓附近（radius 內）的敵方電腦聽到聲音；team 為 null 時兩隊都聽得到
+    alertBots(pos, team, radius, loud) {
+      for (const b of this.actors) if (b.hear && b.team !== team && b.pos.distanceTo(pos) < radius) b.hear(pos, loud);
+    }
+  };
+
+  // game-src/game-events.js
+  var where = (a) => a.isPlayer ? null : a.pos.clone();
+  var surface = (a) => a.ground?.surface || "metal";
+  var events = {
+    onJump(a) {
+      audio.playJump(where(a));
+    },
+    onLand(a, speed) {
+      audio.playLand(where(a), surface(a), Math.min(1, speed / 10));
+    },
+    onSlide(a) {
+      if (a.isPlayer || this.hearable(a, 30)) audio.playSlide(where(a), surface(a));
+    },
+    onMantle(a, rise) {
+      if (!a.isPlayer) return;
+      audio.playJump(null);
+      if (!a.weapon.reloading) this.vm.equip(a.weapon.id, 0.3 + rise * 0.2);
+    },
+    // 跑步腳步聲：30 m 外聽不到；不是靜步的話，12 m 內的敵方電腦也會聽到
+    onFootstep(a) {
+      if (!a.isPlayer && !this.hearable(a, 30)) return;
+      audio.playFootstep(where(a), surface(a), { run: true, crouch: a.crouch });
+      if (!a.walk) this.alertBots(a.pos, a.team, 12, false);
+    },
+    onSwitch(a) {
+      if (!a.isPlayer) return;
+      this.vm.equip(a.weapon.id, a.weapon.def.draw);
+      audio.playWeaponSwitch(a.weapon.id);
+      this.hud.slots(a.inv, a.slot);
+    },
+    // 換彈音效依動畫節奏排程：一般槍是退匣、裝匣、（空匣時）拉槍機；泵動霰彈槍一發一發裝
+    onReloadStart(a, empty) {
+      if (!a.isPlayer) return;
+      const d = a.weapon.def, t = this.time, id = d.id, dur = d.reload;
+      this.vm.reload(dur, empty);
+      const at2 = (k, part) => this.after(t + dur * k, () => audio.playReload(id, part));
+      if (d.pump) {
+        for (let i = 0; i < 4; i++) at2(0.2 + i * 0.18, "shell");
+        if (empty) {
+          at2(0.87, "boltback");
+          at2(0.93, "boltforward");
+        }
+        return;
+      }
+      at2(0.2, "magout");
+      at2(0.6, "magin");
+      if (empty) {
+        at2(0.82, id === "awm" ? "bolt" : "boltback");
+        at2(0.88, "boltforward");
+      }
+    },
+    onReloadDone() {
+    },
+    onScope(a) {
+      if (a.isPlayer) audio.playScope(a.scoped > 0);
+    },
+    onDryFire(a) {
+      if (a.isPlayer) audio.playDryFire();
+    },
+    onGrenadeStart(a) {
+      if (!a.isPlayer) return;
+      this.vm.throwNade();
+      audio.playGrenadePin();
+    },
+    hearable(a, range) {
+      return a.pos.distanceTo(this.renderer.camera.position) <= range;
+    }
+  };
+
+  // game-src/game.js
+  var nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  var MAX_STEP = 1 / 100;
+  var _v3 = new Vector3();
+  var _u = new Vector3();
+  var _d3 = new Vector3();
+  function botPrimary(team, slot, teamSize) {
+    if (slot === 1 && teamSize >= 4) return "awm";
+    if (slot === 2 && teamSize >= 4) return "m870";
+    if (slot === 3 && teamSize >= 6) return "mp5";
+    if (slot === 5) return team === "BL" ? "m4a1" : "ak47";
+    return team === "BL" ? "ak47" : "m4a1";
+  }
   var Game = class {
     constructor() {
       this.time = 0;
+      this.realTime = 0;
       this.frame = 0;
       this.playing = false;
       this.paused = false;
+      this.ended = false;
       this.locked = false;
+      this.inLoadout = false;
       this.actors = [];
       this.nades = [];
       this.timers = [];
@@ -40414,27 +41004,32 @@ void main() {
       this.audio = audio;
       this.qs = new URLSearchParams(location.search);
     }
+    // 排程：遊戲時間到 t 時執行 fn（暫停時不會跑）
+    after(t, fn) {
+      this.timers.push({ t, fn });
+    }
+    // ───────── 載入 ─────────
     async init() {
       this.hud = new HUD(this);
       this.opts = this.hud.opts;
       if (this.qs.get("q")) this.opts.quality = this.qs.get("q");
+      const step = async (p, text) => {
+        this.hud.loading(p, text);
+        await nextFrame();
+      };
       this.hud.show("loading");
-      this.hud.loading(0.05, "\u521D\u59CB\u5316\u6E32\u67D3\u5668");
-      await nextFrame();
+      await step(0.05, "\u521D\u59CB\u5316\u6E32\u67D3\u5668");
       this.renderer = new Renderer(document.getElementById("c"), this.opts.quality);
       this.renderer.camera.fov = this.opts.fov;
-      this.hud.loading(0.12, "\u6E96\u5099\u69CD\u68B0\u8207\u89D2\u8272\u6750\u8CEA");
-      await nextFrame();
+      await step(0.12, "\u6E96\u5099\u69CD\u68B0\u8207\u89D2\u8272\u6750\u8CEA");
       await nextFrame();
       this.T = buildTextures(this.opts.quality);
-      this.hud.loading(0.55, "\u642D\u5EFA\u6A39\u7FA9\u570B\u5C0F");
-      await nextFrame();
+      await step(0.55, "\u642D\u5EFA\u6A39\u7FA9\u570B\u5C0F");
       this.world = new CampusWorld();
       this.renderer.scene.userData.camera = this.renderer.camera;
       this.map = await buildCampus(this.renderer.scene, this.world, this.renderer.renderer, document.getElementById("loadTxt"));
-      if (this.map.prepareDestruction) this.map.prepareDestruction();
-      this.hud.loading(0.68, "\u6821\u5712\u5929\u7A7A\u8207\u5149\u7167");
-      await nextFrame();
+      this.map.prepareDestruction?.();
+      await step(0.68, "\u6821\u5712\u5929\u7A7A\u8207\u5149\u7167");
       this.env = new CampusEnvironment(this.renderer.renderer, this.renderer.scene, this.opts.quality);
       this.env.extraScenes = [this.renderer.vmScene];
       this.env.apply(this.opts.tod);
@@ -40442,22 +41037,19 @@ void main() {
       this.fx.world = this.world;
       this.vm = new ViewModel(this.renderer.vmScene, this.T, this.opts.team);
       this.vm.setVisible(false);
-      this.hud.loading(0.8, "\u8A08\u7B97\u5C0B\u8DEF\u7DB2\u683C");
-      await nextFrame();
+      await step(0.8, "\u8A08\u7B97\u5C0B\u8DEF\u7DB2\u683C");
       this.nav = this.map.nav;
       this.hud.buildRadar(this.world);
-      this.hud.loading(0.88, "\u6B66\u5668\u5716\u793A / \u9810\u7DE8\u8B6F\u8457\u8272\u5668");
-      await nextFrame();
-      this.hud.setIcons(this.makeIcons());
-      this.lampLights();
-      this.renderer.camera.position.set(-20, 12, 30);
-      this.renderer.camera.lookAt(0, 2, 0);
+      await step(0.88, "\u6B66\u5668\u5716\u793A\uFF0F\u9810\u7DE8\u8B6F\u8457\u8272\u5668");
+      this.hud.setIcons(this.renderIcons());
+      const cam = this.renderer.camera;
+      cam.position.set(-20, 12, 30);
+      cam.lookAt(0, 2, 0);
       try {
-        this.renderer.renderer.compile(this.renderer.scene, this.renderer.camera);
-      } catch (e) {
+        this.renderer.renderer.compile(this.renderer.scene, cam);
+      } catch {
       }
-      this.hud.loading(1, "\u5B8C\u6210");
-      await nextFrame();
+      await step(1, "\u5B8C\u6210");
       this.hud.show("menu");
       document.addEventListener("pointerlockchange", () => this.onLockChange());
       this.touch = new TouchControls(this);
@@ -40469,113 +41061,86 @@ void main() {
       window.__game = this;
       window.__audio = audio;
     }
-    lampLights() {
-      for (const p of this.map.lampSpots.slice(0, this.opts.quality === "low" ? 0 : 4)) {
-        const l = new PointLight(16767392, 5, 9, 1.8);
-        l.position.copy(p);
-        this.renderer.scene.add(l);
-      }
-    }
-    makeIcons() {
-      const r = this.renderer.renderer;
-      const W = 256, H = 96;
-      const rt = new WebGLRenderTarget(W, H);
+    // 武器圖示：用正交相機從側面拍每把槍的剪影，轉成白色 PNG
+    renderIcons() {
+      const r = this.renderer.renderer, W = 256, H = 96;
+      const target = new WebGLRenderTarget(W, H);
       const scene = new Scene();
       scene.overrideMaterial = new MeshBasicMaterial({ color: 16777215 });
       const cam = new OrthographicCamera(-1, 1, 1, -1, 0.01, 10);
-      const out = {};
       const prevColor = r.getClearColor(new Color()), prevAlpha = r.getClearAlpha();
       r.setClearColor(0, 0);
-      const buf = new Uint8Array(W * H * 4);
+      const pixels = new Uint8Array(W * H * 4), icons = {};
       for (const id of Object.keys(WEAPONS)) {
-        const m = buildGunMerged(id);
-        scene.add(m);
-        const box2 = new Box3().setFromObject(m);
+        const gun2 = buildGunMerged(id);
+        scene.add(gun2);
+        const box2 = new Box3().setFromObject(gun2);
         const cz = (box2.min.z + box2.max.z) / 2, cy = (box2.min.y + box2.max.y) / 2;
-        const hw = (box2.max.z - box2.min.z) / 2 * 1.08, hh = (box2.max.y - box2.min.y) / 2 * 1.08;
-        const ext = Math.max(hw, hh * W / H);
-        cam.left = -ext;
-        cam.right = ext;
-        cam.top = ext * H / W;
-        cam.bottom = -ext * H / W;
+        const half = Math.max((box2.max.z - box2.min.z) / 2 * 1.08, (box2.max.y - box2.min.y) / 2 * 1.08 * (W / H));
+        Object.assign(cam, { left: -half, right: half, top: half * H / W, bottom: -half * H / W });
         cam.position.set(2, cy, cz);
         cam.lookAt(0, cy, cz);
         cam.updateProjectionMatrix();
-        r.setRenderTarget(rt);
+        r.setRenderTarget(target);
         r.clear();
         r.render(scene, cam);
-        r.readRenderTargetPixels(rt, 0, 0, W, H, buf);
+        r.readRenderTargetPixels(target, 0, 0, W, H, pixels);
         const c = document.createElement("canvas");
         c.width = W;
         c.height = H;
-        const ctx = c.getContext("2d");
-        const img = ctx.createImageData(W, H);
+        const ctx = c.getContext("2d"), img = ctx.createImageData(W, H);
         for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-          const s = ((H - 1 - y) * W + x) * 4, d = (y * W + x) * 4;
-          img.data[d] = img.data[d + 1] = img.data[d + 2] = 245;
-          img.data[d + 3] = buf[s + 3] > 10 ? 235 : 0;
+          const src = ((H - 1 - y) * W + x) * 4, dst = (y * W + x) * 4;
+          img.data[dst] = img.data[dst + 1] = img.data[dst + 2] = 245;
+          img.data[dst + 3] = pixels[src + 3] > 10 ? 235 : 0;
         }
         ctx.putImageData(img, 0, 0);
-        out[id] = c.toDataURL();
-        scene.remove(m);
+        icons[id] = c.toDataURL();
+        scene.remove(gun2);
       }
       r.setRenderTarget(null);
       r.setClearColor(prevColor, prevAlpha);
-      rt.dispose();
-      return out;
+      target.dispose();
+      return icons;
     }
-    // ================= 流程 =================
+    // ───────── 對局流程 ─────────
     startMatch() {
-      if (this.map && this.map.resetGlass) this.map.resetGlass();
-      if (this.map && this.map.resetDestruction) this.map.resetDestruction();
-      if (this.fx) this.fx.clearDecals();
+      this.map.resetGlass?.();
+      this.map.resetDestruction?.();
+      this.fx?.clearDecals();
       const o = this.opts;
       audio.init();
       audio.setVolumes({ master: o.vol });
       audio.stopAmbient();
       audio.playUI("start");
-      this.concT = 0;
-      this.concK = 0;
-      this.flash = 0;
-      for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
-      for (const t of this.tags) this.renderer.scene.remove(t.sprite);
+      this.concT = this.concK = this.flash = 0;
+      this.clearActors();
       for (const n of this.nades) this.renderer.scene.remove(n.mesh);
-      this.actors = [];
       this.nades = [];
-      this.tags = [];
       this.timers = [];
       this.score = { BL: 0, GR: 0 };
       this.goal = o.goal;
       this.timeLeft = 600;
       this.env.apply(o.tod);
-      const my = o.team, other = my === "BL" ? "GR" : "BL";
-      const used = { BL: 0, GR: 0 };
-      const nextName = (team) => TEAM_PREFIX[team] + ++used[team] + "\u865F";
+      const mine = o.team, theirs = mine === "BL" ? "GR" : "BL";
+      const count = { BL: 0, GR: 0 };
       let id = 0;
-      this.player = new Player(this, { id: id++, name: "\u6211", team: my });
+      this.player = new Player(this, { id: id++, name: "\u6211", team: mine });
       this.player.primary = o.primary;
       this.player.bind(document.getElementById("c"));
       this.actors.push(this.player);
-      const N = o.size;
-      const prim = (team, i) => {
-        if (i === 1 && N >= 4) return "awm";
-        if (i === 2 && N >= 4) return "m870";
-        if (i === 3 && N >= 6) return "mp5";
-        if (i === 5) return team === "BL" ? "m4a1" : "ak47";
-        return team === "BL" ? "ak47" : "m4a1";
-      };
-      for (const team of [my, other]) {
-        const count = team === my ? N - 1 : N;
-        for (let i = 0; i < count; i++) {
-          const b = new Bot(this, { id: id++, name: nextName(team), team, diff: o.diff });
-          b.primary = prim(team, team === my ? i + 1 : i);
+      for (const team of [mine, theirs]) {
+        const n = team === mine ? o.size - 1 : o.size;
+        for (let i = 0; i < n; i++) {
+          const b = new Bot(this, { id: id++, name: `${TEAM_PREFIX[team]}${++count[team]}\u865F`, team, diff: o.diff });
+          b.primary = botPrimary(team, team === mine ? i + 1 : i, o.size);
           this.actors.push(b);
-          if (team === my) this.addTag(b);
+          if (team === mine) this.addNameTag(b);
         }
       }
       for (const a of this.actors) this.spawnActor(a, true);
-      for (const a of this.actors) a.soldier.setRim(a.isPlayer ? 0 : a.team === my ? 1 : 2);
-      this.vm.setTeam(my);
+      for (const a of this.actors) a.soldier.setRim(a.isPlayer ? 0 : a.team === mine ? 1 : 2);
+      this.vm.setTeam(mine);
       this.vm.equip(this.player.weapon.id, 0.6);
       this.hud.slots(this.player.inv, 0);
       this.playing = true;
@@ -40584,14 +41149,21 @@ void main() {
       this.hud.show(null);
       this.lock();
       setTimeout(() => audio.announce("Go go go!"), 400);
-      this.hud.toast(`\u5718\u968A\u7AF6\u6280 \xB7 \u7387\u5148\u9054\u5230 <b style="color:#f5b321">${this.goal}</b> \u64CA\u6BBA\u7684\u968A\u4F0D\u7372\u52DD`, 3.5);
+      this.hud.toast(`\u5718\u968A\u7AF6\u6280\u30FB\u7387\u5148\u9054\u5230 <b style="color:#ffe066">${this.goal}</b> \u64CA\u6BBA\u7684\u968A\u4F0D\u7372\u52DD`, 3.5);
     }
-    addTag(b) {
+    clearActors() {
+      for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
+      for (const t of this.tags) this.renderer.scene.remove(t.sprite);
+      this.actors = [];
+      this.tags = [];
+    }
+    // 隊友頭上的名牌
+    addNameTag(b) {
       const c = document.createElement("canvas");
       c.width = 256;
       c.height = 48;
       const x = c.getContext("2d");
-      x.font = 'bold 30px "PingFang SC","Microsoft YaHei",sans-serif';
+      x.font = 'bold 30px "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
       x.textAlign = "center";
       x.textBaseline = "middle";
       x.lineWidth = 5;
@@ -40599,27 +41171,27 @@ void main() {
       x.strokeText(b.name, 128, 24);
       x.fillStyle = b.team === "BL" ? "#ff9b70" : "#8cc8ff";
       x.fillText(b.name, 128, 24);
-      const t = new CanvasTexture(c);
-      t.colorSpace = SRGBColorSpace;
-      const s = new Sprite(new SpriteMaterial({ map: t, depthTest: false, transparent: true, opacity: 0.85, toneMapped: false }));
+      const tex = new CanvasTexture(c);
+      tex.colorSpace = SRGBColorSpace;
+      const s = new Sprite(new SpriteMaterial({ map: tex, depthTest: false, transparent: true, opacity: 0.85, toneMapped: false }));
       s.scale.set(1.3, 0.244, 1);
       s.renderOrder = 20;
       this.renderer.scene.add(s);
       this.tags.push({ sprite: s, actor: b });
     }
+    // 出生點：避開有人站著的點，偏好離敵人遠的點（加一點隨機）
     spawnActor(a, first) {
-      const pts = this.map.spawns[a.team];
-      let best = null, bestScore = -1e9;
-      for (const p of pts) {
-        let sc = Math.random() * 3;
+      let best = null, bestScore = -Infinity;
+      for (const p of this.map.spawns[a.team]) {
+        let score = Math.random() * 3;
         for (const o of this.actors) {
           if (!o.alive || o === a) continue;
           const d = Math.hypot(o.pos.x - p.x, o.pos.z - p.z);
-          if (d < 1.2) sc -= 100;
-          if (o.team !== a.team) sc += Math.min(d, 40) * 0.1;
+          if (d < 1.2) score -= 100;
+          if (o.team !== a.team) score += Math.min(d, 40) * 0.1;
         }
-        if (sc > bestScore) {
-          bestScore = sc;
+        if (score > bestScore) {
+          bestScore = score;
           best = p;
         }
       }
@@ -40639,29 +41211,25 @@ void main() {
         return;
       }
       const c = document.getElementById("c");
-      try {
-        const p = c.requestPointerLock({ unadjustedMovement: true });
-        if (p && p.catch) p.catch(() => {
-          try {
-            c.requestPointerLock();
-          } catch (e) {
-          }
-        });
-      } catch (e) {
+      const plain = () => {
         try {
           c.requestPointerLock();
-        } catch (e2) {
+        } catch {
         }
+      };
+      try {
+        const p = c.requestPointerLock({ unadjustedMovement: true });
+        p?.catch?.(plain);
+      } catch {
+        plain();
       }
     }
+    // 滑鼠鎖定被解除（按 Esc）就暫停；重新鎖定就繼續
     onLockChange() {
       this.locked = document.pointerLockElement === document.getElementById("c");
-      document.body.classList.toggle("lk", this.locked);
       if (this.locked) {
         if (this.paused) this.resume(true);
-      } else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has("nolock")) {
-        this.pause();
-      }
+      } else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has("nolock")) this.pause();
     }
     pause() {
       this.paused = true;
@@ -40679,10 +41247,7 @@ void main() {
       this.ended = true;
       audio.stopAmbient();
       audio.setLowHealth(false);
-      for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
-      for (const t of this.tags) this.renderer.scene.remove(t.sprite);
-      this.actors = [];
-      this.tags = [];
+      this.clearActors();
       this.player = null;
       this.vm.setVisible(false);
       if (document.pointerLockElement) document.exitPointerLock();
@@ -40696,7 +41261,8 @@ void main() {
       }
       this.inLoadout = true;
       this.hud.show("loadout");
-      for (const x of document.querySelectorAll("#loadCards .card")) x.classList.toggle("on", x.dataset.w === (this.player.nextPrimary || this.player.primary));
+      const current = this.player.nextPrimary || this.player.primary;
+      for (const card of document.querySelectorAll("#loadCards .card")) card.classList.toggle("on", card.dataset.w === current);
       if (document.pointerLockElement) document.exitPointerLock();
     }
     closeLoadout() {
@@ -40704,13 +41270,13 @@ void main() {
       this.hud.show(null);
       this.lock();
     }
+    // 在出生點內立刻換上；否則下次復活生效
     chooseLoadout(id) {
       const p = this.player;
       p.nextPrimary = id;
       this.opts.primary = id;
       this.hud.saveOpts();
-      const inSpawn = p.alive && this.map.isSpawn(p);
-      if (inSpawn) {
+      if (p.alive && this.map.isSpawn(p)) {
         p.primary = id;
         p.inv[0] = new p.inv[0].constructor(id);
         p.inv[0].patternSeed = Math.random() * 6;
@@ -40719,7 +41285,7 @@ void main() {
         p.soldier.setWeapon(id);
         this.vm.equip(id, WEAPONS[id].draw);
         this.hud.slots(p.inv, 0);
-        this.hud.toast(`\u5DF2\u66F4\u63DB\u70BA ${WEAPONS[id].name}`, 1.5);
+        this.hud.toast(`\u5DF2\u63DB\u6210 ${WEAPONS[id].name}`, 1.5);
       } else this.hud.toast(`\u5FA9\u6D3B\u5F8C\u4F7F\u7528 ${WEAPONS[id].name}`, 1.5);
       audio.playUI("buy");
     }
@@ -40739,8 +41305,8 @@ void main() {
     endMatch() {
       this.ended = true;
       this.playing = false;
-      const my = this.player.team, other = my === "BL" ? "GR" : "BL";
-      const win = this.score[my] === this.score[other] ? null : this.score[my] > this.score[other];
+      const mine = this.player.team, theirs = mine === "BL" ? "GR" : "BL";
+      const win = this.score[mine] === this.score[theirs] ? null : this.score[mine] > this.score[theirs];
       this.hud.endScreen(win, this.score, this.actors, this.player.id);
       audio.playUI("roundEnd");
       audio.setLowHealth(false);
@@ -40748,561 +41314,20 @@ void main() {
       if (document.pointerLockElement) document.exitPointerLock();
       this.vm.setVisible(false);
     }
-    // ================= 戰鬥 =================
-    fireWeapon(a, ws, spread2) {
-      const d = ws.def;
-      const eye = a.eye(new Vector3());
-      const dir = a.forward(new Vector3());
-      jitterDir(dir, spread2, Math.random);
-      let muzzle;
-      if (a.isPlayer) {
-        const cam = this.renderer.camera;
-        const right = _v22.set(1, 0, 0).applyQuaternion(cam.quaternion);
-        const up = new Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
-        muzzle = cam.position.clone().addScaledVector(dir, 0.9).addScaledVector(right, 0.14).addScaledVector(up, -0.1);
-        this.vm.fire();
-        this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === "sniper" ? 10 : 5, 0.06);
-        audio.playShot(d.sound, null);
-        if (Math.random() < 0.5) audio.playShellDrop(null);
-        if (d.pump) {
-          const id = d.id, t = this.time;
-          this.timers.push({ t: t + 0.2, fn: () => {
-            if (a.alive && a.weapon.def === d) audio.playReload(id, "boltback");
-          } });
-          this.timers.push({ t: t + 0.42, fn: () => {
-            if (a.alive && a.weapon.def === d) audio.playReload(id, "boltforward");
-          } });
-          this.timers.push({ t: t + 0.32, fn: () => {
-            if (!a.alive || a.weapon.def !== d) return;
-            const c = this.renderer.camera, r = new Vector3(1, 0, 0).applyQuaternion(c.quaternion), u = new Vector3(0, 1, 0).applyQuaternion(c.quaternion), f = a.forward(new Vector3());
-            this.fx.casing(c.position.clone().addScaledVector(f, 0.38).addScaledVector(r, 0.15).addScaledVector(u, -0.08), r.multiplyScalar(2.2).addScaledVector(u, 1.4), d.type);
-          } });
-        } else if (CASED[d.type]) {
-          const cp = cam.position.clone().addScaledVector(dir, 0.42).addScaledVector(right, 0.17).addScaledVector(up, -0.07);
-          const cv = right.clone().multiplyScalar(1.8 + Math.random() * 1.2).addScaledVector(up, 1.1 + Math.random() * 0.9).addScaledVector(dir, -0.4 + Math.random() * 0.4);
-          if (a.vel) cv.add(a.vel);
-          this.fx.casing(cp, cv, d.type);
-        }
-      } else {
-        muzzle = a.soldier.muzzleWorld(new Vector3());
-        this.fx.muzzle(muzzle, dir, d.type === "sniper" ? 1.6 : d.type === "smg" ? 0.8 : 1);
-        a.soldier.kick();
-        audio.playShot(d.sound, muzzle);
-        if (CASED[d.type] && muzzle.distanceTo(this.renderer.camera.position) < 35) {
-          const rt = new Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-          const cp = muzzle.clone().addScaledVector(dir, -0.45).addScaledVector(rt, 0.05);
-          this.fx.casing(cp, rt.multiplyScalar(1.6 + Math.random()).add(new Vector3(0, 1.2 + Math.random() * 0.8, 0)), d.type);
-        }
-      }
-      a.radarT = 1.6;
-      for (const b of this.actors) if (b !== a && b.hear && b.team !== a.team && b.pos.distanceTo(a.pos) < 45) b.hear(a.pos, true);
-      const n = d.pellets || 1;
-      let end;
-      for (let k = 0; k < n; k++) {
-        const pd = n > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
-        this._quiet = k > 0;
-        end = this.traceBullet(a, eye, pd, d);
-        if (k === 0 && (d.type === "sniper" || Math.random() < 0.33)) this.fx.tracer(muzzle, end);
-      }
-      this._quiet = false;
-      const p = this.player;
-      if (p && p.alive && a !== p && a.team !== p.team) {
-        const hp = p.eye(_v2);
-        const t = _d2.copy(hp).sub(eye).dot(dir);
-        if (t > 2 && t < eye.distanceTo(end)) {
-          const closest = eye.clone().addScaledVector(dir, t);
-          const md = closest.distanceTo(hp);
-          if (md < 1.3) {
-            audio.playBulletWhiz(closest);
-            this.suppK = Math.max(this.suppK || 0, 1 - md / 1.3);
-            this.suppT = 0.4;
-            this.fx.shake = Math.max(this.fx.shake, 0.12 + 0.2 * (1 - md / 1.3));
-          }
-        }
-      }
-    }
-    traceBullet(shooter, o, dir, d) {
-      const range = d.range;
-      const hits = this.world.raycastAll(o.x, o.y, o.z, dir.x, dir.y, dir.z, range);
-      let power = d.pen, mul = 1, wall = false, from = 0;
-      this.frame++;
-      for (let i = 0; i <= hits.length; i++) {
-        const h = hits[i];
-        const lim = h ? h.t : range;
-        let best = null, bestT = lim, part = null;
-        for (const a of this.actors) {
-          if (!a.alive || a === shooter || a.team === shooter.team) continue;
-          const r = a.soldier.hitTest(o, dir, bestT, this.frame);
-          if (r && r.t > from - 0.01 && r.t < bestT) {
-            best = a;
-            bestT = r.t;
-            part = r.part;
-          }
-        }
-        if (best) {
-          const pt2 = o.clone().addScaledVector(dir, bestT);
-          const dist = bestT;
-          const partMul = part === "head" ? d.headMul : part === "arm" || part === "leg" ? d.limbMul : 1;
-          const dmg = d.dmg * mul * Math.pow(d.falloff, dist / 10) * partMul;
-          this.fx.impact(pt2, _v2.copy(dir).negate(), "flesh", dir);
-          if (part === "head") this.fx.impact(pt2, _v2.copy(dir).negate(), "flesh", dir);
-          if (!this._quiet) audio.playImpact(pt2, "flesh");
-          this.damage(best, shooter, dmg, part, d.id, dir, wall);
-          return pt2;
-        }
-        if (!h) break;
-        if (h.collider.bullet === "pass" || h.collider.solid === false && h.collider.part) {
-          from = h.exit;
-          continue;
-        }
-        const pt = o.clone().addScaledVector(dir, h.t);
-        const n = new Vector3(h.nx, h.ny, h.nz);
-        const mat = h.collider.mat;
-        if (h.collider.tag === "glass" && this.map.breakGlass) {
-          const pane = this.map.breakGlass(h.collider);
-          if (pane) {
-            this.fx.shatter(pane, dir);
-            if (pt.distanceTo(this.renderer.camera.position) < 60) audio.playGlassBreak(pt);
-          }
-          mul *= 0.9;
-          from = h.exit;
-          continue;
-        }
-        this.fx.impact(pt, n, mat, dir);
-        if (!this._quiet && pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === "wood" ? "wood" : mat === "concrete" ? "concrete" : "metal");
-        const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
-        if (wreck) {
-          this.fx.debris(wreck, dir);
-          this.afterWreck(shooter);
-          if (pt.distanceTo(this.renderer.camera.position) < 70) audio.playDestroy(pt, wreck.kind);
-          mul *= 0.75;
-          from = h.exit;
-          continue;
-        }
-        if (h.collider.bullet === "pen") {
-          const thick = h.exit - h.t;
-          const cost = thick * (mat === "wood" ? 1 : 1.9);
-          if (power > cost) {
-            power -= cost;
-            mul *= 0.6;
-            wall = true;
-            from = h.exit;
-            const ep = o.clone().addScaledVector(dir, h.exit);
-            this.fx.impact(ep, dir.clone(), mat, dir);
-            continue;
-          }
-        } else if (Math.random() < 0.08 && mat === "metal") audio.playRicochet(pt);
-        return pt;
-      }
-      return o.clone().addScaledVector(dir, range);
-    }
-    melee(a, heavy) {
-      const d = WEAPONS.knife;
-      const range = heavy ? d.rangeHeavy : d.rangeLight;
-      const eye = a.eye(new Vector3());
-      const base = a.forward(new Vector3());
-      if (a.isPlayer) this.vm.melee(heavy);
-      this.frame++;
-      let hit = null;
-      for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
-        const dir = base.clone().applyAxisAngle(new Vector3(0, 1, 0), off);
-        for (const b of this.actors) {
-          if (!b.alive || b === a || b.team === a.team) continue;
-          const r = b.soldier.hitTest(eye, dir, range, this.frame);
-          if (r && (!hit || r.t < hit.t)) hit = { a: b, t: r.t, part: r.part, dir };
-        }
-        if (hit) break;
-      }
-      const delay = heavy ? 0.33 : 0.1;
-      this.timers.push({
-        t: this.time + delay,
-        fn: () => {
-          if (!a.alive) return;
-          if (hit && hit.a.alive) {
-            const vf = hit.a.forward(new Vector3());
-            vf.y = 0;
-            vf.normalize();
-            const back = vf.dot(_v2.copy(hit.dir).setY(0).normalize()) > 0.5;
-            let dmg = heavy ? d.dmgHeavy : d.dmgLight;
-            if (back) dmg *= heavy ? 2 : 1.6;
-            if (hit.part === "head") dmg *= 1.3;
-            const pt = eye.clone().addScaledVector(hit.dir, hit.t);
-            this.fx.impact(pt, hit.dir.clone().negate(), "flesh", hit.dir);
-            audio.playKnife(heavy ? "heavy" : "light", "flesh", a.isPlayer ? null : eye);
-            this.damage(hit.a, a, dmg, hit.part, "knife", hit.dir, false, true);
-          } else {
-            const w = this.world.raycast(eye.x, eye.y, eye.z, base.x, base.y, base.z, range, "bullet");
-            if (w) {
-              const pt = eye.clone().addScaledVector(base, w.t), nrm = new Vector3(w.nx, w.ny, w.nz), c = w.collider;
-              const pane = c.tag === "glass" && this.map.breakGlass ? this.map.breakGlass(c) : null;
-              if (pane) {
-                this.fx.shatter(pane, base);
-                audio.playGlassBreak(pt);
-              } else {
-                this.fx.slash(pt, nrm, c.mat, heavy);
-                const wreck = this.map.damageAt ? this.map.damageAt(c, heavy ? 70 : 34, base) : null;
-                if (wreck) {
-                  this.fx.debris(wreck, base);
-                  audio.playDestroy(pt, wreck.kind, 0.7);
-                }
-                this.afterWreck(a);
-              }
-              audio.playKnife(heavy ? "heavy" : "light", "wall", a.isPlayer ? null : eye);
-            } else audio.playKnife(heavy ? "heavy" : "light", "miss", a.isPlayer ? null : eye);
-          }
-        }
-      });
-    }
-    throwGrenade(a) {
-      const eye = a.eye(new Vector3());
-      const dir = a.forward(new Vector3());
-      const right = new Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-      const pos = eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
-      const vel = dir.clone().multiplyScalar(16).add(new Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
-      const mesh = buildGunMerged("he");
-      mesh.scale.setScalar(1.3);
-      mesh.position.copy(pos);
-      this.renderer.scene.add(mesh);
-      this.nades.push({ mesh, pos, vel, fuse: WEAPONS.he.fuse, owner: a, spin: new Vector3(Math.random() * 10, Math.random() * 10, 0) });
-      audio.playGrenadeThrow();
-      if (a.isPlayer) audio.announce("Fire in the hole!");
-      for (const b of this.actors) if (b.hear && b.team !== a.team && b.pos.distanceTo(pos) < 20) b.hear(pos, false);
-    }
-    updateNades(dt) {
-      const W = this.world;
-      this.nades = this.nades.filter((n) => {
-        n.fuse -= dt;
-        const steps = 3, h = dt / steps;
-        for (let s = 0; s < steps; s++) {
-          n.vel.y -= 14 * h;
-          const sp = n.vel.length();
-          if (sp < 1e-4) continue;
-          const d = n.vel.clone().divideScalar(sp);
-          const L = sp * h + 0.07;
-          const hit = W.raycast(n.pos.x, n.pos.y, n.pos.z, d.x, d.y, d.z, L, "move");
-          if (hit) {
-            const nn = new Vector3(hit.nx, hit.ny, hit.nz);
-            n.pos.addScaledVector(d, Math.max(0, hit.t - 0.07));
-            const vn = n.vel.dot(nn);
-            n.vel.addScaledVector(nn, -1.45 * vn).multiplyScalar(0.55);
-            if (Math.abs(vn) > 2) audio.playGrenadeBounce(n.pos.clone());
-            if (nn.y > 0.7 && Math.abs(n.vel.y) < 1.2) {
-              n.vel.y = 0;
-              n.vel.x *= 0.8;
-              n.vel.z *= 0.8;
-            }
-            n.spin.multiplyScalar(0.6);
-          } else n.pos.addScaledVector(n.vel, h);
-        }
-        n.mesh.position.copy(n.pos);
-        n.mesh.rotation.x += n.spin.x * dt;
-        n.mesh.rotation.y += n.spin.y * dt;
-        if (n.fuse <= 0) {
-          this.explode(n.pos.clone(), n.owner);
-          this.renderer.scene.remove(n.mesh);
-          return false;
-        }
-        return true;
-      });
-    }
-    explode(p, owner) {
-      const d = WEAPONS.he;
-      this.fx.explosion(p);
-      const panes = this.map.breakGlassNear ? this.map.breakGlassNear(p, 7) : [];
-      for (const q of panes) this.fx.shatter(q, null, p);
-      if (panes.length) audio.playGlassBreak(p, Math.min(1.5, 0.6 + panes.length * 0.15));
-      const wrecked = this.map.blastAt ? this.map.blastAt(p, 6.5, 900) : [];
-      for (const w of wrecked.slice(0, 40)) this.fx.debris(w, null, p);
-      this.afterWreck(owner);
-      if (this.map.pushAt) this.map.pushAt(p, 10, 1);
-      const pl = this.player;
-      const cp = this.renderer.camera.position, dv = _v2.copy(cp).sub(p), L = dv.length();
-      if (pl && pl.alive && L < 14) {
-        let k = 1 - L / 14;
-        if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, "sight")) k *= 0.45;
-        this.concK = Math.max(this.concK || 0, k);
-        this.concT = Math.max(this.concT || 0, 1.5 + 2.5 * k);
-        this.flash = Math.max(this.flash || 0, 0.85 * k * k);
-      }
-      if (wrecked.length) audio.playDestroy(p, wrecked[0].kind, Math.min(1.8, 0.8 + wrecked.length * 0.1));
-      audio.playExplosion(p);
-      const camD = this.renderer.camera.position.distanceTo(p);
-      this.fx.shake = Math.max(this.fx.shake, Math.max(0, 1.4 - camD / 18));
-      for (const a of this.actors) {
-        if (!a.alive) continue;
-        if (a.team === owner.team && a !== owner) continue;
-        const pts = [new Vector3(a.pos.x, a.pos.y + 0.3, a.pos.z), a.soldier.chestWorld(new Vector3()), a.soldier.headWorld(new Vector3())];
-        let dist = Infinity, dir = null, open = false;
-        for (const c of pts) {
-          const v = c.clone().sub(p), L2 = v.length();
-          v.divideScalar(L2 || 1);
-          if (L2 < dist) {
-            dist = L2;
-            dir = v;
-          }
-          if (!open && L2 < d.radius && !this.world.raycast(p.x, p.y + 0.2, p.z, v.x, v.y, v.z, Math.max(0, L2 - 0.3), "bullet")) open = true;
-        }
-        if (dist > d.radius) continue;
-        let dmg = d.dmg * Math.pow(1 - dist / d.radius, 1.1);
-        if (!open) dmg *= 0.3;
-        if (dmg > 1) this.damage(a, owner, dmg, "chest", "he", dir, false);
-      }
-      for (const b of this.actors) if (b.hear && b.pos.distanceTo(p) < 40) b.hear(p, true);
-    }
-    // 物件被打爛後：清彈孔、讓上面的殘骸掉下來、留下斷口、檢查失去支撐的結構與玻璃（連鎖最多 8 輪）
-    afterWreck(att) {
-      const M = this.map;
-      if (!M.takeWrecked) return;
-      for (let it = 0; it < 8; it++) {
-        const w = M.takeWrecked();
-        if (!w.length) break;
-        for (const x of w) {
-          this.fx.clearDecalsIn(x);
-          this.fx.wakeRubble(x);
-        }
-        for (const x of w) this.fx.remnants(x);
-        if (M.collapse) M.collapse(w, att);
-        if (M.looseGlass) for (const c of M.looseGlass(w)) {
-          const q = M.breakGlass(c);
-          if (q) {
-            this.fx.shatter(q, new Vector3(0, -0.3, 0));
-            audio.playGlassBreak(new Vector3(q.x, q.y, q.z), 0.8);
-          }
-        }
-      }
-    }
-    // 塌落的牆塊落地、翻倒的桌子撞地
-    updateLanded() {
-      if (!this.map.takeLanded) return;
-      const ev = this.map.takeLanded();
-      if (!ev.length) return;
-      const cam = this.renderer.camera.position, zero = new Vector3();
-      for (const L of ev) {
-        const i = L.info, pt = new Vector3(i.x, i.y, i.z), d = pt.distanceTo(cam);
-        if (L.thud) {
-          if (d < 40) audio.playImpact(pt, "wood");
-          continue;
-        }
-        this.fx.debris(i, zero);
-        if (L.hit) this.fx.debris(L.hit, zero);
-        if (d < 80) audio.playDestroy(pt, i.kind, Math.min(1.6, 0.6 + i.sx * i.sy * i.sz * 1.5));
-        this.fx.shake = Math.max(this.fx.shake, Math.max(0, 0.6 - d / 25));
-        for (const a of this.actors) {
-          if (!a.alive) continue;
-          if (Math.abs(a.pos.x - i.x) < i.sx / 2 + 0.3 && Math.abs(a.pos.z - i.z) < i.sz / 2 + 0.3 && a.pos.y <= i.y + i.sy / 2 && a.pos.y + 1.8 >= i.y - i.sy / 2)
-            this.damage(a, L.att && L.att !== a ? L.att : null, 30 + Math.min(70, (L.v || 0) * 8 * i.sx * i.sy * i.sz * 3), "head", "he", new Vector3(0, -1, 0), false);
-        }
-      }
-      this.afterWreck(ev[0].att);
-    }
-    // 掉落的碎塊、碎玻璃砸到人：依重量與落速受傷（每塊只算一次，砸到後速度大減）
-    debrisHits() {
-      const fx = this.fx, dn = new Vector3();
-      const test = (list, glass) => {
-        for (const c of list) {
-          if (c.rest || c.hit || c.v.y > -3) continue;
-          const sx = glass ? c.s : c.s.x, sy = glass ? c.s : c.s.y, sz = glass ? c.s : c.s.z;
-          if (!glass && sy < 0.25 * sx) continue;
-          for (const a of this.actors) {
-            if (!a.alive) continue;
-            const r = a.radius + Math.max(sx, sz) / 2;
-            if (Math.abs(c.p.x - a.pos.x) > r || Math.abs(c.p.z - a.pos.z) > r || c.p.y < a.pos.y || c.p.y > a.pos.y + a.height + 0.15) continue;
-            c.hit = true;
-            if (glass) {
-              if (this.time - (a._glassT ?? -9) < 0.3) break;
-              a._glassT = this.time;
-            }
-            const sp = c.v.length();
-            let dmg = glass ? 3 + sx * 40 : Math.min(70, sx * sy * sz * 2400 * sp * 0.6);
-            if (dmg >= 2) {
-              const head = c.p.y > a.pos.y + a.height - 0.35;
-              if (head) dmg *= 1.6;
-              this.damage(a, null, dmg, head ? "head" : "chest", glass ? "glass" : "debris", dn.copy(c.v).normalize().clone(), false);
-            }
-            c.v.multiplyScalar(0.3);
-            break;
-          }
-        }
-      };
-      test(fx.chunks, false);
-      test(fx.shards, true);
-    }
-    damage(v, att, amt, part, wid, dir, wall, melee) {
-      if (!v.alive || v.protectT > 0) return;
-      if (att && att !== v && att.team === v.team) return;
-      const def = WEAPONS[wid];
-      const armBefore = v.armor;
-      let hpD = amt;
-      if (v.armor > 0 && part !== "leg") {
-        const ap = def?.armorPen ?? 0.75;
-        hpD = amt * ap;
-        v.armor = Math.max(0, v.armor - amt * (1 - ap) * 1.4);
-      }
-      v.hp -= hpD;
-      v.lastAttacker = att;
-      v.lastHurt = this.time;
-      const killed = v.hp <= 0;
-      const armored = armBefore > 0 && part !== "leg", broke = armBefore > 0 && v.armor <= 0;
-      if (att && att !== v) att.stats.hits++;
-      if (!killed) {
-        v.tagT = Math.max(v.tagT || 0, melee ? 0.5 : 0.3);
-        if (v.onGround && !(v.slideT > 0)) {
-          v.vel.x *= 0.6;
-          v.vel.z *= 0.6;
-        }
-        if (!v.isPlayer) v.soldier.flinch(part);
-      }
-      if (v.isPlayer) {
-        if (att && att !== v) this.hud.damageFrom(Math.atan2(-(att.pos.x - v.pos.x), -(att.pos.z - v.pos.z)));
-        v.aimPunch += Math.min(0.05, hpD * 12e-4);
-        audio.playHurt(Math.min(100, hpD));
-        if (broke) audio.playArmorBreak(null);
-        this.dmgFlash = Math.min(1.2, (this.dmgFlash || 0) + hpD / 45);
-        if (v.hp <= 30 && !killed) audio.setLowHealth(true);
-      } else if (v.onDamaged) v.onDamaged(att);
-      if (att && att.isPlayer && att !== v) {
-        this.hud.hitmarker(part === "head", killed, broke);
-        if (killed || this.time - (this._hmT ?? -1) > 0.03) {
-          audio.playHitmarker(part === "head", armored && part !== "head");
-          this._hmT = this.time;
-        }
-        if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new Vector3()));
-      }
-      if (killed) this.kill(v, att, wid, part === "head" && !melee, wall, dir);
-    }
-    kill(v, att, wid, hs, wall, dir) {
-      v.alive = false;
-      v.hp = 0;
-      v.deadT = 0;
-      v.respawnT = 4;
-      v.stats.d++;
-      v.scoped = 0;
-      v.soldier.die(dir.x, dir.z, hs, this.world, v.vel, dir.y || 0);
-      audio.playDeath(v.soldier.chestWorld(new Vector3()));
-      const p = this.player;
-      if (att && att !== v) {
-        att.stats.k++;
-        if (hs) att.stats.hs++;
-        this.score[att.team]++;
-        att.multi = this.time - att.lastKillT < 5 ? att.multi + 1 : 1;
-        att.lastKillT = this.time;
-        att.streak++;
-      }
-      this.hud.killFeed(att && att !== v ? att : null, v, wid, hs, wall, att === p || v === p);
-      if (att === p && v !== p) {
-        const m = Math.min(att.multi, 8);
-        let text, sub = `\u64CA\u6BBA ${v.name}`;
-        if (m >= 2) {
-          text = MULTI[m];
-          sub = MULTI_CN[m] + " \xB7 " + sub;
-          setTimeout(() => audio.announce(MULTI[m].toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + "!"), 150);
-        } else if (hs) {
-          text = "HEADSHOT";
-          sub = "\u7206\u982D \xB7 " + sub;
-          setTimeout(() => audio.announce("Headshot!"), 150);
-        } else if (wid === "knife") {
-          text = "KNIFE KILL";
-          sub = "\u5200\u6BBA \xB7 " + sub;
-        } else if (wid === "he") {
-          text = "GRENADE KILL";
-          sub = "\u624B\u96F7\u64CA\u6BBA \xB7 " + sub;
-        } else if (wall) {
-          text = "WALLBANG";
-          sub = "\u7A7F\u7246\u64CA\u6BBA \xB7 " + sub;
-        } else {
-          text = "KILL";
-        }
-        this.hud.badge(text, sub, hs);
-        audio.playKillConfirm(hs);
-      }
-      if (v === p) {
-        p.startDeathCam(att);
-        this.vm.setVisible(false);
-        audio.setLowHealth(false);
-        const wn = WEAPONS[wid]?.name || wid;
-        this.killedBy = att && att !== v ? `\u88AB <span style="color:${att.team === "BL" ? "#ff9b70" : "#8cc8ff"}">${att.name}</span> \u7528 ${wn}${hs ? ' <span style="color:#ff5040">\u7206\u982D</span>' : ""}\u64CA\u6BBA` : CAUSES[wid]?.death || "\u4F60\u9663\u4EA1\u4E86";
-      }
-      this.fx.bloodSplat(v.pos);
-      if (this.score.BL >= this.goal || this.score.GR >= this.goal) setTimeout(() => {
-        if (this.playing) this.endMatch();
-      }, 1200);
-    }
-    // ================= 事件音效 =================
-    onJump(a) {
-      audio.playJump(a.isPlayer ? null : a.pos.clone());
-    }
-    onSlide(a) {
-      if (a.isPlayer || a.pos.distanceTo(this.renderer.camera.position) < 30) audio.playSlide(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || "metal");
-    }
-    onMantle(a, rise) {
-      if (!a.isPlayer) return;
-      audio.playJump(null);
-      if (!a.weapon.reloading) this.vm.equip(a.weapon.id, 0.3 + rise * 0.2);
-    }
-    onLand(a, sp) {
-      audio.playLand(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || "metal", Math.min(1, sp / 10));
-    }
-    onFootstep(a) {
-      if (!a.isPlayer && a.pos.distanceTo(this.renderer.camera.position) > 30) return;
-      audio.playFootstep(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || "metal", { run: true, crouch: a.crouch });
-      if (!a.walk) {
-        for (const b of this.actors) if (b.hear && b.team !== a.team && b.pos.distanceTo(a.pos) < 12) b.hear(a.pos, false);
-      }
-    }
-    onSwitch(a) {
-      if (!a.isPlayer) return;
-      this.vm.equip(a.weapon.id, a.weapon.def.draw);
-      audio.playWeaponSwitch(a.weapon.id);
-      this.hud.slots(a.inv, a.slot);
-    }
-    onReloadStart(a, empty) {
-      if (!a.isPlayer) return;
-      const d = a.weapon.def, t = this.time, id = d.id;
-      this.vm.reload(d.reload, empty);
-      if (d.pump) {
-        for (let i = 0; i < 4; i++) this.timers.push({ t: t + d.reload * (0.2 + i * 0.18), fn: () => audio.playReload(id, "shell") });
-        if (empty) {
-          this.timers.push({ t: t + d.reload * 0.87, fn: () => audio.playReload(id, "boltback") });
-          this.timers.push({ t: t + d.reload * 0.93, fn: () => audio.playReload(id, "boltforward") });
-        }
-        return;
-      }
-      this.timers.push({ t: t + d.reload * 0.2, fn: () => audio.playReload(id, "magout") });
-      this.timers.push({ t: t + d.reload * 0.6, fn: () => audio.playReload(id, "magin") });
-      if (empty) this.timers.push({ t: t + d.reload * 0.82, fn: () => audio.playReload(id, id === "awm" ? "bolt" : "boltback") });
-      if (empty) this.timers.push({ t: t + d.reload * 0.88, fn: () => audio.playReload(id, "boltforward") });
-    }
-    onReloadDone() {
-    }
-    onScope(a) {
-      if (a.isPlayer) audio.playScope(a.scoped > 0);
-    }
-    onDryFire(a) {
-      if (a.isPlayer) audio.playDryFire();
-    }
-    onGrenadeStart(a) {
-      if (a.isPlayer) {
-        this.vm.throwNade();
-        audio.playGrenadePin();
-      }
-    }
-    // ================= 主迴圈 =================
+    // ───────── 主迴圈 ─────────
     loop(now) {
       requestAnimationFrame(this.loop);
       let dt = (now - this.last) / 1e3;
       this.last = now;
-      if (dt > 0.1) dt = 0.1;
       if (dt <= 0) return;
-      const R = this.renderer, cam = R.camera;
-      this.realTime = (this.realTime || 0) + dt;
-      const active = this.playing && !this.paused;
-      if (active) {
+      dt = Math.min(dt, 0.1);
+      this.realTime += dt;
+      if (this.playing && !this.paused) {
         if (this.player) this.player.lookDX = this.player.lookDY = 0;
-        const n = Math.min(4, Math.ceil(dt * 100 - 1e-6)), h = dt / n;
-        for (let i = 0; i < n; i++) this.simulate(h, i === n - 1 ? dt : 0);
+        const steps = Math.min(4, Math.ceil(dt / MAX_STEP - 1e-6)), h = dt / steps;
+        for (let i = 0; i < steps; i++) this.simulate(h, i === steps - 1 ? dt : 0);
       } else if (!this.playing) {
-        const t = this.realTime * 0.045;
-        const mc = this.map && this.map.menuCam;
+        const cam = this.renderer.camera, mc = this.map?.menuCam;
         if (mc) {
           cam.position.set(...mc.pos);
           cam.lookAt(...mc.look);
@@ -41315,149 +41340,155 @@ void main() {
       }
       this.renderFrame(dt);
     }
-    // 除錯：無渲染快進
+    // 除錯用：不渲染、直接快轉模擬
     fastForward(seconds, step = 1 / 30) {
       for (let t = 0; t < seconds && this.playing; t += step) this.simulate(step);
-      return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => a.name + ":" + a.stats.k + "/" + a.stats.d).join(" ") };
+      return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => `${a.name}:${a.stats.k}/${a.stats.d}`).join(" ") };
     }
+    // vis：要更新角色動畫的時間量（同一幀的前幾個小步傳 0，省掉重複的骨架計算）
     simulate(dt, vis = dt) {
+      this.time += dt;
+      this.timeLeft -= dt;
+      for (let i = this.timers.length - 1; i >= 0; i--) {
+        if (this.time < this.timers[i].t) continue;
+        const { fn } = this.timers[i];
+        this.timers.splice(i, 1);
+        fn();
+      }
+      this.player.update(dt);
+      for (const a of this.actors) if (!a.isPlayer) a.update(dt);
+      for (const a of this.actors) this.updateBody(a, dt, vis);
+      this.updateNades(dt);
+      if (this.timeLeft <= 0 && !this.ended) this.endMatch();
       const cam = this.renderer.camera;
-      {
-        this.time += dt;
-        this.timeLeft -= dt;
-        for (let i = this.timers.length - 1; i >= 0; i--) if (this.time >= this.timers[i].t) {
-          const f = this.timers[i].fn;
-          this.timers.splice(i, 1);
-          f();
-        }
-        this.player.update(dt);
-        for (const a of this.actors) {
-          if (a.isPlayer) continue;
-          a.update(dt);
-        }
-        for (const a of this.actors) {
-          a.radarT = Math.max(0, a.radarT - dt);
-          if (a.alive) {
-            a.protectT = Math.max(0, a.protectT - dt);
-            const s = a.soldier;
-            s.root.position.copy(a.pos);
-            s.root.rotation.y = a.yaw;
-            const fwd = (a.vel.x * -Math.sin(a.yaw) + a.vel.z * -Math.cos(a.yaw)) / Math.max(0.01, a.speed || 0);
-            if (vis) s.update(vis, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
-            if (!a.isPlayer) s.mesh.visible = !(a.protectT > 0 && Math.sin(this.time * 30) > 0.3);
-          } else {
-            a.deadT += dt;
-            if (vis) a.soldier.update(vis, {});
-            a.respawnT -= dt;
-            if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
-          }
-        }
-        this.updateNades(dt);
-        if (this.timeLeft <= 0 && !this.ended) this.endMatch();
-        for (const t of this.tags) {
-          const a = t.actor;
-          t.sprite.visible = a.alive && a.pos.distanceTo(cam.position) < 45;
-          if (t.sprite.visible) {
-            a.soldier.headWorld(t.sprite.position);
-            t.sprite.position.y += 0.42;
-          }
+      for (const t of this.tags) {
+        const a = t.actor;
+        t.sprite.visible = a.alive && a.pos.distanceTo(cam.position) < 45;
+        if (t.sprite.visible) {
+          a.soldier.headWorld(t.sprite.position);
+          t.sprite.position.y += 0.42;
         }
       }
     }
-    renderFrame(dt) {
-      const R = this.renderer, cam = R.camera;
-      if (this.player && this.playing) {
-        const p2 = this.player;
-        if (this.frame % 6 === 0 || !this.lightK) this.updateLightProbe();
-        this.frame++;
-        const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
-        this.vm.setVisible(p2.alive && !(p2.scoped && p2.weapon.def.type === "sniper"));
-        this.vm.update(dt, { speed: p2.speed || 0, onGround: p2.onGround, crouch: p2.crouch, lookDX: p2.lookDX, lookDY: p2.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
-        R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
+    // 角色外觀跟著邏輯位置走；陣亡的倒數重生
+    updateBody(a, dt, vis) {
+      a.radarT = Math.max(0, a.radarT - dt);
+      const s = a.soldier;
+      if (!a.alive) {
+        a.deadT += dt;
+        if (vis) s.update(vis, {});
+        a.respawnT -= dt;
+        if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
+        return;
       }
-      this.fx.update(dt, this.realTime, cam, this.env.shipSpeed);
+      a.protectT = Math.max(0, a.protectT - dt);
+      s.root.position.copy(a.pos);
+      s.root.rotation.y = a.yaw;
+      if (vis) {
+        const fwd = (a.vel.x * -Math.sin(a.yaw) + a.vel.z * -Math.cos(a.yaw)) / Math.max(0.01, a.speed || 0);
+        s.update(vis, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
+      }
+      if (!a.isPlayer) s.mesh.visible = !(a.protectT > 0 && Math.sin(this.time * 30) > 0.3);
+    }
+    // ───────── 每幀輸出 ─────────
+    renderFrame(dt) {
+      const R = this.renderer, cam = R.camera, p = this.player;
+      if (p && this.playing) this.updateViewModel(dt, p);
+      this.fx.update(dt, this.realTime, cam);
       this.env.update(dt, this.realTime, cam.position);
       this.map.update(dt, this.realTime);
       this.updateLanded();
       if (this.playing) this.debrisHits();
+      this.updateRadarLabel(dt);
+      audio.setListener(cam.position, _v3.set(0, 0, -1).applyQuaternion(cam.quaternion), _u.set(0, 1, 0).applyQuaternion(cam.quaternion));
+      audio.update(dt);
+      if (p && (this.playing || this.ended)) this.updateHUD(dt);
+      this.updateScreenFx(dt);
+      R.render();
+    }
+    updateViewModel(dt, p) {
+      const R = this.renderer, cam = R.camera;
+      if (this.frame % 6 === 0 || this.lightK === void 0) this.probeLight();
+      this.frame++;
+      const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
+      this.vm.setVisible(p.alive && !(p.scoped && p.weapon.def.type === "sniper"));
+      this.vm.update(dt, { speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
+      R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
+    }
+    // 手上的槍要跟環境一樣亮：太陽被擋住就變暗，頭頂有遮蔽算室內
+    probeLight() {
+      const e = this.player.eye(_v3), s = this.env.sunDir;
+      const shade = this.world.raycast(e.x, e.y, e.z, s.x, s.y, s.z, 80, "sight") ? 0.22 : 1;
+      const roof = this.world.raycast(e.x, e.y, e.z, 0, 1, 0, 5, "sight") ? 1 : 0;
+      this.lightK = this.lightK === void 0 ? shade : this.lightK + (shade - this.lightK) * 0.35;
+      this.indoorK = this.indoorK === void 0 ? roof : this.indoorK + (roof - this.indoorK) * 0.35;
+    }
+    // 小地圖下方：所在樓棟、樓層、堂號（資料來自 tanghao.neocities.org）＋幀率；幀率太低時提示降畫質
+    updateRadarLabel(dt) {
       this.fpsAcc = (this.fpsAcc || 0) + dt;
       this.fpsN = (this.fpsN || 0) + 1;
       if (this.fpsAcc > 1) {
         this.fps = Math.round(this.fpsN / this.fpsAcc);
         this.fpsAcc = 0;
         this.fpsN = 0;
-        const lbl = document.querySelector("#radarWrap .lbl");
-        if (lbl) lbl.textContent = `\u6A39\u7FA9\u570B\u5C0F \xB7 ${this.fps} FPS`;
         if (this.playing && !this.paused && this.time > 8 && !this.fpsHinted && this.fps < 32 && this.opts.quality !== "low") {
           this.fpsHinted = true;
-          this.hud.toast("\u5E40\u7387\u8F03\u4F4E\uFF1A\u53EF\u6309 Esc \u5728\u4E3B\u9078\u55AE\u628A\u756B\u8CEA\u8ABF\u5230\u300C\u5747\u8861\u300D\u6216\u300C\u6D41\u66A2\u300D", 5);
+          this.hud.toast("\u5E40\u7387\u504F\u4F4E\uFF1A\u53EF\u6309 Esc \u56DE\u4E3B\u9078\u55AE\u628A\u756B\u8CEA\u8ABF\u6210\u300C\u5747\u8861\u300D\u6216\u300C\u6D41\u66A2\u300D", 5);
         }
       }
       this.locAcc = (this.locAcc || 0) + dt;
-      if (this.locAcc > 0.3 && this.player && this.map.locate) {
-        this.locAcc = 0;
-        const lbl = document.querySelector("#radarWrap .lbl"), where = this.playing ? this.map.locate(this.player.pos) : "";
-        if (lbl) lbl.textContent = (where || "\u6A39\u7FA9\u570B\u5C0F") + ` \xB7 ${this.fps || "--"} FPS`;
-      }
-      const fwd = _v2.set(0, 0, -1).applyQuaternion(cam.quaternion), up = _v22.set(0, 1, 0).applyQuaternion(cam.quaternion);
-      audio.setListener(cam.position, fwd, up);
-      audio.update(dt);
-      if (this.player && (this.playing || this.ended)) this.updateHUD(dt);
-      const fxu = R.fx.uniforms;
+      if (this.locAcc < 0.3) return;
+      this.locAcc = 0;
+      const label = document.querySelector("#radarWrap .lbl");
+      if (!label) return;
+      const place = this.playing && this.player && this.map.locate ? this.map.locate(this.player.pos) : "";
+      label.textContent = `${place || "\u6A39\u7FA9\u570B\u5C0F"}\u30FB${this.fps || "--"} FPS`;
+    }
+    updateScreenFx(dt) {
+      const u = this.renderer.fx.uniforms, p = this.player;
+      const alive = p?.alive && this.playing, dead = p && !p.alive && this.playing;
       this.dmgFlash = Math.max(0, (this.dmgFlash || 0) - dt * 1.6);
-      fxu.uTime.value = this.realTime;
-      fxu.uDamage.value = this.dmgFlash;
       this.concT = Math.max(0, (this.concT || 0) - dt);
       if (this.concT <= 0) this.concK = 0;
-      this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
-      const alive = this.player && this.player.alive && this.playing;
       this.suppT = Math.max(0, (this.suppT || 0) - dt);
       if (this.suppT <= 0) this.suppK = 0;
-      fxu.uConc.value = alive ? Math.max((this.concK || 0) * Math.min(1, this.concT / 1.2), (this.suppK || 0) * 0.28 * (this.suppT / 0.4)) : 0;
-      fxu.uFlash.value = alive ? this.flash : 0;
-      const p = this.player;
-      fxu.uLowHP.value = p && p.alive && this.playing ? Math.max(0, (35 - p.hp) / 35) : 0;
-      fxu.uDeath.value = p && !p.alive && this.playing ? Math.min(1, p.deadT * 2) : 0;
-      fxu.uProtect.value = p && p.alive && this.playing ? Math.min(1, p.protectT) : 0;
-      fxu.uVignette.value = 0;
-      R.render();
-    }
-    updateLightProbe() {
-      const p = this.player, e = p.eye(_v2), s = this.env.sunDir;
-      const sunBlocked = !!this.world.raycast(e.x, e.y, e.z, s.x, s.y, s.z, 80, "sight");
-      const roof = !!this.world.raycast(e.x, e.y, e.z, 0, 1, 0, 5, "sight");
-      const tl = sunBlocked ? 0.22 : 1, ti = roof ? 1 : 0;
-      this.lightK = this.lightK === void 0 ? tl : this.lightK + (tl - this.lightK) * 0.35;
-      this.indoorK = this.indoorK === void 0 ? ti : this.indoorK + (ti - this.indoorK) * 0.35;
+      this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
+      const concussion = (this.concK || 0) * Math.min(1, this.concT / 1.2);
+      const suppression = (this.suppK || 0) * 0.28 * (this.suppT / 0.4);
+      u.uTime.value = this.realTime;
+      u.uDamage.value = this.dmgFlash;
+      u.uConc.value = alive ? Math.max(concussion, suppression) : 0;
+      u.uFlash.value = alive ? this.flash : 0;
+      u.uLowHP.value = alive ? Math.max(0, (35 - p.hp) / 35) : 0;
+      u.uDeath.value = dead ? Math.min(1, p.deadT * 2) : 0;
+      u.uProtect.value = alive ? Math.min(1, p.protectT) : 0;
+      u.uVignette.value = 0;
     }
     updateHUD(dt) {
       const p = this.player, cam = this.renderer.camera, w = p.weapon;
       let spreadPx = 0;
-      if (w && w.def.spread) {
-        const sp = Math.min(0.12, w.spreadAcc + w.def.spread.base * 2 + w.def.spread.move * Math.min(1, Math.max(0, ((p.speed || 0) - 1.6) / 3.4)) + (w.def.pelletSpread || 0) + (p.onGround ? 0 : w.def.spread.air * 0.5)) * (p.crouch ? 0.7 : 1);
-        spreadPx = Math.tan(sp) / Math.tan(MathUtils.degToRad(cam.fov / 2)) * window.innerHeight / 2;
+      if (w?.def.spread) {
+        const s = w.def.spread;
+        const run = Math.min(1, Math.max(0, ((p.speed || 0) - 1.6) / 3.4));
+        const cone = Math.min(0.12, w.spreadAcc + s.base * 2 + s.move * run + (w.def.pelletSpread || 0) + (p.onGround ? 0 : s.air * 0.5)) * (p.crouch ? 0.7 : 1);
+        spreadPx = Math.tan(cone) / Math.tan(MathUtils.degToRad(cam.fov / 2)) * (window.innerHeight / 2);
       }
-      let aimName = "", aimTeam = "";
       if (p.alive && this.frame % 4 === 0) {
-        const o = cam.position, d = _d2.set(0, 0, -1).applyQuaternion(cam.quaternion);
-        const wh = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, "sight");
-        const lim = wh ? wh.t : 80;
-        let best = null, bt = lim;
+        const o = cam.position, d = _d3.set(0, 0, -1).applyQuaternion(cam.quaternion);
+        const wall = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, "sight");
+        let best = null, bestT = wall ? wall.t : 80;
         this.frame++;
         for (const a of this.actors) {
           if (a === p || !a.alive) continue;
-          const r = a.soldier.hitTest(o, d, bt, this.frame);
+          const r = a.soldier.hitTest(o, d, bestT, this.frame);
           if (r) {
             best = a;
-            bt = r.t;
+            bestT = r.t;
           }
         }
         this.aimTarget = best;
       }
-      if (this.aimTarget && this.aimTarget.alive) {
-        aimName = this.aimTarget.name;
-        aimTeam = this.aimTarget.team;
-      }
+      const aim = this.aimTarget?.alive ? this.aimTarget : null;
       this.hud.update(dt, {
         score: this.score,
         timeLeft: this.timeLeft,
@@ -41473,10 +41504,10 @@ void main() {
         respawnIn: p.respawnT,
         killedBy: this.killedBy,
         protect: p.protectT,
-        aimName,
-        aimTeam
+        aimName: aim?.name || "",
+        aimTeam: aim?.team || ""
       });
-      this.hud.drawRadar(p, this.actors, this.time);
+      this.hud.drawRadar(p, this.actors);
       const tab = p.keys.has("Tab") && this.playing && !this.paused;
       if (tab !== this.boardShown || tab && this.frame % 20 === 0) {
         this.boardShown = tab;
@@ -41484,6 +41515,7 @@ void main() {
       }
     }
   };
+  Object.assign(Game.prototype, combat, events);
 
   // game-src/main.js
   function showBootError(err) {

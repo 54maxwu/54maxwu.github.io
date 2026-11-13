@@ -1,75 +1,94 @@
-// 對局主控
+// 樹義國小校園對戰：遊戲主體——載入、對局流程、主迴圈、畫面輸出
+//
+// 戰鬥判定在 combat.js、角色事件的音效反應在 game-events.js，兩者都掛到 Game 上。
+// 除錯：window.__game 指向目前的 Game；網址參數 ?q=low|medium|high 指定畫質、?nolock 不鎖滑鼠、?autostart 直接開局
 import * as THREE from 'three';
 import { Renderer } from './render.js';
 import { buildTextures } from './textures.js';
-import {buildCampus} from '../campus-map.js';
-import {CampusEnvironment as Environment} from '../campus-env.js';
-import {CampusWorld as World} from '../campus-physics.js';
+import { buildCampus } from '../campus-map.js';
+import { CampusEnvironment as Environment } from '../campus-env.js';
+import { CampusWorld as World } from '../campus-physics.js';
 import { Effects } from './effects.js';
 import { ViewModel } from './viewmodel.js';
 import { HUD } from './hud.js';
 import { audio } from './audio.js';
-import { WEAPONS, CAUSES, jitterDir } from './weapons.js';
+import { WEAPONS } from './weapons.js';
 import { buildGunMerged } from './guns.js';
 import { Player } from './player.js';
 import { Bot, TEAM_PREFIX } from './bots.js';
 import { TouchControls } from './touch.js';
+import { combat } from './combat.js';
+import { events } from './game-events.js';
 
-const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-const MULTI = ['', '', 'DOUBLE KILL', 'TRIPLE KILL', 'MULTI KILL', 'ULTRA KILL', 'RAMPAGE', 'UNSTOPPABLE', 'GODLIKE'];
-const MULTI_CN = ['', '', '雙殺', '三殺', '四殺', '五殺', '六殺！', '無人能擋', '超神'];
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _d = new THREE.Vector3();
+const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+const MAX_STEP = 1 / 100;    // 物理每步最多 10 ms，一幀最多 4 步
+const _v = new THREE.Vector3(), _u = new THREE.Vector3(), _d = new THREE.Vector3();
 
-const CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1, shotgun: 1 };
+// 電腦玩家的主武器分配：每隊固定有一把狙擊、一把霰彈，人多時再加衝鋒槍，其餘步槍
+function botPrimary(team, slot, teamSize) {
+  if (slot === 1 && teamSize >= 4) return 'awm';
+  if (slot === 2 && teamSize >= 4) return 'm870';
+  if (slot === 3 && teamSize >= 6) return 'mp5';
+  if (slot === 5) return team === 'BL' ? 'm4a1' : 'ak47';
+  return team === 'BL' ? 'ak47' : 'm4a1';
+}
 
 export class Game {
   constructor() {
-    this.time = 0; this.frame = 0;
-    this.playing = false; this.paused = false; this.locked = false;
+    this.time = 0; this.realTime = 0; this.frame = 0;
+    this.playing = false; this.paused = false; this.ended = false; this.locked = false; this.inLoadout = false;
     this.actors = []; this.nades = []; this.timers = []; this.tags = [];
     this.score = { BL: 0, GR: 0 };
     this.audio = audio;
     this.qs = new URLSearchParams(location.search);
   }
+
+  // 排程：遊戲時間到 t 時執行 fn（暫停時不會跑）
+  after(t, fn) { this.timers.push({ t, fn }); }
+
+  // ───────── 載入 ─────────
+
   async init() {
     this.hud = new HUD(this);
     this.opts = this.hud.opts;
     if (this.qs.get('q')) this.opts.quality = this.qs.get('q');
+    const step = async (p, text) => { this.hud.loading(p, text); await nextFrame(); };
+
     this.hud.show('loading');
-    this.hud.loading(0.05, '初始化渲染器');
-    await nextFrame();
+    await step(0.05, '初始化渲染器');
     this.renderer = new Renderer(document.getElementById('c'), this.opts.quality);
     this.renderer.camera.fov = this.opts.fov;
-    this.hud.loading(0.12, '準備槍械與角色材質');
-    await nextFrame(); await nextFrame();
-    this.T = buildTextures(this.opts.quality);
-    this.hud.loading(0.55, '搭建樹義國小');
+
+    await step(0.12, '準備槍械與角色材質');
     await nextFrame();
+    this.T = buildTextures(this.opts.quality);
+
+    await step(0.55, '搭建樹義國小');
     this.world = new World();
     this.renderer.scene.userData.camera = this.renderer.camera;
     this.map = await buildCampus(this.renderer.scene, this.world, this.renderer.renderer, document.getElementById('loadTxt'));
-    if (this.map.prepareDestruction) this.map.prepareDestruction();
-    this.hud.loading(0.68, '校園天空與光照');
-    await nextFrame();
+    this.map.prepareDestruction?.();
+
+    await step(0.68, '校園天空與光照');
     this.env = new Environment(this.renderer.renderer, this.renderer.scene, this.opts.quality);
     this.env.extraScenes = [this.renderer.vmScene];
     this.env.apply(this.opts.tod);
     this.fx = new Effects(this.renderer.scene, this.T, this.renderer.camera);
     this.fx.world = this.world;
-    // Campus has no ship funnel or seabirds.
-    this.vm = new ViewModel(this.renderer.vmScene, this.T, this.opts.team); this.vm.setVisible(false);
-    this.hud.loading(0.8, '計算尋路網格');
-    await nextFrame();
+    this.vm = new ViewModel(this.renderer.vmScene, this.T, this.opts.team);
+    this.vm.setVisible(false);
+
+    await step(0.8, '計算尋路網格');
     this.nav = this.map.nav;
     this.hud.buildRadar(this.world);
-    this.hud.loading(0.88, '武器圖示 / 預編譯著色器');
-    await nextFrame();
-    this.hud.setIcons(this.makeIcons());
-    this.lampLights();
-    this.renderer.camera.position.set(-20, 12, 30); this.renderer.camera.lookAt(0, 2, 0);
-    try { this.renderer.renderer.compile(this.renderer.scene, this.renderer.camera); } catch (e) { /* 忽略 */ }
-    this.hud.loading(1, '完成');
-    await nextFrame();
+
+    await step(0.88, '武器圖示／預編譯著色器');
+    this.hud.setIcons(this.renderIcons());
+    const cam = this.renderer.camera;
+    cam.position.set(-20, 12, 30); cam.lookAt(0, 2, 0);
+    try { this.renderer.renderer.compile(this.renderer.scene, cam); } catch { /* 部分瀏覽器不支援預編譯，略過 */ }
+
+    await step(1, '完成');
     this.hud.show('menu');
     document.addEventListener('pointerlockchange', () => this.onLockChange());
     this.touch = new TouchControls(this);
@@ -80,126 +99,123 @@ export class Game {
     if (this.qs.has('autostart')) setTimeout(() => this.startMatch(), 300);
     window.__game = this; window.__audio = audio;
   }
-  lampLights() {
-    // 管道內的少量真實點光源
-    for (const p of this.map.lampSpots.slice(0, this.opts.quality === 'low' ? 0 : 4)) {
-      const l = new THREE.PointLight(0xffd9a0, 5, 9, 1.8);
-      l.position.copy(p);
-      this.renderer.scene.add(l);
-    }
-  }
-  makeIcons() {
-    const r = this.renderer.renderer;
-    const W = 256, H = 96;
-    const rt = new THREE.WebGLRenderTarget(W, H);
+
+  // 武器圖示：用正交相機從側面拍每把槍的剪影，轉成白色 PNG
+  renderIcons() {
+    const r = this.renderer.renderer, W = 256, H = 96;
+    const target = new THREE.WebGLRenderTarget(W, H);
     const scene = new THREE.Scene();
     scene.overrideMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10);
-    const out = {};
     const prevColor = r.getClearColor(new THREE.Color()), prevAlpha = r.getClearAlpha();
     r.setClearColor(0x000000, 0);
-    const buf = new Uint8Array(W * H * 4);
+    const pixels = new Uint8Array(W * H * 4), icons = {};
     for (const id of Object.keys(WEAPONS)) {
-      const m = buildGunMerged(id);
-      scene.add(m);
-      const box = new THREE.Box3().setFromObject(m);
+      const gun = buildGunMerged(id);
+      scene.add(gun);
+      const box = new THREE.Box3().setFromObject(gun);
       const cz = (box.min.z + box.max.z) / 2, cy = (box.min.y + box.max.y) / 2;
-      const hw = (box.max.z - box.min.z) / 2 * 1.08, hh = (box.max.y - box.min.y) / 2 * 1.08;
-      const ext = Math.max(hw, hh * W / H);
-      cam.left = -ext; cam.right = ext; cam.top = ext * H / W; cam.bottom = -ext * H / W;
+      const half = Math.max(((box.max.z - box.min.z) / 2) * 1.08, ((box.max.y - box.min.y) / 2) * 1.08 * (W / H));
+      Object.assign(cam, { left: -half, right: half, top: (half * H) / W, bottom: (-half * H) / W });
       cam.position.set(2, cy, cz); cam.lookAt(0, cy, cz); cam.updateProjectionMatrix();
-      r.setRenderTarget(rt); r.clear(); r.render(scene, cam);
-      r.readRenderTargetPixels(rt, 0, 0, W, H, buf);
+      r.setRenderTarget(target); r.clear(); r.render(scene, cam);
+      r.readRenderTargetPixels(target, 0, 0, W, H, pixels);
       const c = document.createElement('canvas'); c.width = W; c.height = H;
-      const ctx = c.getContext('2d'); const img = ctx.createImageData(W, H);
+      const ctx = c.getContext('2d'), img = ctx.createImageData(W, H);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const s = ((H - 1 - y) * W + x) * 4, d = (y * W + x) * 4;
-        img.data[d] = img.data[d + 1] = img.data[d + 2] = 245; img.data[d + 3] = buf[s + 3] > 10 ? 235 : 0;
+        const src = ((H - 1 - y) * W + x) * 4, dst = (y * W + x) * 4;   // WebGL 的列是從下往上
+        img.data[dst] = img.data[dst + 1] = img.data[dst + 2] = 245;
+        img.data[dst + 3] = pixels[src + 3] > 10 ? 235 : 0;
       }
       ctx.putImageData(img, 0, 0);
-      out[id] = c.toDataURL();
-      scene.remove(m);
+      icons[id] = c.toDataURL();
+      scene.remove(gun);
     }
-    r.setRenderTarget(null); r.setClearColor(prevColor, prevAlpha);
-    rt.dispose();
-    return out;
+    r.setRenderTarget(null);
+    r.setClearColor(prevColor, prevAlpha);
+    target.dispose();
+    return icons;
   }
 
-  // ================= 流程 =================
+  // ───────── 對局流程 ─────────
+
   startMatch() {
-    if (this.map && this.map.resetGlass) this.map.resetGlass();
-    if (this.map && this.map.resetDestruction) this.map.resetDestruction();
-    if (this.fx) this.fx.clearDecals();
+    this.map.resetGlass?.();
+    this.map.resetDestruction?.();
+    this.fx?.clearDecals();
     const o = this.opts;
     audio.init(); audio.setVolumes({ master: o.vol }); audio.stopAmbient(); audio.playUI('start');
-    this.concT = 0; this.concK = 0; this.flash = 0;
-    for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
-    for (const t of this.tags) this.renderer.scene.remove(t.sprite);
+    this.concT = this.concK = this.flash = 0;
+    this.clearActors();
     for (const n of this.nades) this.renderer.scene.remove(n.mesh);
-    this.actors = []; this.nades = []; this.tags = []; this.timers = [];
+    this.nades = []; this.timers = [];
     this.score = { BL: 0, GR: 0 };
     this.goal = o.goal; this.timeLeft = 600;
     this.env.apply(o.tod);
-    const my = o.team, other = my === 'BL' ? 'GR' : 'BL';
-    // BL = 女生隊, GR = 男生隊
-    const used = { BL: 0, GR: 0 };
-    const nextName = (team) => TEAM_PREFIX[team] + (++used[team]) + '號'; // 女同學1號、男同學1號…
+
+    const mine = o.team, theirs = mine === 'BL' ? 'GR' : 'BL';
+    const count = { BL: 0, GR: 0 };
     let id = 0;
-    this.player = new Player(this, { id: id++, name: '我', team: my });
+    this.player = new Player(this, { id: id++, name: '我', team: mine });
     this.player.primary = o.primary;
     this.player.bind(document.getElementById('c'));
     this.actors.push(this.player);
-    const N = o.size;
-    const prim = (team, i) => {
-      if (i === 1 && N >= 4) return 'awm';
-      if (i === 2 && N >= 4) return 'm870';
-      if (i === 3 && N >= 6) return 'mp5';
-      if (i === 5) return team === 'BL' ? 'm4a1' : 'ak47';
-      return team === 'BL' ? 'ak47' : 'm4a1';
-    };
-    for (const team of [my, other]) {
-      const count = team === my ? N - 1 : N;
-      for (let i = 0; i < count; i++) {
-        const b = new Bot(this, { id: id++, name: nextName(team), team, diff: o.diff });
-        b.primary = prim(team, team === my ? i + 1 : i);
+    for (const team of [mine, theirs]) {
+      const n = team === mine ? o.size - 1 : o.size;
+      for (let i = 0; i < n; i++) {
+        const b = new Bot(this, { id: id++, name: `${TEAM_PREFIX[team]}${++count[team]}號`, team, diff: o.diff });
+        b.primary = botPrimary(team, team === mine ? i + 1 : i, o.size);
         this.actors.push(b);
-        if (team === my) this.addTag(b);
+        if (team === mine) this.addNameTag(b);
       }
     }
     for (const a of this.actors) this.spawnActor(a, true);
-    for (const a of this.actors) a.soldier.setRim(a.isPlayer ? 0 : a.team === my ? 1 : 2);
-    this.vm.setTeam(my); this.vm.equip(this.player.weapon.id, 0.6);
+    for (const a of this.actors) a.soldier.setRim(a.isPlayer ? 0 : a.team === mine ? 1 : 2);   // 隊友淡藍、敵人暖紅輪廓
+    this.vm.setTeam(mine);
+    this.vm.equip(this.player.weapon.id, 0.6);
     this.hud.slots(this.player.inv, 0);
     this.playing = true; this.paused = false; this.ended = false;
     this.hud.show(null);
     this.lock();
     setTimeout(() => audio.announce('Go go go!'), 400);
-    this.hud.toast(`團隊競技 · 率先達到 <b style="color:#f5b321">${this.goal}</b> 擊殺的隊伍獲勝`, 3.5);
+    this.hud.toast(`團隊競技・率先達到 <b style="color:#ffe066">${this.goal}</b> 擊殺的隊伍獲勝`, 3.5);
   }
-  addTag(b) {
+
+  clearActors() {
+    for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
+    for (const t of this.tags) this.renderer.scene.remove(t.sprite);
+    this.actors = []; this.tags = [];
+  }
+
+  // 隊友頭上的名牌
+  addNameTag(b) {
     const c = document.createElement('canvas'); c.width = 256; c.height = 48;
     const x = c.getContext('2d');
-    x.font = 'bold 30px "PingFang SC","Microsoft YaHei",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'bold 30px "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
     x.lineWidth = 5; x.strokeStyle = 'rgba(0,0,0,.8)'; x.strokeText(b.name, 128, 24);
     x.fillStyle = b.team === 'BL' ? '#ff9b70' : '#8cc8ff'; x.fillText(b.name, 128, 24);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true, opacity: 0.85, toneMapped: false }));
-    s.scale.set(1.3, 0.244, 1); s.renderOrder = 20;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, opacity: 0.85, toneMapped: false }));
+    s.scale.set(1.3, 0.244, 1);
+    s.renderOrder = 20;
     this.renderer.scene.add(s);
     this.tags.push({ sprite: s, actor: b });
   }
+
+  // 出生點：避開有人站著的點，偏好離敵人遠的點（加一點隨機）
   spawnActor(a, first) {
-    const pts = this.map.spawns[a.team];
-    let best = null, bestScore = -1e9;
-    for (const p of pts) {
-      let sc = Math.random() * 3;
+    let best = null, bestScore = -Infinity;
+    for (const p of this.map.spawns[a.team]) {
+      let score = Math.random() * 3;
       for (const o of this.actors) {
         if (!o.alive || o === a) continue;
         const d = Math.hypot(o.pos.x - p.x, o.pos.z - p.z);
-        if (d < 1.2) sc -= 100;
-        if (o.team !== a.team) sc += Math.min(d, 40) * 0.1;
+        if (d < 1.2) score -= 100;
+        if (o.team !== a.team) score += Math.min(d, 40) * 0.1;
       }
-      if (sc > bestScore) { bestScore = sc; best = p; }
+      if (score > bestScore) { bestScore = score; best = p; }
     }
     a.spawn(best);
     if (a instanceof Bot) a.onSpawn();
@@ -211,75 +227,82 @@ export class Game {
       audio.setLowHealth(false);
     }
   }
+
   lock() {
     if (this.touchMode || this.qs.has('nolock')) { this.locked = true; return; }
     const c = document.getElementById('c');
+    const plain = () => { try { c.requestPointerLock(); } catch { /* 拿不到鎖定就算了 */ } };
     try {
-      const p = c.requestPointerLock({ unadjustedMovement: true });
-      if (p && p.catch) p.catch(() => { try { c.requestPointerLock(); } catch (e) { /* 忽略 */ } });
-    } catch (e) { try { c.requestPointerLock(); } catch (e2) { /* 忽略 */ } }
+      const p = c.requestPointerLock({ unadjustedMovement: true });   // 不受系統滑鼠加速影響
+      p?.catch?.(plain);
+    } catch { plain(); }
   }
+
+  // 滑鼠鎖定被解除（按 Esc）就暫停；重新鎖定就繼續
   onLockChange() {
     this.locked = document.pointerLockElement === document.getElementById('c');
-    document.body.classList.toggle('lk', this.locked);
-    if (this.locked) {
-      if (this.paused) this.resume(true);
-    } else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has('nolock')) {
-      this.pause();
-    }
+    if (this.locked) { if (this.paused) this.resume(true); }
+    else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has('nolock')) this.pause();
   }
-  pause() {
-    this.paused = true; this.hud.show('pause');
-    this.hud.scoreboard(false);
-  }
-  resume(fromLock) {
-    this.paused = false; this.hud.show(null);
-    if (!fromLock) this.lock();
-  }
+
+  pause() { this.paused = true; this.hud.show('pause'); this.hud.scoreboard(false); }
+
+  resume(fromLock) { this.paused = false; this.hud.show(null); if (!fromLock) this.lock(); }
+
   quitToMenu() {
     this.playing = false; this.paused = false; this.ended = true;
     audio.stopAmbient(); audio.setLowHealth(false);
-    for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
-    for (const t of this.tags) this.renderer.scene.remove(t.sprite);
-    this.actors = []; this.tags = [];
+    this.clearActors();
     this.player = null;
     this.vm.setVisible(false);
     if (document.pointerLockElement) document.exitPointerLock();
     this.hud.show('menu');
   }
+
   toggleLoadout() {
     if (!this.playing) return;
     if (this.inLoadout) { this.closeLoadout(); return; }
-    this.inLoadout = true; this.hud.show('loadout');
-    for (const x of document.querySelectorAll('#loadCards .card')) x.classList.toggle('on', x.dataset.w === (this.player.nextPrimary || this.player.primary));
+    this.inLoadout = true;
+    this.hud.show('loadout');
+    const current = this.player.nextPrimary || this.player.primary;
+    for (const card of document.querySelectorAll('#loadCards .card')) card.classList.toggle('on', card.dataset.w === current);
     if (document.pointerLockElement) document.exitPointerLock();
   }
-  closeLoadout() {
-    this.inLoadout = false; this.hud.show(null); this.lock();
-  }
+
+  closeLoadout() { this.inLoadout = false; this.hud.show(null); this.lock(); }
+
+  // 在出生點內立刻換上；否則下次復活生效
   chooseLoadout(id) {
     const p = this.player;
-    p.nextPrimary = id; this.opts.primary = id; this.hud.saveOpts();
-    const inSpawn = p.alive && this.map.isSpawn(p);
-    if (inSpawn) {
-      p.primary = id; p.inv[0] = new (p.inv[0].constructor)(id); p.inv[0].patternSeed = Math.random() * 6;
-      p.slot = 0; p.readyAt = this.time + WEAPONS[id].draw; p.soldier.setWeapon(id);
-      this.vm.equip(id, WEAPONS[id].draw); this.hud.slots(p.inv, 0);
-      this.hud.toast(`已更換為 ${WEAPONS[id].name}`, 1.5);
+    p.nextPrimary = id;
+    this.opts.primary = id;
+    this.hud.saveOpts();
+    if (p.alive && this.map.isSpawn(p)) {
+      p.primary = id;
+      p.inv[0] = new (p.inv[0].constructor)(id);
+      p.inv[0].patternSeed = Math.random() * 6;
+      p.slot = 0;
+      p.readyAt = this.time + WEAPONS[id].draw;
+      p.soldier.setWeapon(id);
+      this.vm.equip(id, WEAPONS[id].draw);
+      this.hud.slots(p.inv, 0);
+      this.hud.toast(`已換成 ${WEAPONS[id].name}`, 1.5);
     } else this.hud.toast(`復活後使用 ${WEAPONS[id].name}`, 1.5);
     audio.playUI('buy');
   }
+
   onOption(k, v) {
     if (k === 'vol') audio.setVolumes({ master: v });
     if (k === 'fov' && this.renderer) { this.renderer.camera.fov = v; this.renderer.camera.updateProjectionMatrix(); }
     if (k === 'tod' && this.env) this.env.apply(v);
-    if (k === 'quality') { this.hud.saveOpts(); location.reload(); }
+    if (k === 'quality') { this.hud.saveOpts(); location.reload(); }   // 畫質影響貼圖與陰影，重新載入最單純
     if (k === 'team' && this.vm) this.vm.setTeam(v);
   }
+
   endMatch() {
     this.ended = true; this.playing = false;
-    const my = this.player.team, other = my === 'BL' ? 'GR' : 'BL';
-    const win = this.score[my] === this.score[other] ? null : this.score[my] > this.score[other];
+    const mine = this.player.team, theirs = mine === 'BL' ? 'GR' : 'BL';
+    const win = this.score[mine] === this.score[theirs] ? null : this.score[mine] > this.score[theirs];
     this.hud.endScreen(win, this.score, this.actors, this.player.id);
     audio.playUI('roundEnd'); audio.setLowHealth(false);
     audio.announce(win ? 'Mission accomplished' : win === null ? 'Draw' : 'Mission failed');
@@ -287,615 +310,193 @@ export class Game {
     this.vm.setVisible(false);
   }
 
-  // ================= 戰鬥 =================
-  fireWeapon(a, ws, spread) {
-    const d = ws.def;
-    const eye = a.eye(new THREE.Vector3());
-    const dir = a.forward(new THREE.Vector3());
-    jitterDir(dir, spread, Math.random);
-    let muzzle;
-    if (a.isPlayer) {
-      const cam = this.renderer.camera;
-      const right = _v2.set(1, 0, 0).applyQuaternion(cam.quaternion);
-      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
-      muzzle = cam.position.clone().addScaledVector(dir, 0.9).addScaledVector(right, 0.14).addScaledVector(up, -0.1);
-      this.vm.fire();
-      this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === 'sniper' ? 10 : 5, 0.06);
-      audio.playShot(d.sound, null);
-      if (Math.random() < 0.5) audio.playShellDrop(null);
-      if (d.pump) {
-        const id = d.id, t = this.time;
-        this.timers.push({ t: t + 0.2, fn: () => { if (a.alive && a.weapon.def === d) audio.playReload(id, 'boltback'); } });
-        this.timers.push({ t: t + 0.42, fn: () => { if (a.alive && a.weapon.def === d) audio.playReload(id, 'boltforward'); } });
-        this.timers.push({ t: t + 0.32, fn: () => {
-          if (!a.alive || a.weapon.def !== d) return;
-          const c = this.renderer.camera, r = new THREE.Vector3(1, 0, 0).applyQuaternion(c.quaternion), u = new THREE.Vector3(0, 1, 0).applyQuaternion(c.quaternion), f = a.forward(new THREE.Vector3());
-          this.fx.casing(c.position.clone().addScaledVector(f, 0.38).addScaledVector(r, 0.15).addScaledVector(u, -0.08), r.multiplyScalar(2.2).addScaledVector(u, 1.4), d.type);
-        } });
-      } else if (CASED[d.type]) {
-        const cp = cam.position.clone().addScaledVector(dir, 0.42).addScaledVector(right, 0.17).addScaledVector(up, -0.07);
-        const cv = right.clone().multiplyScalar(1.8 + Math.random() * 1.2).addScaledVector(up, 1.1 + Math.random() * 0.9).addScaledVector(dir, -0.4 + Math.random() * 0.4);
-        if (a.vel) cv.add(a.vel);
-        this.fx.casing(cp, cv, d.type);
-      }
-    } else {
-      muzzle = a.soldier.muzzleWorld(new THREE.Vector3());
-      this.fx.muzzle(muzzle, dir, d.type === 'sniper' ? 1.6 : d.type === 'smg' ? 0.8 : 1);
-      a.soldier.kick();
-      audio.playShot(d.sound, muzzle);
-      if (CASED[d.type] && muzzle.distanceTo(this.renderer.camera.position) < 35) {
-        const rt = new THREE.Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-        const cp = muzzle.clone().addScaledVector(dir, -0.45).addScaledVector(rt, 0.05);
-        this.fx.casing(cp, rt.multiplyScalar(1.6 + Math.random()).add(new THREE.Vector3(0, 1.2 + Math.random() * 0.8, 0)), d.type);
-      }
-    }
-    a.radarT = 1.6;
-    // 讓附近的機器人聽到
-    for (const b of this.actors) if (b !== a && b.hear && b.team !== a.team && b.pos.distanceTo(a.pos) < 45) b.hear(a.pos, true);
-    const n = d.pellets || 1;
-    let end;
-    for (let k = 0; k < n; k++) {
-      const pd = n > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
-      this._quiet = k > 0;
-      end = this.traceBullet(a, eye, pd, d);
-      // 只有部分子彈是曳光彈（約每 3 發一發），霰彈只畫第一顆
-      if (k === 0 && (d.type === 'sniper' || Math.random() < 0.33)) this.fx.tracer(muzzle, end);
-    }
-    this._quiet = false;
-    // 子彈掠過玩家
-    const p = this.player;
-    if (p && p.alive && a !== p && a.team !== p.team) {
-      const hp = p.eye(_v);
-      const t = _d.copy(hp).sub(eye).dot(dir);
-      if (t > 2 && t < eye.distanceTo(end)) {
-        const closest = eye.clone().addScaledVector(dir, t);
-        const md = closest.distanceTo(hp);
-        if (md < 1.3) {
-          audio.playBulletWhiz(closest);
-          // 子彈從耳邊擦過：畫面短暫模糊、輕微震動（壓制感）
-          this.suppK = Math.max(this.suppK || 0, 1 - md / 1.3); this.suppT = 0.4;
-          this.fx.shake = Math.max(this.fx.shake, 0.12 + 0.2 * (1 - md / 1.3));
-        }
-      }
-    }
-  }
-  traceBullet(shooter, o, dir, d) {
-    const range = d.range;
-    const hits = this.world.raycastAll(o.x, o.y, o.z, dir.x, dir.y, dir.z, range);
-    let power = d.pen, mul = 1, wall = false, from = 0;
-    this.frame++;
-    for (let i = 0; i <= hits.length; i++) {
-      const h = hits[i];
-      const lim = h ? h.t : range;
-      // 角色命中
-      let best = null, bestT = lim, part = null;
-      for (const a of this.actors) {
-        if (!a.alive || a === shooter || a.team === shooter.team) continue;
-        const r = a.soldier.hitTest(o, dir, bestT, this.frame);
-        if (r && r.t > from - 0.01 && r.t < bestT) { best = a; bestT = r.t; part = r.part; }
-      }
-      if (best) {
-        const pt = o.clone().addScaledVector(dir, bestT);
-        const dist = bestT;
-        const partMul = part === 'head' ? d.headMul : part === 'arm' || part === 'leg' ? d.limbMul : 1;
-        const dmg = d.dmg * mul * Math.pow(d.falloff, dist / 10) * partMul;
-        this.fx.impact(pt, _v.copy(dir).negate(), 'flesh', dir);
-        if (part === 'head') this.fx.impact(pt, _v.copy(dir).negate(), 'flesh', dir);
-        if (!this._quiet) audio.playImpact(pt, 'flesh');
-        this.damage(best, shooter, dmg, part, d.id, dir, wall);
-        return pt;
-      }
-      if (!h) break;
-      // 這發子彈途中剛被打爛的物件（例如牆的背面那層）：直接穿過，不再留彈孔
-      if (h.collider.bullet === 'pass' || h.collider.solid === false && h.collider.part) { from = h.exit; continue; }
-      const pt = o.clone().addScaledVector(dir, h.t);
-      const n = new THREE.Vector3(h.nx, h.ny, h.nz);
-      const mat = h.collider.mat;
-      // 玻璃：子彈打破整片玻璃後繼續飛行（稍微減傷）
-      if (h.collider.tag === 'glass' && this.map.breakGlass) {
-        const pane = this.map.breakGlass(h.collider);
-        if (pane) { this.fx.shatter(pane, dir); if (pt.distanceTo(this.renderer.camera.position) < 60) audio.playGlassBreak(pt); }
-        mul *= 0.9; from = h.exit; continue;
-      }
-      this.fx.impact(pt, n, mat, dir);
-      if (!this._quiet && pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === 'wood' ? 'wood' : mat === 'concrete' ? 'concrete' : 'metal');
-      // 可破壞物：累積傷害，打爛後子彈繼續穿過
-      const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
-      if (wreck) {
-        this.fx.debris(wreck, dir);
-        this.afterWreck(shooter);   // 連同背面那層一起清掉彈孔，並檢查上方結構是否失去支撐
-        if (pt.distanceTo(this.renderer.camera.position) < 70) audio.playDestroy(pt, wreck.kind);
-        mul *= 0.75; from = h.exit; continue;
-      }
-      if (h.collider.bullet === 'pen') {
-        const thick = h.exit - h.t;
-        const cost = thick * (mat === 'wood' ? 1.0 : 1.9);
-        if (power > cost) {
-          power -= cost; mul *= 0.6; wall = true; from = h.exit;
-          const ep = o.clone().addScaledVector(dir, h.exit);
-          this.fx.impact(ep, dir.clone(), mat, dir);
-          continue;
-        }
-      } else if (Math.random() < 0.08 && mat === 'metal') audio.playRicochet(pt);
-      return pt;
-    }
-    return o.clone().addScaledVector(dir, range);
-  }
-  melee(a, heavy) {
-    const d = WEAPONS.knife;
-    const range = heavy ? d.rangeHeavy : d.rangeLight;
-    const eye = a.eye(new THREE.Vector3());
-    const base = a.forward(new THREE.Vector3());
-    if (a.isPlayer) this.vm.melee(heavy);
-    this.frame++;
-    let hit = null;
-    for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
-      const dir = base.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), off);
-      for (const b of this.actors) {
-        if (!b.alive || b === a || b.team === a.team) continue;
-        const r = b.soldier.hitTest(eye, dir, range, this.frame);
-        if (r && (!hit || r.t < hit.t)) hit = { a: b, t: r.t, part: r.part, dir };
-      }
-      if (hit) break;
-    }
-    const delay = heavy ? 0.33 : 0.1;
-    this.timers.push({
-      t: this.time + delay, fn: () => {
-        if (!a.alive) return;
-        if (hit && hit.a.alive) {
-          const vf = hit.a.forward(new THREE.Vector3()); vf.y = 0; vf.normalize();
-          const back = vf.dot(_v.copy(hit.dir).setY(0).normalize()) > 0.5;
-          let dmg = heavy ? d.dmgHeavy : d.dmgLight;
-          if (back) dmg *= heavy ? 2 : 1.6;
-          if (hit.part === 'head') dmg *= 1.3;
-          const pt = eye.clone().addScaledVector(hit.dir, hit.t);
-          this.fx.impact(pt, hit.dir.clone().negate(), 'flesh', hit.dir);
-          audio.playKnife(heavy ? 'heavy' : 'light', 'flesh', a.isPlayer ? null : eye);
-          this.damage(hit.a, a, dmg, hit.part, 'knife', hit.dir, false, true);
-        } else {
-          const w = this.world.raycast(eye.x, eye.y, eye.z, base.x, base.y, base.z, range, 'bullet');
-          if (w) {
-            const pt = eye.clone().addScaledVector(base, w.t), nrm = new THREE.Vector3(w.nx, w.ny, w.nz), c = w.collider;
-            // 刀：玻璃一刀就破；其他表面留下刀痕，可破壞物也會累積傷害
-            const pane = c.tag === 'glass' && this.map.breakGlass ? this.map.breakGlass(c) : null;
-            if (pane) { this.fx.shatter(pane, base); audio.playGlassBreak(pt); }
-            else {
-              this.fx.slash(pt, nrm, c.mat, heavy);
-              const wreck = this.map.damageAt ? this.map.damageAt(c, heavy ? 70 : 34, base) : null;
-              if (wreck) { this.fx.debris(wreck, base); audio.playDestroy(pt, wreck.kind, 0.7); }
-              this.afterWreck(a);
-            }
-            audio.playKnife(heavy ? 'heavy' : 'light', 'wall', a.isPlayer ? null : eye);
-          } else audio.playKnife(heavy ? 'heavy' : 'light', 'miss', a.isPlayer ? null : eye);
-        }
-      },
-    });
-  }
-  throwGrenade(a) {
-    const eye = a.eye(new THREE.Vector3());
-    const dir = a.forward(new THREE.Vector3());
-    const right = new THREE.Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-    const pos = eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
-    const vel = dir.clone().multiplyScalar(16).add(new THREE.Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
-    const mesh = buildGunMerged('he'); mesh.scale.setScalar(1.3);
-    mesh.position.copy(pos); this.renderer.scene.add(mesh);
-    this.nades.push({ mesh, pos, vel, fuse: WEAPONS.he.fuse, owner: a, spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, 0) });
-    audio.playGrenadeThrow();
-    if (a.isPlayer) audio.announce('Fire in the hole!');
-    for (const b of this.actors) if (b.hear && b.team !== a.team && b.pos.distanceTo(pos) < 20) b.hear(pos, false);
-  }
-  updateNades(dt) {
-    const W = this.world;
-    this.nades = this.nades.filter((n) => {
-      n.fuse -= dt;
-      const steps = 3, h = dt / steps;
-      for (let s = 0; s < steps; s++) {
-        n.vel.y -= 14 * h;
-        const sp = n.vel.length();
-        if (sp < 1e-4) continue;
-        const d = n.vel.clone().divideScalar(sp);
-        const L = sp * h + 0.07;
-        const hit = W.raycast(n.pos.x, n.pos.y, n.pos.z, d.x, d.y, d.z, L, 'move');
-        if (hit) {
-          const nn = new THREE.Vector3(hit.nx, hit.ny, hit.nz);
-          n.pos.addScaledVector(d, Math.max(0, hit.t - 0.07));
-          const vn = n.vel.dot(nn);
-          n.vel.addScaledVector(nn, -1.45 * vn).multiplyScalar(0.55);
-          if (Math.abs(vn) > 2) audio.playGrenadeBounce(n.pos.clone());
-          if (nn.y > 0.7 && Math.abs(n.vel.y) < 1.2) { n.vel.y = 0; n.vel.x *= 0.8; n.vel.z *= 0.8; }
-          n.spin.multiplyScalar(0.6);
-        } else n.pos.addScaledVector(n.vel, h);
-      }
-      n.mesh.position.copy(n.pos);
-      n.mesh.rotation.x += n.spin.x * dt; n.mesh.rotation.y += n.spin.y * dt;
-      if (n.fuse <= 0) { this.explode(n.pos.clone(), n.owner); this.renderer.scene.remove(n.mesh); return false; }
-      return true;
-    });
-  }
-  explode(p, owner) {
-    const d = WEAPONS.he;
-    this.fx.explosion(p);
-    // 手雷震碎附近玻璃
-    const panes = this.map.breakGlassNear ? this.map.breakGlassNear(p, 7) : [];
-    for (const q of panes) this.fx.shatter(q, null, p);
-    if (panes.length) audio.playGlassBreak(p, Math.min(1.5, 0.6 + panes.length * 0.15));
-    // 手雷炸毀附近的牆、柱、桌椅與樹木
-    const wrecked = this.map.blastAt ? this.map.blastAt(p, 6.5, 900) : [];
-    for (const w of wrecked.slice(0, 40)) this.fx.debris(w, null, p);
-    this.afterWreck(owner);   // 所有被炸毀的物件（不限前 40 個）
-    // 爆炸把附近的課桌椅推開、掀翻
-    if (this.map.pushAt) this.map.pushAt(p, 10, 1);
-    // 近距離震盪：畫面模糊重影、閃白（耳鳴與悶聲在音效裡）
-    const pl = this.player;
-    const cp = this.renderer.camera.position, dv = _v.copy(cp).sub(p), L = dv.length();
-    if (pl && pl.alive && L < 14) {
-      let k = 1 - L / 14;
-      if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, 'sight')) k *= 0.45;
-      this.concK = Math.max(this.concK || 0, k); this.concT = Math.max(this.concT || 0, 1.5 + 2.5 * k);
-      this.flash = Math.max(this.flash || 0, 0.85 * k * k);
-    }
-    if (wrecked.length) audio.playDestroy(p, wrecked[0].kind, Math.min(1.8, 0.8 + wrecked.length * 0.1));
-    audio.playExplosion(p);
-    const camD = this.renderer.camera.position.distanceTo(p);
-    this.fx.shake = Math.max(this.fx.shake, Math.max(0, 1.4 - camD / 18));
-    for (const a of this.actors) {
-      if (!a.alive) continue;
-      if (a.team === owner.team && a !== owner) continue;
-      // 以身體離爆點最近的部位（腳、胸、頭）算距離；任一部位沒被擋住就算直接受爆
-      const pts = [new THREE.Vector3(a.pos.x, a.pos.y + 0.3, a.pos.z), a.soldier.chestWorld(new THREE.Vector3()), a.soldier.headWorld(new THREE.Vector3())];
-      let dist = Infinity, dir = null, open = false;
-      for (const c of pts) {
-        const v = c.clone().sub(p), L = v.length(); v.divideScalar(L || 1);
-        if (L < dist) { dist = L; dir = v; }
-        if (!open && L < d.radius && !this.world.raycast(p.x, p.y + 0.2, p.z, v.x, v.y, v.z, Math.max(0, L - 0.3), 'bullet')) open = true;
-      }
-      if (dist > d.radius) continue;
-      let dmg = d.dmg * Math.pow(1 - dist / d.radius, 1.1);
-      if (!open) dmg *= 0.3;   // 隔著掩體只受到部分衝擊
-      if (dmg > 1) this.damage(a, owner, dmg, 'chest', 'he', dir, false);
-    }
-    for (const b of this.actors) if (b.hear && b.pos.distanceTo(p) < 40) b.hear(p, true);
-  }
-  // 物件被打爛後：清彈孔、讓上面的殘骸掉下來、留下斷口、檢查失去支撐的結構與玻璃（連鎖最多 8 輪）
-  afterWreck(att) {
-    const M = this.map; if (!M.takeWrecked) return;
-    for (let it = 0; it < 8; it++) {
-      const w = M.takeWrecked(); if (!w.length) break;
-      for (const x of w) { this.fx.clearDecalsIn(x); this.fx.wakeRubble(x); }
-      for (const x of w) this.fx.remnants(x);
-      if (M.collapse) M.collapse(w, att);
-      if (M.looseGlass) for (const c of M.looseGlass(w)) { const q = M.breakGlass(c); if (q) { this.fx.shatter(q, new THREE.Vector3(0, -0.3, 0)); audio.playGlassBreak(new THREE.Vector3(q.x, q.y, q.z), 0.8); } }
-    }
-  }
-  // 塌落的牆塊落地、翻倒的桌子撞地
-  updateLanded() {
-    if (!this.map.takeLanded) return;
-    const ev = this.map.takeLanded(); if (!ev.length) return;
-    const cam = this.renderer.camera.position, zero = new THREE.Vector3();
-    for (const L of ev) {
-      const i = L.info, pt = new THREE.Vector3(i.x, i.y, i.z), d = pt.distanceTo(cam);
-      if (L.thud) { if (d < 40) audio.playImpact(pt, 'wood'); continue; }
-      this.fx.debris(i, zero);
-      if (L.hit) this.fx.debris(L.hit, zero);
-      if (d < 80) audio.playDestroy(pt, i.kind, Math.min(1.6, 0.6 + i.sx * i.sy * i.sz * 1.5));
-      this.fx.shake = Math.max(this.fx.shake, Math.max(0, 0.6 - d / 25));
-      // 砸到人
-      for (const a of this.actors) {
-        if (!a.alive) continue;
-        if (Math.abs(a.pos.x - i.x) < i.sx / 2 + 0.3 && Math.abs(a.pos.z - i.z) < i.sz / 2 + 0.3 && a.pos.y <= i.y + i.sy / 2 && a.pos.y + 1.8 >= i.y - i.sy / 2)
-          this.damage(a, L.att && L.att !== a ? L.att : null, 30 + Math.min(70, (L.v || 0) * 8 * i.sx * i.sy * i.sz * 3), 'head', 'he', new THREE.Vector3(0, -1, 0), false);
-      }
-    }
-    this.afterWreck(ev[0].att);
-  }
-  // 掉落的碎塊、碎玻璃砸到人：依重量與落速受傷（每塊只算一次，砸到後速度大減）
-  debrisHits() {
-    const fx = this.fx, dn = new THREE.Vector3();
-    const test = (list, glass) => {
-      for (const c of list) {
-        if (c.rest || c.hit || c.v.y > -3) continue;            // 只算正在往下掉、夠快的
-        const sx = glass ? c.s : c.s.x, sy = glass ? c.s : c.s.y, sz = glass ? c.s : c.s.z;
-        if (!glass && sy < 0.25 * sx) continue;                  // 樹葉片不算
-        for (const a of this.actors) {
-          if (!a.alive) continue;
-          const r = a.radius + Math.max(sx, sz) / 2;
-          if (Math.abs(c.p.x - a.pos.x) > r || Math.abs(c.p.z - a.pos.z) > r || c.p.y < a.pos.y || c.p.y > a.pos.y + a.height + 0.15) continue;
-          c.hit = true;
-          if (glass) { if (this.time - (a._glassT ?? -9) < 0.3) break; a._glassT = this.time; }   // 一陣碎玻璃最多每 0.3 秒算一次
-          const sp = c.v.length();
-          // 石材約 2400 kg/m³；傷害 ≈ 質量 × 速度 × 0.6，單塊上限 70。玻璃碎片小傷
-          let dmg = glass ? 3 + sx * 40 : Math.min(70, sx * sy * sz * 2400 * sp * 0.6);
-          if (dmg >= 2) {
-            const head = c.p.y > a.pos.y + a.height - 0.35;
-            if (head) dmg *= 1.6;
-            this.damage(a, null, dmg, head ? 'head' : 'chest', glass ? 'glass' : 'debris', dn.copy(c.v).normalize().clone(), false);
-          }
-          c.v.multiplyScalar(0.3);
-          break;
-        }
-      }
-    };
-    test(fx.chunks, false);
-    test(fx.shards, true);
-  }
-  damage(v, att, amt, part, wid, dir, wall, melee) {
-    if (!v.alive || v.protectT > 0) return;
-    if (att && att !== v && att.team === v.team) return;
-    const def = WEAPONS[wid];
-    const armBefore = v.armor;
-    let hpD = amt;
-    if (v.armor > 0 && part !== 'leg') {
-      const ap = def?.armorPen ?? 0.75;
-      hpD = amt * ap;
-      v.armor = Math.max(0, v.armor - amt * (1 - ap) * 1.4);
-    }
-    v.hp -= hpD;
-    v.lastAttacker = att; v.lastHurt = this.time;
-    const killed = v.hp <= 0;
-    const armored = armBefore > 0 && part !== 'leg', broke = armBefore > 0 && v.armor <= 0;
-    if (att && att !== v) att.stats.hits++;
-    if (!killed) {
-      v.tagT = Math.max(v.tagT || 0, melee ? 0.5 : 0.3);
-      if (v.onGround && !(v.slideT > 0)) { v.vel.x *= 0.6; v.vel.z *= 0.6; }
-      if (!v.isPlayer) v.soldier.flinch(part);
-    }
-    if (v.isPlayer) {
-      if (att && att !== v) this.hud.damageFrom(Math.atan2(-(att.pos.x - v.pos.x), -(att.pos.z - v.pos.z)));
-      v.aimPunch += Math.min(0.05, hpD * 0.0012);
-      audio.playHurt(Math.min(100, hpD));
-      if (broke) audio.playArmorBreak(null);
-      this.dmgFlash = Math.min(1.2, (this.dmgFlash || 0) + hpD / 45);
-      if (v.hp <= 30 && !killed) audio.setLowHealth(true);
-    } else if (v.onDamaged) v.onDamaged(att);
-    if (att && att.isPlayer && att !== v) {
-      this.hud.hitmarker(part === 'head', killed, broke);
-      if (killed || this.time - (this._hmT ?? -1) > 0.03) { audio.playHitmarker(part === 'head', armored && part !== 'head'); this._hmT = this.time; }
-      if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new THREE.Vector3()));
-    }
-    if (killed) this.kill(v, att, wid, part === 'head' && !melee, wall, dir);
-  }
-  kill(v, att, wid, hs, wall, dir) {
-    v.alive = false; v.hp = 0; v.deadT = 0; v.respawnT = 4.0; v.stats.d++;
-    v.scoped = 0;
-    v.soldier.die(dir.x, dir.z, hs, this.world, v.vel, dir.y || 0);
-    audio.playDeath(v.soldier.chestWorld(new THREE.Vector3()));
-    const p = this.player;
-    if (att && att !== v) {
-      att.stats.k++; if (hs) att.stats.hs++;
-      this.score[att.team]++;
-      att.multi = this.time - att.lastKillT < 5 ? att.multi + 1 : 1;
-      att.lastKillT = this.time; att.streak++;
-    }
-    this.hud.killFeed(att && att !== v ? att : null, v, wid, hs, wall, att === p || v === p);
-    if (att === p && v !== p) {
-      const m = Math.min(att.multi, 8);
-      let text, sub = `擊殺 ${v.name}`;
-      if (m >= 2) { text = MULTI[m]; sub = MULTI_CN[m] + ' · ' + sub; setTimeout(() => audio.announce(MULTI[m].toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) + '!'), 150); }
-      else if (hs) { text = 'HEADSHOT'; sub = '爆頭 · ' + sub; setTimeout(() => audio.announce('Headshot!'), 150); }
-      else if (wid === 'knife') { text = 'KNIFE KILL'; sub = '刀殺 · ' + sub; }
-      else if (wid === 'he') { text = 'GRENADE KILL'; sub = '手雷擊殺 · ' + sub; }
-      else if (wall) { text = 'WALLBANG'; sub = '穿牆擊殺 · ' + sub; }
-      else { text = 'KILL'; }
-      this.hud.badge(text, sub, hs);
-      audio.playKillConfirm(hs);
-    }
-    if (v === p) {
-      p.startDeathCam(att);
-      this.vm.setVisible(false);
-      audio.setLowHealth(false);
-      const wn = WEAPONS[wid]?.name || wid;
-      this.killedBy = att && att !== v ? `被 <span style="color:${att.team === 'BL' ? '#ff9b70' : '#8cc8ff'}">${att.name}</span> 用 ${wn}${hs ? ' <span style="color:#ff5040">爆頭</span>' : ''}擊殺` : CAUSES[wid]?.death || '你陣亡了';
-    }
-    this.fx.bloodSplat(v.pos);
-    if (this.score.BL >= this.goal || this.score.GR >= this.goal) setTimeout(() => { if (this.playing) this.endMatch(); }, 1200);
-  }
+  // ───────── 主迴圈 ─────────
 
-  // ================= 事件音效 =================
-  onJump(a) { audio.playJump(a.isPlayer ? null : a.pos.clone()); }
-  onSlide(a) { if (a.isPlayer || a.pos.distanceTo(this.renderer.camera.position) < 30) audio.playSlide(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || 'metal'); }
-  onMantle(a, rise) {
-    if (!a.isPlayer) return;
-    audio.playJump(null);
-    if (!a.weapon.reloading) this.vm.equip(a.weapon.id, 0.3 + rise * 0.2);   // 翻越時武器放低再舉起
-  }
-  onLand(a, sp) { audio.playLand(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || 'metal', Math.min(1, sp / 10)); }
-  onFootstep(a) {
-    if (!a.isPlayer && a.pos.distanceTo(this.renderer.camera.position) > 30) return;
-    audio.playFootstep(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || 'metal', { run: true, crouch: a.crouch });
-    if (!a.walk) for (const b of this.actors) if (b.hear && b.team !== a.team && b.pos.distanceTo(a.pos) < 12) b.hear(a.pos, false);
-  }
-  onSwitch(a) {
-    if (!a.isPlayer) return;
-    this.vm.equip(a.weapon.id, a.weapon.def.draw);
-    audio.playWeaponSwitch(a.weapon.id);
-    this.hud.slots(a.inv, a.slot);
-  }
-  onReloadStart(a, empty) {
-    if (!a.isPlayer) return;
-    const d = a.weapon.def, t = this.time, id = d.id;
-    this.vm.reload(d.reload, empty);
-    if (d.pump) {
-      for (let i = 0; i < 4; i++) this.timers.push({ t: t + d.reload * (0.2 + i * 0.18), fn: () => audio.playReload(id, 'shell') });
-      if (empty) { this.timers.push({ t: t + d.reload * 0.87, fn: () => audio.playReload(id, 'boltback') }); this.timers.push({ t: t + d.reload * 0.93, fn: () => audio.playReload(id, 'boltforward') }); }
-      return;
-    }
-    this.timers.push({ t: t + d.reload * 0.2, fn: () => audio.playReload(id, 'magout') });
-    this.timers.push({ t: t + d.reload * 0.6, fn: () => audio.playReload(id, 'magin') });
-    if (empty) this.timers.push({ t: t + d.reload * 0.82, fn: () => audio.playReload(id, id === 'awm' ? 'bolt' : 'boltback') });
-    if (empty) this.timers.push({ t: t + d.reload * 0.88, fn: () => audio.playReload(id, 'boltforward') });
-  }
-  onReloadDone() { }
-  onScope(a) { if (a.isPlayer) audio.playScope(a.scoped > 0); }
-  onDryFire(a) { if (a.isPlayer) audio.playDryFire(); }
-  onGrenadeStart(a) { if (a.isPlayer) { this.vm.throwNade(); audio.playGrenadePin(); } }
-
-  // ================= 主迴圈 =================
   loop(now) {
     requestAnimationFrame(this.loop);
-    let dt = (now - this.last) / 1000; this.last = now;
-    if (dt > 0.1) dt = 0.1;
+    let dt = (now - this.last) / 1000;
+    this.last = now;
     if (dt <= 0) return;
-    const R = this.renderer, cam = R.camera;
-    this.realTime = (this.realTime || 0) + dt;
-    const active = this.playing && !this.paused;
-    if (active) {
+    dt = Math.min(dt, 0.1);   // 切回分頁時不要一次跳太多
+    this.realTime += dt;
+    if (this.playing && !this.paused) {
       if (this.player) this.player.lookDX = this.player.lookDY = 0;
-      const n = Math.min(4, Math.ceil(dt * 100 - 1e-6)), h = dt / n;
-      for (let i = 0; i < n; i++) this.simulate(h, i === n - 1 ? dt : 0);
-    }
-    else if (!this.playing) {
-      // 選單：環繞樹義國小
-      const t = this.realTime * 0.045;
-      const mc = this.map && this.map.menuCam;
+      // 固定小步長模擬：手感不受幀率影響；最後一步才更新角色動畫
+      const steps = Math.min(4, Math.ceil(dt / MAX_STEP - 1e-6)), h = dt / steps;
+      for (let i = 0; i < steps; i++) this.simulate(h, i === steps - 1 ? dt : 0);
+    } else if (!this.playing) {
+      // 選單背景：俯瞰校園
+      const cam = this.renderer.camera, mc = this.map?.menuCam;
       if (mc) { cam.position.set(...mc.pos); cam.lookAt(...mc.look); } else { cam.position.set(123, 151, 159); cam.lookAt(0, 39, 0); }
       cam.fov = 65; cam.updateProjectionMatrix();
     }
     this.renderFrame(dt);
   }
-  // 除錯：無渲染快進
+
+  // 除錯用：不渲染、直接快轉模擬
   fastForward(seconds, step = 1 / 30) {
     for (let t = 0; t < seconds && this.playing; t += step) this.simulate(step);
-    return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => a.name + ':' + a.stats.k + '/' + a.stats.d).join(' ') };
+    return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => `${a.name}:${a.stats.k}/${a.stats.d}`).join(' ') };
   }
+
+  // vis：要更新角色動畫的時間量（同一幀的前幾個小步傳 0，省掉重複的骨架計算）
   simulate(dt, vis = dt) {
+    this.time += dt;
+    this.timeLeft -= dt;
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      if (this.time < this.timers[i].t) continue;
+      const { fn } = this.timers[i];
+      this.timers.splice(i, 1);
+      fn();
+    }
+    this.player.update(dt);
+    for (const a of this.actors) if (!a.isPlayer) a.update(dt);
+    for (const a of this.actors) this.updateBody(a, dt, vis);
+    this.updateNades(dt);
+    if (this.timeLeft <= 0 && !this.ended) this.endMatch();
     const cam = this.renderer.camera;
-    {
-      this.time += dt;
-      this.timeLeft -= dt;
-      for (let i = this.timers.length - 1; i >= 0; i--) if (this.time >= this.timers[i].t) { const f = this.timers[i].fn; this.timers.splice(i, 1); f(); }
-      this.player.update(dt);
-      for (const a of this.actors) {
-        if (a.isPlayer) continue;
-        a.update(dt);
-      }
-      for (const a of this.actors) {
-        a.radarT = Math.max(0, a.radarT - dt);
-        if (a.alive) {
-          a.protectT = Math.max(0, a.protectT - dt);
-          const s = a.soldier;
-          s.root.position.copy(a.pos);
-          s.root.rotation.y = a.yaw;
-          const fwd = (a.vel.x * -Math.sin(a.yaw) + a.vel.z * -Math.cos(a.yaw)) / Math.max(0.01, a.speed || 0);
-          if (vis) s.update(vis, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
-          // 出生保護閃爍
-          if (!a.isPlayer) s.mesh.visible = !(a.protectT > 0 && Math.sin(this.time * 30) > 0.3);
-        } else {
-          a.deadT += dt;
-          if (vis) a.soldier.update(vis, {});
-          a.respawnT -= dt;
-          if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
-        }
-      }
-      this.updateNades(dt);
-      if (this.timeLeft <= 0 && !this.ended) this.endMatch();
-      // 隊友名字
-      for (const t of this.tags) {
-        const a = t.actor;
-        t.sprite.visible = a.alive && a.pos.distanceTo(cam.position) < 45;
-        if (t.sprite.visible) { a.soldier.headWorld(t.sprite.position); t.sprite.position.y += 0.42; }
-      }
+    for (const t of this.tags) {
+      const a = t.actor;
+      t.sprite.visible = a.alive && a.pos.distanceTo(cam.position) < 45;
+      if (t.sprite.visible) { a.soldier.headWorld(t.sprite.position); t.sprite.position.y += 0.42; }
     }
   }
-  renderFrame(dt) {
-    const R = this.renderer, cam = R.camera;
-    // 第一人稱武器
-    if (this.player && this.playing) {
-      const p = this.player;
-      if (this.frame % 6 === 0 || !this.lightK) this.updateLightProbe();
-      this.frame++;
-      const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
-      this.vm.setVisible(p.alive && !(p.scoped && p.weapon.def.type === 'sniper'));
-      this.vm.update(dt, { speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
-      R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
+
+  // 角色外觀跟著邏輯位置走；陣亡的倒數重生
+  updateBody(a, dt, vis) {
+    a.radarT = Math.max(0, a.radarT - dt);
+    const s = a.soldier;
+    if (!a.alive) {
+      a.deadT += dt;
+      if (vis) s.update(vis, {});
+      a.respawnT -= dt;
+      if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
+      return;
     }
-    this.fx.update(dt, this.realTime, cam, this.env.shipSpeed);
+    a.protectT = Math.max(0, a.protectT - dt);
+    s.root.position.copy(a.pos);
+    s.root.rotation.y = a.yaw;
+    if (vis) {
+      const fwd = (a.vel.x * -Math.sin(a.yaw) + a.vel.z * -Math.cos(a.yaw)) / Math.max(0.01, a.speed || 0);
+      s.update(vis, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
+    }
+    if (!a.isPlayer) s.mesh.visible = !(a.protectT > 0 && Math.sin(this.time * 30) > 0.3);   // 出生保護時閃爍
+  }
+
+  // ───────── 每幀輸出 ─────────
+
+  renderFrame(dt) {
+    const R = this.renderer, cam = R.camera, p = this.player;
+    if (p && this.playing) this.updateViewModel(dt, p);
+    this.fx.update(dt, this.realTime, cam);
     this.env.update(dt, this.realTime, cam.position);
     this.map.update(dt, this.realTime);
     this.updateLanded();
     if (this.playing) this.debrisHits();
-    // 幀率統計與畫質建議
-    this.fpsAcc = (this.fpsAcc || 0) + dt; this.fpsN = (this.fpsN || 0) + 1;
-    if (this.fpsAcc > 1) {
-      this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0;
-      const lbl = document.querySelector('#radarWrap .lbl');
-      if (lbl) lbl.textContent = `樹義國小 · ${this.fps} FPS`;
-      if (this.playing && !this.paused && this.time > 8 && !this.fpsHinted && this.fps < 32 && this.opts.quality !== 'low') {
-        this.fpsHinted = true;
-        this.hud.toast('幀率較低：可按 Esc 在主選單把畫質調到「均衡」或「流暢」', 5);
-      }
-    }
-    // 小地圖示籤：所在樓棟 / 樓層 / 堂號（資料來自 tanghao.neocities.org）
-    this.locAcc = (this.locAcc || 0) + dt;
-    if (this.locAcc > 0.3 && this.player && this.map.locate) {
-      this.locAcc = 0;
-      const lbl = document.querySelector('#radarWrap .lbl'), where = this.playing ? this.map.locate(this.player.pos) : '';
-      if (lbl) lbl.textContent = (where || '樹義國小') + ` · ${this.fps || '--'} FPS`;
-    }
-    // 音訊監聽者
-    const fwd = _v.set(0, 0, -1).applyQuaternion(cam.quaternion), up = _v2.set(0, 1, 0).applyQuaternion(cam.quaternion);
-    audio.setListener(cam.position, fwd, up);
+    this.updateRadarLabel(dt);
+    audio.setListener(cam.position, _v.set(0, 0, -1).applyQuaternion(cam.quaternion), _u.set(0, 1, 0).applyQuaternion(cam.quaternion));
     audio.update(dt);
-    // HUD
-    if (this.player && (this.playing || this.ended)) this.updateHUD(dt);
-    // 螢幕特效
-    const fxu = R.fx.uniforms;
-    this.dmgFlash = Math.max(0, (this.dmgFlash || 0) - dt * 1.6);
-    fxu.uTime.value = this.realTime;
-    fxu.uDamage.value = this.dmgFlash;
-    this.concT = Math.max(0, (this.concT || 0) - dt); if (this.concT <= 0) this.concK = 0;
-    this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
-    const alive = this.player && this.player.alive && this.playing;
-    this.suppT = Math.max(0, (this.suppT || 0) - dt); if (this.suppT <= 0) this.suppK = 0;
-    fxu.uConc.value = alive ? Math.max((this.concK || 0) * Math.min(1, this.concT / 1.2), (this.suppK || 0) * 0.28 * (this.suppT / 0.4)) : 0;
-    fxu.uFlash.value = alive ? this.flash : 0;
-    const p = this.player;
-    fxu.uLowHP.value = p && p.alive && this.playing ? Math.max(0, (35 - p.hp) / 35) : 0;
-    fxu.uDeath.value = p && !p.alive && this.playing ? Math.min(1, p.deadT * 2) : 0;
-    fxu.uProtect.value = p && p.alive && this.playing ? Math.min(1, p.protectT) : 0;
-    fxu.uVignette.value = 0;
+    if (p && (this.playing || this.ended)) this.updateHUD(dt);
+    this.updateScreenFx(dt);
     R.render();
   }
-  updateLightProbe() {
-    const p = this.player, e = p.eye(_v), s = this.env.sunDir;
-    const sunBlocked = !!this.world.raycast(e.x, e.y, e.z, s.x, s.y, s.z, 80, 'sight');
-    const roof = !!this.world.raycast(e.x, e.y, e.z, 0, 1, 0, 5, 'sight');
-    const tl = sunBlocked ? 0.22 : 1, ti = roof ? 1 : 0;
-    this.lightK = this.lightK === undefined ? tl : this.lightK + (tl - this.lightK) * 0.35;
-    this.indoorK = this.indoorK === undefined ? ti : this.indoorK + (ti - this.indoorK) * 0.35;
+
+  updateViewModel(dt, p) {
+    const R = this.renderer, cam = R.camera;
+    if (this.frame % 6 === 0 || this.lightK === undefined) this.probeLight();
+    this.frame++;
+    const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
+    this.vm.setVisible(p.alive && !(p.scoped && p.weapon.def.type === 'sniper'));
+    this.vm.update(dt, { speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
+    R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
   }
+
+  // 手上的槍要跟環境一樣亮：太陽被擋住就變暗，頭頂有遮蔽算室內
+  probeLight() {
+    const e = this.player.eye(_v), s = this.env.sunDir;
+    const shade = this.world.raycast(e.x, e.y, e.z, s.x, s.y, s.z, 80, 'sight') ? 0.22 : 1;
+    const roof = this.world.raycast(e.x, e.y, e.z, 0, 1, 0, 5, 'sight') ? 1 : 0;
+    this.lightK = this.lightK === undefined ? shade : this.lightK + (shade - this.lightK) * 0.35;
+    this.indoorK = this.indoorK === undefined ? roof : this.indoorK + (roof - this.indoorK) * 0.35;
+  }
+
+  // 小地圖下方：所在樓棟、樓層、堂號（資料來自 tanghao.neocities.org）＋幀率；幀率太低時提示降畫質
+  updateRadarLabel(dt) {
+    this.fpsAcc = (this.fpsAcc || 0) + dt;
+    this.fpsN = (this.fpsN || 0) + 1;
+    if (this.fpsAcc > 1) {
+      this.fps = Math.round(this.fpsN / this.fpsAcc);
+      this.fpsAcc = 0; this.fpsN = 0;
+      if (this.playing && !this.paused && this.time > 8 && !this.fpsHinted && this.fps < 32 && this.opts.quality !== 'low') {
+        this.fpsHinted = true;
+        this.hud.toast('幀率偏低：可按 Esc 回主選單把畫質調成「均衡」或「流暢」', 5);
+      }
+    }
+    this.locAcc = (this.locAcc || 0) + dt;
+    if (this.locAcc < 0.3) return;
+    this.locAcc = 0;
+    const label = document.querySelector('#radarWrap .lbl');
+    if (!label) return;
+    const place = this.playing && this.player && this.map.locate ? this.map.locate(this.player.pos) : '';
+    label.textContent = `${place || '樹義國小'}・${this.fps || '--'} FPS`;
+  }
+
+  updateScreenFx(dt) {
+    const u = this.renderer.fx.uniforms, p = this.player;
+    const alive = p?.alive && this.playing, dead = p && !p.alive && this.playing;
+    this.dmgFlash = Math.max(0, (this.dmgFlash || 0) - dt * 1.6);
+    this.concT = Math.max(0, (this.concT || 0) - dt); if (this.concT <= 0) this.concK = 0;
+    this.suppT = Math.max(0, (this.suppT || 0) - dt); if (this.suppT <= 0) this.suppK = 0;
+    this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
+    const concussion = (this.concK || 0) * Math.min(1, this.concT / 1.2);
+    const suppression = (this.suppK || 0) * 0.28 * (this.suppT / 0.4);
+    u.uTime.value = this.realTime;
+    u.uDamage.value = this.dmgFlash;
+    u.uConc.value = alive ? Math.max(concussion, suppression) : 0;
+    u.uFlash.value = alive ? this.flash : 0;
+    u.uLowHP.value = alive ? Math.max(0, (35 - p.hp) / 35) : 0;
+    u.uDeath.value = dead ? Math.min(1, p.deadT * 2) : 0;
+    u.uProtect.value = alive ? Math.min(1, p.protectT) : 0;
+    u.uVignette.value = 0;
+  }
+
   updateHUD(dt) {
     const p = this.player, cam = this.renderer.camera, w = p.weapon;
+    // 準星張開的像素：目前散佈角換算到螢幕
     let spreadPx = 0;
-    if (w && w.def.spread) {
-      const sp = Math.min(0.12, w.spreadAcc + w.def.spread.base * 2 + w.def.spread.move * Math.min(1, Math.max(0, ((p.speed || 0) - 1.6) / 3.4)) + (w.def.pelletSpread || 0) + (p.onGround ? 0 : w.def.spread.air * 0.5)) * (p.crouch ? 0.7 : 1);
-      spreadPx = Math.tan(sp) / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * window.innerHeight / 2;
+    if (w?.def.spread) {
+      const s = w.def.spread;
+      const run = Math.min(1, Math.max(0, ((p.speed || 0) - 1.6) / 3.4));
+      const cone = Math.min(0.12, w.spreadAcc + s.base * 2 + s.move * run + (w.def.pelletSpread || 0) + (p.onGround ? 0 : s.air * 0.5)) * (p.crouch ? 0.7 : 1);
+      spreadPx = (Math.tan(cone) / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) * (window.innerHeight / 2);
     }
-    // 準星下的角色名
-    let aimName = '', aimTeam = '';
+    // 準星指到的角色名稱（每 4 幀查一次）
     if (p.alive && this.frame % 4 === 0) {
       const o = cam.position, d = _d.set(0, 0, -1).applyQuaternion(cam.quaternion);
-      const wh = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, 'sight');
-      const lim = wh ? wh.t : 80;
-      let best = null, bt = lim;
+      const wall = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, 'sight');
+      let best = null, bestT = wall ? wall.t : 80;
       this.frame++;
       for (const a of this.actors) {
         if (a === p || !a.alive) continue;
-        const r = a.soldier.hitTest(o, d, bt, this.frame);
-        if (r) { best = a; bt = r.t; }
+        const r = a.soldier.hitTest(o, d, bestT, this.frame);
+        if (r) { best = a; bestT = r.t; }
       }
       this.aimTarget = best;
     }
-    if (this.aimTarget && this.aimTarget.alive) { aimName = this.aimTarget.name; aimTeam = this.aimTarget.team; }
+    const aim = this.aimTarget?.alive ? this.aimTarget : null;
     this.hud.update(dt, {
       score: this.score, timeLeft: this.timeLeft, goal: this.goal, myTeam: p.team,
       hp: p.hp, armor: p.armor, alive: p.alive, weapon: w, scoped: p.scoped && w.def.type === 'sniper', spreadPx,
-      yaw: p.yaw, respawnIn: p.respawnT, killedBy: this.killedBy, protect: p.protectT, aimName, aimTeam,
+      yaw: p.yaw, respawnIn: p.respawnT, killedBy: this.killedBy, protect: p.protectT,
+      aimName: aim?.name || '', aimTeam: aim?.team || '',
     });
-    this.hud.drawRadar(p, this.actors, this.time);
+    this.hud.drawRadar(p, this.actors);
     const tab = p.keys.has('Tab') && this.playing && !this.paused;
-    if (tab !== this.boardShown || (tab && this.frame % 20 === 0)) { this.boardShown = tab; this.hud.scoreboard(tab, this.actors, p.id, this.score); }
+    if (tab !== this.boardShown || (tab && this.frame % 20 === 0)) {
+      this.boardShown = tab;
+      this.hud.scoreboard(tab, this.actors, p.id, this.score);
+    }
   }
 }
 
-
-
+Object.assign(Game.prototype, combat, events);

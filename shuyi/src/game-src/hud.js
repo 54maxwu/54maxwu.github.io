@@ -121,8 +121,6 @@ const TEMPLATE = `
       <div class="row3">${field('靈敏度', slider('sens', 0.2, 3, 0.05))}${FOV}${VOL}</div>
       <button class="go" id="btnStart">開始上課</button>
       <div class="note">按下開始後滑鼠會被鎖定，按 Esc 暫停。切換畫質會重新載入頁面。</div>
-      <div class="mlinks"><span>遊戲引擎改編自</span><a href="https://github.com/riba2534/claude-opus-5-5-demo" target="_blank" rel="noopener noreferrer">riba2534/claude-opus-5-5-demo</a><span>·</span><a href="https://x.com/riba2534" target="_blank" rel="noopener noreferrer">X @riba2534</a></div>
-      <div class="mlinks credits"><span>地圖資料 ©</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap 貢獻者（ODbL）</a><span>·</span><span>校園配置與堂號：</span><a href="https://tanghao.neocities.org/" target="_blank" rel="noopener noreferrer">臺中市南區樹義國民小學（CC BY-NC-SA）</a></div>
     </section>
   </div>
 </div>
