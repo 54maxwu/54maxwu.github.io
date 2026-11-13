@@ -610,9 +610,9 @@ export class Effects {
     this.shake *= Math.exp(-dt * 5);
   }
 
-  // 曳光：彈頭以 300 m/s 前進（比真實慢，肉眼才看得到），拖著 10 m 的尾巴；面片繞著彈道軸轉向鏡頭
+  // 曳光：彈頭以 750 m/s 前進、拖著 5 m 的尾巴，一閃即逝；面片繞著彈道軸轉向鏡頭
   updateTracers(dt, camera) {
-    const SPEED = 300, TAIL = 10, M = this._tm, mid = this._tmid, side = this._ta, face = this._tb, toCam = this._tc;
+    const SPEED = 750, TAIL = 5, M = this._tm, mid = this._tmid, side = this._ta, face = this._tb, toCam = this._tc;
     let n = 0;
     this.tracers = this.tracers.filter((tr) => {
       tr.t += dt;
@@ -624,7 +624,7 @@ export class Effects {
       const dist = toCam.length();
       side.crossVectors(tr.dir, toCam).normalize();
       face.crossVectors(tr.dir, side);
-      const L = head - tail, W = 0.03 + dist * 0.0022;
+      const L = head - tail, W = 0.022 + dist * 0.0016;
       // 直接寫出縮放後的基底：X 軸沿彈道（長度 L）、Y 軸橫向（寬度 W）
       M.set(
         tr.dir.x * L, side.x * W, face.x, mid.x,

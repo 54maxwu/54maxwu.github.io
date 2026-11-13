@@ -338,7 +338,8 @@ export class Game {
       const pd = n > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
       this._quiet = k > 0;
       end = this.traceBullet(a, eye, pd, d);
-      if ((!a.isPlayer && k < 3) || (a.isPlayer && Math.random() < (n > 1 ? 0.25 : 0.35)) || d.type === 'sniper') this.fx.tracer(muzzle, end);
+      // 只有部分子彈是曳光彈（約每 3 發一發），霰彈只畫第一顆
+      if (k === 0 && (d.type === 'sniper' || Math.random() < 0.33)) this.fx.tracer(muzzle, end);
     }
     this._quiet = false;
     // 子彈掠過玩家
