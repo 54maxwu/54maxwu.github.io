@@ -33153,6 +33153,9 @@ void main() {
   }
 
   // game-src/physics.js
+  var CELL = 4;
+  var cellKey = (cx, cz) => cx * 1e3 + cz;
+  var cellOf = (v) => Math.floor(v / CELL);
   var Collider = class {
     constructor(o) {
       this.x = o.x;
@@ -33169,6 +33172,7 @@ void main() {
       this.bullet = o.bullet || "block";
       this.sight = o.sight !== false;
       this.surface = o.surface || (this.mat === "wood" ? "wood" : "metal");
+      this.tag = o.tag || "";
       this.top = this.y + this.hy;
       this.bottom = this.y - this.hy;
       const ex = Math.abs(this.c) * this.hx + Math.abs(this.s) * this.hz;
@@ -33178,9 +33182,7 @@ void main() {
       this.minZ = this.z - ez;
       this.maxZ = this.z + ez;
       this.stamp = 0;
-      this.tag = o.tag || "";
     }
-    // 世界 -> 區域性（XZ）
     toLocal(wx, wz) {
       const dx = wx - this.x, dz = wz - this.z;
       return [this.c * dx - this.s * dz, this.s * dx + this.c * dz];
@@ -33189,13 +33191,17 @@ void main() {
       return [this.c * lx + this.s * lz, -this.s * lx + this.c * lz];
     }
   };
-  var CELL = 4;
+  var _slab = { t: 0, exit: 0, nx: 0, ny: 0, nz: 0 };
+  var _o = new Float64Array(3);
+  var _d = new Float64Array(3);
+  var _h = new Float64Array(3);
+  var _circle = { nx: 0, nz: 0, pen: 0 };
   var World = class _World {
     constructor() {
       this.colliders = [];
       this.grid = /* @__PURE__ */ new Map();
       this.stamp = 1;
-      this._cand = [];
+      this._found = [];
     }
     add(o) {
       const c = o instanceof Collider ? o : new Collider(o);
@@ -33205,135 +33211,102 @@ void main() {
     build() {
       this.grid.clear();
       for (const c of this.colliders) {
-        const x0 = Math.floor(c.minX / CELL), x1 = Math.floor(c.maxX / CELL);
-        const z0 = Math.floor(c.minZ / CELL), z1 = Math.floor(c.maxZ / CELL);
-        for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-          const k = x * 1e3 + z;
-          let arr = this.grid.get(k);
-          if (!arr) {
-            arr = [];
-            this.grid.set(k, arr);
+        for (let cx = cellOf(c.minX); cx <= cellOf(c.maxX); cx++) {
+          for (let cz = cellOf(c.minZ); cz <= cellOf(c.maxZ); cz++) {
+            const k = cellKey(cx, cz);
+            const list = this.grid.get(k);
+            if (list) list.push(c);
+            else this.grid.set(k, [c]);
           }
-          arr.push(c);
         }
       }
     }
     query(minX, minZ, maxX, maxZ) {
-      const out = this._cand;
-      out.length = 0;
-      const st = ++this.stamp;
-      const x0 = Math.floor(minX / CELL), x1 = Math.floor(maxX / CELL);
-      const z0 = Math.floor(minZ / CELL), z1 = Math.floor(maxZ / CELL);
-      for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-        const arr = this.grid.get(x * 1e3 + z);
-        if (!arr) continue;
-        for (const c of arr) {
-          if (c.stamp === st) continue;
-          c.stamp = st;
-          if (c.maxX < minX || c.minX > maxX || c.maxZ < minZ || c.minZ > maxZ) continue;
-          out.push(c);
+      const found = this._found;
+      found.length = 0;
+      const mark = ++this.stamp;
+      for (let cx = cellOf(minX); cx <= cellOf(maxX); cx++) {
+        for (let cz = cellOf(minZ); cz <= cellOf(maxZ); cz++) {
+          const list = this.grid.get(cellKey(cx, cz));
+          if (!list) continue;
+          for (const c of list) {
+            if (c.stamp === mark) continue;
+            c.stamp = mark;
+            if (c.maxX >= minX && c.minX <= maxX && c.maxZ >= minZ && c.minZ <= maxZ) found.push(c);
+          }
         }
       }
-      return out;
+      return found;
     }
-    // 射線 vs 單個 OBB，返回 t 與區域性法線
+    // 射線與 OBB：轉到盒子的本地座標後，對三個軸各做一次「進入／離開」區間交集
+    // 命中時寫入 res：t 進入距離、exit 離開距離、nx/ny/nz 世界座標的命中面法線
     static rayOBB(c, ox, oy, oz, dx, dy, dz, maxT, res) {
       const rx = ox - c.x, rz = oz - c.z;
-      const lox = c.c * rx - c.s * rz, loz = c.s * rx + c.c * rz, loy = oy - c.y;
-      const ldx = c.c * dx - c.s * dz, ldz = c.s * dx + c.c * dz, ldy = dy;
-      let tmin = 0, tmax = maxT, axis = -1, sign2 = 0;
-      if (Math.abs(ldx) < 1e-9) {
-        if (lox < -c.hx || lox > c.hx) return false;
-      } else {
-        let t1 = (-c.hx - lox) / ldx, t2 = (c.hx - lox) / ldx, sg = -1;
-        if (t1 > t2) {
-          const t = t1;
-          t1 = t2;
-          t2 = t;
-          sg = 1;
+      const origin = _o, dir = _d, half = _h;
+      origin[0] = c.c * rx - c.s * rz;
+      origin[1] = oy - c.y;
+      origin[2] = c.s * rx + c.c * rz;
+      dir[0] = c.c * dx - c.s * dz;
+      dir[1] = dy;
+      dir[2] = c.s * dx + c.c * dz;
+      half[0] = c.hx;
+      half[1] = c.hy;
+      half[2] = c.hz;
+      let enter = 0, leave = maxT, hitAxis = -1, hitSign = 0;
+      for (let a = 0; a < 3; a++) {
+        if (Math.abs(dir[a]) < 1e-9) {
+          if (origin[a] < -half[a] || origin[a] > half[a]) return false;
+          continue;
         }
-        if (t1 > tmin) {
-          tmin = t1;
-          axis = 0;
-          sign2 = sg;
+        const inv = 1 / dir[a];
+        let near = (-half[a] - origin[a]) * inv, far = (half[a] - origin[a]) * inv, face = -1;
+        if (near > far) {
+          const t = near;
+          near = far;
+          far = t;
+          face = 1;
         }
-        if (t2 < tmax) tmax = t2;
-        if (tmin > tmax) return false;
+        if (near > enter) {
+          enter = near;
+          hitAxis = a;
+          hitSign = face;
+        }
+        if (far < leave) leave = far;
+        if (enter > leave) return false;
       }
-      if (Math.abs(ldy) < 1e-9) {
-        if (loy < -c.hy || loy > c.hy) return false;
-      } else {
-        let t1 = (-c.hy - loy) / ldy, t2 = (c.hy - loy) / ldy, sg = -1;
-        if (t1 > t2) {
-          const t = t1;
-          t1 = t2;
-          t2 = t;
-          sg = 1;
-        }
-        if (t1 > tmin) {
-          tmin = t1;
-          axis = 1;
-          sign2 = sg;
-        }
-        if (t2 < tmax) tmax = t2;
-        if (tmin > tmax) return false;
-      }
-      if (Math.abs(ldz) < 1e-9) {
-        if (loz < -c.hz || loz > c.hz) return false;
-      } else {
-        let t1 = (-c.hz - loz) / ldz, t2 = (c.hz - loz) / ldz, sg = -1;
-        if (t1 > t2) {
-          const t = t1;
-          t1 = t2;
-          t2 = t;
-          sg = 1;
-        }
-        if (t1 > tmin) {
-          tmin = t1;
-          axis = 2;
-          sign2 = sg;
-        }
-        if (t2 < tmax) tmax = t2;
-        if (tmin > tmax) return false;
-      }
-      if (axis < 0) {
+      res.exit = leave;
+      if (hitAxis < 0) {
         res.t = 0;
-        res.exit = tmax;
         res.nx = -dx;
         res.ny = -dy;
         res.nz = -dz;
         return true;
       }
-      res.t = tmin;
-      res.exit = tmax;
-      let lnx = 0, lny = 0, lnz = 0;
-      if (axis === 0) lnx = sign2;
-      else if (axis === 1) lny = sign2;
-      else lnz = sign2;
-      res.nx = c.c * lnx + c.s * lnz;
-      res.ny = lny;
-      res.nz = -c.s * lnx + c.c * lnz;
+      res.t = enter;
+      const lx = hitAxis === 0 ? hitSign : 0, lz = hitAxis === 2 ? hitSign : 0;
+      res.nx = c.c * lx + c.s * lz;
+      res.ny = hitAxis === 1 ? hitSign : 0;
+      res.nz = -c.s * lx + c.c * lz;
       return true;
     }
-    // 射線檢測。filter: 'move' | 'bullet' | 'sight'
-    // 返回最近命中 {t, nx,ny,nz, collider, exit}
-    raycast(ox, oy, oz, dx, dy, dz, maxT, mode = "bullet", out = {}) {
+    rayQuery(ox, oz, dx, dz, maxT) {
       const ex = ox + dx * maxT, ez = oz + dz * maxT;
-      const cands = this.query(Math.min(ox, ex) - 0.1, Math.min(oz, ez) - 0.1, Math.max(ox, ex) + 0.1, Math.max(oz, ez) + 0.1);
+      return this.query(Math.min(ox, ex) - 0.1, Math.min(oz, ez) - 0.1, Math.max(ox, ex) + 0.1, Math.max(oz, ez) + 0.1);
+    }
+    static passes(c, mode) {
+      return mode === "bullet" && c.bullet === "pass" || mode === "sight" && !c.sight || mode === "move" && !c.solid;
+    }
+    raycast(ox, oy, oz, dx, dy, dz, maxT, mode = "bullet", out = {}) {
       let best = maxT, hit = null;
-      const r = this._r || (this._r = {});
-      for (let i = 0; i < cands.length; i++) {
-        const c = cands[i];
-        if (mode === "bullet" && c.bullet === "pass") continue;
-        if (mode === "sight" && !c.sight) continue;
-        if (mode === "move" && !c.solid) continue;
-        if (_World.rayOBB(c, ox, oy, oz, dx, dy, dz, best, r) && r.t < best) {
-          best = r.t;
+      for (const c of this.rayQuery(ox, oz, dx, dz, maxT)) {
+        if (_World.passes(c, mode)) continue;
+        if (_World.rayOBB(c, ox, oy, oz, dx, dy, dz, best, _slab) && _slab.t < best) {
+          best = _slab.t;
           hit = c;
-          out.nx = r.nx;
-          out.ny = r.ny;
-          out.nz = r.nz;
-          out.exit = r.exit;
+          out.nx = _slab.nx;
+          out.ny = _slab.ny;
+          out.nz = _slab.nz;
+          out.exit = _slab.exit;
         }
       }
       if (!hit) return null;
@@ -33341,151 +33314,139 @@ void main() {
       out.collider = hit;
       return out;
     }
-    // 返回沿射線所有命中（按 t 排序），用於穿透
     raycastAll(ox, oy, oz, dx, dy, dz, maxT) {
-      const ex = ox + dx * maxT, ez = oz + dz * maxT;
-      const cands = this.query(Math.min(ox, ex) - 0.1, Math.min(oz, ez) - 0.1, Math.max(ox, ex) + 0.1, Math.max(oz, ez) + 0.1);
       const hits = [];
-      const r = {};
-      for (const c of cands) {
+      for (const c of this.rayQuery(ox, oz, dx, dz, maxT)) {
         if (c.bullet === "pass") continue;
-        if (_World.rayOBB(c, ox, oy, oz, dx, dy, dz, maxT, r)) hits.push({ t: r.t, exit: r.exit, nx: r.nx, ny: r.ny, nz: r.nz, collider: c });
+        if (_World.rayOBB(c, ox, oy, oz, dx, dy, dz, maxT, _slab)) hits.push({ t: _slab.t, exit: _slab.exit, nx: _slab.nx, ny: _slab.ny, nz: _slab.nz, collider: c });
       }
-      hits.sort((a, b) => a.t - b.t);
-      return hits;
+      return hits.sort((a, b) => a.t - b.t);
     }
-    // 圓（XZ）與 OBB 的最近點關係
+    // XZ 平面上的圓與 OBB：重疊時寫入 out（把圓推出去的方向 nx/nz 與深度 pen）
     static circleOBB(c, px2, pz2, r, out) {
       const [lx, lz] = c.toLocal(px2, pz2);
-      const qx = Math.max(-c.hx, Math.min(c.hx, lx));
-      const qz = Math.max(-c.hz, Math.min(c.hz, lz));
-      const dx = lx - qx, dz = lz - qz;
-      const d2 = dx * dx + dz * dz;
+      const cx = Math.min(c.hx, Math.max(-c.hx, lx)), cz = Math.min(c.hz, Math.max(-c.hz, lz));
+      const ox = lx - cx, oz = lz - cz, d2 = ox * ox + oz * oz;
       if (d2 >= r * r) return false;
+      let nx, nz, pen;
       if (d2 > 1e-10) {
         const d = Math.sqrt(d2);
-        const [wx, wz] = c.toWorldDir(dx / d, dz / d);
-        out.nx = wx;
-        out.nz = wz;
-        out.pen = r - d;
+        nx = ox / d;
+        nz = oz / d;
+        pen = r - d;
       } else {
-        const px22 = c.hx - Math.abs(lx), pz22 = c.hz - Math.abs(lz);
-        let lnx = 0, lnz = 0, pen;
-        if (px22 < pz22) {
-          lnx = lx >= 0 ? 1 : -1;
-          pen = px22 + r;
+        const gapX = c.hx - Math.abs(lx), gapZ = c.hz - Math.abs(lz);
+        if (gapX < gapZ) {
+          nx = lx >= 0 ? 1 : -1;
+          nz = 0;
+          pen = gapX + r;
         } else {
-          lnz = lz >= 0 ? 1 : -1;
-          pen = pz22 + r;
+          nx = 0;
+          nz = lz >= 0 ? 1 : -1;
+          pen = gapZ + r;
         }
-        const [wx, wz] = c.toWorldDir(lnx, lnz);
-        out.nx = wx;
-        out.nz = wz;
-        out.pen = pen;
       }
+      [out.nx, out.nz] = c.toWorldDir(nx, nz);
+      out.pen = pen;
       return true;
     }
-    // 判斷膠囊空間是否被佔用（用於站起/上臺階檢查）
+    // 垂直圓柱（底 y、高 h、半徑 r）內是否有實心碰撞體
     blocked(px2, py2, pz2, r, h) {
-      const cands = this.query(px2 - r, pz2 - r, px2 + r, pz2 + r);
-      const o = {};
-      for (const c of cands) {
-        if (!c.solid) continue;
-        if (c.top <= py2 + 1e-3 || c.bottom >= py2 + h - 1e-3) continue;
-        if (_World.circleOBB(c, px2, pz2, r, o)) return true;
+      for (const c of this.query(px2 - r, pz2 - r, px2 + r, pz2 + r)) {
+        if (!c.solid || c.top <= py2 + 1e-3 || c.bottom >= py2 + h - 1e-3) continue;
+        if (_World.circleOBB(c, px2, pz2, r, _circle)) return true;
       }
       return false;
     }
-    // 腳下最高支撐面（top <= maxY），返回 {y, collider}
     support(px2, pz2, r, maxY) {
-      const cands = this.query(px2 - r, pz2 - r, px2 + r, pz2 + r);
-      let best = -Infinity, bc = null;
-      const o = {};
-      for (const c of cands) {
-        if (!c.solid) continue;
-        if (c.top > maxY || c.top <= best) continue;
-        if (_World.circleOBB(c, px2, pz2, r, o)) {
-          best = c.top;
-          bc = c;
+      let bestY = -Infinity, best = null;
+      for (const c of this.query(px2 - r, pz2 - r, px2 + r, pz2 + r)) {
+        if (!c.solid || c.top > maxY || c.top <= bestY) continue;
+        if (_World.circleOBB(c, px2, pz2, r, _circle)) {
+          bestY = c.top;
+          best = c;
         }
       }
-      return bc ? { y: best, collider: bc } : null;
+      return best ? { y: bestY, collider: best } : null;
     }
-    // 角色移動：ent {pos:{x,y,z}(腳底), vel, radius, height, onGround, stepHeight}
+    // 角色移動。ent：pos（腳底）、vel、radius、height、stepHeight、onGround
+    // 每一小步最多走 0.12 m，避免高速穿牆；結束時寫入 landed / landSpeed / ground
     move(ent, dt) {
-      const vx = ent.vel.x, vy = ent.vel.y, vz = ent.vel.z;
-      const dist = Math.hypot(vx, vy, vz) * dt;
-      const n = Math.max(1, Math.ceil(dist / 0.12));
-      const h = dt / n;
-      const o = {};
-      const r = ent.radius;
+      const travel = Math.hypot(ent.vel.x, ent.vel.y, ent.vel.z) * dt;
+      const steps = Math.max(1, Math.ceil(travel / 0.12));
+      const h = dt / steps;
       let landed = false, landSpeed = 0;
-      for (let s = 0; s < n; s++) {
-        const p = ent.pos;
-        p.x += ent.vel.x * h;
-        p.z += ent.vel.z * h;
-        for (let it = 0; it < 3; it++) {
-          const cands = this.query(p.x - r, p.z - r, p.x + r, p.z + r);
-          let any = false;
-          for (const c of cands) {
-            if (!c.solid) continue;
-            const head = p.y + ent.height;
-            if (c.top <= p.y + 1e-3 || c.bottom >= head - 1e-3) continue;
-            if (!_World.circleOBB(c, p.x, p.z, r, o)) continue;
-            const rise = c.top - p.y;
-            if (ent.onGround && rise > 0 && rise <= ent.stepHeight && !this.blocked(p.x, c.top, p.z, r * 0.95, ent.height)) {
-              p.y = c.top;
-              ent.stepped = (ent.stepped || 0) + rise;
-              any = true;
-              continue;
-            }
-            p.x += o.nx * (o.pen + 5e-4);
-            p.z += o.nz * (o.pen + 5e-4);
-            const vn = ent.vel.x * o.nx + ent.vel.z * o.nz;
-            if (vn < 0) {
-              ent.vel.x -= o.nx * vn;
-              ent.vel.z -= o.nz * vn;
-            }
-            any = true;
-          }
-          if (!any) break;
-        }
-        const prevY = p.y;
-        p.y += ent.vel.y * h;
-        if (ent.vel.y <= 0) {
-          const probeUp = ent.onGround ? ent.stepHeight : 1e-3;
-          const sup = this.support(p.x, p.z, r * 0.92, prevY + 1e-3);
-          const snap = ent.onGround && ent.vel.y <= 0.01 ? Math.max(0.3, -ent.vel.y * h) : 0;
-          if (sup && p.y <= sup.y + snap) {
-            if (!ent.onGround) {
-              landed = true;
-              landSpeed = -ent.vel.y;
-            }
-            p.y = sup.y;
-            ent.vel.y = 0;
-            ent.onGround = true;
-            ent.ground = sup.collider;
-          } else {
-            ent.onGround = false;
-            ent.ground = null;
-          }
-          void probeUp;
-        } else {
-          ent.onGround = false;
-          ent.ground = null;
-          const cands = this.query(p.x - r, p.z - r, p.x + r, p.z + r);
-          for (const c of cands) {
-            if (!c.solid) continue;
-            const headPrev = prevY + ent.height, head = p.y + ent.height;
-            if (c.bottom >= headPrev - 0.01 && c.bottom < head && _World.circleOBB(c, p.x, p.z, r * 0.9, o)) {
-              p.y = c.bottom - ent.height - 1e-3;
-              ent.vel.y = 0;
-            }
-          }
+      for (let i = 0; i < steps; i++) {
+        this.moveHorizontal(ent, h);
+        const r = this.moveVertical(ent, h);
+        if (r) {
+          landed = true;
+          landSpeed = r;
         }
       }
       ent.landed = landed;
       ent.landSpeed = landSpeed;
+    }
+    // 水平：先走，再把重疊的牆推開並削掉撞牆方向的速度；矮於台階高度的直接踩上去
+    moveHorizontal(ent, h) {
+      const p = ent.pos, r = ent.radius;
+      p.x += ent.vel.x * h;
+      p.z += ent.vel.z * h;
+      for (let pass = 0; pass < 3; pass++) {
+        let touched = false;
+        for (const c of this.query(p.x - r, p.z - r, p.x + r, p.z + r)) {
+          if (!c.solid || c.top <= p.y + 1e-3 || c.bottom >= p.y + ent.height - 1e-3) continue;
+          if (!_World.circleOBB(c, p.x, p.z, r, _circle)) continue;
+          touched = true;
+          const rise = c.top - p.y;
+          if (ent.onGround && rise > 0 && rise <= ent.stepHeight && !this.blocked(p.x, c.top, p.z, r * 0.95, ent.height)) {
+            p.y = c.top;
+            ent.stepped = (ent.stepped || 0) + rise;
+            continue;
+          }
+          const { nx, nz, pen } = _circle;
+          p.x += nx * (pen + 5e-4);
+          p.z += nz * (pen + 5e-4);
+          const into = ent.vel.x * nx + ent.vel.z * nz;
+          if (into < 0) {
+            ent.vel.x -= nx * into;
+            ent.vel.z -= nz * into;
+          }
+        }
+        if (!touched) break;
+      }
+    }
+    // 垂直：下落時找腳下支撐面（在地上時會吸附 0.3 m，下樓梯不會一直騰空）；上升時檢查撞頭
+    // 回傳：這一步剛落地時的落地速度，否則 0
+    moveVertical(ent, h) {
+      const p = ent.pos, r = ent.radius, prevY = p.y;
+      p.y += ent.vel.y * h;
+      if (ent.vel.y <= 0) {
+        const floor = this.support(p.x, p.z, r * 0.92, prevY + 1e-3);
+        const snap = ent.onGround && ent.vel.y <= 0.01 ? Math.max(0.3, -ent.vel.y * h) : 0;
+        if (floor && p.y <= floor.y + snap) {
+          const impact = ent.onGround ? 0 : -ent.vel.y;
+          p.y = floor.y;
+          ent.vel.y = 0;
+          ent.onGround = true;
+          ent.ground = floor.collider;
+          return impact;
+        }
+        ent.onGround = false;
+        ent.ground = null;
+        return 0;
+      }
+      ent.onGround = false;
+      ent.ground = null;
+      const headBefore = prevY + ent.height, headNow = p.y + ent.height;
+      for (const c of this.query(p.x - r, p.z - r, p.x + r, p.z + r)) {
+        if (!c.solid || c.bottom < headBefore - 0.01 || c.bottom >= headNow) continue;
+        if (_World.circleOBB(c, p.x, p.z, r * 0.9, _circle)) {
+          p.y = c.bottom - ent.height - 1e-3;
+          ent.vel.y = 0;
+        }
+      }
+      return 0;
     }
   };
 
@@ -42292,7 +42253,7 @@ void main() {
   var MULTI_CN = ["", "", "\u96D9\u6BBA", "\u4E09\u6BBA", "\u56DB\u6BBA", "\u4E94\u6BBA", "\u516D\u6BBA\uFF01", "\u7121\u4EBA\u80FD\u64CB", "\u8D85\u795E"];
   var _v4 = new Vector3();
   var _v23 = new Vector3();
-  var _d = new Vector3();
+  var _d2 = new Vector3();
   var CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1, shotgun: 1 };
   var Game = class {
     constructor() {
@@ -42703,7 +42664,7 @@ void main() {
       const p = this.player;
       if (p && p.alive && a !== p && a.team !== p.team) {
         const hp = p.eye(_v4);
-        const t = _d.copy(hp).sub(eye).dot(dir);
+        const t = _d2.copy(hp).sub(eye).dot(dir);
         if (t > 2 && t < eye.distanceTo(end)) {
           const closest = eye.clone().addScaledVector(dir, t);
           const md = closest.distanceTo(hp);
@@ -43334,7 +43295,7 @@ void main() {
       }
       let aimName = "", aimTeam = "";
       if (p.alive && this.frame % 4 === 0) {
-        const o = cam.position, d = _d.set(0, 0, -1).applyQuaternion(cam.quaternion);
+        const o = cam.position, d = _d2.set(0, 0, -1).applyQuaternion(cam.quaternion);
         const wh = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, "sight");
         const lim = wh ? wh.t : 80;
         let best = null, bt = lim;
