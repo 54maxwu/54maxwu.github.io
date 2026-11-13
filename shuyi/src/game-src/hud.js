@@ -1,5 +1,5 @@
 // HUD 與選單（DOM）
-import { WEAPONS, PRIMARIES } from './weapons.js';
+import { WEAPONS, PRIMARIES, CAUSES } from './weapons.js';
 
 const TEAM_CN = { BL: '女生隊', GR: '男生隊' };
 const $ = (s, r = document) => r.querySelector(s);
@@ -166,7 +166,7 @@ export class HUD {
   killFeed(k, v, wid, hs, wb, mine) {
     const d = document.createElement('div');
     d.className = 'kf' + (mine ? ' me' : '');
-    const icon = this.icons[wid] ? `<img src="${this.icons[wid]}">` : `<span>[${WEAPONS[wid]?.name || wid}]</span>`;
+    const icon = this.icons[wid] ? `<img src="${this.icons[wid]}">` : `<span>[${WEAPONS[wid]?.name || CAUSES[wid]?.name || wid}]</span>`;
     d.innerHTML = (k ? `<span class="k ${k.team}">${esc(k.name)}</span>` : '') + icon + (wb ? `<img class="hs" src="${WB_ICON}">` : '') + (hs ? `<img class="hs" src="${HS_ICON}">` : '') + `<span class="v ${v.team}">${esc(v.name)}</span>`;
     this.el.feed.prepend(d);
     this.feedItems.push({ el: d, t: performance.now() });

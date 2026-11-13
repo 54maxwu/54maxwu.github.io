@@ -9,7 +9,7 @@ import { Effects } from './effects.js';
 import { ViewModel } from './viewmodel.js';
 import { HUD } from './hud.js';
 import { audio } from './audio.js';
-import { WEAPONS, jitterDir } from './weapons.js';
+import { WEAPONS, CAUSES, jitterDir } from './weapons.js';
 import { buildGunMerged } from './guns.js';
 import { Player } from './player.js';
 import { Bot, TEAM_PREFIX } from './bots.js';
@@ -684,7 +684,7 @@ export class Game {
       this.vm.setVisible(false);
       audio.setLowHealth(false);
       const wn = WEAPONS[wid]?.name || wid;
-      this.killedBy = att && att !== v ? `被 <span style="color:${att.team === 'BL' ? '#ff9b70' : '#8cc8ff'}">${att.name}</span> 用 ${wn}${hs ? ' <span style="color:#ff5040">爆頭</span>' : ''}擊殺` : '你陣亡了';
+      this.killedBy = att && att !== v ? `被 <span style="color:${att.team === 'BL' ? '#ff9b70' : '#8cc8ff'}">${att.name}</span> 用 ${wn}${hs ? ' <span style="color:#ff5040">爆頭</span>' : ''}擊殺` : CAUSES[wid]?.death || '你陣亡了';
     }
     this.fx.bloodSplat(v.pos);
     if (this.score.BL >= this.goal || this.score.GR >= this.goal) setTimeout(() => { if (this.playing) this.endMatch(); }, 1200);

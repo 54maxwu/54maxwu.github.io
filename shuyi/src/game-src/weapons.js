@@ -117,6 +117,13 @@ export const WEAPONS = {
   },
 };
 
+// 非武器的死因（環境傷害）：擊殺訊息顯示 name，自己陣亡時顯示 death
+export const CAUSES = {
+  fall: { name: '墜落', death: '你摔死了' },
+  debris: { name: '掉落物', death: '你被掉落物砸死了' },
+  glass: { name: '碎玻璃', death: '你被碎玻璃割死了' },
+};
+
 export const PRIMARIES = Object.values(WEAPONS).filter((w) => w.slot === 0).map((w) => w.id);
 
 export class WeaponState {

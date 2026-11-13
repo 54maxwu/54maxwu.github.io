@@ -37816,6 +37816,11 @@ void main() {
       reserve: 0
     }
   };
+  var CAUSES = {
+    fall: { name: "\u589C\u843D", death: "\u4F60\u6454\u6B7B\u4E86" },
+    debris: { name: "\u6389\u843D\u7269", death: "\u4F60\u88AB\u6389\u843D\u7269\u7838\u6B7B\u4E86" },
+    glass: { name: "\u788E\u73BB\u7483", death: "\u4F60\u88AB\u788E\u73BB\u7483\u5272\u6B7B\u4E86" }
+  };
   var PRIMARIES = Object.values(WEAPONS).filter((w) => w.slot === 0).map((w) => w.id);
   var WeaponState = class {
     constructor(id) {
@@ -38085,7 +38090,7 @@ void main() {
     killFeed(k, v, wid, hs, wb, mine) {
       const d = document.createElement("div");
       d.className = "kf" + (mine ? " me" : "");
-      const icon = this.icons[wid] ? `<img src="${this.icons[wid]}">` : `<span>[${WEAPONS[wid]?.name || wid}]</span>`;
+      const icon = this.icons[wid] ? `<img src="${this.icons[wid]}">` : `<span>[${WEAPONS[wid]?.name || CAUSES[wid]?.name || wid}]</span>`;
       d.innerHTML = (k ? `<span class="k ${k.team}">${esc(k.name)}</span>` : "") + icon + (wb ? `<img class="hs" src="${WB_ICON}">` : "") + (hs ? `<img class="hs" src="${HS_ICON}">` : "") + `<span class="v ${v.team}">${esc(v.name)}</span>`;
       this.el.feed.prepend(d);
       this.feedItems.push({ el: d, t: performance.now() });
@@ -41067,16 +41072,24 @@ void main() {
   var CROUCH_H = 1.15;
   var EYE_STAND = 1.62;
   var EYE_CROUCH = 1.05;
-  var GRAV = 19;
-  var JUMP_V = 6.6;
-  var RUN = 5.7;
+  var GRAVITY = 19;
+  var JUMP_SPEED = 6.6;
+  var RUN_SPEED = 5.7;
+  var GROUND_ACCEL = 11;
+  var AIR_ACCEL = 12;
+  var AIR_MAX = 1.2;
+  var FRICTION = 9;
+  var STOP_SPEED = 1.5;
+  var SLIDE_FRICTION = 1.4;
+  var SLIDE_MIN = 2.4;
+  var SLIDE_TIME = 0.85;
+  var STEP_EVERY = 2.3;
+  var FALL_SAFE = 12;
+  var FALL_LETHAL = 19.5;
+  var speedMul = (a) => (a.crouch ? 0.42 : a.walk ? 0.5 : 1) * (a.scoped ? 0.55 : 1) * (a.tagT > 0 ? 0.6 : 1);
   var Actor = class {
     constructor(game, { id, name, team, isPlayer = false }) {
-      this.game = game;
-      this.id = id;
-      this.name = name;
-      this.team = team;
-      this.isPlayer = isPlayer;
+      Object.assign(this, { game, id, name, team, isPlayer });
       this.pos = new Vector3();
       this.vel = new Vector3();
       this.radius = 0.36;
@@ -41084,7 +41097,9 @@ void main() {
       this.stepHeight = 0.55;
       this.onGround = false;
       this.crouch = false;
+      this.walk = false;
       this.eyeH = EYE_STAND;
+      this.speed = 0;
       this.yaw = 0;
       this.pitch = 0;
       this.punchP = 0;
@@ -41100,23 +41115,30 @@ void main() {
       this.slot = 0;
       this.lastSlot = 1;
       this.readyAt = 0;
+      this.primary = "ak47";
       this.stats = { k: 0, d: 0, hs: 0, shots: 0, hits: 0 };
       this.streak = 0;
       this.lastKillT = -99;
       this.multi = 0;
       this.radarT = 0;
       this.ping = 20 + (Math.random() * 40 | 0);
-      this.primary = "ak47";
-      this.soldier = new Soldier(team);
-      game.renderer.scene.add(this.soldier.root);
-      this.stepDist = 0;
+      this.lastHurt = -99;
+      this.lastAttacker = null;
       this.scoped = 0;
       this.scopeReady = false;
       this.scopeT = 0;
-      this.lastHurt = -99;
-      this.lastAttacker = null;
-      this.walk = false;
+      this.reScope = 0;
       this.pendingThrow = 0;
+      this.autoSwitchAt = 0;
+      this.stepDist = 0;
+      this.jumpCD = 0;
+      this.slideCD = 0;
+      this.mantleCD = 0;
+      this.slideT = 0;
+      this.tagT = 0;
+      this.mantleS = null;
+      this.soldier = new Soldier(team);
+      game.renderer.scene.add(this.soldier.root);
     }
     get weapon() {
       return this.inv[this.slot];
@@ -41124,13 +41146,14 @@ void main() {
     eye(out) {
       return out.set(this.pos.x, this.pos.y + this.eyeH, this.pos.z);
     }
+    // 實際瞄準方向（含後座偏移）；yaw = 0 時面向 -Z
     forward(out) {
-      const p = this.pitch + this.punchP, y = this.yaw + this.punchY;
-      return out.set(-Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p));
+      const p = this.pitch + this.punchP, y = this.yaw + this.punchY, c = Math.cos(p);
+      return out.set(-Math.sin(y) * c, Math.sin(p), -Math.cos(y) * c);
     }
     giveLoadout(primary) {
-      this.primary = primary || this.primary;
-      this.inv = [new WeaponState(this.primary), new WeaponState("deagle"), new WeaponState("knife"), new WeaponState("he")];
+      if (primary) this.primary = primary;
+      this.inv = [this.primary, "deagle", "knife", "he"].map((id) => new WeaponState(id));
       for (const w of this.inv) w.patternSeed = Math.random() * 6;
       this.slot = 0;
       this.lastSlot = 1;
@@ -41163,162 +41186,146 @@ void main() {
       this.slideT = 0;
       this.tagT = 0;
     }
-    // wish: 世界座標系下的期望移動方向（長度 0..1）
+    // ───────── 移動 ─────────
     move(dt, wishX, wishZ, jump, crouch, walk) {
-      const g = this.game;
-      const w = this.weapon;
-      const spMul = w ? w.def.speed : 1;
+      this.walk = walk;
       if (this.mantleS) {
-        const m = this.mantleS;
-        m.t += dt;
-        const f = Math.min(1, m.t / m.dur);
-        const fy = 1 - (1 - Math.min(1, f / 0.7)) ** 2, fx = Math.max(0, (f - 0.35) / 0.65), ex = fx * fx * (3 - 2 * fx);
-        this.pos.set(m.from.x + (m.to.x - m.from.x) * ex, m.from.y + (m.to.y - m.from.y) * fy, m.from.z + (m.to.z - m.from.z) * ex);
-        this.vel.set(0, 0, 0);
-        this.onGround = false;
-        this.speed = 0;
-        this.landed = false;
-        this.eyeH += ((this.crouch ? EYE_CROUCH : EYE_STAND) - this.eyeH) * Math.min(1, dt * 14);
-        if (f >= 1) {
-          this.mantleS = null;
-          this.onGround = true;
-          this.jumpCD = 0.3;
-          this.mantleCD = 0.3;
-          this.vel.set(m.dx * 2.4, 0, m.dz * 2.4);
-          g.onLand(this, 3.6);
-        }
+        this.stepMantle(dt);
         return;
       }
-      const startCrouch = crouch && !this.crouch;
-      if (crouch && !this.crouch) {
-        this.crouch = true;
-        this.height = CROUCH_H;
-        if (!this.onGround) this.pos.y += STAND_H - CROUCH_H - 0.1;
-      } else if (!crouch && this.crouch) {
-        if (this.onGround) {
-          if (!g.world.blocked(this.pos.x, this.pos.y + 0.05, this.pos.z, this.radius * 0.95, STAND_H - 0.05)) {
-            this.crouch = false;
-            this.height = STAND_H;
-          }
-        } else {
-          const drop = STAND_H - CROUCH_H - 0.1;
-          if (!g.world.blocked(this.pos.x, this.pos.y - drop, this.pos.z, this.radius * 0.95, STAND_H)) {
-            this.crouch = false;
-            this.height = STAND_H;
-            this.pos.y -= drop;
-          }
-        }
-      }
+      const crouchPressed = crouch && !this.crouch;
+      this.updateStance(crouch);
       this.eyeH += ((this.crouch ? EYE_CROUCH : EYE_STAND) - this.eyeH) * Math.min(1, dt * 14);
-      this.tagT = Math.max(0, (this.tagT || 0) - dt);
-      const max = RUN * spMul * (this.crouch ? 0.42 : walk ? 0.5 : 1) * (this.scoped ? 0.55 : 1) * (this.tagT > 0 ? 0.6 : 1);
-      const wl = Math.hypot(wishX, wishZ);
-      const wx = wl > 0 ? wishX / wl : 0, wz = wl > 0 ? wishZ / wl : 0;
-      const wishSpeed = max * Math.min(1, wl);
-      const v = this.vel;
-      this.mantleCD = (this.mantleCD || 0) - dt;
-      if (this.isPlayer && jump && wl > 0.3 && this.mantleCD <= 0 && (this.onGround || v.y < 2.5) && this.tryMantle(wx, wz)) return;
-      this.slideCD = (this.slideCD || 0) - dt;
-      if (this.isPlayer && startCrouch && this.onGround && !walk && this.slideCD <= 0) {
-        const sp = Math.hypot(v.x, v.z);
-        if (sp > RUN * 0.78) {
-          const k = Math.max(sp * 1.22, 6.8) / sp;
-          v.x *= k;
-          v.z *= k;
-          this.slideT = 0.85;
-          this.slideCD = 1.2;
-          g.onSlide(this);
-        }
+      this.tagT = Math.max(0, this.tagT - dt);
+      this.jumpCD -= dt;
+      this.mantleCD -= dt;
+      this.slideCD -= dt;
+      const len = Math.hypot(wishX, wishZ);
+      const dirX = len > 0 ? wishX / len : 0, dirZ = len > 0 ? wishZ / len : 0;
+      const wishSpeed = RUN_SPEED * (this.weapon ? this.weapon.def.speed : 1) * speedMul(this) * Math.min(1, len);
+      if (this.isPlayer) {
+        if (jump && len > 0.3 && this.mantleCD <= 0 && (this.onGround || this.vel.y < 2.5) && this.tryMantle(dirX, dirZ)) return;
+        if (crouchPressed && this.onGround && !walk && this.slideCD <= 0) this.tryStartSlide();
       }
       if (this.slideT > 0) {
         this.slideT -= dt;
-        if (!this.crouch || !this.onGround || Math.hypot(v.x, v.z) < 2.4) this.slideT = 0;
+        if (!this.crouch || !this.onGround || Math.hypot(this.vel.x, this.vel.z) < SLIDE_MIN) this.slideT = 0;
       }
-      if (this.onGround) {
-        const sp = Math.hypot(v.x, v.z);
-        if (sp > 0) {
-          const drop = this.slideT > 0 ? sp * 1.4 * dt : Math.max(sp, 1.5) * 9 * dt;
-          const ns = Math.max(0, sp - drop) / sp;
-          v.x *= ns;
-          v.z *= ns;
+      if (this.onGround) this.groundMove(dt, dirX, dirZ, wishSpeed, jump);
+      else this.accelerate(dt, dirX, dirZ, Math.min(wishSpeed, AIR_MAX), AIR_ACCEL);
+      this.vel.y -= GRAVITY * dt;
+      this.game.world.move(this, dt);
+      this.separateFromOthers();
+      if (this.landed && this.landSpeed > 3) this.onLanded(this.landSpeed);
+      this.speed = Math.hypot(this.vel.x, this.vel.z);
+      this.countSteps(dt);
+      if (this.pos.y < -3) this.game.spawnActor(this);
+    }
+    // 蹲下／起身；空中蹲是收腿（身體往上縮），空中起身是放腿（往下伸）
+    updateStance(crouch) {
+      const W = this.game.world, legs = STAND_H - CROUCH_H - 0.1;
+      if (crouch && !this.crouch) {
+        this.crouch = true;
+        this.height = CROUCH_H;
+        if (!this.onGround) this.pos.y += legs;
+      } else if (!crouch && this.crouch) {
+        const baseY = this.onGround ? this.pos.y + 0.05 : this.pos.y - legs;
+        const h = this.onGround ? STAND_H - 0.05 : STAND_H;
+        if (!W.blocked(this.pos.x, baseY, this.pos.z, this.radius * 0.95, h)) {
+          this.crouch = false;
+          this.height = STAND_H;
+          if (!this.onGround) this.pos.y -= legs;
         }
-        const cur = v.x * wx + v.z * wz, add2 = wishSpeed - cur;
-        if (add2 > 0 && !(this.slideT > 0)) {
-          const acc = Math.min(11 * dt * wishSpeed, add2);
-          v.x += acc * wx;
-          v.z += acc * wz;
-        }
-        if (jump && this.jumpCD <= 0) {
-          v.y = JUMP_V;
-          this.onGround = false;
-          this.jumpCD = 0.35;
-          this.slideT = 0;
-          g.onJump(this);
-        }
-      } else {
-        const ws = Math.min(wishSpeed, 1.2);
-        const cur = v.x * wx + v.z * wz, add2 = ws - cur;
-        if (add2 > 0) {
-          const acc = Math.min(12 * dt * ws, add2);
-          v.x += acc * wx;
-          v.z += acc * wz;
-        }
-      }
-      this.jumpCD = (this.jumpCD || 0) - dt;
-      v.y -= GRAV * dt;
-      const wasGround = this.onGround;
-      g.world.move(this, dt);
-      for (const o of g.actors) {
-        if (o === this || !o.alive) continue;
-        const dx = this.pos.x - o.pos.x, dz = this.pos.z - o.pos.z, d2 = dx * dx + dz * dz, R = this.radius + o.radius - 0.05;
-        if (d2 < R * R && d2 > 1e-6 && Math.abs(this.pos.y - o.pos.y) < 1.6) {
-          const d = Math.sqrt(d2), push = (R - d) * 0.5;
-          const nx = dx / d, nz = dz / d;
-          if (!g.world.blocked(this.pos.x + nx * push, this.pos.y + 0.05, this.pos.z + nz * push, this.radius * 0.9, this.height - 0.1)) {
-            this.pos.x += nx * push;
-            this.pos.z += nz * push;
-          }
-        }
-      }
-      if (this.landed && this.landSpeed > 3) g.onLand(this, this.landSpeed);
-      const hs = Math.hypot(v.x, v.z);
-      this.speed = hs;
-      if (this.onGround && hs > 2.6 && !walk && !this.crouch) {
-        this.stepDist += hs * dt;
-        if (this.stepDist > 2.3) {
-          this.stepDist = 0;
-          g.onFootstep(this);
-        }
-      }
-      void wasGround;
-      if (this.pos.y < -3) {
-        this.game.spawnActor(this);
       }
     }
-    // 攀爬判定：前方有可站上去的平面、身體翻越的路徑上沒有東西擋住
-    tryMantle(wx, wz) {
-      const W = this.game.world, p = this.pos, r = this.radius;
-      if (wx * -Math.sin(this.yaw) + wz * -Math.cos(this.yaw) < 0.5) return false;
-      const reach = r + 0.42, px2 = p.x + wx * reach, pz2 = p.z + wz * reach;
-      const sup = W.support(px2, pz2, r * 0.7, p.y + 1.5);
-      if (!sup) return false;
-      const rise = sup.y - p.y;
-      if (rise <= this.stepHeight + 0.05 || rise > 1.5) return false;
-      if (!W.blocked(p.x + wx * (r + 0.12), p.y + this.stepHeight + 0.02, p.z + wz * (r + 0.12), r * 0.8, Math.max(0.05, rise - this.stepHeight - 0.04))) return false;
-      if (W.blocked(p.x, p.y + 0.05, p.z, r * 0.9, rise + CROUCH_H)) return false;
-      const mx = p.x + wx * reach * 0.5, mz = p.z + wz * reach * 0.5;
-      if (W.blocked(mx, sup.y + 0.02, mz, r * 0.85, CROUCH_H - 0.05)) return false;
-      let low = false;
-      if (W.blocked(px2, sup.y + 0.02, pz2, r * 0.95, STAND_H - 0.04)) {
-        if (W.blocked(px2, sup.y + 0.02, pz2, r * 0.95, CROUCH_H - 0.04)) return false;
-        low = true;
+    // 朝期望方向加速，最多加到 maxSpeed（只補不足的部分，不會超速）
+    accelerate(dt, dx, dz, maxSpeed, accel) {
+      const along = this.vel.x * dx + this.vel.z * dz, missing = maxSpeed - along;
+      if (missing <= 0) return;
+      const gain = Math.min(accel * dt * maxSpeed, missing);
+      this.vel.x += gain * dx;
+      this.vel.z += gain * dz;
+    }
+    groundMove(dt, dx, dz, wishSpeed, jump) {
+      const v = this.vel, sp = Math.hypot(v.x, v.z);
+      if (sp > 0) {
+        const loss = this.slideT > 0 ? sp * SLIDE_FRICTION * dt : Math.max(sp, STOP_SPEED) * FRICTION * dt;
+        const k = Math.max(0, sp - loss) / sp;
+        v.x *= k;
+        v.z *= k;
       }
-      if (low) {
+      if (!(this.slideT > 0)) this.accelerate(dt, dx, dz, wishSpeed, GROUND_ACCEL);
+      if (jump && this.jumpCD <= 0) {
+        v.y = JUMP_SPEED;
+        this.onGround = false;
+        this.jumpCD = 0.35;
+        this.slideT = 0;
+        this.game.onJump(this);
+      }
+    }
+    tryStartSlide() {
+      const v = this.vel, sp = Math.hypot(v.x, v.z);
+      if (sp <= RUN_SPEED * 0.78) return;
+      const boost = Math.max(sp * 1.22, 6.8) / sp;
+      v.x *= boost;
+      v.z *= boost;
+      this.slideT = SLIDE_TIME;
+      this.slideCD = 1.2;
+      this.game.onSlide(this);
+    }
+    // 角色之間互相推開（只移動自己，推不動就算了）
+    separateFromOthers() {
+      const W = this.game.world;
+      for (const o of this.game.actors) {
+        if (o === this || !o.alive || Math.abs(this.pos.y - o.pos.y) >= 1.6) continue;
+        const dx = this.pos.x - o.pos.x, dz = this.pos.z - o.pos.z, d2 = dx * dx + dz * dz;
+        const R = this.radius + o.radius - 0.05;
+        if (d2 >= R * R || d2 < 1e-6) continue;
+        const d = Math.sqrt(d2), push = (R - d) / 2, nx = dx / d * push, nz = dz / d * push;
+        if (!W.blocked(this.pos.x + nx, this.pos.y + 0.05, this.pos.z + nz, this.radius * 0.9, this.height - 0.1)) {
+          this.pos.x += nx;
+          this.pos.z += nz;
+        }
+      }
+    }
+    onLanded(speed) {
+      this.game.onLand(this, speed);
+      if (speed <= FALL_SAFE || !this.alive) return;
+      const k = (speed - FALL_SAFE) / (FALL_LETHAL - FALL_SAFE);
+      const dmg = Math.round(k * k * 100);
+      if (dmg >= 1) this.game.damage(this, null, dmg, "leg", "fall", new Vector3(0, -1, 0));
+    }
+    countSteps(dt) {
+      if (!this.onGround || this.speed <= 2.6 || this.walk || this.crouch) return;
+      this.stepDist += this.speed * dt;
+      if (this.stepDist > STEP_EVERY) {
+        this.stepDist = 0;
+        this.game.onFootstep(this);
+      }
+    }
+    // ───────── 攀爬 ─────────
+    // 面前 0.6～1.5 m 高的矮牆、窗台、桌子：前方要有東西擋、上面要能站、翻越路徑要有空間
+    tryMantle(dx, dz) {
+      const W = this.game.world, p = this.pos, r = this.radius;
+      const facing = dx * -Math.sin(this.yaw) + dz * -Math.cos(this.yaw);
+      if (facing < 0.5) return false;
+      const reach = r + 0.42, tx = p.x + dx * reach, tz = p.z + dz * reach;
+      const top = W.support(tx, tz, r * 0.7, p.y + 1.5);
+      if (!top) return false;
+      const rise = top.y - p.y;
+      if (rise <= this.stepHeight + 0.05 || rise > 1.5) return false;
+      const wallAhead = W.blocked(p.x + dx * (r + 0.12), p.y + this.stepHeight + 0.02, p.z + dz * (r + 0.12), r * 0.8, Math.max(0.05, rise - this.stepHeight - 0.04));
+      if (!wallAhead) return false;
+      if (W.blocked(p.x, p.y + 0.05, p.z, r * 0.9, rise + CROUCH_H)) return false;
+      if (W.blocked(p.x + dx * reach * 0.5, top.y + 0.02, p.z + dz * reach * 0.5, r * 0.85, CROUCH_H - 0.05)) return false;
+      const standRoom = !W.blocked(tx, top.y + 0.02, tz, r * 0.95, STAND_H - 0.04);
+      if (!standRoom) {
+        if (W.blocked(tx, top.y + 0.02, tz, r * 0.95, CROUCH_H - 0.04)) return false;
         this.crouch = true;
         this.height = CROUCH_H;
       }
       const dur = 0.24 + rise * 0.2;
-      this.mantleS = { t: 0, dur, from: p.clone(), to: new Vector3(px2, sup.y + 0.01, pz2), dx: wx, dz: wz };
+      this.mantleS = { t: 0, dur, from: p.clone(), to: new Vector3(tx, top.y + 0.01, tz), dx, dz };
       this.slideT = 0;
       this.scoped = 0;
       this.scopeReady = false;
@@ -41326,91 +41333,131 @@ void main() {
       this.game.onMantle(this, rise);
       return true;
     }
-    // 武器邏輯。inp: {fire, firePressed, alt, altPressed, reload, sw}
+    // 先把身體撐高（前 70% 時間），過一半後才往前帶上去
+    stepMantle(dt) {
+      const m = this.mantleS;
+      m.t += dt;
+      const f = Math.min(1, m.t / m.dur);
+      const up = 1 - (1 - Math.min(1, f / 0.7)) ** 2;
+      const fw = Math.max(0, (f - 0.35) / 0.65), ahead = fw * fw * (3 - 2 * fw);
+      this.pos.set(
+        m.from.x + (m.to.x - m.from.x) * ahead,
+        m.from.y + (m.to.y - m.from.y) * up,
+        m.from.z + (m.to.z - m.from.z) * ahead
+      );
+      this.vel.set(0, 0, 0);
+      this.onGround = false;
+      this.speed = 0;
+      this.landed = false;
+      this.eyeH += ((this.crouch ? EYE_CROUCH : EYE_STAND) - this.eyeH) * Math.min(1, dt * 14);
+      if (f < 1) return;
+      this.mantleS = null;
+      this.onGround = true;
+      this.jumpCD = 0.3;
+      this.mantleCD = 0.3;
+      this.vel.set(m.dx * 2.4, 0, m.dz * 2.4);
+      this.game.onLand(this, 3.6);
+    }
+    // ───────── 武器 ─────────
     weaponUpdate(dt, inp) {
       const g = this.game, now = g.time;
-      if (inp.sw !== void 0 && inp.sw !== null && inp.sw !== this.slot && this.inv[inp.sw]) {
-        const tgt = this.inv[inp.sw];
-        if (!(tgt.def.type === "grenade" && tgt.mag <= 0)) {
-          this.weapon.reloadUntil = 0;
-          this.lastSlot = this.slot;
-          this.slot = inp.sw;
-          this.readyAt = now + tgt.def.draw;
-          this.scoped = 0;
-          this.scopeReady = false;
-          this.soldier.setWeapon(tgt.id);
-          g.onSwitch(this);
-        }
-      }
+      this.switchTo(inp.sw, now);
       const w = this.weapon, d = w.def;
-      if (d.spread) {
-        if (now - w.lastShot > 60 / d.rpm * 1.2) w.spreadAcc *= Math.exp(-d.spread.recover * dt);
-        if (now - w.lastShot > 0.28) w.shotsFired = 0;
+      this.recoverAim(dt, w, now);
+      if (w.reloading && now >= w.reloadUntil) {
+        w.finishReload();
+        g.onReloadDone(this);
       }
-      if (d.recoil && now - w.lastShot > 60 / d.rpm + 0.05) {
+      if (d.type === "sniper") this.updateScope(inp, w, now);
+      if (now < this.readyAt) return;
+      if (inp.reload && w.canReload()) this.startReload();
+      if (w.reloading) return;
+      if (d.type === "melee") return this.useKnife(inp, w, now);
+      if (d.type === "grenade") return this.useGrenade(dt, inp, w, now);
+      this.useGun(inp, w, now);
+    }
+    switchTo(slot, now) {
+      if (slot === void 0 || slot === null || slot === this.slot) return;
+      const target = this.inv[slot];
+      if (!target || target.def.type === "grenade" && target.mag <= 0) return;
+      this.weapon.reloadUntil = 0;
+      this.lastSlot = this.slot;
+      this.slot = slot;
+      this.readyAt = now + target.def.draw;
+      this.scoped = 0;
+      this.scopeReady = false;
+      this.soldier.setWeapon(target.id);
+      this.game.onSwitch(this);
+    }
+    // 停火後：散佈收斂、連射計數歸零、鏡頭回正
+    recoverAim(dt, w, now) {
+      const d = w.def, sinceShot = now - w.lastShot;
+      if (d.spread) {
+        if (sinceShot > 60 / d.rpm * 1.2) w.spreadAcc *= Math.exp(-d.spread.recover * dt);
+        if (sinceShot > 0.28) w.shotsFired = 0;
+      }
+      if (d.recoil && sinceShot > 60 / d.rpm + 0.05) {
         const k = Math.exp(-d.recoil.recover * dt);
         this.punchP *= k;
         this.punchY *= k;
       }
       this.aimPunch *= Math.exp(-dt * 10);
-      if (w.reloading && now >= w.reloadUntil) {
-        w.finishReload();
-        g.onReloadDone(this);
+    }
+    // 狙擊鏡：右鍵在 不開 → 1 段 → 2 段 之間循環；開鏡 0.18 秒後才穩定；開槍後拉完栓自動回到原本倍率
+    updateScope(inp, w, now) {
+      const g = this.game, free = !w.reloading && now >= w.boltUntil;
+      if (inp.altPressed && now >= this.readyAt && free) {
+        this.scoped = (this.scoped + 1) % 3;
+        this.scopeT = now;
+        this.scopeReady = false;
+        g.onScope(this);
       }
-      if (d.type === "sniper") {
-        if (inp.altPressed && now >= this.readyAt && !w.reloading && now >= w.boltUntil) {
-          this.scoped = (this.scoped + 1) % 3;
-          this.scopeT = now;
-          this.scopeReady = false;
-          g.onScope(this);
-        }
-        if (this.scoped && now - this.scopeT > 0.18) this.scopeReady = true;
-        if (this.reScope && now >= w.boltUntil && !w.reloading) {
-          this.scoped = this.reScope;
-          this.reScope = 0;
-          this.scopeT = now;
-          this.scopeReady = false;
-          g.onScope(this);
-        }
+      if (this.scoped && now - this.scopeT > 0.18) this.scopeReady = true;
+      if (this.reScope && free) {
+        this.scoped = this.reScope;
+        this.reScope = 0;
+        this.scopeT = now;
+        this.scopeReady = false;
+        g.onScope(this);
       }
-      if (now < this.readyAt) return;
-      if (inp.reload && w.canReload()) this.startReload();
-      if (w.reloading) return;
-      if (d.type === "melee") {
-        if (now >= w.nextFire) {
-          if (inp.fire) {
-            w.nextFire = now + d.rateLight;
-            g.melee(this, false);
-          } else if (inp.alt) {
-            w.nextFire = now + d.rateHeavy;
-            g.melee(this, true);
-          }
+    }
+    useKnife(inp, w, now) {
+      if (now < w.nextFire) return;
+      const d = w.def;
+      if (inp.fire) {
+        w.nextFire = now + d.rateLight;
+        this.game.melee(this, false);
+      } else if (inp.alt) {
+        w.nextFire = now + d.rateHeavy;
+        this.game.melee(this, true);
+      }
+    }
+    // 手雷：按下 → 拔插銷動畫 0.52 秒 → 丟出 → 0.45 秒後自動切回上一把
+    useGrenade(dt, inp, w, now) {
+      const g = this.game;
+      if (this.pendingThrow > 0) {
+        this.pendingThrow -= dt;
+        if (this.pendingThrow <= 0) {
+          g.throwGrenade(this);
+          w.mag = 0;
+          this.readyAt = now + 0.4;
+          this.autoSwitchAt = now + 0.45;
         }
         return;
       }
-      if (d.type === "grenade") {
-        if (this.pendingThrow > 0) {
-          this.pendingThrow -= dt;
-          if (this.pendingThrow <= 0) {
-            g.throwGrenade(this);
-            w.mag = 0;
-            this.readyAt = now + 0.4;
-            this.autoSwitchAt = now + 0.45;
-          }
-          return;
-        }
-        if (this.autoSwitchAt && now >= this.autoSwitchAt) {
-          this.autoSwitchAt = 0;
-          const back = this.inv[this.lastSlot] && this.lastSlot !== 3 ? this.lastSlot : 0;
-          this.weaponUpdate(0, { sw: back });
-          return;
-        }
-        if (inp.firePressed && w.mag > 0) {
-          this.pendingThrow = 0.52;
-          g.onGrenadeStart(this);
-        }
+      if (this.autoSwitchAt && now >= this.autoSwitchAt) {
+        this.autoSwitchAt = 0;
+        const back = this.inv[this.lastSlot] && this.lastSlot !== 3 ? this.lastSlot : 0;
+        this.switchTo(back, now);
         return;
       }
+      if (inp.firePressed && w.mag > 0) {
+        this.pendingThrow = 0.52;
+        g.onGrenadeStart(this);
+      }
+    }
+    useGun(inp, w, now) {
+      const g = this.game, d = w.def;
       const trigger = d.auto ? inp.fire : inp.firePressed;
       if (!trigger || now < w.nextFire || now < w.boltUntil) return;
       if (w.mag <= 0) {
@@ -41422,24 +41469,22 @@ void main() {
       w.lastShot = now;
       w.nextFire = (now - w.nextFire < 0.05 ? w.nextFire : now) + 60 / d.rpm;
       this.stats.shots++;
-      const spread2 = currentSpread(w, { speed: this.speed || 0, onGround: this.onGround, crouch: this.crouch, scoped: this.scoped > 0, scopeReady: this.scopeReady });
+      const spread2 = currentSpread(w, { speed: this.speed, onGround: this.onGround, crouch: this.crouch, scoped: this.scoped > 0, scopeReady: this.scopeReady });
       g.fireWeapon(this, w, spread2);
       const [up, side] = recoilKick(w, Math.random);
-      const ctl = this.recoilControl ?? 1;
-      this.punchP = Math.min(d.recoil.upMax, this.punchP + up * ctl);
-      this.punchY += side * ctl;
+      const control = this.recoilControl ?? 1;
+      this.punchP = Math.min(d.recoil.upMax, this.punchP + up * control);
+      this.punchY += side * control;
       w.shotsFired++;
       if (d.spread) w.spreadAcc = Math.min(d.spread.max, w.spreadAcc + d.spread.perShot);
       this.protectT = 0;
       if (d.bolt) w.boltUntil = now + d.bolt;
-      if (d.type === "sniper") {
-        if (this.scoped) {
-          this.reScope = this.scoped;
-          this.scoped = 0;
-          this.scopeReady = false;
-        }
+      if (d.type === "sniper" && this.scoped) {
+        this.reScope = this.scoped;
+        this.scoped = 0;
+        this.scopeReady = false;
       }
-      if (w.mag === 0 && w.canReload() && !this.isPlayer) this.startReload();
+      if (w.mag === 0 && !this.isPlayer && w.canReload()) this.startReload();
     }
     startReload() {
       const w = this.weapon;
@@ -42945,6 +42990,38 @@ void main() {
       }
       this.afterWreck(ev[0].att);
     }
+    // 掉落的碎塊、碎玻璃砸到人：依重量與落速受傷（每塊只算一次，砸到後速度大減）
+    debrisHits() {
+      const fx = this.fx, dn = new Vector3();
+      const test = (list, glass) => {
+        for (const c of list) {
+          if (c.rest || c.hit || c.v.y > -3) continue;
+          const sx = glass ? c.s : c.s.x, sy = glass ? c.s : c.s.y, sz = glass ? c.s : c.s.z;
+          if (!glass && sy < 0.25 * sx) continue;
+          for (const a of this.actors) {
+            if (!a.alive) continue;
+            const r = a.radius + Math.max(sx, sz) / 2;
+            if (Math.abs(c.p.x - a.pos.x) > r || Math.abs(c.p.z - a.pos.z) > r || c.p.y < a.pos.y || c.p.y > a.pos.y + a.height + 0.15) continue;
+            c.hit = true;
+            if (glass) {
+              if (this.time - (a._glassT ?? -9) < 0.3) break;
+              a._glassT = this.time;
+            }
+            const sp = c.v.length();
+            let dmg = glass ? 3 + sx * 40 : Math.min(70, sx * sy * sz * 2400 * sp * 0.6);
+            if (dmg >= 2) {
+              const head = c.p.y > a.pos.y + a.height - 0.35;
+              if (head) dmg *= 1.6;
+              this.damage(a, null, dmg, head ? "head" : "chest", glass ? "glass" : "debris", dn.copy(c.v).normalize().clone(), false);
+            }
+            c.v.multiplyScalar(0.3);
+            break;
+          }
+        }
+      };
+      test(fx.chunks, false);
+      test(fx.shards, true);
+    }
     damage(v, att, amt, part, wid, dir, wall, melee) {
       if (!v.alive || v.protectT > 0) return;
       if (att && att !== v && att.team === v.team) return;
@@ -43038,7 +43115,7 @@ void main() {
         this.vm.setVisible(false);
         audio.setLowHealth(false);
         const wn = WEAPONS[wid]?.name || wid;
-        this.killedBy = att && att !== v ? `\u88AB <span style="color:${att.team === "BL" ? "#ff9b70" : "#8cc8ff"}">${att.name}</span> \u7528 ${wn}${hs ? ' <span style="color:#ff5040">\u7206\u982D</span>' : ""}\u64CA\u6BBA` : "\u4F60\u9663\u4EA1\u4E86";
+        this.killedBy = att && att !== v ? `\u88AB <span style="color:${att.team === "BL" ? "#ff9b70" : "#8cc8ff"}">${att.name}</span> \u7528 ${wn}${hs ? ' <span style="color:#ff5040">\u7206\u982D</span>' : ""}\u64CA\u6BBA` : CAUSES[wid]?.death || "\u4F60\u9663\u4EA1\u4E86";
       }
       this.fx.bloodSplat(v.pos);
       if (this.score.BL >= this.goal || this.score.GR >= this.goal) setTimeout(() => {
@@ -43197,6 +43274,7 @@ void main() {
       this.env.update(dt, this.realTime, cam.position);
       this.map.update(dt, this.realTime);
       this.updateLanded();
+      if (this.playing) this.debrisHits();
       this.fpsAcc = (this.fpsAcc || 0) + dt;
       this.fpsN = (this.fpsN || 0) + 1;
       if (this.fpsAcc > 1) {
