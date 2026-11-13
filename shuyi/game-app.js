@@ -8910,8 +8910,8 @@
      * @param {Box3} box - The box to intersect.
      * @return {boolean} Whether this triangle intersects with the given box or not.
      */
-    intersectsBox(box) {
-      return box.intersectsTriangle(this);
+    intersectsBox(box2) {
+      return box2.intersectsTriangle(this);
     }
     /**
      * Returns the closest point on the triangle to the given point.
@@ -9088,9 +9088,9 @@
      * @param {Box3} box - The box to copy.
      * @return {Box3} A reference to this bounding box.
      */
-    copy(box) {
-      this.min.copy(box.min);
-      this.max.copy(box.max);
+    copy(box2) {
+      this.min.copy(box2.min);
+      this.max.copy(box2.max);
       return this;
     }
     /**
@@ -9233,8 +9233,8 @@
      * @param {Box3} box - The bounding box to test.
      * @return {boolean} Whether the bounding box contains the given bounding box or not.
      */
-    containsBox(box) {
-      return this.min.x <= box.min.x && box.max.x <= this.max.x && this.min.y <= box.min.y && box.max.y <= this.max.y && this.min.z <= box.min.z && box.max.z <= this.max.z;
+    containsBox(box2) {
+      return this.min.x <= box2.min.x && box2.max.x <= this.max.x && this.min.y <= box2.min.y && box2.max.y <= this.max.y && this.min.z <= box2.min.z && box2.max.z <= this.max.z;
     }
     /**
      * Returns a point as a proportion of this box's width, height and depth.
@@ -9256,8 +9256,8 @@
      * @param {Box3} box - The bounding box to test.
      * @return {boolean} Whether the given bounding box intersects with this bounding box.
      */
-    intersectsBox(box) {
-      return box.max.x >= this.min.x && box.min.x <= this.max.x && box.max.y >= this.min.y && box.min.y <= this.max.y && box.max.z >= this.min.z && box.min.z <= this.max.z;
+    intersectsBox(box2) {
+      return box2.max.x >= this.min.x && box2.min.x <= this.max.x && box2.max.y >= this.min.y && box2.min.y <= this.max.y && box2.max.z >= this.min.z && box2.min.z <= this.max.z;
     }
     /**
      * Returns `true` if the given bounding sphere intersects with this bounding box.
@@ -9402,9 +9402,9 @@
      * @param {Box3} box - The bounding box to intersect with.
      * @return {Box3} A reference to this bounding box.
      */
-    intersect(box) {
-      this.min.max(box.min);
-      this.max.min(box.max);
+    intersect(box2) {
+      this.min.max(box2.min);
+      this.max.min(box2.max);
       if (this.isEmpty()) this.makeEmpty();
       return this;
     }
@@ -9416,9 +9416,9 @@
      * @param {Box3} box - The bounding box that will be unioned with this instance.
      * @return {Box3} A reference to this bounding box.
      */
-    union(box) {
-      this.min.min(box.min);
-      this.max.max(box.max);
+    union(box2) {
+      this.min.min(box2.min);
+      this.max.max(box2.max);
       return this;
     }
     /**
@@ -9458,8 +9458,8 @@
      * @param {Box3} box - The box to test for equality.
      * @return {boolean} Whether this bounding box is equal with the given one.
      */
-    equals(box) {
-      return box.min.equals(this.min) && box.max.equals(this.max);
+    equals(box2) {
+      return box2.min.equals(this.min) && box2.max.equals(this.max);
     }
     /**
      * Returns a serialized structure of the bounding box.
@@ -10092,8 +10092,8 @@
      * @param {Box3} box - The box to test.
      * @return {boolean} Whether this sphere intersects with the given box or not.
      */
-    intersectsBox(box) {
-      return box.intersectsSphere(this);
+    intersectsBox(box2) {
+      return box2.intersectsSphere(this);
     }
     /**
      * Returns `true` if this sphere intersects with the given plane.
@@ -10719,9 +10719,9 @@
         }];
       }
       for (let i = 0, il = groups.length; i < il; ++i) {
-        const group = groups[i];
-        const start = group.start;
-        const count = group.count;
+        const group2 = groups[i];
+        const start = group2.start;
+        const count = group2.count;
         for (let j = start, jl = start + count; j < jl; j += 3) {
           handleTriangle(
             index.getX(j + 0),
@@ -10744,9 +10744,9 @@
         tangentAttribute.setXYZW(v, tmp3.x, tmp3.y, tmp3.z, w);
       }
       for (let i = 0, il = groups.length; i < il; ++i) {
-        const group = groups[i];
-        const start = group.start;
-        const count = group.count;
+        const group2 = groups[i];
+        const start = group2.start;
+        const count = group2.count;
         for (let j = start, jl = start + count; j < jl; j += 3) {
           handleVertex(index.getX(j + 0));
           handleVertex(index.getX(j + 1));
@@ -10878,8 +10878,8 @@
       geometry2.morphTargetsRelative = this.morphTargetsRelative;
       const groups = this.groups;
       for (let i = 0, l = groups.length; i < l; i++) {
-        const group = groups[i];
-        geometry2.addGroup(group.start, group.count, group.materialIndex);
+        const group2 = groups[i];
+        geometry2.addGroup(group2.start, group2.count, group2.materialIndex);
       }
       return geometry2;
     }
@@ -10992,8 +10992,8 @@
       this.morphTargetsRelative = source.morphTargetsRelative;
       const groups = source.groups;
       for (let i = 0, l = groups.length; i < l; i++) {
-        const group = groups[i];
-        this.addGroup(group.start, group.count, group.materialIndex);
+        const group2 = groups[i];
+        this.addGroup(group2.start, group2.count, group2.materialIndex);
       }
       const boundingBox = source.boundingBox;
       if (boundingBox !== null) {
@@ -11692,8 +11692,8 @@
      * @param {Box3} box - The bounding box to test.
      * @return {boolean} Whether the given bounding box intersects with the plane or not.
      */
-    intersectsBox(box) {
-      return box.intersectsPlane(this);
+    intersectsBox(box2) {
+      return box2.intersectsPlane(this);
     }
     /**
      * Returns `true` if the given bounding sphere intersects with the plane.
@@ -12794,33 +12794,33 @@
      * @param {Vector3} target - The target vector that is used to store the method's result.
      * @return {?Vector3} The intersection point.
      */
-    intersectBox(box, target) {
+    intersectBox(box2, target) {
       let tmin, tmax, tymin, tymax, tzmin, tzmax;
       const invdirx = 1 / this.direction.x, invdiry = 1 / this.direction.y, invdirz = 1 / this.direction.z;
       const origin = this.origin;
       if (invdirx >= 0) {
-        tmin = (box.min.x - origin.x) * invdirx;
-        tmax = (box.max.x - origin.x) * invdirx;
+        tmin = (box2.min.x - origin.x) * invdirx;
+        tmax = (box2.max.x - origin.x) * invdirx;
       } else {
-        tmin = (box.max.x - origin.x) * invdirx;
-        tmax = (box.min.x - origin.x) * invdirx;
+        tmin = (box2.max.x - origin.x) * invdirx;
+        tmax = (box2.min.x - origin.x) * invdirx;
       }
       if (invdiry >= 0) {
-        tymin = (box.min.y - origin.y) * invdiry;
-        tymax = (box.max.y - origin.y) * invdiry;
+        tymin = (box2.min.y - origin.y) * invdiry;
+        tymax = (box2.max.y - origin.y) * invdiry;
       } else {
-        tymin = (box.max.y - origin.y) * invdiry;
-        tymax = (box.min.y - origin.y) * invdiry;
+        tymin = (box2.max.y - origin.y) * invdiry;
+        tymax = (box2.min.y - origin.y) * invdiry;
       }
       if (tmin > tymax || tymin > tmax) return null;
       if (tymin > tmin || isNaN(tmin)) tmin = tymin;
       if (tymax < tmax || isNaN(tmax)) tmax = tymax;
       if (invdirz >= 0) {
-        tzmin = (box.min.z - origin.z) * invdirz;
-        tzmax = (box.max.z - origin.z) * invdirz;
+        tzmin = (box2.min.z - origin.z) * invdirz;
+        tzmax = (box2.max.z - origin.z) * invdirz;
       } else {
-        tzmin = (box.max.z - origin.z) * invdirz;
-        tzmax = (box.min.z - origin.z) * invdirz;
+        tzmin = (box2.max.z - origin.z) * invdirz;
+        tzmax = (box2.min.z - origin.z) * invdirz;
       }
       if (tmin > tzmax || tzmin > tmax) return null;
       if (tzmin > tmin || tmin !== tmin) tmin = tzmin;
@@ -12834,8 +12834,8 @@
      * @param {Box3} box - The box to intersect.
      * @return {boolean} Whether this ray intersects with the given box or not.
      */
-    intersectsBox(box) {
-      return this.intersectBox(box, _vector$7) !== null;
+    intersectsBox(box2) {
+      return this.intersectBox(box2, _vector$7) !== null;
     }
     /**
      * Intersects this ray with the given triangle, returning the intersection
@@ -12855,7 +12855,7 @@
       const dy = direction.y;
       const dz = direction.z;
       const aox = a.x - origin.x, aoy = a.y - origin.y, aoz = a.z - origin.z;
-      const box = b.x - origin.x, boy = b.y - origin.y, boz = b.z - origin.z;
+      const box2 = b.x - origin.x, boy = b.y - origin.y, boz = b.z - origin.z;
       const cox = c.x - origin.x, coy = c.y - origin.y, coz = c.z - origin.z;
       const adx = Math.abs(dx), ady = Math.abs(dy), adz = Math.abs(dz);
       let dkx, dky, dkz;
@@ -12863,7 +12863,7 @@
       if (adx >= ady && adx >= adz) {
         dkz = dx;
         akz = aox;
-        bkz = box;
+        bkz = box2;
         ckz = cox;
         if (dx >= 0) {
           dkx = dy;
@@ -12895,7 +12895,7 @@
           akx = aoz;
           aky = aox;
           bkx = boz;
-          bky = box;
+          bky = box2;
           ckx = coz;
           cky = cox;
         } else {
@@ -12903,7 +12903,7 @@
           dky = dz;
           akx = aox;
           aky = aoz;
-          bkx = box;
+          bkx = box2;
           bky = boz;
           ckx = cox;
           cky = coz;
@@ -12918,7 +12918,7 @@
           dky = dy;
           akx = aox;
           aky = aoy;
-          bkx = box;
+          bkx = box2;
           bky = boy;
           ckx = cox;
           cky = coy;
@@ -12928,7 +12928,7 @@
           akx = aoy;
           aky = aox;
           bkx = boy;
-          bky = box;
+          bky = box2;
           ckx = coy;
           cky = cox;
         }
@@ -13181,10 +13181,10 @@
       if (index !== null) {
         if (Array.isArray(material)) {
           for (let i = 0, il = groups.length; i < il; i++) {
-            const group = groups[i];
-            const groupMaterial = material[group.materialIndex];
-            const start = Math.max(group.start, drawRange.start);
-            const end = Math.min(index.count, Math.min(group.start + group.count, drawRange.start + drawRange.count));
+            const group2 = groups[i];
+            const groupMaterial = material[group2.materialIndex];
+            const start = Math.max(group2.start, drawRange.start);
+            const end = Math.min(index.count, Math.min(group2.start + group2.count, drawRange.start + drawRange.count));
             for (let j = start, jl = end; j < jl; j += 3) {
               const a = index.getX(j);
               const b = index.getX(j + 1);
@@ -13192,7 +13192,7 @@
               intersection = checkGeometryIntersection(this, groupMaterial, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
-                intersection.face.materialIndex = group.materialIndex;
+                intersection.face.materialIndex = group2.materialIndex;
                 intersects2.push(intersection);
               }
             }
@@ -13214,10 +13214,10 @@
       } else if (position !== void 0) {
         if (Array.isArray(material)) {
           for (let i = 0, il = groups.length; i < il; i++) {
-            const group = groups[i];
-            const groupMaterial = material[group.materialIndex];
-            const start = Math.max(group.start, drawRange.start);
-            const end = Math.min(position.count, Math.min(group.start + group.count, drawRange.start + drawRange.count));
+            const group2 = groups[i];
+            const groupMaterial = material[group2.materialIndex];
+            const start = Math.max(group2.start, drawRange.start);
+            const end = Math.min(position.count, Math.min(group2.start + group2.count, drawRange.start + drawRange.count));
             for (let j = start, jl = end; j < jl; j += 3) {
               const a = j;
               const b = j + 1;
@@ -13225,7 +13225,7 @@
               intersection = checkGeometryIntersection(this, groupMaterial, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
-                intersection.face.materialIndex = group.materialIndex;
+                intersection.face.materialIndex = group2.materialIndex;
                 intersects2.push(intersection);
               }
             }
@@ -14093,13 +14093,13 @@
      * @param {Box3} box - The bounding box to test.
      * @return {boolean} Whether the bounding box is intersecting this frustum or not.
      */
-    intersectsBox(box) {
+    intersectsBox(box2) {
       const planes = this.planes;
       for (let i = 0; i < 6; i++) {
         const plane = planes[i];
-        _vector$6.x = plane.normal.x > 0 ? box.max.x : box.min.x;
-        _vector$6.y = plane.normal.y > 0 ? box.max.y : box.min.y;
-        _vector$6.z = plane.normal.z > 0 ? box.max.z : box.min.z;
+        _vector$6.x = plane.normal.x > 0 ? box2.max.x : box2.min.x;
+        _vector$6.y = plane.normal.y > 0 ? box2.max.y : box2.min.y;
+        _vector$6.z = plane.normal.z > 0 ? box2.max.z : box2.min.z;
         if (plane.distanceToPoint(_vector$6) < 0) {
           return false;
         }
@@ -17518,6 +17518,121 @@
       return new _IcosahedronGeometry(data.radius, data.detail);
     }
   };
+  var LatheGeometry = class _LatheGeometry extends BufferGeometry {
+    /**
+     * Constructs a new lathe geometry.
+     *
+     * @param {Array<Vector2|Vector3>} [points] - An array of points in 2D space. The x-coordinate of each point
+     * must be greater than zero.
+     * @param {number} [segments=12] - The number of circumference segments to generate.
+     * @param {number} [phiStart=0] - The starting angle in radians.
+     * @param {number} [phiLength=Math.PI*2] - The radian (0 to 2PI) range of the lathed section 2PI is a
+     * closed lathe, less than 2PI is a portion.
+     */
+    constructor(points = [new Vector2(0, -0.5), new Vector2(0.5, 0), new Vector2(0, 0.5)], segments = 12, phiStart = 0, phiLength = Math.PI * 2) {
+      super();
+      this.type = "LatheGeometry";
+      this.parameters = {
+        points,
+        segments,
+        phiStart,
+        phiLength
+      };
+      segments = Math.floor(segments);
+      phiLength = clamp(phiLength, 0, Math.PI * 2);
+      const indices = [];
+      const vertices = [];
+      const uvs = [];
+      const initNormals = [];
+      const normals = [];
+      const inverseSegments = 1 / segments;
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      const normal = new Vector3();
+      const curNormal = new Vector3();
+      const prevNormal = new Vector3();
+      let dx = 0;
+      let dy = 0;
+      for (let j = 0; j <= points.length - 1; j++) {
+        switch (j) {
+          case 0:
+            dx = points[j + 1].x - points[j].x;
+            dy = points[j + 1].y - points[j].y;
+            normal.x = dy * 1;
+            normal.y = -dx;
+            normal.z = dy * 0;
+            prevNormal.copy(normal);
+            normal.normalize();
+            initNormals.push(normal.x, normal.y, normal.z);
+            break;
+          case points.length - 1:
+            initNormals.push(prevNormal.x, prevNormal.y, prevNormal.z);
+            break;
+          default:
+            dx = points[j + 1].x - points[j].x;
+            dy = points[j + 1].y - points[j].y;
+            normal.x = dy * 1;
+            normal.y = -dx;
+            normal.z = dy * 0;
+            curNormal.copy(normal);
+            normal.x += prevNormal.x;
+            normal.y += prevNormal.y;
+            normal.z += prevNormal.z;
+            normal.normalize();
+            initNormals.push(normal.x, normal.y, normal.z);
+            prevNormal.copy(curNormal);
+        }
+      }
+      for (let i = 0; i <= segments; i++) {
+        const phi = phiStart + i * inverseSegments * phiLength;
+        const sin = Math.sin(phi);
+        const cos = Math.cos(phi);
+        for (let j = 0; j <= points.length - 1; j++) {
+          vertex2.x = points[j].x * sin;
+          vertex2.y = points[j].y;
+          vertex2.z = points[j].x * cos;
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          uv.x = i / segments;
+          uv.y = j / (points.length - 1);
+          uvs.push(uv.x, uv.y);
+          const x = initNormals[3 * j + 0] * sin;
+          const y = initNormals[3 * j + 1];
+          const z = initNormals[3 * j + 0] * cos;
+          normals.push(x, y, z);
+        }
+      }
+      for (let i = 0; i < segments; i++) {
+        for (let j = 0; j < points.length - 1; j++) {
+          const base = j + i * points.length;
+          const a = base;
+          const b = base + points.length;
+          const c = base + points.length + 1;
+          const d = base + 1;
+          indices.push(a, b, d);
+          indices.push(c, d, b);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {LatheGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _LatheGeometry(data.points, data.segments, data.phiStart, data.phiLength);
+    }
+  };
   var PlaneGeometry = class _PlaneGeometry extends BufferGeometry {
     /**
      * Constructs a new plane geometry.
@@ -17801,12 +17916,12 @@
      * @param {number} [thetaStart=0] - Start of the tubular sweep in radians.
      * @param {number} [thetaLength=Math.PI*2] - Length of the tubular sweep in radians.
      */
-    constructor(radius = 1, tube = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI * 2) {
+    constructor(radius = 1, tube2 = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI * 2) {
       super();
       this.type = "TorusGeometry";
       this.parameters = {
         radius,
-        tube,
+        tube: tube2,
         radialSegments,
         tubularSegments,
         arc,
@@ -17826,9 +17941,9 @@
         const v = thetaStart + j / radialSegments * thetaLength;
         for (let i = 0; i <= tubularSegments; i++) {
           const u = i / tubularSegments * arc;
-          vertex2.x = (radius + tube * Math.cos(v)) * Math.cos(u);
-          vertex2.y = (radius + tube * Math.cos(v)) * Math.sin(u);
-          vertex2.z = tube * Math.sin(v);
+          vertex2.x = (radius + tube2 * Math.cos(v)) * Math.cos(u);
+          vertex2.y = (radius + tube2 * Math.cos(v)) * Math.sin(u);
+          vertex2.z = tube2 * Math.sin(v);
           vertices.push(vertex2.x, vertex2.y, vertex2.z);
           center.x = radius * Math.cos(u);
           center.y = radius * Math.sin(u);
@@ -17900,14 +18015,14 @@
     return dst;
   }
   function mergeUniforms(uniforms) {
-    const merged2 = {};
+    const merged = {};
     for (let u = 0; u < uniforms.length; u++) {
       const tmp3 = cloneUniforms(uniforms[u]);
       for (const p in tmp3) {
-        merged2[p] = tmp3[p];
+        merged[p] = tmp3[p];
       }
     }
-    return merged2;
+    return merged;
   }
   function isThreeObject(property) {
     return property && (property.isColor || property.isMatrix3 || property.isMatrix4 || property.isVector2 || property.isVector3 || property.isVector4 || property.isTexture || property.isQuaternion);
@@ -25935,7 +26050,7 @@
       if (object.isSkinnedMesh) variant += 1;
       return variant;
     }
-    function getNextRenderItem(object, geometry, material, groupOrder, z, group) {
+    function getNextRenderItem(object, geometry, material, groupOrder, z, group2) {
       let renderItem = renderItems[renderItemsIndex];
       if (renderItem === void 0) {
         renderItem = {
@@ -25947,7 +26062,7 @@
           groupOrder,
           renderOrder: object.renderOrder,
           z,
-          group
+          group: group2
         };
         renderItems[renderItemsIndex] = renderItem;
       } else {
@@ -25959,14 +26074,14 @@
         renderItem.groupOrder = groupOrder;
         renderItem.renderOrder = object.renderOrder;
         renderItem.z = z;
-        renderItem.group = group;
+        renderItem.group = group2;
       }
       renderItemsIndex++;
       return renderItem;
     }
-    function push(object, geometry, material, groupOrder, z, group, camera) {
+    function push(object, geometry, material, groupOrder, z, group2, camera) {
       if (camera.reversedDepth === true) z = -z;
-      const renderItem = getNextRenderItem(object, geometry, material, groupOrder, z, group);
+      const renderItem = getNextRenderItem(object, geometry, material, groupOrder, z, group2);
       if (material.transmission > 0) {
         transmissive.push(renderItem);
       } else if (material.transparent === true) {
@@ -25975,8 +26090,8 @@
         opaque.push(renderItem);
       }
     }
-    function unshift(object, geometry, material, groupOrder, z, group) {
-      const renderItem = getNextRenderItem(object, geometry, material, groupOrder, z, group);
+    function unshift(object, geometry, material, groupOrder, z, group2) {
+      const renderItem = getNextRenderItem(object, geometry, material, groupOrder, z, group2);
       if (material.transmission > 0) {
         transmissive.unshift(renderItem);
       } else if (material.transparent === true) {
@@ -26828,13 +26943,13 @@
           if (Array.isArray(material)) {
             const groups = geometry.groups;
             for (let k = 0, kl = groups.length; k < kl; k++) {
-              const group = groups[k];
-              const groupMaterial = material[group.materialIndex];
+              const group2 = groups[k];
+              const groupMaterial = material[group2.materialIndex];
               if (groupMaterial && groupMaterial.visible) {
                 const depthMaterial = getDepthMaterial(object, groupMaterial, light, type);
-                object.onBeforeShadow(renderer, object, camera, shadowCamera, geometry, depthMaterial, group);
-                renderer.renderBufferDirect(shadowCamera, null, geometry, depthMaterial, object, group);
-                object.onAfterShadow(renderer, object, camera, shadowCamera, geometry, depthMaterial, group);
+                object.onBeforeShadow(renderer, object, camera, shadowCamera, geometry, depthMaterial, group2);
+                renderer.renderBufferDirect(shadowCamera, null, geometry, depthMaterial, object, group2);
+                object.onAfterShadow(renderer, object, camera, shadowCamera, geometry, depthMaterial, group2);
               }
             }
           } else if (material.visible) {
@@ -31182,7 +31297,7 @@ void main() {
           }
         }
       }
-      this.renderBufferDirect = function(camera, scene, geometry, material, object, group) {
+      this.renderBufferDirect = function(camera, scene, geometry, material, object, group2) {
         if (scene === null) scene = _emptyScene;
         const frontFaceCW = object.isMesh && object.matrixWorld.determinantAffine() < 0;
         const program = setProgram(camera, scene, geometry, material, object);
@@ -31198,9 +31313,9 @@ void main() {
         const position = geometry.attributes.position;
         let drawStart = drawRange.start * rangeFactor;
         let drawEnd = (drawRange.start + drawRange.count) * rangeFactor;
-        if (group !== null) {
-          drawStart = Math.max(drawStart, group.start * rangeFactor);
-          drawEnd = Math.min(drawEnd, (group.start + group.count) * rangeFactor);
+        if (group2 !== null) {
+          drawStart = Math.max(drawStart, group2.start * rangeFactor);
+          drawEnd = Math.min(drawEnd, (group2.start + group2.count) * rangeFactor);
         }
         if (index !== null) {
           drawStart = Math.max(drawStart, 0);
@@ -31525,10 +31640,10 @@ void main() {
               if (Array.isArray(material)) {
                 const groups = geometry.groups;
                 for (let i = 0, l = groups.length; i < l; i++) {
-                  const group = groups[i];
-                  const groupMaterial = material[group.materialIndex];
+                  const group2 = groups[i];
+                  const groupMaterial = material[group2.materialIndex];
                   if (groupMaterial && groupMaterial.visible) {
-                    currentRenderList.push(object, geometry, groupMaterial, groupOrder, _vector42.z, group, camera);
+                    currentRenderList.push(object, geometry, groupMaterial, groupOrder, _vector42.z, group2, camera);
                   }
                 }
               } else if (material.visible) {
@@ -31601,12 +31716,12 @@ void main() {
           let renderTargetNeedsUpdate = false;
           for (let i = 0, l = transmissiveObjects.length; i < l; i++) {
             const renderItem = transmissiveObjects[i];
-            const { object, geometry, material, group } = renderItem;
+            const { object, geometry, material, group: group2 } = renderItem;
             if (material.side === DoubleSide && object.layers.test(camera.layers)) {
               const currentSide = material.side;
               material.side = BackSide;
               material.needsUpdate = true;
-              renderObject(object, scene, camera, geometry, material, group);
+              renderObject(object, scene, camera, geometry, material, group2);
               material.side = currentSide;
               material.needsUpdate = true;
               renderTargetNeedsUpdate = true;
@@ -31626,34 +31741,34 @@ void main() {
         const overrideMaterial = scene.isScene === true ? scene.overrideMaterial : null;
         for (let i = 0, l = renderList.length; i < l; i++) {
           const renderItem = renderList[i];
-          const { object, geometry, group } = renderItem;
+          const { object, geometry, group: group2 } = renderItem;
           let material = renderItem.material;
           if (material.allowOverride === true && overrideMaterial !== null) {
             material = overrideMaterial;
           }
           if (object.layers.test(camera.layers)) {
-            renderObject(object, scene, camera, geometry, material, group);
+            renderObject(object, scene, camera, geometry, material, group2);
           }
         }
       }
-      function renderObject(object, scene, camera, geometry, material, group) {
+      function renderObject(object, scene, camera, geometry, material, group2) {
         if (_nodesHandler !== null && material.isNodeMaterial) _nodesHandler.setObject(object, material);
-        object.onBeforeRender(_this, scene, camera, geometry, material, group);
+        object.onBeforeRender(_this, scene, camera, geometry, material, group2);
         object.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld);
         object.normalMatrix.getNormalMatrix(object.modelViewMatrix);
-        material.onBeforeRender(_this, scene, camera, geometry, object, group);
+        material.onBeforeRender(_this, scene, camera, geometry, object, group2);
         if (material.transparent === true && material.side === DoubleSide && material.forceSinglePass === false) {
           material.side = BackSide;
           material.needsUpdate = true;
-          _this.renderBufferDirect(camera, scene, geometry, material, object, group);
+          _this.renderBufferDirect(camera, scene, geometry, material, object, group2);
           material.side = FrontSide;
           material.needsUpdate = true;
-          _this.renderBufferDirect(camera, scene, geometry, material, object, group);
+          _this.renderBufferDirect(camera, scene, geometry, material, object, group2);
           material.side = DoubleSide;
         } else {
-          _this.renderBufferDirect(camera, scene, geometry, material, object, group);
+          _this.renderBufferDirect(camera, scene, geometry, material, object, group2);
         }
-        object.onAfterRender(_this, scene, camera, geometry, material, group);
+        object.onAfterRender(_this, scene, camera, geometry, material, group2);
       }
       function getProgram(material, scene, object) {
         if (scene.isScene !== true) scene = _emptyScene;
@@ -31981,9 +32096,9 @@ void main() {
         if (material.uniformsGroups !== void 0) {
           const groups = material.uniformsGroups;
           for (let i = 0, l = groups.length; i < l; i++) {
-            const group = groups[i];
-            uniformsGroups.update(group, program);
-            uniformsGroups.bind(group, program);
+            const group2 = groups[i];
+            uniformsGroups.update(group2, program);
+            uniformsGroups.bind(group2, program);
           }
         }
         return program;
@@ -32948,7 +33063,7 @@ void main() {
     function batch() {
       return { p: [], uv: [], c: [] };
     }
-    function box(out, x, y, z, i, lo = [0, 0, 0], hi = [1, 1, 1], cull = true) {
+    function box2(out, x, y, z, i, lo = [0, 0, 0], hi = [1, 1, 1], cull = true) {
       let n = names[i];
       for (let f = 0; f < 6; f++) {
         let d = dirs[f], nb = get(x + d[0], y + d[1], z + d[2]);
@@ -33013,16 +33128,16 @@ void main() {
           if (/stairs$/.test(n)) {
             hi[1] = 0.5;
             cull = false;
-            box(o, x, y, z, i, lo, hi, false);
+            box2(o, x, y, z, i, lo, hi, false);
             let l = [0, 0.5, 0], h = [1, 1, 1];
             if (p.facing === "east") l[0] = 0.5;
             else if (p.facing === "west") h[0] = 0.5;
             else if (p.facing === "south") l[2] = 0.5;
             else h[2] = 0.5;
-            box(o, x, y, z, i, l, h, false);
+            box2(o, x, y, z, i, l, h, false);
             continue;
           }
-          box(/glass|water|ice/.test(n) ? a : o, x, y, z, i, lo, hi, cull);
+          box2(/glass|water|ice/.test(n) ? a : o, x, y, z, i, lo, hi, cull);
         }
         mesh(o, mat);
         mesh(a, glassmat);
@@ -33984,9 +34099,9 @@ void main() {
         const c = this.collide(x0, x1, y0, y1, n0, n1, kind, typeof col === "object" ? col : {});
         if (breakable) {
           const vol = hx * hy * hn, hp = Math.round(Math.max(40, Math.min(520, 380 * Math.sqrt(vol / 0.6))) * (HPK[k] || 1));
-          const part2 = { ranges: [{ k, start: vStart, count: 36 }], c, hp, max: hp, kind: k, box: { x0, x1, y0, y1, n0, n1 }, cb: c.bullet, cs: c.sight };
-          c.part = part2;
-          this.parts.push(part2);
+          const part = { ranges: [{ k, start: vStart, count: 36 }], c, hp, max: hp, kind: k, box: { x0, x1, y0, y1, n0, n1 }, cb: c.bullet, cs: c.sight };
+          c.part = part;
+          this.parts.push(part);
         }
       }
       if (!col && this._attach) this._attach.ranges.push({ k, start: vStart, count: 36 });
@@ -34360,18 +34475,18 @@ void main() {
     }
     // 依目前位移／旋轉／翻倒角度改寫頂點，並更新碰撞體與 box
     applyMotion(p) {
-      const m = p.mv, M2 = this._m || (this._m = new Matrix4()), T = this._t || (this._t = new Matrix4()), N = this._n || (this._n = new Matrix3()), v = this._v || (this._v = new Vector3());
+      const m = p.mv, M = this._m || (this._m = new Matrix4()), T = this._t || (this._t = new Matrix4()), N = this._n || (this._n = new Matrix3()), v = this._v || (this._v = new Vector3());
       const E = m.tipAx === "z" ? [m.tipS * m.hx, 0, 0] : [0, 0, m.tipS * m.hz], ang = m.tipAx === "z" ? -m.tipS * m.tip : m.tipS * m.tip;
-      M2.makeTranslation(m.px + m.ox, m.py + m.oy, m.pz + m.oz).multiply(T.makeRotationY(m.yaw));
+      M.makeTranslation(m.px + m.ox, m.py + m.oy, m.pz + m.oz).multiply(T.makeRotationY(m.yaw));
       if (m.tipAx) {
-        M2.multiply(T.makeTranslation(E[0], E[1], E[2])).multiply(m.tipAx === "z" ? T.makeRotationZ(ang) : T.makeRotationX(ang)).multiply(T.makeTranslation(-E[0], -E[1], -E[2]));
+        M.multiply(T.makeTranslation(E[0], E[1], E[2])).multiply(m.tipAx === "z" ? T.makeRotationZ(ang) : T.makeRotationX(ang)).multiply(T.makeTranslation(-E[0], -E[1], -E[2]));
       }
-      N.setFromMatrix4(M2);
-      const e = M2.elements;
+      N.setFromMatrix4(M);
+      const e = M.elements;
       for (const r of p.ranges) {
         const g = this.meshByKey[r.k].geometry, A = g.attributes.position.array, NA = g.attributes.normal.array, O = this.origPos[r.k], ON = this.origNrm[r.k], s0 = r.start * 3;
         for (let i = s0; i < s0 + r.count * 3; i += 3) {
-          v.set(O[i] - m.px, O[i + 1] - m.py, O[i + 2] - m.pz).applyMatrix4(M2);
+          v.set(O[i] - m.px, O[i + 1] - m.py, O[i + 2] - m.pz).applyMatrix4(M);
           A[i] = v.x;
           A[i + 1] = v.y;
           A[i + 2] = v.z;
@@ -34394,7 +34509,7 @@ void main() {
         hy = cs * m.hy + sn * m.hz;
         hz = sn * m.hy + cs * m.hz;
       }
-      v.set(0, m.hy, 0).applyMatrix4(M2);
+      v.set(0, m.hy, 0).applyMatrix4(M);
       this.setCol(p.c, v.x, Math.max(v.y, m.py + m.oy + hy), v.z, hx, hy, hz, m.yaw);
       const c = p.c;
       p.box = { x0: c.minX, x1: c.maxX, y0: c.bottom, y1: c.top, n0: -c.maxZ, n1: -c.minZ };
@@ -34491,8 +34606,8 @@ void main() {
         p.mv = null;
       }
     }
-    geo(k, g, part2) {
-      (this.extra[k] || (this.extra[k] = [])).push({ g: g.index ? g.toNonIndexed() : g, part: part2 });
+    geo(k, g, part) {
+      (this.extra[k] || (this.extra[k] = [])).push({ g: g.index ? g.toNonIndexed() : g, part });
     }
     finish(scene, shadows) {
       const meshes = [];
@@ -34508,11 +34623,11 @@ void main() {
           parts.push(g);
         }
         let off = B && B.p.length ? B.p.length / 3 : 0;
-        for (const { g, part: part2 } of this.extra[k] || []) {
+        for (const { g, part } of this.extra[k] || []) {
           for (const a of Object.keys(g.attributes)) if (!["position", "normal", "uv"].includes(a)) g.deleteAttribute(a);
           if (!g.attributes.uv) g.setAttribute("uv", new Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
           parts.push(g);
-          if (part2) part2.ranges.push({ k, start: off, count: g.attributes.position.count });
+          if (part) part.ranges.push({ k, start: off, count: g.attributes.position.count });
           off += g.attributes.position.count;
         }
         const geo = parts.length > 1 ? mergeGeometries(parts) : parts[0];
@@ -34853,10 +34968,10 @@ void main() {
     if (gable) mk("brick", endTris);
   }
   function tree(B, x, n, { h = 7, r = 3, kind = "round" } = {}) {
-    const z = -n, c = B.collide(x - 0.25, x + 0.25, 0, h * 0.5, n - 0.25, n + 0.25, "wood"), part2 = { ranges: [], c, hp: 320, max: 320, kind: "tree", box: { x0: x - r * 0.6, x1: x + r * 0.6, y0: 0, y1: h, n0: n - r * 0.6, n1: n + r * 0.6 }, cb: c.bullet, cs: c.sight };
-    c.part = part2;
-    B.parts.push(part2);
-    const geo = B.geo.bind(B), Bp = { geo: (k, g) => geo(k, g, part2) };
+    const z = -n, c = B.collide(x - 0.25, x + 0.25, 0, h * 0.5, n - 0.25, n + 0.25, "wood"), part = { ranges: [], c, hp: 320, max: 320, kind: "tree", box: { x0: x - r * 0.6, x1: x + r * 0.6, y0: 0, y1: h, n0: n - r * 0.6, n1: n + r * 0.6 }, cb: c.bullet, cs: c.sight };
+    c.part = part;
+    B.parts.push(part);
+    const geo = B.geo.bind(B), Bp = { geo: (k, g) => geo(k, g, part) };
     const trunk = new CylinderGeometry(0.18 * h / 7, 0.28 * h / 7, h * 0.55, 7);
     trunk.translate(x, h * 0.275, z);
     Bp.geo("bark", trunk);
@@ -36022,19 +36137,19 @@ void main() {
     flush() {
       if (!this.dirty) return;
       this.dirty = false;
-      const D2 = this._d, M2 = this.mesh;
+      const D2 = this._d, M = this.mesh;
       for (let i = 0; i < this.items.length; i++) {
         const it = this.items[i];
         D2.position.copy(it.p);
         D2.quaternion.copy(it.q);
         D2.scale.copy(it.s);
         D2.updateMatrix();
-        M2.setMatrixAt(i, D2.matrix);
-        if (it.col) M2.setColorAt(i, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
+        M.setMatrixAt(i, D2.matrix);
+        if (it.col) M.setColorAt(i, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
       }
-      M2.count = this.items.length;
-      M2.instanceMatrix.needsUpdate = true;
-      if (M2.instanceColor) M2.instanceColor.needsUpdate = true;
+      M.count = this.items.length;
+      M.instanceMatrix.needsUpdate = true;
+      if (M.instanceColor) M.instanceColor.needsUpdate = true;
     }
   };
   var Effects = class {
@@ -36236,7 +36351,7 @@ void main() {
       for (let i = 0; i < (tree2 ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
     }
     updateChunks(dt) {
-      const D2 = this._dummy, M2 = this.chunkMesh, dq = new Quaternion(), ax = new Vector3();
+      const D2 = this._dummy, M = this.chunkMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const ch of this.chunks) {
         ch.life += dt;
@@ -36274,14 +36389,14 @@ void main() {
         D2.quaternion.copy(ch.q);
         D2.scale.copy(ch.s).multiplyScalar(fade2);
         D2.updateMatrix();
-        M2.setMatrixAt(n, D2.matrix);
-        M2.setColorAt(n, this._col.setRGB(ch.col[0], ch.col[1], ch.col[2]));
+        M.setMatrixAt(n, D2.matrix);
+        M.setColorAt(n, this._col.setRGB(ch.col[0], ch.col[1], ch.col[2]));
         n++;
       }
       this.chunks = this.chunks.filter((ch) => ch.life < ch.max);
-      M2.count = n;
-      M2.instanceMatrix.needsUpdate = true;
-      if (M2.instanceColor) M2.instanceColor.needsUpdate = true;
+      M.count = n;
+      M.instanceMatrix.needsUpdate = true;
+      if (M.instanceColor) M.instanceColor.needsUpdate = true;
     }
     // 物件被打爛時，移除貼在它上面的彈孔
     clearDecalsIn(b) {
@@ -36385,7 +36500,7 @@ void main() {
     }
     updateCases(dt) {
       if (!this.cases.length && !this.caseMesh.count) return;
-      const D2 = this._dummy, M2 = this.caseMesh, dq = new Quaternion(), ax = new Vector3();
+      const D2 = this._dummy, M = this.caseMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const c of this.cases) {
         c.life += dt;
@@ -36418,11 +36533,11 @@ void main() {
         D2.quaternion.copy(c.q);
         D2.scale.set(c.r * fade2, c.len * fade2, c.r * fade2);
         D2.updateMatrix();
-        M2.setMatrixAt(n++, D2.matrix);
+        M.setMatrixAt(n++, D2.matrix);
       }
       this.cases = this.cases.filter((c) => c.life < c.max);
-      M2.count = n;
-      M2.instanceMatrix.needsUpdate = true;
+      M.count = n;
+      M.instanceMatrix.needsUpdate = true;
     }
     clearDecals() {
       for (const d of Object.values(this.decals)) {
@@ -36464,7 +36579,7 @@ void main() {
       this.shake = Math.max(this.shake, 1);
     }
     updateShards(dt) {
-      const D2 = this._dummy, M2 = this.shardMesh, dq = new Quaternion(), ax = new Vector3();
+      const D2 = this._dummy, M = this.shardMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const sh of this.shards) {
         sh.life += dt;
@@ -36497,11 +36612,11 @@ void main() {
         D2.quaternion.copy(sh.q);
         D2.scale.setScalar(sh.s * fade2);
         D2.updateMatrix();
-        M2.setMatrixAt(n++, D2.matrix);
+        M.setMatrixAt(n++, D2.matrix);
       }
       this.shards = this.shards.filter((sh) => sh.life < sh.max);
-      M2.count = n;
-      M2.instanceMatrix.needsUpdate = true;
+      M.count = n;
+      M.instanceMatrix.needsUpdate = true;
     }
     update(dt, t, camera) {
       this.updateShards(dt);
@@ -36526,9 +36641,9 @@ void main() {
       }
       this.shake *= Math.exp(-dt * 5);
     }
-    // 曳光：彈頭以 300 m/s 前進（比真實慢，肉眼才看得到），拖著 10 m 的尾巴；面片繞著彈道軸轉向鏡頭
+    // 曳光：彈頭以 750 m/s 前進、拖著 5 m 的尾巴，一閃即逝；面片繞著彈道軸轉向鏡頭
     updateTracers(dt, camera) {
-      const SPEED = 300, TAIL = 10, M2 = this._tm, mid = this._tmid, side = this._ta, face = this._tb, toCam = this._tc;
+      const SPEED = 750, TAIL = 5, M = this._tm, mid = this._tmid, side = this._ta, face = this._tb, toCam = this._tc;
       let n = 0;
       this.tracers = this.tracers.filter((tr) => {
         tr.t += dt;
@@ -36540,8 +36655,8 @@ void main() {
         const dist = toCam.length();
         side.crossVectors(tr.dir, toCam).normalize();
         face.crossVectors(tr.dir, side);
-        const L = head - tail, W = 0.03 + dist * 22e-4;
-        M2.set(
+        const L = head - tail, W = 0.022 + dist * 16e-4;
+        M.set(
           tr.dir.x * L,
           side.x * W,
           face.x,
@@ -36559,7 +36674,7 @@ void main() {
           0,
           1
         );
-        this.tracerMesh.setMatrixAt(n++, M2);
+        this.tracerMesh.setMatrixAt(n++, M);
         return true;
       });
       this.tracerMesh.count = n;
@@ -36615,7 +36730,7 @@ void main() {
       this.attributes.uv = geometry2.attributes.uv;
       const position = new Vector3();
       const normal = new Vector3();
-      const box = new Vector3(width, height, depth).divideScalar(2).subScalar(radius);
+      const box2 = new Vector3(width, height, depth).divideScalar(2).subScalar(radius);
       const positions = this.attributes.position.array;
       const normals = this.attributes.normal.array;
       const uvs = this.attributes.uv.array;
@@ -36629,9 +36744,9 @@ void main() {
         normal.y -= Math.sign(normal.y) * halfSegmentSize;
         normal.z -= Math.sign(normal.z) * halfSegmentSize;
         normal.normalize();
-        positions[i + 0] = box.x * Math.sign(position.x) + normal.x * radius;
-        positions[i + 1] = box.y * Math.sign(position.y) + normal.y * radius;
-        positions[i + 2] = box.z * Math.sign(position.z) + normal.z * radius;
+        positions[i + 0] = box2.x * Math.sign(position.x) + normal.x * radius;
+        positions[i + 1] = box2.y * Math.sign(position.y) + normal.y * radius;
+        positions[i + 2] = box2.z * Math.sign(position.z) + normal.z * radius;
         normals[i + 0] = normal.x;
         normals[i + 1] = normal.y;
         normals[i + 2] = normal.z;
@@ -36689,63 +36804,98 @@ void main() {
   };
 
   // game-src/guns.js
-  var M = null;
-  function wearTextures() {
+  var MATS = null;
+  function surfaceMaps() {
     const S = 256;
-    const n = fbm(S, S, 8, 8, 5, 4242);
-    const c = document.createElement("canvas");
-    c.width = c.height = S;
-    const ctx = c.getContext("2d");
-    const img = ctx.createImageData(S, S);
-    for (let i = 0; i < S * S; i++) {
-      const v = 150 + n[i] * 105;
-      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
-      img.data[i * 4 + 3] = 255;
+    const n = fbm(S, S, 10, 10, 5, 2718, 0.55);
+    const scratch = new Float32Array(S * S);
+    let seed = 99;
+    const rnd2 = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+    for (let k = 0; k < 40; k++) {
+      let x = rnd2() * S, y = rnd2() * S;
+      const a = rnd2() * Math.PI, len = 10 + rnd2() * 50;
+      for (let s = 0; s < len; s++) {
+        const xi = ((x | 0) % S + S) % S, yi = ((y | 0) % S + S) % S;
+        scratch[yi * S + xi] = 1;
+        x += Math.cos(a);
+        y += Math.sin(a);
+      }
     }
-    ctx.putImageData(img, 0, 0);
-    const rough = new CanvasTexture(c);
-    rough.wrapS = rough.wrapT = RepeatWrapping;
-    const nrm = new CanvasTexture(normalFromHeight(n, S, S, 1.2));
-    nrm.wrapS = nrm.wrapT = RepeatWrapping;
+    const height = new Float32Array(S * S);
+    const rc = document.createElement("canvas");
+    rc.width = rc.height = S;
+    const rx = rc.getContext("2d"), ri = rx.createImageData(S, S);
+    for (let i = 0; i < S * S; i++) {
+      height[i] = n[i] * 0.8 - scratch[i] * 0.3;
+      const v = 135 + n[i] * 90 - scratch[i] * 70;
+      ri.data[i * 4] = ri.data[i * 4 + 1] = ri.data[i * 4 + 2] = v;
+      ri.data[i * 4 + 3] = 255;
+    }
+    rx.putImageData(ri, 0, 0);
+    const rough = new CanvasTexture(rc);
+    const nrm = new CanvasTexture(normalFromHeight(height, S, S, 1.4));
+    const W = 256, warp = fbm(W, W, 2, 6, 4, 1618);
     const wc = document.createElement("canvas");
-    wc.width = wc.height = 256;
-    const wx = wc.getContext("2d");
-    const g = fbm(256, 256, 1, 24, 4, 777);
-    const wi = wx.createImageData(256, 256);
-    for (let i = 0; i < 256 * 256; i++) {
-      const v = 0.65 + g[i] * 0.55;
-      wi.data[i * 4] = 120 * v;
-      wi.data[i * 4 + 1] = 62 * v;
-      wi.data[i * 4 + 2] = 30 * v;
+    wc.width = wc.height = W;
+    const wx = wc.getContext("2d"), wi = wx.createImageData(W, W);
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const ring = 0.5 + 0.5 * Math.sin(x / W * 38 + warp[i] * 9);
+      const k = 0.7 + ring * 0.22 + warp[i] * 0.16;
+      wi.data[i * 4] = 128 * k;
+      wi.data[i * 4 + 1] = 70 * k;
+      wi.data[i * 4 + 2] = 36 * k;
       wi.data[i * 4 + 3] = 255;
     }
     wx.putImageData(wi, 0, 0);
     const wood = new CanvasTexture(wc);
     wood.colorSpace = SRGBColorSpace;
-    wood.wrapS = wood.wrapT = RepeatWrapping;
+    for (const t of [rough, nrm, wood]) t.wrapS = t.wrapT = RepeatWrapping;
     return { rough, nrm, wood };
   }
   function gunMaterials() {
-    if (M) return M;
-    const w = wearTextures();
-    const mk = (color, rough, metal, extra = {}) => new MeshStandardMaterial({ color, roughness: rough, metalness: metal, roughnessMap: w.rough, normalMap: w.nrm, normalScale: new Vector2(0.3, 0.3), ...extra });
-    M = {
-      metal: mk(2829616, 0.42, 0.85),
-      black: mk(1447706, 0.6, 0.35),
-      steel: mk(9343898, 0.28, 0.95),
-      wood: new MeshStandardMaterial({ map: w.wood, roughness: 0.55, metalness: 0.05, normalMap: w.nrm, normalScale: new Vector2(0.4, 0.4) }),
-      bakelite: mk(6958612, 0.45, 0.1),
-      olive: mk(5068344, 0.62, 0.2),
-      tan: mk(9402965, 0.6, 0.15),
-      rubber: mk(1184274, 0.85, 0),
-      brass: mk(13148234, 0.3, 1),
-      glass: new MeshStandardMaterial({ color: 662052, roughness: 0.05, metalness: 0.9, emissive: 331800 }),
-      blade: mk(13225684, 0.18, 1),
-      red: mk(9050644, 0.5, 0.2)
+    if (MATS) return MATS;
+    const t = surfaceMaps();
+    const worn = (color, roughness, metalness, extra) => new MeshStandardMaterial({
+      color,
+      roughness,
+      metalness,
+      roughnessMap: t.rough,
+      normalMap: t.nrm,
+      normalScale: new Vector2(0.3, 0.3),
+      ...extra
+    });
+    MATS = {
+      metal: worn(2763823, 0.4, 0.85),
+      // 烤藍鋼
+      black: worn(1513499, 0.58, 0.35),
+      // 黑色塗層／聚合物
+      steel: worn(9476e3, 0.28, 0.95),
+      // 拋光鋼
+      wood: new MeshStandardMaterial({ map: t.wood, roughness: 0.55, metalness: 0.04, normalMap: t.nrm, normalScale: new Vector2(0.35, 0.35) }),
+      bakelite: worn(7024405, 0.45, 0.1),
+      // 橘褐色電木（AK 彈匣、握把）
+      olive: worn(5134137, 0.6, 0.2),
+      tan: worn(9468758, 0.6, 0.15),
+      rubber: worn(1250067, 0.86, 0),
+      brass: worn(13214027, 0.3, 1),
+      glass: new MeshStandardMaterial({ color: 727846, roughness: 0.05, metalness: 0.9, emissive: 397850 }),
+      blade: worn(13291734, 0.18, 1),
+      red: worn(9116437, 0.5, 0.2)
     };
-    return M;
+    return MATS;
   }
-  function part(parent, geo, mat, x, y, z, rx = 0, ry = 0, rz = 0, name) {
+  function box(w, h, d, r = 4e-3) {
+    const rr = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
+    return rr > 5e-4 ? new RoundedBoxGeometry(w, h, d, 2, rr) : new BoxGeometry(w, h, d);
+  }
+  function tube(r, len, axis = "z", seg2 = 14, rEnd = r) {
+    const g = new CylinderGeometry(rEnd, r, len, seg2);
+    if (axis === "z") g.rotateX(-Math.PI / 2);
+    else if (axis === "x") g.rotateZ(-Math.PI / 2);
+    return g;
+  }
+  function add(parent, geo, mat, [x, y, z], [rx, ry, rz] = [0, 0, 0], name) {
     const m = new Mesh(geo, mat);
     m.position.set(x, y, z);
     m.rotation.set(rx, ry, rz);
@@ -36753,294 +36903,275 @@ void main() {
     parent.add(m);
     return m;
   }
-  var RB = (w, h, d, r = 4e-3) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4));
-  var BX = (w, h, d) => new BoxGeometry(w, h, d);
-  var CZ = (r, len, seg2 = 14, r2) => {
-    const g = new CylinderGeometry(r2 ?? r, r, len, seg2);
-    g.rotateX(Math.PI / 2);
+  function group(parent, name, [x, y, z], [rx, ry, rz] = [0, 0, 0]) {
+    const g = new Group();
+    g.name = name;
+    g.position.set(x, y, z);
+    g.rotation.set(rx, ry, rz);
+    parent.add(g);
     return g;
-  };
-  var CX = (r, len, seg2 = 10) => {
-    const g = new CylinderGeometry(r, r, len, seg2);
-    g.rotateZ(Math.PI / 2);
-    return g;
-  };
-  var CY = (r, len, seg2 = 10) => new CylinderGeometry(r, r, len, seg2);
-  function anchor(g, name, x, y, z) {
+  }
+  function marker(parent, name, x, y, z) {
     const o = new Object3D();
     o.name = name;
     o.position.set(x, y, z);
-    g.add(o);
+    parent.add(o);
     return o;
   }
-  function curvedMag(g, mat, segs, x0, y0, z0, w, segH, segD, curve) {
-    const mag = new Group();
-    mag.name = "mag";
-    mag.position.set(x0, y0, z0);
-    let y = 0, z = 0, a = 0;
-    for (let i = 0; i < segs; i++) {
-      const m = part(mag, RB(w, segH + 4e-3, segD, 3e-3), mat, 0, y - segH / 2, z);
-      m.rotation.x = -a;
-      y -= Math.cos(a) * segH;
-      z -= Math.sin(a) * segH;
-      a += curve;
-    }
-    part(mag, RB(w + 4e-3, 0.012, segD + 6e-3, 3e-3), mat, 0, y - 4e-3, z, -a + curve);
-    g.add(mag);
-    return mag;
+  function profile(pts, width, bevel = 2e-3) {
+    const s = new Shape();
+    pts.forEach(([u, v], i) => i ? s.lineTo(u, v) : s.moveTo(u, v));
+    s.closePath();
+    const g = new ExtrudeGeometry(s, { depth: width - bevel * 2, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1, curveSegments: 6 });
+    g.translate(0, 0, -(width - bevel * 2) / 2);
+    g.rotateY(Math.PI / 2);
+    return g;
   }
-  var builders = {
+  function curvedMagGeo(len, depth, bend, width) {
+    const pts = [], N = 10;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      pts.push([-depth / 2 + bend * t * t, -len * t]);
+    }
+    pts.push([depth / 2 + bend + 4e-3, -len - 6e-3]);
+    for (let i = N; i >= 0; i--) {
+      const t = i / N;
+      pts.push([depth / 2 + bend * t * t, -len * t]);
+    }
+    return profile(pts, width, 25e-4);
+  }
+  var BUILD = {
     ak47(m) {
       const g = new Group();
-      part(g, RB(0.046, 0.058, 0.25), m.metal, 0, 0.035, -0.05);
-      part(g, RB(0.043, 0.022, 0.21, 8e-3), m.metal, 0, 0.07, -0.03);
-      part(g, BX(0.03, 0.02, 0.05), m.metal, 0, 0.08, -0.175);
-      part(g, RB(0.052, 0.046, 0.2, 0.01), m.wood, 0, 0.022, -0.275);
-      part(g, CZ(0.019, 0.17), m.wood, 0, 0.066, -0.26);
-      part(g, CZ(85e-4, 0.3), m.metal, 0, 0.042, -0.47);
-      part(g, CZ(6e-3, 0.26), m.metal, 0, 0.066, -0.43);
-      part(g, BX(0.02, 0.038, 0.022), m.metal, 0, 0.066, -0.55);
-      part(g, BX(4e-3, 0.02, 4e-3), m.metal, 0, 0.093, -0.55);
-      part(g, CZ(0.013, 0.05), m.metal, 0, 0.042, -0.63);
-      part(g, BX(0.03, 0.012, 0.03), m.metal, 0, 0.018, -0.39);
-      curvedMag(g, m.bakelite, 5, 0, 5e-3, -0.1, 0.03, 0.045, 0.07, 0.11);
-      part(g, RB(0.03, 0.1, 0.042, 8e-3), m.bakelite, 0, -0.045, 0.035, 0.32);
-      part(g, BX(6e-3, 6e-3, 0.06), m.metal, 0, -0.012, -0.015);
-      part(g, BX(4e-3, 0.03, 4e-3), m.metal, 0, -0.018, -0.03);
-      const st = part(g, RB(0.042, 0.068, 0.27, 0.012), m.wood, 0, 4e-3, 0.2, -0.1);
-      part(st, BX(0.044, 0.1, 0.012), m.metal, 0, -0.012, 0.135);
-      const bolt = part(g, CX(6e-3, 0.03), m.steel, 0.034, 0.06, -0.08, 0, 0, 0, "bolt");
-      void bolt;
-      anchor(g, "grip", 0, -0.035, 0.03);
-      anchor(g, "fore", 0, 0, -0.29);
-      anchor(g, "muzzle", 0, 0.042, -0.66);
-      anchor(g, "eject", 0.03, 0.068, -0.04);
-      anchor(g, "magwell", 0, -0.02, -0.12);
+      add(g, box(0.048, 0.056, 0.27, 5e-3), m.metal, [0, 0.034, -0.05]);
+      add(g, box(0.045, 0.02, 0.23, 9e-3), m.metal, [0, 0.07, -0.04]);
+      add(g, box(0.05, 0.044, 0.19, 0.01), m.wood, [0, 0.024, -0.28]);
+      add(g, tube(0.018, 0.16, "z", 12), m.wood, [0, 0.067, -0.27]);
+      add(g, tube(9e-3, 0.33, "z"), m.metal, [0, 0.042, -0.47]);
+      add(g, tube(55e-4, 0.22, "z", 8), m.metal, [0, 0.067, -0.44]);
+      add(g, box(0.022, 0.034, 0.02, 2e-3), m.metal, [0, 0.062, -0.56]);
+      add(g, box(4e-3, 0.024, 4e-3, 0), m.metal, [0, 0.09, -0.565]);
+      add(g, box(0.016, 0.012, 0.04, 2e-3), m.metal, [0, 0.083, -0.15]);
+      add(g, tube(0.0125, 0.055, "z", 10, 0.011), m.metal, [0, 0.042, -0.66]);
+      add(g, box(0.026, 0.01, 0.03, 2e-3), m.metal, [0, 0.016, -0.385]);
+      const mag = group(g, "mag", [0, 6e-3, -0.11]);
+      add(mag, curvedMagGeo(0.2, 0.07, 0.085, 0.03), m.bakelite, [0, 0, 0]);
+      add(g, box(0.03, 0.1, 0.042, 9e-3), m.bakelite, [0, -0.046, 0.036], [0.3, 0, 0]);
+      add(g, box(6e-3, 6e-3, 0.065, 0), m.metal, [0, -0.012, -0.012]);
+      add(g, box(4e-3, 0.028, 4e-3, 0), m.metal, [0, -0.016, -0.026], [0.25, 0, 0]);
+      add(g, box(3e-3, 0.016, 0.07, 1e-3), m.metal, [0.026, 0.03, -0.04]);
+      const stock = group(g, "stock", [0, 0.012, 0.09]);
+      add(stock, profile([[0, 0.03], [0, -0.022], [-0.26, -0.07], [-0.27, 0.01]], 0.04, 6e-3), m.wood, [0, 0, 0]);
+      add(stock, box(0.042, 0.095, 0.01, 2e-3), m.metal, [0, -0.02, 0.272]);
+      add(g, tube(6e-3, 0.03, "x", 8), m.steel, [0.035, 0.06, -0.075], [0, 0, 0], "bolt");
+      marker(g, "grip", 0, -0.036, 0.03);
+      marker(g, "fore", 0, 0, -0.29);
+      marker(g, "muzzle", 0, 0.042, -0.69);
+      marker(g, "eject", 0.03, 0.066, -0.04);
+      marker(g, "magwell", 0, -0.02, -0.11);
       return g;
     },
     m4a1(m) {
       const g = new Group();
-      part(g, RB(0.042, 0.05, 0.23), m.black, 0, 0.05, -0.04);
-      part(g, BX(0.022, 0.01, 0.22), m.metal, 0, 0.08, -0.05);
-      for (let i = 0; i < 11; i++) part(g, BX(0.026, 4e-3, 8e-3), m.metal, 0, 0.087, -0.15 + i * 0.02);
-      part(g, RB(0.03, 0.03, 0.045), m.black, 0, 0.1, 0.03);
-      part(g, BX(4e-3, 0.012, 4e-3), m.metal, 0, 0.12, 0.035);
-      part(g, RB(0.036, 0.05, 0.17), m.black, 0, 5e-3, -0.02);
-      part(g, RB(0.036, 0.05, 0.06), m.black, 0, -0.03, -0.085);
-      part(g, CZ(0.026, 0.21, 12), m.black, 0, 0.046, -0.28);
-      for (let i = 0; i < 6; i++) part(g, CZ(0.0265, 6e-3, 12), m.metal, 0, 0.046, -0.2 - i * 0.032);
-      part(g, CZ(8e-3, 0.22), m.metal, 0, 0.046, -0.48);
-      part(g, BX(0.018, 0.055, 0.018), m.black, 0, 0.068, -0.41);
-      part(g, BX(4e-3, 0.02, 4e-3), m.metal, 0, 0.105, -0.41);
-      part(g, CZ(0.011, 0.05, 8), m.metal, 0, 0.046, -0.6);
-      curvedMag(g, m.metal, 4, 0, -0.04, -0.085, 0.028, 0.045, 0.062, 0.06);
-      part(g, RB(0.028, 0.09, 0.036, 7e-3), m.black, 0, -0.04, 0.035, 0.38);
-      part(g, CZ(0.016, 0.17), m.black, 0, 0.046, 0.145);
-      part(g, RB(0.042, 0.075, 0.1, 0.01), m.black, 0, 0.03, 0.235);
-      part(g, BX(0.03, 0.01, 0.02), m.black, 0, 0.078, 0.07, 0, 0, 0, "bolt");
-      part(g, BX(2e-3, 0.03, 0.05), m.black, 0.022, 0.05, -0.04);
-      anchor(g, "grip", 0, -0.035, 0.035);
-      anchor(g, "fore", 0, 0.02, -0.28);
-      anchor(g, "muzzle", 0, 0.046, -0.63);
-      anchor(g, "eject", 0.026, 0.055, -0.03);
-      anchor(g, "magwell", 0, -0.06, -0.085);
+      add(g, box(0.042, 0.048, 0.22, 4e-3), m.black, [0, 0.05, -0.04]);
+      add(g, box(0.022, 8e-3, 0.2, 1e-3), m.metal, [0, 0.078, -0.045]);
+      for (let i = 0; i < 10; i++) add(g, box(0.025, 4e-3, 7e-3, 0), m.metal, [0, 0.084, -0.13 + i * 0.019]);
+      add(g, box(0.026, 0.026, 0.03, 4e-3), m.black, [0, 0.098, 0.04]);
+      add(g, box(0.038, 0.048, 0.16, 4e-3), m.black, [0, 8e-3, -0.02]);
+      add(g, box(0.038, 0.034, 0.05, 4e-3), m.black, [0, -0.026, -0.09]);
+      add(g, tube(0.025, 0.2, "z", 12), m.black, [0, 0.047, -0.27]);
+      for (let i = 0; i < 5; i++) add(g, tube(0.0258, 5e-3, "z", 12), m.metal, [0, 0.047, -0.2 - i * 0.034]);
+      add(g, tube(78e-4, 0.21, "z"), m.metal, [0, 0.047, -0.47]);
+      add(g, profile([[0, 0], [0.024, 0], [0.012, 0.058], [4e-3, 0.058]], 0.016, 2e-3), m.black, [0, 0.04, -0.395]);
+      add(g, box(4e-3, 0.018, 4e-3, 0), m.metal, [0, 0.106, -0.405]);
+      add(g, tube(0.0105, 0.048, "z", 8), m.metal, [0, 0.047, -0.6]);
+      const mag = group(g, "mag", [0, -0.042, -0.088]);
+      add(mag, curvedMagGeo(0.17, 0.062, 0.035, 0.026), m.metal, [0, 0, 0]);
+      add(g, box(0.028, 0.088, 0.036, 7e-3), m.black, [0, -0.042, 0.036], [0.36, 0, 0]);
+      add(g, box(5e-3, 5e-3, 0.06, 0), m.black, [0, -0.016, -0.01]);
+      add(g, tube(0.015, 0.17, "z", 12), m.black, [0, 0.045, 0.15]);
+      add(g, profile([[0, 0.036], [0, -0.04], [-0.095, -0.05], [-0.1, 0.034]], 0.042, 6e-3), m.black, [0, 0.03, 0.19]);
+      add(g, box(0.03, 0.01, 0.02, 2e-3), m.black, [0, 0.077, 0.068], [0, 0, 0], "bolt");
+      add(g, tube(6e-3, 0.02, "z", 8), m.black, [0.024, 0.052, 0.01]);
+      marker(g, "grip", 0, -0.035, 0.035);
+      marker(g, "fore", 0, 0.02, -0.28);
+      marker(g, "muzzle", 0, 0.047, -0.625);
+      marker(g, "eject", 0.024, 0.055, -0.03);
+      marker(g, "magwell", 0, -0.06, -0.088);
       return g;
     },
     awm(m) {
       const g = new Group();
-      part(g, RB(0.055, 0.075, 0.46, 0.012), m.olive, 0, 4e-3, -0.02);
-      part(g, RB(0.05, 0.05, 0.22, 0.012), m.olive, 0, -5e-3, -0.33);
-      part(g, CZ(0.022, 0.24), m.metal, 0, 0.05, -0.08);
-      part(g, CZ(0.013, 0.56, 12), m.metal, 0, 0.05, -0.5);
-      part(g, RB(0.036, 0.032, 0.07, 6e-3), m.metal, 0, 0.05, -0.8);
-      part(g, CZ(0.018, 0.3), m.black, 0, 0.118, -0.07);
-      part(g, CZ(0.03, 0.09, 16, 0.019), m.black, 0, 0.118, -0.25);
-      part(g, CZ(0.025, 0.06, 16), m.black, 0, 0.118, 0.1);
-      part(g, CZ(0.027, 2e-3, 16), m.glass, 0, 0.118, -0.296);
-      part(g, CY(0.011, 0.035), m.black, 0, 0.145, -0.07);
-      part(g, CX(0.011, 0.035), m.black, 0.028, 0.118, -0.07);
-      for (const z of [-0.14, 0]) part(g, BX(0.03, 0.04, 0.022), m.metal, 0, 0.088, z);
-      const bolt = new Group();
-      bolt.name = "bolt";
-      bolt.position.set(0.024, 0.05, 0.02);
-      part(bolt, CX(5e-3, 0.045), m.steel, 0.02, 0, 0);
-      part(bolt, new SphereGeometry(0.011, 10, 8), m.black, 0.045, -6e-3, 0);
-      g.add(bolt);
-      const mag = new Group();
-      mag.name = "mag";
-      mag.position.set(0, -0.035, -0.07);
-      part(mag, RB(0.034, 0.06, 0.085, 4e-3), m.metal, 0, -0.03, 0);
-      g.add(mag);
-      part(g, RB(0.035, 0.1, 0.045, 0.01), m.olive, 0, -0.07, 0.08, 0.3);
-      part(g, RB(0.05, 0.16, 0.045, 0.01), m.olive, 0, -0.02, 0.3);
-      part(g, RB(0.04, 0.04, 0.18, 0.01), m.olive, 0, 0.05, 0.22);
-      part(g, BX(0.052, 0.17, 0.014), m.rubber, 0, -0.02, 0.33);
-      for (const x of [-0.012, 0.012]) part(g, CZ(4e-3, 0.2), m.black, x, -0.035, -0.4);
-      anchor(g, "grip", 0, -0.05, 0.075);
-      anchor(g, "fore", 0, -0.02, -0.3);
-      anchor(g, "muzzle", 0, 0.05, -0.84);
-      anchor(g, "eject", 0.03, 0.06, -0.08);
-      anchor(g, "magwell", 0, -0.05, -0.07);
-      anchor(g, "scope", 0, 0.118, 0.13);
+      add(g, box(0.056, 0.074, 0.44, 0.012), m.olive, [0, 4e-3, -0.03]);
+      add(g, box(0.05, 0.048, 0.22, 0.012), m.olive, [0, -4e-3, -0.34]);
+      add(g, tube(0.021, 0.23, "z"), m.metal, [0, 0.05, -0.09]);
+      add(g, tube(0.013, 0.55, "z", 12, 0.011), m.metal, [0, 0.05, -0.5]);
+      for (let i = 0; i < 3; i++) add(g, box(3e-3, 4e-3, 0.3, 0), m.black, [Math.cos(i * 2.1) * 0.012, 0.05 + Math.sin(i * 2.1) * 0.012, -0.5]);
+      add(g, box(0.034, 0.03, 0.075, 5e-3), m.metal, [0, 0.05, -0.8]);
+      for (let i = 0; i < 3; i++) add(g, box(0.036, 0.024, 6e-3, 0), m.black, [0, 0.05, -0.78 - i * 0.017]);
+      add(g, tube(0.017, 0.28, "z"), m.black, [0, 0.118, -0.07]);
+      add(g, tube(0.018, 0.08, "z", 16, 0.029), m.black, [0, 0.118, -0.25]);
+      add(g, tube(0.024, 0.06, "z", 16, 0.018), m.black, [0, 0.118, 0.1]);
+      add(g, tube(0.0275, 2e-3, "z", 16), m.glass, [0, 0.118, -0.291]);
+      add(g, tube(0.011, 0.03, "y"), m.black, [0, 0.142, -0.07]);
+      add(g, tube(0.011, 0.03, "x"), m.black, [0.026, 0.118, -0.07]);
+      for (const z of [-0.15, 0.01]) add(g, box(0.028, 0.04, 0.02, 3e-3), m.metal, [0, 0.088, z]);
+      const bolt = group(g, "bolt", [0.022, 0.05, 0.02]);
+      add(bolt, tube(5e-3, 0.045, "x", 8), m.steel, [0.02, 0, 0]);
+      add(bolt, new SphereGeometry(0.011, 10, 8), m.black, [0.044, -5e-3, 0]);
+      const mag = group(g, "mag", [0, -0.036, -0.075]);
+      add(mag, box(0.034, 0.06, 0.088, 4e-3), m.metal, [0, -0.03, 0]);
+      add(g, box(0.036, 0.1, 0.046, 0.01), m.olive, [0, -0.068, 0.078], [0.3, 0, 0]);
+      add(g, profile([[0.04, 0.06], [0.05, -0.04], [-0.09, -0.1], [-0.17, -0.1], [-0.17, 0.065]], 0.048, 8e-3), m.olive, [0, 0, 0.17]);
+      add(g, box(0.04, 0.026, 0.12, 8e-3), m.olive, [0, 0.074, 0.25]);
+      add(g, box(0.05, 0.17, 0.014, 4e-3), m.rubber, [0, -0.018, 0.345]);
+      for (const x of [-0.012, 0.012]) add(g, tube(4e-3, 0.2, "z", 6), m.black, [x, -0.034, -0.4]);
+      marker(g, "grip", 0, -0.05, 0.075);
+      marker(g, "fore", 0, -0.02, -0.3);
+      marker(g, "muzzle", 0, 0.05, -0.84);
+      marker(g, "eject", 0.03, 0.06, -0.08);
+      marker(g, "magwell", 0, -0.05, -0.075);
+      marker(g, "scope", 0, 0.118, 0.13);
       return g;
     },
     mp5(m) {
       const g = new Group();
-      part(g, RB(0.042, 0.06, 0.32, 0.014), m.black, 0, 0.042, -0.09);
-      part(g, RB(0.046, 0.05, 0.15, 0.012), m.black, 0, 0.02, -0.31);
-      part(g, CZ(9e-3, 0.08), m.metal, 0, 0.046, -0.41);
-      part(g, CZ(0.012, 0.02), m.metal, 0, 0.046, -0.45);
-      part(g, CY(0.014, 0.024), m.black, 0, 0.085, 0.02);
-      part(g, BX(0.024, 0.03, 0.02), m.black, 0, 0.083, -0.38);
-      part(g, CZ(9e-3, 0.14), m.black, -0.024, 0.066, -0.3);
-      curvedMag(g, m.metal, 4, 0, 0, -0.13, 0.026, 0.042, 0.052, 0.14);
-      part(g, RB(0.03, 0.095, 0.04, 8e-3), m.black, 0, -0.04, 0.03, 0.3);
-      for (const x of [-0.016, 0.016]) part(g, CZ(5e-3, 0.2), m.metal, x, 0.035, 0.15);
-      part(g, RB(0.045, 0.07, 0.018, 5e-3), m.black, 0, 0.03, 0.25);
-      part(g, BX(0.012, 0.012, 0.03), m.black, -0.02, 0.07, -0.2, 0, 0, 0, "bolt");
-      anchor(g, "grip", 0, -0.035, 0.03);
-      anchor(g, "fore", 0, 0, -0.3);
-      anchor(g, "muzzle", 0, 0.046, -0.46);
-      anchor(g, "eject", 0.025, 0.055, -0.07);
-      anchor(g, "magwell", 0, -0.02, -0.13);
+      add(g, box(0.042, 0.058, 0.31, 0.014), m.black, [0, 0.043, -0.09]);
+      add(g, box(0.048, 0.05, 0.15, 0.016), m.black, [0, 0.018, -0.31]);
+      add(g, tube(85e-4, 0.08, "z"), m.metal, [0, 0.046, -0.41]);
+      add(g, tube(0.0105, 0.02, "z", 10), m.metal, [0, 0.046, -0.455]);
+      add(g, new TorusGeometry(0.012, 35e-4, 6, 14), m.black, [0, 0.086, -0.38]);
+      add(g, tube(0.014, 0.022, "y", 12), m.black, [0, 0.086, 0.02]);
+      add(g, tube(9e-3, 0.14, "z", 10), m.black, [-0.024, 0.066, -0.3]);
+      const mag = group(g, "mag", [0, 2e-3, -0.13]);
+      add(mag, curvedMagGeo(0.17, 0.05, 0.075, 0.025), m.metal, [0, 0, 0]);
+      add(g, box(0.03, 0.094, 0.04, 8e-3), m.black, [0, -0.042, 0.03], [0.3, 0, 0]);
+      for (const x of [-0.016, 0.016]) add(g, tube(5e-3, 0.2, "z", 8), m.metal, [x, 0.036, 0.15]);
+      add(g, box(0.046, 0.072, 0.018, 6e-3), m.black, [0, 0.03, 0.255]);
+      add(g, box(0.012, 0.012, 0.028, 2e-3), m.black, [-0.022, 0.07, -0.2], [0, 0, 0], "bolt");
+      marker(g, "grip", 0, -0.035, 0.03);
+      marker(g, "fore", 0, 0, -0.3);
+      marker(g, "muzzle", 0, 0.046, -0.465);
+      marker(g, "eject", 0.025, 0.055, -0.07);
+      marker(g, "magwell", 0, -0.02, -0.13);
       return g;
     },
     m870(m) {
       const g = new Group();
-      part(g, RB(0.046, 0.066, 0.22, 0.01), m.black, 0, 0.036, -0.05);
-      part(g, CZ(0.0115, 0.46), m.metal, 0, 0.062, -0.39);
-      part(g, CZ(0.0135, 0.36), m.black, 0, 0.03, -0.34);
-      part(g, CZ(0.015, 0.02), m.metal, 0, 0.03, -0.52);
-      part(g, BX(0.012, 0.016, 0.03), m.metal, 0, 0.046, -0.5);
-      part(g, CY(4e-3, 8e-3), m.brass, 0, 0.075, -0.6);
-      const pump = new Group();
-      pump.name = "pump";
-      pump.position.set(0, 0.03, -0.3);
-      g.add(pump);
-      part(pump, RB(0.05, 0.044, 0.14, 0.012), m.wood, 0, 0, 0);
-      for (let i = 0; i < 5; i++) part(pump, BX(0.052, 4e-3, 6e-3), m.black, 0, -0.012, -0.05 + i * 0.025);
-      anchor(pump, "fore", 0, -0.02, 0);
-      part(g, BX(8e-3, 0.012, 0.06), m.metal, 0, 0.022, -0.17);
-      part(g, RB(0.012, 0.03, 0.05, 4e-3), m.black, 0, -8e-3, -0.01);
-      part(g, BX(4e-3, 0.022, 6e-3), m.metal, 0, -5e-3, -0.015);
-      part(g, RB(0.036, 0.075, 0.08, 0.01), m.wood, 0, -0.02, 0.07, 0.35);
-      part(g, RB(0.04, 0.085, 0.22, 0.012), m.wood, 0, 0, 0.2, 0.08);
-      part(g, RB(0.042, 0.09, 0.02, 6e-3), m.rubber, 0, -6e-3, 0.315, 0.08);
-      part(g, BX(6e-3, 0.022, 0.05), m.metal, 0.022, 0.045, -0.06);
-      anchor(g, "grip", 0, -0.035, 0.03);
-      anchor(g, "muzzle", 0, 0.062, -0.625);
-      anchor(g, "eject", 0.026, 0.05, -0.06);
-      anchor(g, "magwell", 0, 0, -0.1);
+      add(g, box(0.046, 0.064, 0.22, 0.01), m.black, [0, 0.036, -0.05]);
+      add(g, tube(0.0115, 0.46, "z"), m.metal, [0, 0.062, -0.39]);
+      add(g, tube(0.0135, 0.36, "z"), m.black, [0, 0.03, -0.34]);
+      add(g, tube(0.015, 0.02, "z"), m.metal, [0, 0.03, -0.53]);
+      add(g, new SphereGeometry(4e-3, 8, 6), m.brass, [0, 0.076, -0.6]);
+      const pump = group(g, "pump", [0, 0.03, -0.3]);
+      add(pump, box(0.05, 0.044, 0.14, 0.014), m.wood, [0, 0, 0]);
+      for (let i = 0; i < 6; i++) add(pump, box(0.052, 3e-3, 5e-3, 0), m.black, [0, -0.013, -0.05 + i * 0.02]);
+      marker(pump, "fore", 0, -0.02, 0);
+      add(g, box(8e-3, 0.012, 0.06, 0), m.metal, [0, 0.022, -0.17]);
+      add(g, box(0.012, 0.03, 0.05, 4e-3), m.black, [0, -8e-3, -0.01]);
+      add(g, box(0.036, 0.074, 0.08, 0.01), m.wood, [0, -0.02, 0.07], [0.35, 0, 0]);
+      add(g, profile([[0.02, 0.04], [0.02, -0.03], [-0.2, -0.065], [-0.21, 0.035]], 0.04, 8e-3), m.wood, [0, 0.01, 0.1]);
+      add(g, box(0.042, 0.1, 0.02, 6e-3), m.rubber, [0, -5e-3, 0.32], [0.08, 0, 0]);
+      add(g, box(4e-3, 0.022, 0.05, 0), m.metal, [0.024, 0.045, -0.06]);
+      marker(g, "grip", 0, -0.035, 0.03);
+      marker(g, "muzzle", 0, 0.062, -0.625);
+      marker(g, "eject", 0.026, 0.05, -0.06);
+      marker(g, "magwell", 0, 0, -0.1);
       return g;
     },
     deagle(m) {
       const g = new Group();
-      const slide = new Group();
-      slide.name = "slide";
-      g.add(slide);
-      part(slide, RB(0.032, 0.042, 0.255, 6e-3), m.steel, 0, 0.062, -0.075);
-      part(slide, BX(0.012, 6e-3, 0.23), m.metal, 0, 0.086, -0.075);
-      part(slide, BX(4e-3, 0.01, 6e-3), m.metal, 0, 0.094, -0.19);
-      for (let i = 0; i < 6; i++) part(slide, BX(0.034, 0.03, 3e-3), m.metal, 0, 0.062, 0.02 + i * 8e-3);
-      part(g, RB(0.03, 0.032, 0.18, 5e-3), m.metal, 0, 0.026, -0.05);
-      part(g, RB(0.034, 0.115, 0.055, 0.012), m.rubber, 0, -0.04, 0.025, 0.24);
-      part(g, BX(6e-3, 6e-3, 0.07), m.metal, 0, -3e-3, -0.035);
-      part(g, BX(6e-3, 0.03, 6e-3), m.metal, 0, -0.018, -0.07);
-      part(g, BX(8e-3, 0.02, 0.012), m.metal, 0, 0.075, 0.06);
-      const mag = new Group();
-      mag.name = "mag";
-      mag.position.set(0, -0.03, 0.02);
-      mag.rotation.x = 0.24;
-      part(mag, BX(0.022, 0.1, 0.04), m.metal, 0, -0.04, 0);
-      g.add(mag);
-      anchor(g, "grip", 0, -0.04, 0.03);
-      anchor(g, "fore", -0.02, -0.05, 0.02);
-      anchor(g, "muzzle", 0, 0.062, -0.21);
-      anchor(g, "eject", 0.02, 0.07, -0.03);
-      anchor(g, "magwell", 0, -0.1, 0.04);
+      const slide = group(g, "slide", [0, 0, 0]);
+      add(slide, box(0.032, 0.042, 0.255, 6e-3), m.steel, [0, 0.062, -0.075]);
+      add(slide, box(0.012, 6e-3, 0.23, 1e-3), m.metal, [0, 0.086, -0.075]);
+      add(slide, box(4e-3, 0.01, 6e-3, 0), m.metal, [0, 0.093, -0.19]);
+      add(slide, box(0.012, 0.01, 8e-3, 1e-3), m.metal, [0, 0.091, 0.04]);
+      for (let i = 0; i < 7; i++) add(slide, box(0.034, 0.028, 25e-4, 0), m.metal, [0, 0.062, 0.012 + i * 7e-3]);
+      add(g, box(0.03, 0.03, 0.18, 5e-3), m.metal, [0, 0.027, -0.05]);
+      add(g, box(0.034, 0.112, 0.055, 0.012), m.rubber, [0, -0.04, 0.025], [0.24, 0, 0]);
+      add(g, box(6e-3, 6e-3, 0.07, 0), m.metal, [0, -3e-3, -0.035]);
+      add(g, box(6e-3, 0.03, 6e-3, 0), m.metal, [0, -0.018, -0.07]);
+      add(g, box(8e-3, 0.02, 0.012, 2e-3), m.metal, [0, 0.076, 0.062], [-0.4, 0, 0]);
+      const mag = group(g, "mag", [0, -0.03, 0.02], [0.24, 0, 0]);
+      add(mag, box(0.022, 0.1, 0.04, 2e-3), m.metal, [0, -0.04, 0]);
+      marker(g, "grip", 0, -0.04, 0.03);
+      marker(g, "fore", -0.02, -0.05, 0.02);
+      marker(g, "muzzle", 0, 0.062, -0.21);
+      marker(g, "eject", 0.02, 0.07, -0.03);
+      marker(g, "magwell", 0, -0.1, 0.04);
       return g;
     },
     knife(m) {
       const g = new Group();
-      const sh = new Shape();
-      sh.moveTo(0, -0.014);
-      sh.lineTo(0.15, -0.012);
-      sh.quadraticCurveTo(0.19, -8e-3, 0.2, 0.012);
-      sh.lineTo(0.13, 0.016);
-      sh.lineTo(0.12, 0.012);
-      sh.lineTo(0.03, 0.016);
-      sh.lineTo(0, 0.016);
-      sh.closePath();
-      const bg = new ExtrudeGeometry(sh, { depth: 4e-3, bevelEnabled: true, bevelThickness: 15e-4, bevelSize: 2e-3, bevelSegments: 1 });
-      bg.translate(0, 0, -2e-3);
-      bg.rotateY(Math.PI / 2);
-      part(g, bg, m.blade, 0, 0, -0.035);
-      part(g, RB(0.018, 0.05, 0.012, 3e-3), m.metal, 0, 0, -0.03);
-      part(g, RB(0.024, 0.03, 0.11, 0.01), m.rubber, 0, 0, 0.03);
-      for (let i = 0; i < 4; i++) part(g, BX(0.026, 0.032, 4e-3), m.black, 0, 0, -5e-3 + i * 0.022);
-      part(g, RB(0.026, 0.032, 0.018, 6e-3), m.metal, 0, 0, 0.09);
-      anchor(g, "grip", 0, 0, 0.03);
-      anchor(g, "muzzle", 0, 0, -0.23);
+      const s = new Shape();
+      s.moveTo(0, 0.016);
+      s.lineTo(0.13, 0.016);
+      s.quadraticCurveTo(0.185, 0.014, 0.205, -2e-3);
+      s.quadraticCurveTo(0.17, -0.016, 0.1, -0.016);
+      s.lineTo(0, -0.014);
+      s.closePath();
+      const blade = new ExtrudeGeometry(s, { depth: 3e-3, bevelEnabled: true, bevelThickness: 15e-4, bevelSize: 18e-4, bevelSegments: 1 });
+      blade.translate(0, 0, -15e-4);
+      blade.rotateY(Math.PI / 2);
+      add(g, blade, m.blade, [0, 0, -0.034]);
+      add(g, box(0.016, 0.05, 0.01, 3e-3), m.metal, [0, 0, -0.03]);
+      add(g, box(0.024, 0.032, 0.11, 0.01), m.rubber, [0, 0, 0.03]);
+      for (let i = 0; i < 4; i++) add(g, box(0.026, 0.034, 4e-3, 1e-3), m.black, [0, 0, -8e-3 + i * 0.024]);
+      add(g, box(0.026, 0.03, 0.018, 6e-3), m.metal, [0, 0, 0.092]);
+      marker(g, "grip", 0, 0, 0.03);
+      marker(g, "muzzle", 0, 0, -0.24);
       return g;
     },
     he(m) {
       const g = new Group();
-      const body = new SphereGeometry(0.034, 16, 12);
-      body.scale(1, 1.25, 1);
-      part(g, body, m.olive, 0, 0, 0);
-      part(g, CY(0.014, 0.03), m.metal, 0, 0.047, 0);
-      const lever = part(g, BX(0.012, 0.07, 6e-3), m.metal, 0, 0.03, 0.03, -0.35, 0, 0, "lever");
-      void lever;
-      const pin = part(g, new TorusGeometry(0.012, 22e-4, 6, 14), m.steel, 0.022, 0.055, 0, 0, Math.PI / 2, 0, "pin");
-      void pin;
-      part(g, BX(0.07, 0.012, 4e-3), m.tan, 0, -5e-3, 0.034);
-      anchor(g, "grip", 0, 0, 0);
-      anchor(g, "muzzle", 0, 0, -0.04);
+      const pts = [];
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12, y = -0.042 + t * 0.086;
+        pts.push(new Vector2(5e-4 + Math.pow(Math.sin(t * Math.PI), 0.55) * 0.034 * (1 - t * 0.12), y));
+      }
+      add(g, new LatheGeometry(pts, 16), m.olive, [0, 0, 0]);
+      add(g, tube(0.013, 0.028, "y", 10), m.metal, [0, 0.054, 0]);
+      add(g, box(0.07, 0.01, 4e-3, 1e-3), m.tan, [0, -4e-3, 0.0335]);
+      add(g, box(0.012, 0.068, 5e-3, 1e-3), m.metal, [0, 0.03, 0.03], [-0.35, 0, 0], "lever");
+      add(g, new TorusGeometry(0.012, 22e-4, 6, 14), m.steel, [0.022, 0.058, 0], [0, Math.PI / 2, 0], "pin");
+      marker(g, "grip", 0, 0, 0);
+      marker(g, "muzzle", 0, 0, -0.04);
       return g;
     }
   };
   function buildGun(id) {
-    const m = gunMaterials();
-    const g = builders[id](m);
+    const g = BUILD[id](gunMaterials());
     g.traverse((o) => {
-      if (o.isMesh) {
-        o.castShadow = false;
-        o.receiveShadow = false;
-      }
+      if (o.isMesh) o.castShadow = o.receiveShadow = false;
     });
     return g;
   }
-  var merged = {};
-  function buildGunMerged(id) {
-    if (!merged[id]) {
-      const g = buildGun(id);
-      g.updateMatrixWorld(true);
-      const groups = /* @__PURE__ */ new Map();
-      g.traverse((o) => {
-        if (!o.isMesh) return;
-        const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
-        const keep = new BufferGeometry();
-        keep.setAttribute("position", geo.attributes.position);
-        keep.setAttribute("normal", geo.attributes.normal);
-        keep.setAttribute("uv", geo.attributes.uv || new BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
-        if (geo.index) keep.setIndex(geo.index);
-        const k = o.material.uuid;
-        if (!groups.has(k)) groups.set(k, { mat: o.material, geos: [] });
-        groups.get(k).geos.push(keep.index ? keep.toNonIndexed() : keep);
-      });
-      const mats = [], geos = [];
-      for (const { mat, geos: gs } of groups.values()) {
-        mats.push(mat);
-        geos.push(mergeGeometries(gs, false));
+  var mergedCache = /* @__PURE__ */ new Map();
+  function bakeMerged(id) {
+    const g = buildGun(id);
+    g.updateMatrixWorld(true);
+    const byMat = /* @__PURE__ */ new Map(), anchors = {};
+    g.traverse((o) => {
+      if (o.isMesh) {
+        let geo2 = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+        geo2.applyMatrix4(o.matrixWorld);
+        const clean = new BufferGeometry();
+        clean.setAttribute("position", geo2.getAttribute("position"));
+        clean.setAttribute("normal", geo2.getAttribute("normal"));
+        clean.setAttribute("uv", geo2.getAttribute("uv") || new BufferAttribute(new Float32Array(geo2.getAttribute("position").count * 2), 2));
+        if (!byMat.has(o.material)) byMat.set(o.material, []);
+        byMat.get(o.material).push(clean);
+      } else if (o !== g && o.children.length === 0 && o.name) {
+        anchors[o.name] = o.getWorldPosition(new Vector3());
       }
-      const all = mergeGeometries(geos, true);
-      const anchors = {};
-      g.traverse((o) => {
-        if (!o.isMesh && o.name && o !== g) anchors[o.name] = o.getWorldPosition(new Vector3());
-      });
-      merged[id] = { geo: all, mats, anchors };
-    }
-    const d = merged[id];
+    });
+    const mats = [...byMat.keys()];
+    const geo = mergeGeometries(mats.map((mt) => mergeGeometries(byMat.get(mt), false)), true);
+    return { geo, mats, anchors };
+  }
+  function buildGunMerged(id) {
+    if (!mergedCache.has(id)) mergedCache.set(id, bakeMerged(id));
+    const d = mergedCache.get(id);
     const mesh = new Mesh(d.geo, d.mats);
     mesh.castShadow = true;
     mesh.userData.anchors = d.anchors;
@@ -38619,10 +38750,10 @@ void main() {
           if (!local) this._nz(v, t + 6e-3, { n: "brown", a: 0.015, dur: T.dur * k * (1 + 0.6 * far), g: T.g * far * 1.2, flt: [{ t: "lowpass", f: T.f * r, f1: T.f * 0.45 * r, sw: T.dur, q: 0 }] });
           if (!local && d > 30) this._nz(v, t + 0.08 + d / 600, { n: "pink", a: 8e-3, dur: 0.22 * k, g: 0.1 + 0.15 * far, flt: [{ t: "lowpass", f: 1500 * r, q: 0 }, { t: "highpass", f: 160, q: 0 }] });
         } else if (!sup) {
-          const C = P.crack, B = P.body, M2 = P.mid, T = P.tail;
+          const C = P.crack, B = P.body, M = P.mid, T = P.tail;
           this._nz(v, t, { n: "white", a: 2e-4, dur: C.dur * k, g: C.g * (local ? 1 : 1 - 0.6 * far), flt: [{ t: "highpass", f: C.hp * r, q: 0 }] });
           this._nz(v, t, { n: "pink", a: 6e-4, dur: B.dur * k, g: B.g, flt: [{ t: "lowpass", f: B.f0 * r, f1: B.f1 * r, sw: B.dur * k * 0.6, q: 1 }], to: drv });
-          this._nz(v, t, { n: "white", a: 4e-4, dur: M2.dur * k, g: M2.g, flt: [{ t: "bandpass", f: M2.f * r, q: M2.q }], to: drv });
+          this._nz(v, t, { n: "white", a: 4e-4, dur: M.dur * k, g: M.g, flt: [{ t: "bandpass", f: M.f * r, q: M.q }], to: drv });
           this._tn(v, t, { f: U.f0 * r, f1: U.f1 * r, sw: U.sw * k, a: 15e-4, dur: U.dur * k, g: U.g, to: drv });
           if (P.sub) this._tn(v, t, { w: "triangle", f: P.sub.f0 * r, f1: P.sub.f1 * r, sw: P.sub.dur * 0.5, a: 3e-3, dur: P.sub.dur * k, g: P.sub.g, to: drv });
           this._nz(v, t + 6e-3, { n: "brown", a: 0.015, dur: T.dur * k * (1 + 0.6 * far), g: T.g * (1 + 0.5 * far), flt: [{ t: "lowpass", f: T.f * r, f1: T.f * 0.45 * r, sw: T.dur, q: 0 }] });
@@ -40265,17 +40396,17 @@ void main() {
       });
       this.links = [];
       this.children = bones.map(() => []);
-      const add = (a, b) => {
+      const add2 = (a, b) => {
         if (a >= 0 && b >= 0) this.links.push({ a, b, len: this.nodes[a].p.distanceTo(this.nodes[b].p) });
       };
       bones.forEach((b, i) => {
         const p = bones.indexOf(b.parent);
         if (p >= 0) {
-          add(p, i);
+          add2(p, i);
           this.children[p].push(i);
         }
       });
-      for (const [a, b] of [["hips", "chest"], ["hips", "shoulderR"], ["hips", "shoulderL"], ["shoulderR", "shoulderL"], ["chest", "head"], ["thighR", "thighL"]]) add(bones.findIndex((x) => x.name === a), bones.findIndex((x) => x.name === b));
+      for (const [a, b] of [["hips", "chest"], ["hips", "shoulderR"], ["hips", "shoulderL"], ["shoulderR", "shoulderL"], ["chest", "head"], ["thighR", "thighL"]]) add2(bones.findIndex((x) => x.name === a), bones.findIndex((x) => x.name === b));
       this.axes = this.children.map((ch, i) => ch.length ? this.nodes[ch[0]].p.clone().sub(this.nodes[i].p).normalize() : null);
     }
     collide(n) {
@@ -40480,7 +40611,7 @@ void main() {
     const O = OUTFIT[team];
     const bp = bindPositions();
     const parts = [];
-    const add = (geo2, bone, colorKey, x, y, z, rx = 0, ry = 0, rz = 0) => {
+    const add2 = (geo2, bone, colorKey, x, y, z, rx = 0, ry = 0, rz = 0) => {
       const g = geo2.clone();
       const m = new Matrix4().compose(new Vector3(x, y, z), new Quaternion().setFromEuler(new Euler(rx, ry, rz)), new Vector3(1, 1, 1));
       g.applyMatrix4(m);
@@ -40513,78 +40644,78 @@ void main() {
       parts.push(out.index ? out.toNonIndexed() : out);
     };
     const cap = (r, l) => new CapsuleGeometry(r, l, 3, 10);
-    const box = (w, h, d) => new BoxGeometry(w, h, d);
+    const box2 = (w, h, d) => new BoxGeometry(w, h, d);
     const sph = (r) => new SphereGeometry(r, 14, 10);
     const P = (name) => bp[BI[name]];
     const uni = team === "BL";
     for (const s of ["R", "L"]) {
       const th = P("thigh" + s), sh = P("shin" + s), ft = P("foot" + s);
-      add(cap(0.078, 0.3), "thigh" + s, "skin", th.x, th.y - 0.2, th.z);
-      add(cap(0.062, 0.32), "shin" + s, "skin", sh.x, sh.y - 0.2, sh.z);
-      if (uni) add(cap(0.066, 0.12), "shin" + s, "sock", sh.x, sh.y - 0.33, sh.z);
-      add(box(0.11, 0.09, 0.25), "foot" + s, "shoe", ft.x, ft.y + 0.02, ft.z - 0.05);
+      add2(cap(0.078, 0.3), "thigh" + s, "skin", th.x, th.y - 0.2, th.z);
+      add2(cap(0.062, 0.32), "shin" + s, "skin", sh.x, sh.y - 0.2, sh.z);
+      if (uni) add2(cap(0.066, 0.12), "shin" + s, "sock", sh.x, sh.y - 0.33, sh.z);
+      add2(box2(0.11, 0.09, 0.25), "foot" + s, "shoe", ft.x, ft.y + 0.02, ft.z - 0.05);
       if (!uni) {
         const sx = s === "R" ? 1 : -1;
-        add(cap(0.1, 0.2), "thigh" + s, "bottom", th.x, th.y - 0.15, th.z);
-        add(box(8e-3, 0.36, 0.03), "thigh" + s, "band", th.x + sx * 0.1, th.y - 0.13, th.z);
-        for (const dz of [-0.02, 0.02]) add(box(8e-3, 0.36, 8e-3), "thigh" + s, "trim", th.x + sx * 0.1, th.y - 0.13, th.z + dz);
-        add(box(8e-3, 0.36, 6e-3), "thigh" + s, "dark", th.x + sx * 0.1, th.y - 0.13, th.z + 0.028);
+        add2(cap(0.1, 0.2), "thigh" + s, "bottom", th.x, th.y - 0.15, th.z);
+        add2(box2(8e-3, 0.36, 0.03), "thigh" + s, "band", th.x + sx * 0.1, th.y - 0.13, th.z);
+        for (const dz of [-0.02, 0.02]) add2(box2(8e-3, 0.36, 8e-3), "thigh" + s, "trim", th.x + sx * 0.1, th.y - 0.13, th.z + dz);
+        add2(box2(8e-3, 0.36, 6e-3), "thigh" + s, "dark", th.x + sx * 0.1, th.y - 0.13, th.z + 0.028);
       }
     }
     const hp = P("hips"), sp = P("spine"), ch = P("chest");
     if (uni) {
       const skirt = new CylinderGeometry(0.2, 0.31, 0.42, 18, 1, true);
       skirt.scale(1, 1, 0.85);
-      add(skirt, "hips", "bottom", hp.x, hp.y - 0.12, hp.z);
-      add(box(0.36, 0.08, 0.24), "hips", "bottom", hp.x, hp.y + 0.06, hp.z);
+      add2(skirt, "hips", "bottom", hp.x, hp.y - 0.12, hp.z);
+      add2(box2(0.36, 0.08, 0.24), "hips", "bottom", hp.x, hp.y + 0.06, hp.z);
     } else {
-      add(box(0.37, 0.24, 0.25), "hips", "bottom", hp.x, hp.y - 0.03, hp.z);
-      for (const sx of [-1, 1]) add(box(8e-3, 0.22, 0.03), "hips", "band", hp.x + sx * 0.186, hp.y - 0.04, hp.z);
+      add2(box2(0.37, 0.24, 0.25), "hips", "bottom", hp.x, hp.y - 0.03, hp.z);
+      for (const sx of [-1, 1]) add2(box2(8e-3, 0.22, 0.03), "hips", "band", hp.x + sx * 0.186, hp.y - 0.04, hp.z);
     }
-    add(box(0.32, 0.22, 0.21), "spine", "shirt", sp.x, sp.y + 0.1, sp.z);
-    add(box(0.38, 0.3, 0.23), "chest", "shirt", ch.x, ch.y + 0.1, ch.z);
+    add2(box2(0.32, 0.22, 0.21), "spine", "shirt", sp.x, sp.y + 0.1, sp.z);
+    add2(box2(0.38, 0.3, 0.23), "chest", "shirt", ch.x, ch.y + 0.1, ch.z);
     if (uni) {
-      add(box(0.3, 0.17, 0.02), "chest", "collar", ch.x, ch.y + 0.18, ch.z + 0.12);
-      add(box(0.3, 0.012, 0.022), "chest", "trim", ch.x, ch.y + 0.13, ch.z + 0.125);
-      for (const sx of [-1, 1]) add(box(0.04, 0.2, 0.02), "chest", "collar", ch.x + sx * 0.075, ch.y + 0.17, ch.z - 0.12, 0, 0, sx * 0.5);
-      add(box(0.1, 0.05, 0.03), "chest", "bow", ch.x, ch.y + 0.1, ch.z - 0.125);
-      for (const sx of [-1, 1]) add(box(0.03, 0.11, 0.02), "chest", "bow", ch.x + sx * 0.025, ch.y + 0.04, ch.z - 0.125, 0, 0, -sx * 0.25);
-      for (let i = 0; i < 3; i++) add(box(0.02, 0.02, 0.01), "chest", "button", ch.x, ch.y - 0.02 - i * 0.07, ch.z - 0.118);
+      add2(box2(0.3, 0.17, 0.02), "chest", "collar", ch.x, ch.y + 0.18, ch.z + 0.12);
+      add2(box2(0.3, 0.012, 0.022), "chest", "trim", ch.x, ch.y + 0.13, ch.z + 0.125);
+      for (const sx of [-1, 1]) add2(box2(0.04, 0.2, 0.02), "chest", "collar", ch.x + sx * 0.075, ch.y + 0.17, ch.z - 0.12, 0, 0, sx * 0.5);
+      add2(box2(0.1, 0.05, 0.03), "chest", "bow", ch.x, ch.y + 0.1, ch.z - 0.125);
+      for (const sx of [-1, 1]) add2(box2(0.03, 0.11, 0.02), "chest", "bow", ch.x + sx * 0.025, ch.y + 0.04, ch.z - 0.125, 0, 0, -sx * 0.25);
+      for (let i = 0; i < 3; i++) add2(box2(0.02, 0.02, 0.01), "chest", "button", ch.x, ch.y - 0.02 - i * 0.07, ch.z - 0.118);
     } else {
-      add(box(0.388, 0.085, 0.238), "chest", "band", ch.x, ch.y + 0, ch.z);
-      for (const dy of [-0.048, 0.048]) add(box(0.39, 0.016, 0.24), "chest", "trim", ch.x, ch.y + dy, ch.z);
-      add(box(0.23, 0.05, 0.19), "chest", "collar", ch.x, ch.y + 0.262, ch.z + 5e-3);
-      add(box(0.232, 0.01, 0.192), "chest", "trim", ch.x, ch.y + 0.238, ch.z + 5e-3);
-      add(box(0.05, 0.07, 8e-3), "chest", "collar", ch.x, ch.y + 0.205, ch.z - 0.117);
-      for (const sx of [-1, 1]) add(box(0.03, 0.115, 0.01), "chest", "trim", ch.x + sx * 0.026, ch.y + 0.2, ch.z - 0.12, 0, 0, sx * 0.46);
+      add2(box2(0.388, 0.085, 0.238), "chest", "band", ch.x, ch.y + 0, ch.z);
+      for (const dy of [-0.048, 0.048]) add2(box2(0.39, 0.016, 0.24), "chest", "trim", ch.x, ch.y + dy, ch.z);
+      add2(box2(0.23, 0.05, 0.19), "chest", "collar", ch.x, ch.y + 0.262, ch.z + 5e-3);
+      add2(box2(0.232, 0.01, 0.192), "chest", "trim", ch.x, ch.y + 0.238, ch.z + 5e-3);
+      add2(box2(0.05, 0.07, 8e-3), "chest", "collar", ch.x, ch.y + 0.205, ch.z - 0.117);
+      for (const sx of [-1, 1]) add2(box2(0.03, 0.115, 0.01), "chest", "trim", ch.x + sx * 0.026, ch.y + 0.2, ch.z - 0.12, 0, 0, sx * 0.46);
       for (const sx of [-1, 1]) {
-        add(box(0.12, 6e-3, 0.014), "chest", "trim", ch.x + sx * 0.13, ch.y + 0.252, ch.z - 8e-3);
-        add(box(0.12, 6e-3, 0.01), "chest", "band", ch.x + sx * 0.13, ch.y + 0.252, ch.z + 6e-3);
+        add2(box2(0.12, 6e-3, 0.014), "chest", "trim", ch.x + sx * 0.13, ch.y + 0.252, ch.z - 8e-3);
+        add2(box2(0.12, 6e-3, 0.01), "chest", "band", ch.x + sx * 0.13, ch.y + 0.252, ch.z + 6e-3);
       }
-      add(box(0.036, 0.042, 6e-3), "chest", "trim", ch.x - 0.1, ch.y + 0.18, ch.z - 0.118);
-      add(box(0.02, 0.022, 4e-3), "chest", "band", ch.x - 0.1, ch.y + 0.18, ch.z - 0.122);
+      add2(box2(0.036, 0.042, 6e-3), "chest", "trim", ch.x - 0.1, ch.y + 0.18, ch.z - 0.118);
+      add2(box2(0.02, 0.022, 4e-3), "chest", "band", ch.x - 0.1, ch.y + 0.18, ch.z - 0.122);
     }
     const nk = P("neck"), hd = P("head");
-    add(cap(0.05, 0.06), "neck", "skin", nk.x, nk.y + 0.04, nk.z);
+    add2(cap(0.05, 0.06), "neck", "skin", nk.x, nk.y + 0.04, nk.z);
     const headG = sph(0.105);
     headG.scale(0.95, 1.1, 1);
-    add(headG, "head", "skin", hd.x, hd.y + 0.09, hd.z);
+    add2(headG, "head", "skin", hd.x, hd.y + 0.09, hd.z);
     const hairTop = new SphereGeometry(0.118, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
     hairTop.scale(1, 1.02, 1.06);
-    add(hairTop, "head", "hair", hd.x, hd.y + 0.1, hd.z + 8e-3);
+    add2(hairTop, "head", "hair", hd.x, hd.y + 0.1, hd.z + 8e-3);
     if (uni) {
-      add(box(0.2, 0.05, 0.03), "head", "hair", hd.x, hd.y + 0.16, hd.z - 0.1);
-      add(box(0.24, 0.24, 0.1), "head", "hair", hd.x, hd.y + 0.02, hd.z + 0.06);
-      for (const sx of [-1, 1]) add(box(0.04, 0.2, 0.16), "head", "hair", hd.x + sx * 0.11, hd.y + 0.04, hd.z + 0.01);
+      add2(box2(0.2, 0.05, 0.03), "head", "hair", hd.x, hd.y + 0.16, hd.z - 0.1);
+      add2(box2(0.24, 0.24, 0.1), "head", "hair", hd.x, hd.y + 0.02, hd.z + 0.06);
+      for (const sx of [-1, 1]) add2(box2(0.04, 0.2, 0.16), "head", "hair", hd.x + sx * 0.11, hd.y + 0.04, hd.z + 0.01);
     }
     for (const s of ["R", "L"]) {
       const ua = P("upperArm" + s), fa = P("forearm" + s), hn = P("hand" + s);
-      add(sph(0.08), "upperArm" + s, "shirt", ua.x, ua.y - 0.02, ua.z);
-      add(cap(0.066, 0.1), "upperArm" + s, "shirt", ua.x, ua.y - 0.09, ua.z);
-      add(cap(0.069, 0.012), "upperArm" + s, "cuff", ua.x, ua.y - 0.15, ua.z);
-      add(cap(0.05, 0.12), "upperArm" + s, "skin", ua.x, ua.y - 0.2, ua.z);
-      add(cap(0.045, 0.19), "forearm" + s, "skin", fa.x, fa.y - 0.13, fa.z);
-      add(box(0.07, 0.09, 0.045), "hand" + s, "skin", hn.x, hn.y - 0.04, hn.z);
+      add2(sph(0.08), "upperArm" + s, "shirt", ua.x, ua.y - 0.02, ua.z);
+      add2(cap(0.066, 0.1), "upperArm" + s, "shirt", ua.x, ua.y - 0.09, ua.z);
+      add2(cap(0.069, 0.012), "upperArm" + s, "cuff", ua.x, ua.y - 0.15, ua.z);
+      add2(cap(0.05, 0.12), "upperArm" + s, "skin", ua.x, ua.y - 0.2, ua.z);
+      add2(cap(0.045, 0.19), "forearm" + s, "skin", fa.x, fa.y - 0.13, fa.z);
+      add2(box2(0.07, 0.09, 0.045), "hand" + s, "skin", hn.x, hn.y - 0.04, hn.z);
     }
     const geo = mergeAll(parts);
     geo.computeBoundingSphere();
@@ -40797,10 +40928,10 @@ void main() {
     kick() {
       this.recoilK = 1;
     }
-    flinch(part2) {
+    flinch(part) {
       this.flinchK = Math.min(1.3, this.flinchK + 0.8);
       this.flinchSide = Math.random() - 0.5;
-      this.flinchH = part2 === "head" ? 1 : 0.2;
+      this.flinchH = part === "head" ? 1 : 0.2;
     }
     // 0 = 無、1 = 隊友（淡藍）、2 = 敵人（暖紅）
     setRim(kind) {
@@ -40848,7 +40979,7 @@ void main() {
         HITBOXES.forEach((h, i) => this.invs[i].copy(this.B[h[0]].matrixWorld).invert());
         this.invFrame = frame;
       }
-      let best = maxT, part2 = null;
+      let best = maxT, part = null;
       const lo = new Vector3(), ld = new Vector3();
       for (let i = 0; i < HITBOXES.length; i++) {
         const [, cx, cy, cz, hx, hy, hz, name] = HITBOXES[i];
@@ -40870,10 +41001,10 @@ void main() {
         };
         if (slab(ox, ld.x, hx) && slab(oy, ld.y, hy) && slab(oz, ld.z, hz) && tmin < best) {
           best = tmin;
-          part2 = name;
+          part = name;
         }
       }
-      return part2 ? { t: best, part: part2 } : null;
+      return part ? { t: best, part } : null;
     }
     muzzleWorld(out) {
       if (!this.gun) return this.B.head.getWorldPosition(out);
@@ -41067,9 +41198,9 @@ void main() {
           v.x *= ns;
           v.z *= ns;
         }
-        const cur = v.x * wx + v.z * wz, add = wishSpeed - cur;
-        if (add > 0 && !(this.slideT > 0)) {
-          const acc = Math.min(11 * dt * wishSpeed, add);
+        const cur = v.x * wx + v.z * wz, add2 = wishSpeed - cur;
+        if (add2 > 0 && !(this.slideT > 0)) {
+          const acc = Math.min(11 * dt * wishSpeed, add2);
           v.x += acc * wx;
           v.z += acc * wz;
         }
@@ -41082,9 +41213,9 @@ void main() {
         }
       } else {
         const ws = Math.min(wishSpeed, 1.2);
-        const cur = v.x * wx + v.z * wz, add = ws - cur;
-        if (add > 0) {
-          const acc = Math.min(12 * dt * ws, add);
+        const cur = v.x * wx + v.z * wz, add2 = ws - cur;
+        if (add2 > 0) {
+          const acc = Math.min(12 * dt * ws, add2);
           v.x += acc * wx;
           v.z += acc * wz;
         }
@@ -42120,9 +42251,9 @@ void main() {
       for (const id of Object.keys(WEAPONS)) {
         const m = buildGunMerged(id);
         scene.add(m);
-        const box = new Box3().setFromObject(m);
-        const cz = (box.min.z + box.max.z) / 2, cy = (box.min.y + box.max.y) / 2;
-        const hw = (box.max.z - box.min.z) / 2 * 1.08, hh = (box.max.y - box.min.y) / 2 * 1.08;
+        const box2 = new Box3().setFromObject(m);
+        const cz = (box2.min.z + box2.max.z) / 2, cy = (box2.min.y + box2.max.y) / 2;
+        const hw = (box2.max.z - box2.min.z) / 2 * 1.08, hh = (box2.max.y - box2.min.y) / 2 * 1.08;
         const ext = Math.max(hw, hh * W / H);
         cam.left = -ext;
         cam.right = ext;
@@ -42432,7 +42563,7 @@ void main() {
         const pd = n > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
         this._quiet = k > 0;
         end = this.traceBullet(a, eye, pd, d);
-        if (!a.isPlayer && k < 3 || a.isPlayer && Math.random() < (n > 1 ? 0.25 : 0.35) || d.type === "sniper") this.fx.tracer(muzzle, end);
+        if (k === 0 && (d.type === "sniper" || Math.random() < 0.33)) this.fx.tracer(muzzle, end);
       }
       this._quiet = false;
       const p = this.player;
@@ -42459,25 +42590,25 @@ void main() {
       for (let i = 0; i <= hits.length; i++) {
         const h = hits[i];
         const lim = h ? h.t : range;
-        let best = null, bestT = lim, part2 = null;
+        let best = null, bestT = lim, part = null;
         for (const a of this.actors) {
           if (!a.alive || a === shooter || a.team === shooter.team) continue;
           const r = a.soldier.hitTest(o, dir, bestT, this.frame);
           if (r && r.t > from - 0.01 && r.t < bestT) {
             best = a;
             bestT = r.t;
-            part2 = r.part;
+            part = r.part;
           }
         }
         if (best) {
           const pt2 = o.clone().addScaledVector(dir, bestT);
           const dist = bestT;
-          const partMul = part2 === "head" ? d.headMul : part2 === "arm" || part2 === "leg" ? d.limbMul : 1;
+          const partMul = part === "head" ? d.headMul : part === "arm" || part === "leg" ? d.limbMul : 1;
           const dmg = d.dmg * mul * Math.pow(d.falloff, dist / 10) * partMul;
           this.fx.impact(pt2, _v4.copy(dir).negate(), "flesh", dir);
-          if (part2 === "head") this.fx.impact(pt2, _v4.copy(dir).negate(), "flesh", dir);
+          if (part === "head") this.fx.impact(pt2, _v4.copy(dir).negate(), "flesh", dir);
           if (!this._quiet) audio.playImpact(pt2, "flesh");
-          this.damage(best, shooter, dmg, part2, d.id, dir, wall);
+          this.damage(best, shooter, dmg, part, d.id, dir, wall);
           return pt2;
         }
         if (!h) break;
@@ -42681,19 +42812,19 @@ void main() {
     }
     // 物件被打爛後：清彈孔、讓上面的殘骸掉下來、留下斷口、檢查失去支撐的結構與玻璃（連鎖最多 8 輪）
     afterWreck(att) {
-      const M2 = this.map;
-      if (!M2.takeWrecked) return;
+      const M = this.map;
+      if (!M.takeWrecked) return;
       for (let it = 0; it < 8; it++) {
-        const w = M2.takeWrecked();
+        const w = M.takeWrecked();
         if (!w.length) break;
         for (const x of w) {
           this.fx.clearDecalsIn(x);
           this.fx.wakeRubble(x);
         }
         for (const x of w) this.fx.remnants(x);
-        if (M2.collapse) M2.collapse(w, att);
-        if (M2.looseGlass) for (const c of M2.looseGlass(w)) {
-          const q = M2.breakGlass(c);
+        if (M.collapse) M.collapse(w, att);
+        if (M.looseGlass) for (const c of M.looseGlass(w)) {
+          const q = M.breakGlass(c);
           if (q) {
             this.fx.shatter(q, new Vector3(0, -0.3, 0));
             audio.playGlassBreak(new Vector3(q.x, q.y, q.z), 0.8);
@@ -42725,13 +42856,13 @@ void main() {
       }
       this.afterWreck(ev[0].att);
     }
-    damage(v, att, amt, part2, wid, dir, wall, melee) {
+    damage(v, att, amt, part, wid, dir, wall, melee) {
       if (!v.alive || v.protectT > 0) return;
       if (att && att !== v && att.team === v.team) return;
       const def = WEAPONS[wid];
       const armBefore = v.armor;
       let hpD = amt;
-      if (v.armor > 0 && part2 !== "leg") {
+      if (v.armor > 0 && part !== "leg") {
         const ap = def?.armorPen ?? 0.75;
         hpD = amt * ap;
         v.armor = Math.max(0, v.armor - amt * (1 - ap) * 1.4);
@@ -42740,7 +42871,7 @@ void main() {
       v.lastAttacker = att;
       v.lastHurt = this.time;
       const killed = v.hp <= 0;
-      const armored = armBefore > 0 && part2 !== "leg", broke = armBefore > 0 && v.armor <= 0;
+      const armored = armBefore > 0 && part !== "leg", broke = armBefore > 0 && v.armor <= 0;
       if (att && att !== v) att.stats.hits++;
       if (!killed) {
         v.tagT = Math.max(v.tagT || 0, melee ? 0.5 : 0.3);
@@ -42748,7 +42879,7 @@ void main() {
           v.vel.x *= 0.6;
           v.vel.z *= 0.6;
         }
-        if (!v.isPlayer) v.soldier.flinch(part2);
+        if (!v.isPlayer) v.soldier.flinch(part);
       }
       if (v.isPlayer) {
         if (att && att !== v) this.hud.damageFrom(Math.atan2(-(att.pos.x - v.pos.x), -(att.pos.z - v.pos.z)));
@@ -42759,14 +42890,14 @@ void main() {
         if (v.hp <= 30 && !killed) audio.setLowHealth(true);
       } else if (v.onDamaged) v.onDamaged(att);
       if (att && att.isPlayer && att !== v) {
-        this.hud.hitmarker(part2 === "head", killed, broke);
+        this.hud.hitmarker(part === "head", killed, broke);
         if (killed || this.time - (this._hmT ?? -1) > 0.03) {
-          audio.playHitmarker(part2 === "head", armored && part2 !== "head");
+          audio.playHitmarker(part === "head", armored && part !== "head");
           this._hmT = this.time;
         }
         if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new Vector3()));
       }
-      if (killed) this.kill(v, att, wid, part2 === "head" && !melee, wall, dir);
+      if (killed) this.kill(v, att, wid, part === "head" && !melee, wall, dir);
     }
     kill(v, att, wid, hs, wall, dir) {
       v.alive = false;
@@ -43086,8 +43217,8 @@ void main() {
   function showBootError(err) {
     console.error(err);
     const msg = err?.message || String(err);
-    const box = document.getElementById("loadTxt");
-    if (box) box.textContent = `\u7121\u6CD5\u555F\u52D5\u904A\u6232\uFF1A${msg}\u3002\u8ACB\u6539\u7528\u65B0\u7248 Chrome\u3001Edge \u6216 Safari\uFF0C\u4E26\u78BA\u8A8D\u700F\u89BD\u5668\u5DF2\u958B\u555F WebGL\u3002`;
+    const box2 = document.getElementById("loadTxt");
+    if (box2) box2.textContent = `\u7121\u6CD5\u555F\u52D5\u904A\u6232\uFF1A${msg}\u3002\u8ACB\u6539\u7528\u65B0\u7248 Chrome\u3001Edge \u6216 Safari\uFF0C\u4E26\u78BA\u8A8D\u700F\u89BD\u5668\u5DF2\u958B\u555F WebGL\u3002`;
   }
   new Game().init().catch(showBootError);
 })();
