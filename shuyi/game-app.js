@@ -41699,99 +41699,92 @@ void main() {
 
   // game-src/bots.js
   var DIFF = {
-    easy: { react: [0.55, 0.9], aimErr: 0.075, turn: 3.2, track: 2.2, headP: 0.07, ctrl: 1, comp: 0.55, strafe: 0.35, see: 50, fov: 1.6, bunny: 0 },
-    normal: { react: [0.38, 0.62], aimErr: 0.058, turn: 5.2, track: 3.2, headP: 0.12, ctrl: 0.85, comp: 0.8, strafe: 0.65, see: 62, fov: 1.85, bunny: 0.05 },
-    hard: { react: [0.2, 0.34], aimErr: 0.032, turn: 8.5, track: 5.5, headP: 0.3, ctrl: 0.6, comp: 0.9, strafe: 0.85, see: 75, fov: 2.05, bunny: 0.12 },
-    hell: { react: [0.12, 0.2], aimErr: 0.02, turn: 13, track: 8.5, headP: 0.5, ctrl: 0.42, comp: 0.95, strafe: 1, see: 95, fov: 2.3, bunny: 0.2 }
+    easy: { reaction: [0.55, 0.9], aimError: 0.075, settle: 2.2, turnRate: 3.2, headshot: 0.07, recoilCtl: 1, recoilComp: 0.55, strafe: 0.35, sight: 50, fov: 1.6, hop: 0 },
+    normal: { reaction: [0.38, 0.62], aimError: 0.058, settle: 3.2, turnRate: 5.2, headshot: 0.12, recoilCtl: 0.85, recoilComp: 0.8, strafe: 0.65, sight: 62, fov: 1.85, hop: 0.05 },
+    hard: { reaction: [0.2, 0.34], aimError: 0.032, settle: 5.5, turnRate: 8.5, headshot: 0.3, recoilCtl: 0.6, recoilComp: 0.9, strafe: 0.85, sight: 75, fov: 2.05, hop: 0.12 },
+    hell: { reaction: [0.12, 0.2], aimError: 0.02, settle: 8.5, turnRate: 13, headshot: 0.5, recoilCtl: 0.42, recoilComp: 0.95, strafe: 1, sight: 95, fov: 2.3, hop: 0.2 }
   };
   var TEAM_PREFIX = { BL: "\u5973\u540C\u5B78", GR: "\u7537\u540C\u5B78" };
-  var HOLDS = [[-20.5, -7.2, 0.2], [-24.6, 5.8, -0.15], [-16.4, 1.3, 0.1], [-9.8, -6.8, 0.25], [-26.2, -6.5, 0.05]];
-  var LANES = [-6.8, -0.4, 6.8];
-  var _v3 = new Vector3();
-  var _v22 = new Vector3();
-  var _v32 = new Vector3();
-  var wrapPi = (a) => {
-    while (a > Math.PI) a -= Math.PI * 2;
-    while (a < -Math.PI) a += Math.PI * 2;
-    return a;
-  };
+  var THINK_EVERY = 0.15;
+  var _eye = new Vector3();
+  var _a = new Vector3();
+  var _b = new Vector3();
+  var wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  var yawTo = (fx, fz, tx, tz) => Math.atan2(-(tx - fx), -(tz - fz));
+  var rand3 = (a, b) => a + Math.random() * (b - a);
   var Bot = class extends Actor {
     constructor(game, o) {
       super(game, o);
-      this.diff = DIFF[o.diff] || DIFF.normal;
-      this.recoilControl = this.diff.ctrl;
+      this.skill = DIFF[o.diff] || DIFF.normal;
+      this.recoilControl = this.skill.recoilCtl;
+      this.state = "roam";
       this.path = null;
       this.pi = 0;
       this.goal = null;
+      this.stage = 0;
       this.target = null;
       this.visible = false;
       this.lastSeen = null;
       this.lastSeenT = -99;
+      this.heard = null;
+      this.heardT = -99;
       this.reactUntil = 0;
-      this.errY = 0;
-      this.errP = 0;
+      this.errYaw = 0;
+      this.errPitch = 0;
       this.aimHead = false;
+      this.lookYaw = void 0;
+      this.lookPitch = void 0;
       this.strafeDir = 1;
       this.strafeT = 0;
       this.burst = 0;
-      this.burstPauseUntil = 0;
-      this.thinkT = Math.random() * 0.2;
-      this.stuckT = 0;
-      this.stuckN = 0;
-      this.lastCheck = new Vector3();
-      this.role = "rush";
-      this.holdT = 0;
+      this.burstRestUntil = 0;
       this.crouchUntil = 0;
-      this.nadeT = 20 + Math.random() * 20;
-      this.heard = null;
-      this.heardT = -99;
-      this.fireHeld = false;
       this.wantJump = false;
-      this.side = this.team === "BL" ? 1 : -1;
+      this.wantScope = false;
+      this.fireHeld = false;
+      this.thinkT = Math.random() * THINK_EVERY;
+      this.engageT = 0;
+      this.engageLimit = 3;
+      this.nadeCooldown = rand3(20, 40);
+      this.nadeAt = null;
+      this.stuck = { t: 0, n: 0, at: new Vector3() };
     }
     onSpawn() {
+      this.state = "roam";
       this.path = null;
       this.goal = null;
       this.target = null;
       this.visible = false;
       this.lastSeen = null;
-      const r = Math.random();
-      this.role = r < 0.25 ? "flank" : "rush";
-      this.lane = LANES[Math.random() * 3 | 0];
       this.stage = 0;
-      this.pickGoal();
+      this.newGoal();
     }
-    L(x, z) {
-      return [x * this.side, z * this.side];
-    }
-    // 己方座標 -> 世界
-    pickGoal() {
-      const g = this.game, nav = g.nav, rnd2 = Math.random;
-      if (g.map.campus) {
-        const p = g.map.pickBotGoal(this);
-        this.goal = p;
-        this.path = nav.findPath(this.pos.x, this.pos.z, p[0], p[1], this.pos.y, p[2] || 0);
-        this.pi = 1;
-        return;
-      }
-      let gx, gz;
-      if (this.role === "hold") {
-        const h = HOLDS[rnd2() * HOLDS.length | 0];
-        [gx, gz] = this.L(h[0], h[1]);
-        this.holdYaw = this.side > 0 ? -Math.PI / 2 + h[2] : Math.PI / 2 + h[2];
-      } else if (this.role === "flank" && this.stage < 3) {
-        const pts = [[-31.5, 10.5], [-8, 10.6], [8, 7.8]];
-        [gx, gz] = this.L(...pts[this.stage]);
-      } else if (this.stage < 1) {
-        [gx, gz] = this.L(4 + rnd2() * 18, this.lane + (rnd2() - 0.5) * 2);
-      } else {
-        const p = nav.randomFree(rnd2, -26, -8.8, 26, 8.8);
-        [gx, gz] = p || this.L(10, 0);
-      }
-      this.goal = [gx, gz];
-      this.path = nav.findPath(this.pos.x, this.pos.z, gx, gz);
+    // ───────── 路徑 ─────────
+    routeTo(x, z, y = 0) {
+      this.path = this.game.nav.findPath(this.pos.x, this.pos.z, x, z, this.pos.y, y);
       this.pi = 1;
     }
+    newGoal(near) {
+      const p = this.game.map.pickBotGoal(this, near);
+      this.goal = p;
+      this.routeTo(p[0], p[1], p[2] || 0);
+    }
+    pathDone() {
+      return !this.path || this.pi >= this.path.length;
+    }
+    // 回傳往下一個路徑點的單位方向（並在到達時前進到下一點）；高度差太大就嘗試跳
+    steer() {
+      if (this.pathDone()) return null;
+      const wp = this.path[this.pi], wy = wp[2] ?? this.pos.y;
+      const dx = wp[0] - this.pos.x, dz = wp[1] - this.pos.z, d = Math.hypot(dx, dz);
+      if (d < 0.55 && Math.abs(wy - this.pos.y) < 1.1) this.pi++;
+      if (wy - this.pos.y > 0.5 && d < 1.5) {
+        this.wantJump = true;
+        return null;
+      }
+      return d > 0.01 ? [dx / d, dz / d] : null;
+    }
+    // ───────── 感知 ─────────
     hear(pos, loud) {
       if (!this.alive || this.visible) return;
       this.heard = pos.clone();
@@ -41800,263 +41793,257 @@ void main() {
     }
     onDamaged(att) {
       if (!att || !this.alive) return;
-      this.errY += (Math.random() - 0.5) * 0.09;
-      this.errP += 0.02 + Math.random() * 0.035;
+      this.errYaw += (Math.random() - 0.5) * 0.09;
+      this.errPitch += rand3(0.02, 0.055);
       this.reactUntil = Math.max(this.reactUntil, this.game.time + 0.06);
-      if (!this.visible || this.target !== att) {
-        this.lastSeen = att.pos.clone();
-        this.lastSeenT = this.game.time;
-        if (!this.visible) {
-          this.target = att;
-          const dx = att.pos.x - this.pos.x, dz = att.pos.z - this.pos.z;
-          this.lookYaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.5;
-        }
+      if (this.visible && this.target === att) return;
+      this.lastSeen = att.pos.clone();
+      this.lastSeenT = this.game.time;
+      if (!this.visible) {
+        this.target = att;
+        this.lookYaw = yawTo(this.pos.x, this.pos.z, att.pos.x, att.pos.z) + (Math.random() - 0.5) * 0.5;
       }
     }
+    // 視距內、在視野角內（6 m 內不限角度）、頭或胸口任一點沒被擋住
     canSee(t) {
-      const g = this.game;
-      const e = this.eye(_v3);
-      const dist = e.distanceTo(t.pos);
-      if (dist > this.diff.see) return false;
-      const dx = t.pos.x - this.pos.x, dz = t.pos.z - this.pos.z;
-      const ang = Math.abs(wrapPi(Math.atan2(-dx, -dz) - this.yaw));
-      if (ang > this.diff.fov / 2 && dist > 6) return false;
-      for (const pt of [t.soldier.headWorld(_v22), t.soldier.chestWorld(_v32)]) {
-        const d = pt.clone().sub(e);
-        const L = d.length();
-        d.divideScalar(L);
-        if (!g.world.raycast(e.x, e.y, e.z, d.x, d.y, d.z, L - 0.1, "sight")) return true;
+      const e = this.eye(_eye), dist = e.distanceTo(t.pos);
+      if (dist > this.skill.sight) return false;
+      const off = Math.abs(wrapAngle(yawTo(this.pos.x, this.pos.z, t.pos.x, t.pos.z) - this.yaw));
+      if (off > this.skill.fov / 2 && dist > 6) return false;
+      for (const pt of [t.soldier.headWorld(_a), t.soldier.chestWorld(_b)]) {
+        const dx = pt.x - e.x, dy = pt.y - e.y, dz = pt.z - e.z, L = Math.hypot(dx, dy, dz);
+        if (!this.game.world.raycast(e.x, e.y, e.z, dx / L, dy / L, dz / L, L - 0.1, "sight")) return true;
       }
       return false;
     }
-    think() {
-      const g = this.game, now = g.time;
-      let best = null, bestD = 1e9;
-      for (const a of g.actors) {
+    nearestVisibleEnemy() {
+      let best = null, bestD = Infinity;
+      for (const a of this.game.actors) {
         if (!a.alive || a.team === this.team) continue;
         const d = a.pos.distanceTo(this.pos);
-        if (d > bestD) continue;
-        if (this.canSee(a)) {
+        if (d < bestD && this.canSee(a)) {
           best = a;
           bestD = d;
         }
       }
-      if (best) {
-        if (!this.visible || this.target !== best) {
-          const [r0, r1] = this.diff.react;
-          const surprise = this.target === best && now - this.lastSeenT < 1.5 ? 0.4 : 1;
-          this.reactUntil = now + (r0 + Math.random() * (r1 - r0)) * surprise;
-          const k = this.diff.aimErr * (0.8 + bestD / 28);
-          const a = Math.random() * Math.PI * 2;
-          this.errY = Math.cos(a) * k * 1.3;
-          this.errP = Math.sin(a) * k * 0.8 - k * 0.1;
-          this.aimHead = Math.random() < this.diff.headP;
-          this.burst = 0;
-        }
-        this.target = best;
+      return best ? { foe: best, dist: bestD } : null;
+    }
+    // 新發現敵人：決定反應時間與初始瞄準誤差
+    acquire(foe, dist) {
+      const now = this.game.time, [r0, r1] = this.skill.reaction;
+      const again = this.target === foe && now - this.lastSeenT < 1.5;
+      this.reactUntil = now + rand3(r0, r1) * (again ? 0.4 : 1);
+      const err = this.skill.aimError * (0.8 + dist / 28), dir = rand3(0, Math.PI * 2);
+      this.errYaw = Math.cos(dir) * err * 1.3;
+      this.errPitch = Math.sin(dir) * err * 0.8 - err * 0.1;
+      this.aimHead = Math.random() < this.skill.headshot;
+      this.burst = 0;
+    }
+    think() {
+      const now = this.game.time;
+      const seen = this.nearestVisibleEnemy();
+      if (seen) {
+        if (!this.visible || this.target !== seen.foe) this.acquire(seen.foe, seen.dist);
+        this.target = seen.foe;
         this.visible = true;
-        this.lastSeen = best.pos.clone();
+        this.lastSeen = seen.foe.pos.clone();
         this.lastSeenT = now;
-        if (!g.map.campus || bestD < 10) this.path = null;
-        else {
-          this.engageT = (this.engageT || 0) + 0.15;
-          if (!this.path || this.pi >= this.path.length || this.engageT > this.engageLimit) {
-            this.engageT = 0;
-            this.engageLimit = 2.5 + Math.random() * 2.5;
-            const p = Math.random() < 0.5 ? [best.pos.x, best.pos.z, best.pos.y] : g.map.pickBotGoal(this, best.pos);
-            this.goal = p;
-            this.path = g.nav.findPath(this.pos.x, this.pos.z, p[0], p[1], this.pos.y, p[2] || 0);
-            this.pi = 1;
-          }
-        }
+        this.state = "engage";
+        this.planEngage(seen.foe, seen.dist);
       } else {
         this.visible = false;
         this.engageT = 0;
         if (this.target && (!this.target.alive || now - this.lastSeenT > 5)) this.target = null;
+        this.planSearch(now);
       }
-      if (!this.visible) {
-        if (this.lastSeen && now - this.lastSeenT < 5 && this.role !== "hold") {
-          if (!this.path || this.huntFor !== this.lastSeenT) {
-            this.path = g.nav.findPath(this.pos.x, this.pos.z, this.lastSeen.x, this.lastSeen.z, this.pos.y, this.lastSeen.y);
-            this.pi = 1;
-            this.huntFor = this.lastSeenT;
-          }
-        } else if (this.heard && now - this.heardT < 3 && this.role !== "hold" && Math.random() < 0.5) {
-          this.path = g.nav.findPath(this.pos.x, this.pos.z, this.heard.x, this.heard.z, this.pos.y, this.heard.y);
-          this.pi = 1;
-          this.lookYaw = Math.atan2(-(this.heard.x - this.pos.x), -(this.heard.z - this.pos.z));
-          this.heard = null;
-        } else if (!this.path || this.pi >= this.path.length) {
-          if (this.role === "hold" && this.goal && this.pos.distanceTo(_v3.set(this.goal[0], this.pos.y, this.goal[1])) < 1.2) {
-            this.holdT += 0.15;
-            if (this.holdT > 25 + Math.random() * 20) {
-              this.holdT = 0;
-              this.pickGoal();
-            }
-          } else {
-            this.stage++;
-            this.pickGoal();
-          }
-        }
-        const w = this.weapon;
-        if (w.def.mag > 1 && w.mag < w.def.mag * 0.5 && w.canReload() && now - this.lastSeenT > 1.2) this.startReload();
-        this.nadeT -= 0.15;
-        if (this.nadeT <= 0 && this.lastSeen && now - this.lastSeenT < 3 && this.inv[3].mag > 0) {
-          const d = this.lastSeen.distanceTo(this.pos);
-          if (d > 7 && d < 24 && Math.random() < 0.35) {
-            this.nadePlan = this.lastSeen.clone();
-            this.nadeT = 25 + Math.random() * 25;
-          }
-        }
-      } else {
-        const w = this.weapon;
-        if (w.def.type === "sniper" && !this.scoped && bestD > 7 && now >= w.boltUntil) this.wantScope = true;
-        if (Math.random() < 0.12 * this.diff.strafe) this.crouchUntil = now + 0.6 + Math.random() * 1.2;
+      this.checkStuck();
+    }
+    // 校園很大，交戰時不會站著對射：10 m 外會往敵人或側翼移動，對峙太久就換位置
+    planEngage(foe, dist) {
+      const w = this.weapon;
+      if (w.def.type === "sniper" && !this.scoped && dist > 7 && this.game.time >= w.boltUntil) this.wantScope = true;
+      if (Math.random() < 0.12 * this.skill.strafe) this.crouchUntil = this.game.time + rand3(0.6, 1.8);
+      if (dist < 10) {
+        this.path = null;
+        return;
       }
-      this.stuckT += 0.15;
-      if (this.stuckT > 1) {
-        const moved = this.lastCheck.distanceTo(this.pos);
-        if (this.path && this.pi < this.path.length && moved < 0.35 && !this.visible) {
-          this.stuckN++;
-          this.wantJump = true;
-          if (this.stuckN > 2) {
-            this.stuckN = 0;
-            this.stage++;
-            this.pickGoal();
-          }
-        } else this.stuckN = 0;
-        this.lastCheck.copy(this.pos);
-        this.stuckT = 0;
+      this.engageT += THINK_EVERY;
+      if (this.pathDone() || this.engageT > this.engageLimit) {
+        this.engageT = 0;
+        this.engageLimit = rand3(2.5, 5);
+        if (Math.random() < 0.5) this.routeTo(foe.pos.x, foe.pos.z, foe.pos.y);
+        else this.newGoal(foe.pos);
       }
     }
+    planSearch(now) {
+      if (this.lastSeen && now - this.lastSeenT < 5) {
+        this.state = "hunt";
+        if (this.huntFor !== this.lastSeenT) {
+          this.routeTo(this.lastSeen.x, this.lastSeen.z, this.lastSeen.y);
+          this.huntFor = this.lastSeenT;
+        }
+      } else if (this.heard && now - this.heardT < 3 && Math.random() < 0.5) {
+        this.state = "listen";
+        this.routeTo(this.heard.x, this.heard.z, this.heard.y);
+        this.lookYaw = yawTo(this.pos.x, this.pos.z, this.heard.x, this.heard.z);
+        this.heard = null;
+      } else if (this.pathDone()) {
+        this.state = "roam";
+        this.stage++;
+        this.newGoal();
+      }
+      const w = this.weapon;
+      if (w.def.mag > 1 && w.mag < w.def.mag * 0.5 && w.canReload() && now - this.lastSeenT > 1.2) this.startReload();
+      this.nadeCooldown -= THINK_EVERY;
+      if (this.nadeCooldown <= 0 && this.lastSeen && now - this.lastSeenT < 3 && this.inv[3].mag > 0) {
+        const d = this.lastSeen.distanceTo(this.pos);
+        if (d > 7 && d < 24 && Math.random() < 0.35) {
+          this.nadeAt = this.lastSeen.clone();
+          this.nadeCooldown = rand3(25, 50);
+        }
+      }
+    }
+    // 每秒檢查一次：有路要走卻幾乎沒動 → 跳一下；連續三次 → 換目的地
+    checkStuck() {
+      const s = this.stuck;
+      s.t += THINK_EVERY;
+      if (s.t <= 1) return;
+      const moved = s.at.distanceTo(this.pos);
+      if (!this.pathDone() && moved < 0.35 && !this.visible) {
+        this.wantJump = true;
+        if (++s.n > 2) {
+          s.n = 0;
+          this.stage++;
+          this.newGoal();
+        }
+      } else s.n = 0;
+      s.at.copy(this.pos);
+      s.t = 0;
+    }
+    // ───────── 行動 ─────────
     update(dt) {
-      const g = this.game, now = g.time;
       if (!this.alive) return;
+      const now = this.game.time;
       this.thinkT -= dt;
       if (this.thinkT <= 0) {
-        this.thinkT = 0.13 + Math.random() * 0.06;
+        this.thinkT = THINK_EVERY * rand3(0.87, 1.27);
         this.think();
       }
-      const D2 = this.diff;
-      let wishX = 0, wishZ = 0, fire = false, firePressed = false, alt = false, crouch = now < this.crouchUntil, walk = false;
-      let sw = null;
-      if (this.nadePlan) {
-        if (this.slot !== 3) sw = 3;
-        else if (now >= this.readyAt && !this.pendingThrow) {
-          const d = this.nadePlan.distanceTo(this.pos);
-          this.lookYaw = Math.atan2(-(this.nadePlan.x - this.pos.x), -(this.nadePlan.z - this.pos.z));
-          this.lookPitch = 0.25 + d * 0.012;
-          firePressed = true;
-          this.nadePlan = null;
+      const act = { wishX: 0, wishZ: 0, fire: false, firePressed: false, alt: false, sw: null, crouch: now < this.crouchUntil, walk: false, yaw: this.yaw, pitch: this.pitch };
+      this.handleGrenade(act, now);
+      if (this.target?.alive && this.visible) this.fight(act, dt, now);
+      else this.travel(act, now);
+      this.avoidCrowding(act);
+      this.turnToward(act.yaw, act.pitch, dt);
+      this.move(dt, act.wishX, act.wishZ, this.wantJump, act.crouch, act.walk);
+      this.wantJump = false;
+      this.weaponUpdate(dt, { fire: act.fire, firePressed: act.firePressed || act.fire && !this.fireHeld, alt: act.alt, altPressed: act.alt, reload: false, sw: act.sw });
+      this.fireHeld = act.fire;
+    }
+    handleGrenade(act, now) {
+      if (this.nadeAt) {
+        if (this.slot !== 3) {
+          act.sw = 3;
+          return;
         }
-      } else if (this.slot === 3 && this.inv[3].mag <= 0 && !this.pendingThrow && !this.autoSwitchAt) sw = 0;
-      let dYaw = this.yaw, dPitch = this.pitch;
-      const tgt = this.target;
-      if (tgt && tgt.alive && this.visible) {
-        const e = this.eye(_v3);
-        const p = this.aimHead ? tgt.soldier.headWorld(_v22) : tgt.soldier.chestWorld(_v22);
-        p.addScaledVector(tgt.vel, 0.08);
-        const dx = p.x - e.x, dy = p.y - e.y, dz = p.z - e.z, hd = Math.hypot(dx, dz);
-        const trueYaw = Math.atan2(-dx, -dz), truePitch = Math.atan2(dy, hd);
-        const k = Math.exp(-D2.track * dt);
-        this.errY *= k;
-        this.errP *= k;
-        const wob = 4e-3 * (1 + tgt.speed / 4);
-        dYaw = trueYaw + this.errY + Math.sin(now * 3.1 + this.id) * wob;
-        dPitch = truePitch + this.errP + Math.cos(now * 2.7 + this.id) * wob * 0.6 - this.punchP * D2.comp;
-        this.lookYaw = void 0;
-        this.lookPitch = void 0;
-        const aimErr = Math.hypot(wrapPi(this.yaw - trueYaw), this.pitch - truePitch);
-        const tol = Math.atan2(0.32, hd) * 1.4 + 0.01;
-        const w2 = this.weapon, d = w2.def;
-        if (now >= this.reactUntil && aimErr < tol && now >= this.readyAt && !this.nadePlan) {
-          if (d.type === "sniper") {
-            if (this.scoped && this.scopeReady && aimErr < tol * 0.6) firePressed = true;
-          } else if (d.type === "pistol") {
-            firePressed = Math.random() < dt * 5;
-          } else if (d.type === "shotgun") {
-            firePressed = hd < 24 && Math.random() < dt * 6;
-          } else if (now >= this.burstPauseUntil) {
-            fire = true;
-            if (hd > 14) {
-              this.burst++;
-              if (this.burst > 3 + Math.random() * 4) {
-                this.burst = 0;
-                this.burstPauseUntil = now + 0.18 + Math.random() * 0.3 * (hd / 30);
-              }
-            }
-          }
-        }
-        if (this.wantScope) {
-          alt = true;
-          this.wantScope = false;
-        }
-        this.strafeT -= dt;
-        if (this.strafeT <= 0) {
-          this.strafeT = 0.25 + Math.random() * 0.7;
-          this.strafeDir = Math.random() < 0.5 ? -1 : 1;
-          if (Math.random() < 0.2) this.strafeDir = 0;
-        }
-        const moveK = d.type === "sniper" ? 0 : D2.strafe;
-        const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
-        wishX = rx * this.strafeDir * moveK;
-        wishZ = rz * this.strafeDir * moveK;
-        if (g.map.campus && hd >= 10 && d.type !== "sniper" && this.path && this.pi < this.path.length) {
-          const wp = this.path[this.pi], px2 = wp[0] - this.pos.x, pz2 = wp[1] - this.pos.z, pd = Math.hypot(px2, pz2);
-          if (pd < 0.55 && Math.abs((wp[2] ?? this.pos.y) - this.pos.y) < 1.1) this.pi++;
-          if ((wp[2] ?? 0) - this.pos.y > 0.5 && pd < 1.5) this.wantJump = true;
-          else if (pd > 0.01) {
-            wishX = wishX * 0.35 + px2 / pd;
-            wishZ = wishZ * 0.35 + pz2 / pd;
-          }
-        } else if (hd > 22 && d.type !== "sniper" && this.role !== "hold") {
-          wishX += -Math.sin(this.yaw) * 0.5;
-          wishZ += -Math.cos(this.yaw) * 0.5;
-        }
-        if (Math.random() < D2.bunny * dt && this.onGround && d.type !== "sniper") this.wantJump = true;
-      } else {
-        if (this.scoped && !this.visible && now - this.lastSeenT > 2) alt = true;
-        if (this.path && this.pi < this.path.length) {
-          const wp = this.path[this.pi];
-          const dx = wp[0] - this.pos.x, dz = wp[1] - this.pos.z, dd = Math.hypot(dx, dz);
-          if (dd < 0.55 && Math.abs((wp[2] ?? this.pos.y) - this.pos.y) < 1.1) this.pi++;
-          if ((wp[2] ?? 0) - this.pos.y > 0.5 && dd < 1.5) this.wantJump = true;
-          else if (dd > 0.01) {
-            wishX = dx / dd;
-            wishZ = dz / dd;
-          }
-          if (this.lookYaw === void 0 || now - this.heardT > 1.5) dYaw = Math.atan2(-dx, -dz);
-          dPitch = 0;
-          walk = this.role === "flank" && this.stage === 1;
-        } else if (this.role === "hold" && this.holdYaw !== void 0) {
-          dYaw = this.holdYaw + Math.sin(now * 0.4 + this.id) * 0.35;
-          dPitch = -0.02;
-          crouch = crouch || Math.sin(now * 0.3 + this.id) > 0.3;
-        }
-        if (this.lookYaw !== void 0) {
-          dYaw = this.lookYaw;
-          if (this.lookPitch !== void 0) dPitch = this.lookPitch;
+        if (now < this.readyAt || this.pendingThrow) return;
+        const d = this.nadeAt.distanceTo(this.pos);
+        this.lookYaw = yawTo(this.pos.x, this.pos.z, this.nadeAt.x, this.nadeAt.z);
+        this.lookPitch = 0.25 + d * 0.012;
+        act.firePressed = true;
+        this.nadeAt = null;
+      } else if (this.slot === 3 && this.inv[3].mag <= 0 && !this.pendingThrow && !this.autoSwitchAt) {
+        act.sw = 0;
+      }
+    }
+    fight(act, dt, now) {
+      const S = this.skill, tgt = this.target, w = this.weapon, d = w.def;
+      const e = this.eye(_eye);
+      const aim = (this.aimHead ? tgt.soldier.headWorld(_a) : tgt.soldier.chestWorld(_a)).addScaledVector(tgt.vel, 0.08);
+      const dx = aim.x - e.x, dy = aim.y - e.y, dz = aim.z - e.z, flat = Math.hypot(dx, dz);
+      const trueYaw = Math.atan2(-dx, -dz), truePitch = Math.atan2(dy, flat);
+      const settle = Math.exp(-S.settle * dt);
+      this.errYaw *= settle;
+      this.errPitch *= settle;
+      const shake = 4e-3 * (1 + tgt.speed / 4);
+      act.yaw = trueYaw + this.errYaw + Math.sin(now * 3.1 + this.id) * shake;
+      act.pitch = truePitch + this.errPitch + Math.cos(now * 2.7 + this.id) * shake * 0.6 - this.punchP * S.recoilComp;
+      this.lookYaw = this.lookPitch = void 0;
+      const off = Math.hypot(wrapAngle(this.yaw - trueYaw), this.pitch - truePitch);
+      const tolerance = Math.atan2(0.32, flat) * 1.4 + 0.01;
+      if (now >= this.reactUntil && off < tolerance && now >= this.readyAt && !this.nadeAt) this.pullTrigger(act, d, off, tolerance, flat, dt, now);
+      if (this.wantScope) {
+        act.alt = true;
+        this.wantScope = false;
+      }
+      this.strafeT -= dt;
+      if (this.strafeT <= 0) {
+        this.strafeT = rand3(0.25, 0.95);
+        this.strafeDir = Math.random() < 0.2 ? 0 : Math.random() < 0.5 ? -1 : 1;
+      }
+      const sideK = d.type === "sniper" ? 0 : S.strafe * this.strafeDir;
+      act.wishX = Math.cos(this.yaw) * sideK;
+      act.wishZ = -Math.sin(this.yaw) * sideK;
+      if (flat >= 10 && d.type !== "sniper") {
+        const dir = this.steer();
+        if (dir) {
+          act.wishX = act.wishX * 0.35 + dir[0];
+          act.wishZ = act.wishZ * 0.35 + dir[1];
         }
       }
-      for (const a of g.actors) {
+      if (Math.random() < S.hop * dt && this.onGround && d.type !== "sniper") this.wantJump = true;
+    }
+    pullTrigger(act, d, off, tolerance, dist, dt, now) {
+      switch (d.type) {
+        case "sniper":
+          if (this.scoped && this.scopeReady && off < tolerance * 0.6) act.firePressed = true;
+          break;
+        case "pistol":
+          act.firePressed = Math.random() < dt * 5;
+          break;
+        case "shotgun":
+          act.firePressed = dist < 24 && Math.random() < dt * 6;
+          break;
+        default:
+          if (now < this.burstRestUntil) break;
+          act.fire = true;
+          if (dist > 14 && ++this.burst > rand3(3, 7)) {
+            this.burst = 0;
+            this.burstRestUntil = now + 0.18 + Math.random() * 0.3 * (dist / 30);
+          }
+      }
+    }
+    travel(act, now) {
+      if (this.scoped && now - this.lastSeenT > 2) act.alt = true;
+      const dir = this.steer();
+      if (dir) {
+        act.wishX = dir[0];
+        act.wishZ = dir[1];
+        if (this.lookYaw === void 0 || now - this.heardT > 1.5) act.yaw = Math.atan2(-dir[0], -dir[1]);
+        act.pitch = 0;
+      }
+      if (this.lookYaw !== void 0) {
+        act.yaw = this.lookYaw;
+        if (this.lookPitch !== void 0) act.pitch = this.lookPitch;
+      }
+    }
+    // 跟隊友靠太近（1.1 m 內）就互相讓開
+    avoidCrowding(act) {
+      for (const a of this.game.actors) {
         if (a === this || !a.alive) continue;
         const dx = this.pos.x - a.pos.x, dz = this.pos.z - a.pos.z, d2 = dx * dx + dz * dz;
         if (d2 < 1.2 && d2 > 1e-4) {
           const d = Math.sqrt(d2);
-          wishX += dx / d * 0.6;
-          wishZ += dz / d * 0.6;
+          act.wishX += dx / d * 0.6;
+          act.wishZ += dz / d * 0.6;
         }
       }
-      const turn = D2.turn * dt * (this.visible ? 1 : 0.7);
-      const ey = wrapPi(dYaw - this.yaw);
-      this.yaw = wrapPi(this.yaw + MathUtils.clamp(ey, -turn, turn));
-      this.pitch += MathUtils.clamp(dPitch - this.pitch, -turn * 0.6, turn * 0.6);
-      this.move(dt, wishX, wishZ, this.wantJump, crouch, walk);
-      this.wantJump = false;
-      const w = this.weapon;
-      this.weaponUpdate(dt, { fire, firePressed: firePressed || fire && !this.fireHeld, alt, altPressed: alt, reload: false, sw });
-      this.fireHeld = fire;
-      void w;
+    }
+    // 轉身有速度上限；沒在交戰時轉得慢一點
+    turnToward(yaw, pitch, dt) {
+      const max = this.skill.turnRate * dt * (this.visible ? 1 : 0.7);
+      this.yaw = wrapAngle(this.yaw + MathUtils.clamp(wrapAngle(yaw - this.yaw), -max, max));
+      this.pitch += MathUtils.clamp(pitch - this.pitch, -max * 0.6, max * 0.6);
     }
   };
 
@@ -42251,8 +42238,8 @@ void main() {
   var nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
   var MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "MULTI KILL", "ULTRA KILL", "RAMPAGE", "UNSTOPPABLE", "GODLIKE"];
   var MULTI_CN = ["", "", "\u96D9\u6BBA", "\u4E09\u6BBA", "\u56DB\u6BBA", "\u4E94\u6BBA", "\u516D\u6BBA\uFF01", "\u7121\u4EBA\u80FD\u64CB", "\u8D85\u795E"];
-  var _v4 = new Vector3();
-  var _v23 = new Vector3();
+  var _v3 = new Vector3();
+  var _v22 = new Vector3();
   var _d2 = new Vector3();
   var CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1, shotgun: 1 };
   var Game = class {
@@ -42613,7 +42600,7 @@ void main() {
       let muzzle;
       if (a.isPlayer) {
         const cam = this.renderer.camera;
-        const right = _v23.set(1, 0, 0).applyQuaternion(cam.quaternion);
+        const right = _v22.set(1, 0, 0).applyQuaternion(cam.quaternion);
         const up = new Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
         muzzle = cam.position.clone().addScaledVector(dir, 0.9).addScaledVector(right, 0.14).addScaledVector(up, -0.1);
         this.vm.fire();
@@ -42663,7 +42650,7 @@ void main() {
       this._quiet = false;
       const p = this.player;
       if (p && p.alive && a !== p && a.team !== p.team) {
-        const hp = p.eye(_v4);
+        const hp = p.eye(_v3);
         const t = _d2.copy(hp).sub(eye).dot(dir);
         if (t > 2 && t < eye.distanceTo(end)) {
           const closest = eye.clone().addScaledVector(dir, t);
@@ -42700,8 +42687,8 @@ void main() {
           const dist = bestT;
           const partMul = part === "head" ? d.headMul : part === "arm" || part === "leg" ? d.limbMul : 1;
           const dmg = d.dmg * mul * Math.pow(d.falloff, dist / 10) * partMul;
-          this.fx.impact(pt2, _v4.copy(dir).negate(), "flesh", dir);
-          if (part === "head") this.fx.impact(pt2, _v4.copy(dir).negate(), "flesh", dir);
+          this.fx.impact(pt2, _v3.copy(dir).negate(), "flesh", dir);
+          if (part === "head") this.fx.impact(pt2, _v3.copy(dir).negate(), "flesh", dir);
           if (!this._quiet) audio.playImpact(pt2, "flesh");
           this.damage(best, shooter, dmg, part, d.id, dir, wall);
           return pt2;
@@ -42778,7 +42765,7 @@ void main() {
             const vf = hit.a.forward(new Vector3());
             vf.y = 0;
             vf.normalize();
-            const back = vf.dot(_v4.copy(hit.dir).setY(0).normalize()) > 0.5;
+            const back = vf.dot(_v3.copy(hit.dir).setY(0).normalize()) > 0.5;
             let dmg = heavy ? d.dmgHeavy : d.dmgLight;
             if (back) dmg *= heavy ? 2 : 1.6;
             if (hit.part === "head") dmg *= 1.3;
@@ -42872,7 +42859,7 @@ void main() {
       this.afterWreck(owner);
       if (this.map.pushAt) this.map.pushAt(p, 10, 1);
       const pl = this.player;
-      const cp = this.renderer.camera.position, dv = _v4.copy(cp).sub(p), L = dv.length();
+      const cp = this.renderer.camera.position, dv = _v3.copy(cp).sub(p), L = dv.length();
       if (pl && pl.alive && L < 14) {
         let k = 1 - L / 14;
         if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, "sight")) k *= 0.45;
@@ -43255,7 +43242,7 @@ void main() {
         const lbl = document.querySelector("#radarWrap .lbl"), where = this.playing ? this.map.locate(this.player.pos) : "";
         if (lbl) lbl.textContent = (where || "\u6A39\u7FA9\u570B\u5C0F") + ` \xB7 ${this.fps || "--"} FPS`;
       }
-      const fwd = _v4.set(0, 0, -1).applyQuaternion(cam.quaternion), up = _v23.set(0, 1, 0).applyQuaternion(cam.quaternion);
+      const fwd = _v3.set(0, 0, -1).applyQuaternion(cam.quaternion), up = _v22.set(0, 1, 0).applyQuaternion(cam.quaternion);
       audio.setListener(cam.position, fwd, up);
       audio.update(dt);
       if (this.player && (this.playing || this.ended)) this.updateHUD(dt);
@@ -43279,7 +43266,7 @@ void main() {
       R.render();
     }
     updateLightProbe() {
-      const p = this.player, e = p.eye(_v4), s = this.env.sunDir;
+      const p = this.player, e = p.eye(_v3), s = this.env.sunDir;
       const sunBlocked = !!this.world.raycast(e.x, e.y, e.z, s.x, s.y, s.z, 80, "sight");
       const roof = !!this.world.raycast(e.x, e.y, e.z, 0, 1, 0, 5, "sight");
       const tl = sunBlocked ? 0.22 : 1, ti = roof ? 1 : 0;
