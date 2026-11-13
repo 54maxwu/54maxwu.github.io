@@ -1,761 +1,329 @@
-// 程式化紋理：全部由 Canvas 生成，零外部資源
+// 樹義國小校園對戰：程序貼圖
+// 所有貼圖都在執行時用 Canvas 畫出來，不載入任何圖檔。
+//
+// 對外介面
+//   fbm(w, h, fx, fy, octaves, seed, persistence?) → Float32Array(w*h)，值域 0..1，左右上下可無縫平鋪
+//   normalFromHeight(height, w, h, strength)       → canvas，切線空間法線圖（可平鋪）
+//   buildTextures(quality)                         → 特效用貼圖集合（見檔案最後）
 import * as THREE from 'three';
 
-export function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+// ───────── 亂數與噪聲 ─────────
+
+// splitmix32：給定種子就產生固定序列，讓每次畫出來的貼圖都一樣
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x9e3779b9) >>> 0;
+    let z = s;
+    z = Math.imul(z ^ (z >>> 16), 0x21f0aaad);
+    z = Math.imul(z ^ (z >>> 15), 0x735a2d97);
+    return ((z ^ (z >>> 15)) >>> 0) / 4294967296;
   };
 }
 
-function mkCanvas(w, h) {
+// 整數格點雜湊 → 0..1
+function hash3(x, y, s) {
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s, 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+const mod = (a, n) => ((a % n) + n) % n;
+
+// 週期性值噪聲疊加。fx、fy 為第一層在橫、直方向的格數；每層頻率加倍，格數也跟著加倍，所以仍可平鋪。
+export function fbm(w, h, fx, fy, octaves, seed, persistence = 0.5) {
+  const out = new Float32Array(w * h);
+  let amp = 1;
+  for (let o = 0; o < octaves; o++) {
+    const cx = Math.max(1, Math.round(fx * (1 << o)));
+    const cy = Math.max(1, Math.round(fy * (1 << o)));
+    const s = (seed * 131 + o * 7919) | 0;
+    // 先把這層的格點值算好，避免每個像素重算雜湊
+    const lat = new Float32Array(cx * cy);
+    for (let j = 0; j < cy; j++) for (let i = 0; i < cx; i++) lat[j * cx + i] = hash3(i, j, s);
+    for (let y = 0; y < h; y++) {
+      const gy = (y / h) * cy, j0 = Math.floor(gy), ty = fade(gy - j0);
+      const r0 = mod(j0, cy) * cx, r1 = mod(j0 + 1, cy) * cx;
+      for (let x = 0; x < w; x++) {
+        const gx = (x / w) * cx, i0 = Math.floor(gx), tx = fade(gx - i0);
+        const c0 = mod(i0, cx), c1 = mod(i0 + 1, cx);
+        const a = lat[r0 + c0] + (lat[r0 + c1] - lat[r0 + c0]) * tx;
+        const b = lat[r1 + c0] + (lat[r1 + c1] - lat[r1 + c0]) * tx;
+        out[y * w + x] += (a + (b - a) * ty) * amp;
+      }
+    }
+    amp *= persistence;
+  }
+  // 拉伸到完整的 0..1，讓各種用途的門檻值都有作用
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < out.length; i++) { const v = out[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+  const k = hi > lo ? 1 / (hi - lo) : 0;
+  for (let i = 0; i < out.length; i++) out[i] = (out[i] - lo) * k;
+  return out;
+}
+
+// 高度圖 → 法線圖（Sobel 3×3，邊界環繞）
+export function normalFromHeight(hgt, w, h, strength) {
+  const c = canvas(w, h), ctx = c.getContext('2d');
+  const img = ctx.createImageData(w, h), d = img.data;
+  const H = (x, y) => hgt[mod(y, h) * w + mod(x, w)];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const tl = H(x - 1, y - 1), t = H(x, y - 1), tr = H(x + 1, y - 1);
+    const l = H(x - 1, y), r = H(x + 1, y);
+    const bl = H(x - 1, y + 1), b = H(x, y + 1), br = H(x + 1, y + 1);
+    const dx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+    const dy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+    let nx = -dx * strength, ny = dy * strength, nz = 1;
+    const inv = 1 / Math.hypot(nx, ny, nz);
+    nx *= inv; ny *= inv; nz *= inv;
+    const i = (y * w + x) * 4;
+    d[i] = (nx * 0.5 + 0.5) * 255; d[i + 1] = (ny * 0.5 + 0.5) * 255; d[i + 2] = (nz * 0.5 + 0.5) * 255; d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+
+// ───────── 繪圖小工具 ─────────
+
+function canvas(w, h = w) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   return c;
 }
 
-// 可平鋪的 fBm 值噪聲，返回 0..1
-export function fbm(w, h, fx, fy, octaves, seed, persistence = 0.5) {
-  const out = new Float32Array(w * h);
-  const rnd = mulberry32(seed);
-  let amp = 1, total = 0;
-  for (let o = 0; o < octaves; o++) {
-    const gx = fx << o, gy = fy << o;
-    const lat = new Float32Array(gx * gy);
-    for (let i = 0; i < lat.length; i++) lat[i] = rnd();
-    const sxs = gx / w, sys = gy / h;
-    for (let y = 0; y < h; y++) {
-      const fyy = y * sys, y0 = fyy | 0, ty = fyy - y0, sy = ty * ty * (3 - 2 * ty);
-      const r0 = (y0 % gy) * gx, r1 = ((y0 + 1) % gy) * gx;
-      for (let x = 0; x < w; x++) {
-        const fxx = x * sxs, x0 = fxx | 0, tx = fxx - x0, sx = tx * tx * (3 - 2 * tx);
-        const c0 = x0 % gx, c1 = (x0 + 1) % gx;
-        const a = lat[r0 + c0], b = lat[r0 + c1], c = lat[r1 + c0], d = lat[r1 + c1];
-        const top = a + (b - a) * sx, bot = c + (d - c) * sx;
-        out[y * w + x] += amp * (top + (bot - top) * sy);
-      }
-    }
-    total += amp; amp *= persistence;
-  }
-  for (let i = 0; i < out.length; i++) out[i] /= total;
-  return out;
-}
-
-// 高度圖 -> 法線貼圖（OpenGL 約定，適配 flipY 的 CanvasTexture）
-export function normalFromHeight(hgt, w, h, strength) {
-  const c = mkCanvas(w, h), ctx = c.getContext('2d', { willReadFrequently: true });
-  const img = ctx.createImageData(w, h), d = img.data;
-  for (let y = 0; y < h; y++) {
-    const ym = ((y - 1 + h) % h) * w, yp = ((y + 1) % h) * w, yr = y * w;
-    for (let x = 0; x < w; x++) {
-      const xm = (x - 1 + w) % w, xp = (x + 1) % w;
-      const dx = (hgt[yr + xp] - hgt[yr + xm]) * strength;
-      const dy = (hgt[yp + x] - hgt[ym + x]) * strength;
-      let nx = -dx, ny = dy, nz = 1;
-      const l = Math.hypot(nx, ny, nz);
-      const i = (yr + x) * 4;
-      d[i] = (nx / l * 0.5 + 0.5) * 255;
-      d[i + 1] = (ny / l * 0.5 + 0.5) * 255;
-      d[i + 2] = (nz / l * 0.5 + 0.5) * 255;
-      d[i + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return c;
-}
-
-function grayCanvas(vals, w, h, map) {
-  const c = mkCanvas(w, h), ctx = c.getContext('2d', { willReadFrequently: true });
-  const img = ctx.createImageData(w, h), d = img.data;
-  for (let i = 0; i < w * h; i++) {
-    const v = Math.max(0, Math.min(255, map(vals[i], i) * 255));
-    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v; d[i * 4 + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-  return c;
-}
-
-function tex(canvas, { srgb = true, repeat = true, aniso = 8 } = {}) {
-  const t = new THREE.CanvasTexture(canvas);
+function toTexture(c, { srgb = true, mips = true } = {}) {
+  const t = new THREE.CanvasTexture(c);
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.anisotropy = aniso;
-  t.generateMipmaps = true;
-  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = mips;
+  t.anisotropy = 4;
+  t.needsUpdate = true;
   return t;
 }
 
-// 在畫素層疊加噪聲顏色
-function paintNoise(ctx, w, h, noise, fn) {
-  const img = ctx.getImageData(0, 0, w, h), d = img.data;
-  for (let i = 0; i < w * h; i++) {
-    const r = fn(noise[i], d[i * 4], d[i * 4 + 1], d[i * 4 + 2], i);
-    d[i * 4] = r[0]; d[i * 4 + 1] = r[1]; d[i * 4 + 2] = r[2];
+// 逐像素繪製：fn(u, v) 回傳 [r, g, b, a]（0..255），u、v 以中心為 0、邊緣為 ±1
+function paint(size, fn) {
+  const c = canvas(size), ctx = c.getContext('2d');
+  const img = ctx.createImageData(size, size), d = img.data;
+  const px = [0, 0, 0, 0];
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = (x + 0.5) / size * 2 - 1, v = (y + 0.5) / size * 2 - 1;
+    fn(u, v, px, x, y);
+    const i = (y * size + x) * 4;
+    d[i] = px[0]; d[i + 1] = px[1]; d[i + 2] = px[2]; d[i + 3] = px[3];
   }
   ctx.putImageData(img, 0, 0);
-}
-
-function rustStreaks(ctx, w, h, rnd, count, fromY, len, alpha, color = '110,55,25') {
-  for (let i = 0; i < count; i++) {
-    const x = rnd() * w, wd = 2 + rnd() * 10, L = len * (0.3 + rnd());
-    const y0 = fromY + (rnd() - 0.5) * 8;
-    const g = ctx.createLinearGradient(0, y0, 0, y0 + L);
-    const a = alpha * (0.3 + rnd() * 0.7);
-    g.addColorStop(0, `rgba(${color},${a})`);
-    g.addColorStop(1, `rgba(${color},0)`);
-    ctx.fillStyle = g;
-    ctx.fillRect(x, y0, wd, L);
-  }
-}
-
-function blobs(ctx, rnd, w, h, count, rMin, rMax, color, aMin, aMax) {
-  for (let i = 0; i < count; i++) {
-    const x = rnd() * w, y = rnd() * h, r = rMin + rnd() * (rMax - rMin);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    const a = aMin + rnd() * (aMax - aMin);
-    g.addColorStop(0, `rgba(${color},${a})`);
-    g.addColorStop(1, `rgba(${color},0)`);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-// 做舊文字：用噪聲擦除部分畫素
-function weatheredText(ctx, text, x, y, font, color, rnd, erode = 0.25, align = 'center') {
-  const w = ctx.canvas.width, h = ctx.canvas.height;
-  const c = mkCanvas(w, h), cx = c.getContext('2d', { willReadFrequently: true });
-  cx.font = font; cx.fillStyle = color; cx.textAlign = align; cx.textBaseline = 'middle';
-  cx.fillText(text, x, y);
-  cx.globalCompositeOperation = 'destination-out';
-  for (let i = 0; i < 900 * erode; i++) {
-    cx.fillStyle = `rgba(0,0,0,${0.3 + rnd() * 0.7})`;
-    const s = 1 + rnd() * 5;
-    cx.fillRect(rnd() * w, rnd() * h, s * (1 + rnd() * 3), s);
-  }
-  ctx.drawImage(c, 0, 0);
-}
-
-// ============== 甲板 ==============
-function deckTextures() {
-  const S = 1024; // 4m x 4m
-  const rnd = mulberry32(11);
-  const n1 = fbm(S, S, 4, 4, 5, 101);
-  const n2 = fbm(S, S, 16, 16, 3, 102);
-  const n3 = fbm(S, S, 8, 8, 4, 103);
-  const c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = 'rgb(66,72,72)'; ctx.fillRect(0, 0, S, S);
-  paintNoise(ctx, S, S, n1, (v, r, g, b, i) => {
-    const k = 0.82 + v * 0.36 + (n2[i] - 0.5) * 0.08;
-    return [r * k, g * k, b * k];
-  });
-  // 磨損的淺色人行軌跡（沿 X 方向）
-  for (let i = 0; i < 260; i++) {
-    const y = rnd() * S, x = rnd() * S, L = 40 + rnd() * 260;
-    ctx.fillStyle = `rgba(160,165,160,${0.03 + rnd() * 0.06})`;
-    ctx.fillRect(x, y, L, 1 + rnd() * 2);
-  }
-  // 鏽斑與油汙
-  const rustMask = fbm(S, S, 6, 6, 5, 104);
-  paintNoise(ctx, S, S, rustMask, (v, r, g, b, i) => {
-    const t = Math.max(0, (v - 0.66) * 4) * (0.5 + n2[i] * 0.6);
-    const tt = Math.min(0.7, t);
-    return [r + (92 - r) * tt, g + (58 - g) * tt, b + (40 - b) * tt];
-  });
-  blobs(ctx, rnd, S, S, 18, 20, 80, '20,20,18', 0.08, 0.25);
-  // 鋼板焊縫（每 2m）
-  const hgt = new Float32Array(S * S);
-  for (let i = 0; i < S * S; i++) hgt[i] = n3[i] * 0.25 + n2[i] * 0.08;
-  const seam = (x0, y0, x1, y1) => {
-    ctx.strokeStyle = 'rgba(30,32,33,0.8)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-    ctx.strokeStyle = 'rgba(140,140,135,0.35)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x0 + 2, y0 + 2); ctx.lineTo(x1 + 2, y1 + 2); ctx.stroke();
-  };
-  for (const p of [0, 512]) { seam(p + 1, 0, p + 1, S); seam(0, p + 1, S, p + 1); }
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const dx = Math.min(Math.abs(x % 512 - 1), 512 - Math.abs(x % 512 - 1));
-    const dy = Math.min(Math.abs(y % 512 - 1), 512 - Math.abs(y % 512 - 1));
-    const dd = Math.min(dx, dy);
-    if (dd < 4) hgt[y * S + x] += dd < 2 ? 0.9 : 0.5; // 焊縫凸起
-  }
-  // 防滑點（稀疏）
-  for (let i = 0; i < 4000; i++) {
-    const x = (rnd() * S) | 0, y = (rnd() * S) | 0;
-    hgt[y * S + x] += 0.6;
-  }
-  // 螺栓
-  for (let px = 0; px < 2; px++) for (let py = 0; py < 2; py++) {
-    for (let k = 0; k < 4; k++) {
-      const bx = px * 512 + 24 + (k % 2) * 464, by = py * 512 + 24 + ((k / 2) | 0) * 464;
-      ctx.fillStyle = 'rgba(40,40,40,0.8)'; ctx.beginPath(); ctx.arc(bx, by, 5, 0, 7); ctx.fill();
-      for (let yy = -6; yy <= 6; yy++) for (let xx = -6; xx <= 6; xx++) {
-        const r = Math.hypot(xx, yy);
-        if (r < 6) hgt[(by + yy) * S + bx + xx] += (6 - r) * 0.25;
-      }
-    }
-  }
-  const nrm = normalFromHeight(hgt, S, S, 2.2);
-  const rough = grayCanvas(n1, S, S, (v, i) => 0.62 + v * 0.3 - Math.max(0, rustMask[i] - 0.62) * -0.5);
-  return { map: tex(c), normalMap: tex(nrm, { srgb: false }), roughnessMap: tex(rough, { srgb: false }) };
-}
-
-// ============== 集裝箱 ==============
-export const CONTAINER_COLORS = [
-  { name: 'blue', rgb: [38, 72, 118], text: 'GLOBAL RISK', tc: '#e8e8e2' },
-  { name: 'red', rgb: [132, 40, 32], text: 'LENSVELD', tc: '#efeae0' },
-  { name: 'green', rgb: [52, 92, 60], text: 'TRANSLINE', tc: '#e8e8e0' },
-  { name: 'rust', rgb: [128, 70, 42], text: 'ORIENT CARGO', tc: '#f0e6d8' },
-  { name: 'gray', rgb: [112, 118, 120], text: 'NORDSEE', tc: '#1d2a44' },
-  { name: 'teal', rgb: [36, 102, 104], text: 'OCEAN STAR', tc: '#f2f2ea' },
-  { name: 'orange', rgb: [184, 96, 36], text: 'KESTREL LINE', tc: '#fdf6ea' },
-  { name: 'cream', rgb: [176, 164, 132], text: 'BLACK LIST', tc: '#2a2a2a' },
-];
-
-function corrugationHeight(W, H, ribs, railFrac, postFrac) {
-  const hgt = new Float32Array(W * H);
-  const n = fbm(W, H, 8, 4, 3, 77);
-  const railT = H * railFrac, postW = W * postFrac;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      let v;
-      if (y < railT || y > H - railT) v = 0.55; // 上下橫樑
-      else if (x < postW || x > W - postW) v = 0.8; // 角柱
-      else {
-        const t = ((x - postW) / (W - 2 * postW)) * ribs;
-        const f = t - Math.floor(t);
-        // 梯形瓦楞
-        v = f < 0.15 ? f / 0.15 : f < 0.45 ? 1 : f < 0.6 ? 1 - (f - 0.45) / 0.15 : 0;
-        v = v * 0.6 + 0.1;
-        // 瓦楞在橫樑處的過渡
-        const e = Math.min(y - railT, H - railT - y);
-        if (e < 6) v = v * (e / 6) + 0.55 * (1 - e / 6);
-      }
-      hgt[y * W + x] = v + (n[y * W + x] - 0.5) * 0.06;
-    }
-  }
-  return hgt;
-}
-
-function containerSide(color, W, H, ribs, seed, hgt) {
-  const rnd = mulberry32(seed);
-  const c = mkCanvas(W, H), ctx = c.getContext('2d', { willReadFrequently: true });
-  const [r, g, b] = color.rgb;
-  ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, 0, W, H);
-  const n = fbm(W, H, 6, 3, 5, seed + 5);
-  paintNoise(ctx, W, H, n, (v, rr, gg, bb, i) => {
-    const hv = hgt[i];
-    const k = (0.8 + v * 0.35) * (0.78 + hv * 0.3);
-    return [rr * k, gg * k, bb * k];
-  });
-  // 大字 logo
-  const fs = Math.round(H * 0.26);
-  weatheredText(ctx, color.text, W / 2, H * 0.5, `900 ${fs}px "Arial Black", Impact, sans-serif`, color.tc, rnd, 0.35);
-  // 箱號
-  const code = ['GRSU', 'LNVU', 'TRLU', 'OCSU', 'KSTU', 'BLKU', 'NDSU'][seed % 7] + ' ' + (100000 + ((rnd() * 899999) | 0)) + ' ' + ((rnd() * 9) | 0);
-  weatheredText(ctx, code, W - W * 0.05, H * 0.16, `bold ${Math.round(H * 0.06)}px Arial, sans-serif`, color.tc, rnd, 0.2, 'right');
-  weatheredText(ctx, rnd() > 0.5 ? '22G1' : '45G1', W - W * 0.05, H * 0.25, `bold ${Math.round(H * 0.05)}px Arial, sans-serif`, color.tc, rnd, 0.2, 'right');
-  // 鏽跡從上樑流下 + 底部鏽蝕
-  rustStreaks(ctx, W, H, rnd, 60, H * 0.07, H * 0.5, 0.35);
-  rustStreaks(ctx, W, H, rnd, 25, H * 0.5, H * 0.35, 0.25);
-  ctx.fillStyle = 'rgba(70,40,20,0.35)';
-  ctx.fillRect(0, H * 0.92, W, H * 0.08);
-  blobs(ctx, rnd, W, H, 30, 4, 30, '95,50,25', 0.2, 0.55);
-  // 底部汙漬
-  const gd = ctx.createLinearGradient(0, H * 0.7, 0, H);
-  gd.addColorStop(0, 'rgba(30,25,20,0)'); gd.addColorStop(1, 'rgba(30,25,20,0.45)');
-  ctx.fillStyle = gd; ctx.fillRect(0, H * 0.7, W, H * 0.3);
-  // 刮痕露出金屬
-  for (let i = 0; i < 40; i++) {
-    ctx.strokeStyle = `rgba(170,165,155,${0.15 + rnd() * 0.3})`;
-    ctx.lineWidth = 1;
-    const x = rnd() * W, y = rnd() * H;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (rnd() - 0.5) * 60, y + (rnd() - 0.5) * 12); ctx.stroke();
-  }
   return c;
 }
 
-function containerDoor(color, seed) {
-  const W = 512, H = 544;
-  const rnd = mulberry32(seed);
-  const c = mkCanvas(W, H), ctx = c.getContext('2d', { willReadFrequently: true });
-  const [r, g, b] = color.rgb;
-  const hgt = new Float32Array(W * H);
-  const n = fbm(W, H, 4, 4, 4, seed);
-  const postW = 26, railT = 30;
+const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+
+// 以角度取樣的平鋪噪聲：讓圓形圖案的邊緣不規則，且繞一圈接得起來
+function ringNoise(n, seed, lumps) {
+  const r = rng(seed), arr = new Float32Array(n);
+  const ph = [], amp = [];
+  for (let k = 1; k <= lumps; k++) { ph.push(r() * Math.PI * 2); amp.push((r() * 0.6 + 0.4) / k); }
+  let hi = 0;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    let s = 0;
+    for (let k = 0; k < lumps; k++) s += Math.sin(a * (k + 1) * 2 + ph[k]) * amp[k];
+    arr[i] = s; hi = Math.max(hi, Math.abs(s));
+  }
+  for (let i = 0; i < n; i++) arr[i] /= hi || 1;
+  return (ang) => arr[Math.floor(mod(ang / (Math.PI * 2), 1) * n) % n];
+}
+
+// ───────── 粒子 ─────────
+
+// 加法發光點：中心白熱、外圈快速衰減
+function glowTex(S) {
+  return toTexture(paint(S, (u, v, p) => {
+    const r = Math.hypot(u, v);
+    const core = Math.exp(-r * r * 18), halo = Math.pow(clamp01(1 - r), 2.2) * 0.55;
+    const a = clamp01(core + halo);
+    p[0] = p[1] = p[2] = 255; p[3] = a * 255;
+  }));
+}
+
+// 煙霧團：用噪聲侵蝕的柔邊圓，看起來像一團粉塵
+function puffTex(S) {
+  const n = fbm(S, S, 3, 3, 4, 31, 0.55);
+  return toTexture(paint(S, (u, v, p, x, y) => {
+    const r = Math.hypot(u, v);
+    const body = smooth(1, 0.25, r + (n[y * S + x] - 0.5) * 0.55);
+    const shade = 0.78 + n[y * S + x] * 0.22;
+    p[0] = p[1] = p[2] = 255 * shade; p[3] = body * 0.9 * 255;
+  }));
+}
+
+// ───────── 彈孔 ─────────
+// 三種材質各自有不同的破壞樣貌，透明背景、中心為孔洞
+
+function holeTex(S, kind) {
+  const n = fbm(S, S, 6, 6, 4, kind === 'metal' ? 11 : kind === 'wood' ? 12 : 13);
+  const edge = ringNoise(256, kind.length * 97 + 5, 7);
+  const r = rng(kind.length * 31 + 1);
+  // 木頭：沿紋理方向的裂片；石材：放射狀碎裂線
+  const shards = [];
+  const nShard = kind === 'wood' ? 6 : kind === 'stone' ? 9 : 5;
+  for (let i = 0; i < nShard; i++) {
+    shards.push({ a: kind === 'wood' ? (r() < 0.5 ? 0 : Math.PI) + (r() - 0.5) * 0.5 : r() * Math.PI * 2, len: 0.45 + r() * 0.45, w: 0.03 + r() * 0.05 });
+  }
+  return toTexture(paint(S, (u, v, p, x, y) => {
+    const d = Math.hypot(u, v), ang = Math.atan2(v, u), nz = n[y * S + x];
+    const holeR = kind === 'metal' ? 0.16 : 0.2;
+    const rim = holeR + 0.05 + edge(ang) * 0.04;
+    let a = 0, cr = 0, cg = 0, cb = 0;
+    // 孔本體
+    const hole = smooth(rim, rim - 0.06, d);
+    // 周圍受損區
+    let dmgR = kind === 'metal' ? 0.42 : kind === 'wood' ? 0.5 : 0.62;
+    dmgR += edge(ang * 1.7 + 1) * 0.08;
+    const dmg = smooth(dmgR, rim, d) * (0.65 + nz * 0.35);
+    // 裂片／裂紋
+    let crack = 0;
+    for (const s of shards) {
+      let da = Math.abs(mod(ang - s.a + Math.PI, Math.PI * 2) - Math.PI);
+      const along = d / s.len;
+      if (along < 1 && d > rim * 0.8) crack = Math.max(crack, smooth(s.w * (1 - along) + 0.004, 0, da * d) * (1 - along));
+    }
+    if (kind === 'metal') {
+      // 被撐開的亮金屬唇邊 + 外圈的焦黑
+      const lip = Math.exp(-Math.pow((d - rim) / 0.035, 2));
+      const soot = dmg * 0.75;
+      const shine = lip * (0.6 + 0.4 * Math.cos(ang - 2.3));
+      cr = 40 + shine * 170 + crack * 60; cg = 38 + shine * 165 + crack * 55; cb = 36 + shine * 160 + crack * 50;
+      a = Math.max(soot, lip * 0.95, crack * 0.6);
+    } else if (kind === 'wood') {
+      // 露出的淺色木纖維 + 深色撕裂
+      const fiber = 0.5 + 0.5 * Math.sin(v * 70 + nz * 6);
+      const exposed = dmg * (0.55 + fiber * 0.45);
+      cr = 196 - crack * 90; cg = 156 - crack * 80; cb = 104 - crack * 60;
+      a = Math.max(exposed * 0.85, crack * 0.9);
+    } else {
+      // 混凝土、磨石子、磁磚：灰白粉塵 + 剝落坑洞 + 放射裂紋
+      const chip = smooth(0.2, 0.75, nz) * dmg;
+      const dust = smooth(dmgR + 0.18, dmgR - 0.1, d) * 0.35;
+      const lum = 205 - chip * 70 - crack * 110;
+      cr = lum; cg = lum - 4; cb = lum - 10;
+      a = Math.max(dust, chip * 0.9 + dmg * 0.25, crack * 0.85);
+    }
+    // 疊上孔洞（接近純黑，中心最深）
+    const deep = 12 + 20 * smooth(0, rim, d);
+    cr = cr + (deep - cr) * hole; cg = cg + (deep - cg) * hole; cb = cb + (deep - cb) * hole;
+    a = Math.max(a, hole);
+    p[0] = cr; p[1] = cg; p[2] = cb; p[3] = clamp01(a) * 255;
+  }));
+}
+
+// 血跡：主體 + 噴出的液滴與拖尾
+function bloodTex(S) {
+  const n = fbm(S, S, 5, 5, 4, 77);
+  const edge = ringNoise(256, 4242, 9);
+  const r = rng(909), drops = [];
+  for (let i = 0; i < 22; i++) {
+    const a = r() * Math.PI * 2, dist = 0.4 + r() * 0.5;
+    drops.push({ x: Math.cos(a) * dist, y: Math.sin(a) * dist, r: 0.015 + r() * 0.05 * (1 - dist * 0.6), a, tail: r() * 0.12 });
+  }
+  return toTexture(paint(S, (u, v, p, x, y) => {
+    const d = Math.hypot(u, v), ang = Math.atan2(v, u), nz = n[y * S + x];
+    let a = smooth(0.42 + edge(ang) * 0.14, 0.34 + edge(ang) * 0.14, d + (nz - 0.5) * 0.12);
+    for (const q of drops) {
+      // 液滴沿噴射方向拉長
+      const dx = u - q.x, dy = v - q.y;
+      const along = dx * Math.cos(q.a) + dy * Math.sin(q.a), side = -dx * Math.sin(q.a) + dy * Math.cos(q.a);
+      const stretch = along < 0 ? along / (1 + q.tail * 12) : along;
+      a = Math.max(a, smooth(q.r, q.r * 0.6, Math.hypot(stretch, side)));
+    }
+    const wet = 0.55 + nz * 0.45;
+    p[0] = 92 * wet + 20; p[1] = 6 * wet; p[2] = 8 * wet; p[3] = clamp01(a) * 235;
+  }));
+}
+
+// 爆炸焦痕：中心最黑，往外是一圈圈不均勻的煙燻
+function scorchTex(S) {
+  const n = fbm(S, S, 4, 4, 5, 55, 0.6);
+  const edge = ringNoise(256, 5151, 10);
+  return toTexture(paint(S, (u, v, p, x, y) => {
+    const d = Math.hypot(u, v), ang = Math.atan2(v, u), nz = n[y * S + x];
+    const reach = 0.82 + edge(ang) * 0.13;
+    const soot = smooth(reach, 0.1, d + (nz - 0.5) * 0.35);
+    // 噴濺狀的放射條紋
+    const rays = 1 - smooth(0.25, 0.7, d) * (0.2 + 0.2 * Math.sin(ang * 11 + nz * 9));
+    const a = clamp01(soot * rays * 1.15);
+    const lum = 18 + nz * 26;
+    p[0] = lum + 6; p[1] = lum + 2; p[2] = lum; p[3] = a * 245;
+  }));
+}
+
+// ───────── 槍口火焰 ─────────
+
+// 正面：白熱核心 + 數片不規則的火瓣
+function flashFront(S, seed, petals) {
+  const r = rng(seed), rot = r() * Math.PI;
+  const len = [], wid = [];
+  for (let i = 0; i < petals; i++) { len.push(0.6 + r() * 0.4); wid.push(0.25 + r() * 0.25); }
+  const n = fbm(S, S, 4, 4, 3, seed * 3 + 1);
+  return toTexture(paint(S, (u, v, p, x, y) => {
+    const d = Math.hypot(u, v), ang = Math.atan2(v, u) + rot;
+    // 找最近的火瓣
+    const sector = (Math.PI * 2) / petals;
+    const k = Math.round(ang / sector), idx = mod(k, petals);
+    const off = Math.abs(ang - k * sector) / (sector * 0.5);
+    const petal = smooth(len[idx], len[idx] * 0.35, d) * smooth(wid[idx] * (1 - d * 0.6) + 0.05, 0, off * d);
+    const core = Math.exp(-d * d * 22);
+    const flick = 0.75 + n[y * S + x] * 0.5;
+    const a = clamp01(core * 1.3 + petal * flick * 0.85);
+    // 中心偏白、外圍偏橘
+    const hot = clamp01(core * 1.4 + 0.25);
+    p[0] = 255; p[1] = 150 + hot * 105; p[2] = 60 + hot * 190; p[3] = a * 255;
+  }));
+}
+
+// 側面：從槍口往外噴的錐形火舌（左側為槍口）
+function flashSideTex(W, H) {
+  const c = canvas(W, H), ctx = c.getContext('2d');
+  const img = ctx.createImageData(W, H), d = img.data;
+  const n = fbm(W, H, 6, 2, 3, 606);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    let v = 0.3;
-    if (x < postW || x > W - postW || y < railT || y > H - railT) v = 0.8;
-    else {
-      const dx = x < W / 2 ? x - postW : x - W / 2;
-      const t = (dx / (W / 2 - postW)) * 5, f = t - Math.floor(t);
-      v = 0.25 + (f < 0.2 ? f / 0.2 : f < 0.5 ? 1 : f < 0.7 ? 1 - (f - 0.5) / 0.2 : 0) * 0.35;
-      if (Math.abs(x - W / 2) < 3) v = 0.05; // 門縫
-    }
-    hgt[y * W + x] = v + (n[y * W + x] - 0.5) * 0.05;
-  }
-  // 四根鎖杆
-  const rods = [W * 0.14, W * 0.36, W * 0.64, W * 0.86];
-  for (const rx of rods) for (let y = railT - 10; y < H - railT + 10; y++) for (let x = rx - 7; x < rx + 7; x++) {
-    const d = Math.abs(x - rx);
-    hgt[y * W + (x | 0)] = 1.2 - d * 0.06;
-  }
-  ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, 0, W, H);
-  paintNoise(ctx, W, H, n, (v, rr, gg, bb, i) => {
-    const k = (0.8 + v * 0.35) * (0.75 + hgt[i] * 0.3);
-    return [rr * k, gg * k, bb * k];
-  });
-  // 鎖杆顏色 & 把手
-  for (const rx of rods) {
-    ctx.fillStyle = 'rgba(40,40,40,0.35)'; ctx.fillRect(rx - 7, railT - 10, 14, H - 2 * railT + 20);
-    ctx.fillStyle = 'rgba(30,30,30,0.7)'; ctx.fillRect(rx - 4, H * 0.55, 30 * (rx < W / 2 ? 1 : -1), 8);
-    for (const yy of [railT + 30, H * 0.3, H * 0.75, H - railT - 30]) {
-      ctx.fillStyle = 'rgba(30,30,30,0.6)'; ctx.fillRect(rx - 11, yy, 22, 12);
-    }
-  }
-  weatheredText(ctx, color.text, W * 0.25, H * 0.2, `900 ${34}px "Arial Black", Impact, sans-serif`, color.tc, rnd, 0.3);
-  ctx.fillStyle = 'rgba(210,205,190,0.8)'; ctx.fillRect(W * 0.58, H * 0.14, 90, 60); // CSC 銘牌
-  ctx.fillStyle = 'rgba(50,50,50,0.8)';
-  for (let i = 0; i < 5; i++) ctx.fillRect(W * 0.58 + 8, H * 0.14 + 8 + i * 10, 60 + rnd() * 14, 4);
-  rustStreaks(ctx, W, H, rnd, 30, railT, H * 0.5, 0.35);
-  blobs(ctx, rnd, W, H, 14, 5, 22, '95,50,25', 0.2, 0.5);
-  return { map: c, hgt, W, H };
-}
-
-function containerRoof(W, H, seed) {
-  const rnd = mulberry32(seed);
-  const n = fbm(W, H, 8, 2, 5, seed);
-  const hgt = new Float32Array(W * H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const t = (x / W) * 28, f = t - Math.floor(t);
-    let v = Math.sin(f * Math.PI) * 0.3;
-    if (y < 10 || y > H - 10) v = 0.7;
-    hgt[y * W + x] = v + n[y * W + x] * 0.1;
-  }
-  const c = mkCanvas(W, H), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = 'rgb(200,200,200)'; ctx.fillRect(0, 0, W, H);
-  paintNoise(ctx, W, H, n, (v, rr, gg, bb, i) => {
-    const k = 0.7 + v * 0.35;
-    return [rr * k, gg * k, bb * k];
-  });
-  blobs(ctx, rnd, W, H, 40, 10, 60, '120,70,35', 0.15, 0.5);
-  blobs(ctx, rnd, W, H, 20, 20, 80, '40,40,40', 0.1, 0.3);
-  return { map: c, hgt };
-}
-
-// ============== 木箱 / 軍用鐵箱 ==============
-function woodCrate(seed, variant) {
-  const S = 512, rnd = mulberry32(seed);
-  const c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const grain = fbm(S, S, 2, 32, 4, seed);
-  const n = fbm(S, S, 8, 8, 4, seed + 1);
-  const hgt = new Float32Array(S * S);
-  const base = variant === 1 ? [150, 112, 70] : [178, 140, 88];
-  const frame = 58, planks = 6;
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const i = y * S + x;
-    const inFrame = x < frame || x > S - frame || y < frame || y > S - frame;
-    let hv = inFrame ? 0.9 : 0.5;
-    // 木板縫
-    if (!inFrame) { const py = ((y - frame) / (S - 2 * frame)) * planks; if (py - Math.floor(py) < 0.03) hv = 0.1; }
-    if (inFrame) { if (Math.abs(x - frame) < 2 || Math.abs(x - (S - frame)) < 2 || Math.abs(y - frame) < 2 || Math.abs(y - (S - frame)) < 2) hv = 0.2; }
-    hgt[i] = hv + grain[i] * 0.1;
-  }
-  // 斜撐
-  const img = ctx.createImageData(S, S), d = img.data;
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const i = y * S + x;
-    const inX = x > frame && x < S - frame && y > frame && y < S - frame;
-    if (inX && Math.abs((x - frame) - (y - frame)) < 34 && variant !== 1) hgt[i] = 0.85 + grain[i] * 0.1;
-    const gr = grain[i];
-    const k = (0.72 + gr * 0.45) * (0.8 + n[i] * 0.3) * (0.55 + hgt[i] * 0.5);
-    d[i * 4] = base[0] * k; d[i * 4 + 1] = base[1] * k; d[i * 4 + 2] = base[2] * k; d[i * 4 + 3] = 255;
+    const t = x / (W - 1), v = ((y + 0.5) / H) * 2 - 1;
+    const nz = n[y * W + x];
+    const width = 0.25 + t * 0.6 + Math.sin(t * 20 + nz * 3) * 0.06;
+    const body = smooth(width, width * 0.25, Math.abs(v)) * smooth(1, 0.55, t + (nz - 0.5) * 0.3) * smooth(0, 0.05, t);
+    const core = Math.exp(-v * v * 30) * Math.exp(-t * 3.5);
+    const a = clamp01(body * 0.9 + core);
+    const hot = clamp01(core * 1.5);
+    const i = (y * W + x) * 4;
+    d[i] = 255; d[i + 1] = 145 + hot * 110; d[i + 2] = 55 + hot * 200; d[i + 3] = a * 255;
   }
   ctx.putImageData(img, 0, 0);
-  // 釘子
-  ctx.fillStyle = 'rgba(40,35,30,0.9)';
-  for (let k = 0; k < 16; k++) {
-    const t = k / 4 | 0, s = k % 4;
-    const pos = [[frame / 2, frame + s * (S - 2 * frame) / 3], [S - frame / 2, frame + s * (S - 2 * frame) / 3], [frame + s * (S - 2 * frame) / 3, frame / 2], [frame + s * (S - 2 * frame) / 3, S - frame / 2]][t];
-    ctx.beginPath(); ctx.arc(pos[0], pos[1], 3, 0, 7); ctx.fill();
-  }
-  const labels = ['FRAGILE', 'CF-07', 'HANDLE WITH CARE', 'NO.36', '易碎物品', 'LAGOS'];
-  weatheredText(ctx, labels[seed % labels.length], S / 2, S / 2 + (variant === 1 ? 0 : 60), `bold ${labels[seed % labels.length].length > 8 ? 34 : 54}px "Arial Black", Impact, sans-serif`, 'rgba(25,25,25,0.8)', rnd, 0.5);
-  if (seed % 2 === 0) { // 向上箭頭
-    ctx.fillStyle = 'rgba(25,25,25,0.7)';
-    for (const ax of [S / 2 - 40, S / 2 + 40]) {
-      ctx.beginPath(); ctx.moveTo(ax, S * 0.28); ctx.lineTo(ax - 18, S * 0.36); ctx.lineTo(ax + 18, S * 0.36); ctx.fill();
-      ctx.fillRect(ax - 6, S * 0.36, 12, 34);
-    }
-  }
-  blobs(ctx, rnd, S, S, 12, 10, 50, '60,40,25', 0.1, 0.35);
-  return { map: c, hgt };
+  return toTexture(c);
 }
 
-function metalCrate(seed) {
-  const S = 512, rnd = mulberry32(seed);
-  const n = fbm(S, S, 8, 8, 5, seed);
-  const hgt = new Float32Array(S * S);
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const e = Math.min(x, y, S - x, S - y);
-    let v = e < 24 ? 0.9 : e < 30 ? 0.4 : 0.55;
-    const ry = (y / S) * 4; if (Math.abs(ry - Math.round(ry)) < 0.02 && e > 30) v = 0.75;
-    hgt[y * S + x] = v + n[y * S + x] * 0.05;
-  }
-  const c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = 'rgb(72,80,54)'; ctx.fillRect(0, 0, S, S);
-  paintNoise(ctx, S, S, n, (v, r, g, b, i) => { const k = (0.8 + v * 0.3) * (0.7 + hgt[i] * 0.4); return [r * k, g * k, b * k]; });
-  ctx.fillStyle = 'rgba(30,30,30,0.8)';
-  for (const x of [S * 0.25, S * 0.75]) { ctx.fillRect(x - 22, 32, 44, 26); ctx.fillRect(x - 22, S - 58, 44, 26); }
-  weatheredText(ctx, ['AMMO 7.62', 'CARTRIDGES', 'EXPLOSIVE', 'CF ARMORY'][seed % 4], S / 2, S * 0.45, 'bold 48px "Arial Black", Impact, sans-serif', 'rgba(230,200,60,0.85)', rnd, 0.4);
-  weatheredText(ctx, 'LOT ' + ((rnd() * 9000 + 1000) | 0), S / 2, S * 0.6, 'bold 26px Arial, sans-serif', 'rgba(230,220,180,0.7)', rnd, 0.3);
-  for (let i = 0; i < 60; i++) {
-    ctx.strokeStyle = `rgba(150,150,140,${0.2 + rnd() * 0.3})`;
-    const x = rnd() * S, y = rnd() * S;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (rnd() - 0.5) * 40, y + (rnd() - 0.5) * 10); ctx.stroke();
-  }
-  return { map: c, hgt };
-}
+// ───────── 打包 ─────────
 
-// ============== 船體 / 艙壁 / 上層建築 ==============
-function hullTexture() {
-  const W = 1024, H = 1024; // 16m 寬，v 對映高度 (-12..+1.5)
-  const rnd = mulberry32(55);
-  const n = fbm(W, H, 8, 8, 5, 56);
-  const c = mkCanvas(W, H), ctx = c.getContext('2d', { willReadFrequently: true });
-  const yToPx = (y) => H - ((y + 12) / 13.5) * H;
-  const wl = yToPx(-7.3);
-  // 上部深灰黑，水線以下紅色防汙漆，中間黑色水線帶
-  ctx.fillStyle = 'rgb(38,42,48)'; ctx.fillRect(0, 0, W, wl);
-  ctx.fillStyle = 'rgb(24,24,26)'; ctx.fillRect(0, wl, W, yToPx(-8.2) - wl);
-  ctx.fillStyle = 'rgb(118,34,30)'; ctx.fillRect(0, yToPx(-8.2), W, H);
-  paintNoise(ctx, W, H, n, (v, r, g, b) => { const k = 0.75 + v * 0.45; return [r * k, g * k, b * k]; });
-  // 焊縫
-  const hgt = new Float32Array(W * H);
-  for (let i = 0; i < W * H; i++) hgt[i] = n[i] * 0.1;
-  ctx.strokeStyle = 'rgba(15,15,18,0.6)'; ctx.lineWidth = 2;
-  for (let x = 0; x < W; x += 128) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); for (let y = 0; y < H; y++) { hgt[y * W + x] += 0.6; hgt[y * W + x + 1] += 0.4; } }
-  for (const yy of [-2, -5, -10]) { const py = yToPx(yy) | 0; ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke(); for (let x = 0; x < W; x++) hgt[py * W + x] += 0.6; }
-  // 鏽流
-  rustStreaks(ctx, W, H, rnd, 70, yToPx(1.2), H * 0.35, 0.45, '120,58,28');
-  rustStreaks(ctx, W, H, rnd, 20, yToPx(-3), H * 0.2, 0.3, '120,58,28');
-  // 排水口
-  for (let i = 0; i < 3; i++) {
-    const x = 100 + i * 330 + rnd() * 40, y = yToPx(-0.6);
-    ctx.fillStyle = 'rgb(12,12,12)'; ctx.beginPath(); ctx.ellipse(x, y, 10, 6, 0, 0, 7); ctx.fill();
-    rustStreaks(ctx, W, H, () => 0.5 + (rnd() - 0.5) * 0.02, 1, y, H * 0.3, 0.6, '130,62,30');
-  }
-  // 水線附近的汙漬
-  const g = ctx.createLinearGradient(0, wl - 40, 0, wl + 20);
-  g.addColorStop(0, 'rgba(60,70,60,0)'); g.addColorStop(1, 'rgba(60,70,60,0.5)');
-  ctx.fillStyle = g; ctx.fillRect(0, wl - 40, W, 60);
-  return { map: tex(c), normalMap: tex(normalFromHeight(hgt, W, H, 3), { srgb: false }) };
-}
-
-function paintedSteel(seed, rgb, opts = {}) {
-  const S = 512, rnd = mulberry32(seed); // 3m x 3m
-  const n = fbm(S, S, 4, 4, 5, seed);
-  const n2 = fbm(S, S, 16, 16, 3, seed + 1);
-  const hgt = new Float32Array(S * S);
-  const c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; ctx.fillRect(0, 0, S, S);
-  paintNoise(ctx, S, S, n, (v, r, g, b, i) => { const k = 0.82 + v * 0.28 + (n2[i] - 0.5) * 0.06; return [r * k, g * k, b * k]; });
-  // 加強筋（豎向）
-  if (opts.stiffeners !== false) {
-    for (let x = 0; x < S; x += 128) {
-      ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(x + 6, 0, 4, S);
-      ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(x, 0, 6, S);
-      for (let y = 0; y < S; y++) for (let k = 0; k < 8; k++) hgt[y * S + x + k] = 0.8;
-    }
-    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(0, 255, S, 2);
-    for (let x = 0; x < S; x++) hgt[255 * S + x] = 0.6;
-  }
-  for (let i = 0; i < S * S; i++) hgt[i] += n2[i] * 0.05;
-  rustStreaks(ctx, S, S, rnd, opts.rust ?? 30, 0, S * 0.6, 0.3);
-  blobs(ctx, rnd, S, S, 16, 4, 20, '110,60,30', 0.2, 0.5);
-  const gd = ctx.createLinearGradient(0, S * 0.75, 0, S);
-  gd.addColorStop(0, 'rgba(40,35,30,0)'); gd.addColorStop(1, 'rgba(40,35,30,0.4)');
-  ctx.fillStyle = gd; ctx.fillRect(0, S * 0.75, S, S * 0.25);
-  return { map: tex(c), normalMap: tex(normalFromHeight(hgt, S, S, 2.5), { srgb: false }) };
-}
-
-function superWall() {
-  // 一個 4m x 3m 的單元：白色鋼板 + 一扇窗
-  const W = 512, H = 384, rnd = mulberry32(77);
-  const n = fbm(W, H, 4, 3, 5, 78);
-  const c = mkCanvas(W, H), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = 'rgb(214,216,212)'; ctx.fillRect(0, 0, W, H);
-  paintNoise(ctx, W, H, n, (v, r, g, b) => { const k = 0.85 + v * 0.2; return [r * k, g * k, b * k]; });
-  const wx = 150, wy = 90, ww = 212, wh = 150;
-  // 窗框
-  ctx.fillStyle = 'rgb(160,164,160)'; ctx.fillRect(wx - 10, wy - 10, ww + 20, wh + 20);
-  const g = ctx.createLinearGradient(0, wy, 0, wy + wh);
-  g.addColorStop(0, 'rgb(120,150,175)'); g.addColorStop(0.45, 'rgb(40,58,72)'); g.addColorStop(1, 'rgb(22,28,34)');
-  ctx.fillStyle = g; ctx.fillRect(wx, wy, ww, wh);
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  ctx.beginPath(); ctx.moveTo(wx + 20, wy); ctx.lineTo(wx + 80, wy); ctx.lineTo(wx + 20, wy + wh); ctx.lineTo(wx, wy + wh); ctx.fill();
-  ctx.fillStyle = 'rgb(150,154,150)'; ctx.fillRect(wx + ww / 2 - 3, wy, 6, wh);
-  rustStreaks(ctx, W, H, rnd, 10, wy + wh + 10, 110, 0.35);
-  rustStreaks(ctx, W, H, rnd, 10, 0, 60, 0.2);
-  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(0, H - 6, W, 6);
-  const em = mkCanvas(W, H), ex = em.getContext('2d', { willReadFrequently: true });
-  ex.fillStyle = '#000'; ex.fillRect(0, 0, W, H);
-  if (true) { ex.fillStyle = 'rgba(255,220,160,0.10)'; ex.fillRect(wx, wy + wh * 0.5, ww, wh * 0.5); }
-  return { map: tex(c), emissiveMap: tex(em) };
-}
-
-// ============== 網格 / 格柵 ==============
-function meshFence() {
-  const S = 256, cells = 8; // 1m -> 8 格（12.5cm 焊接網）
-  const c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.clearRect(0, 0, S, S);
-  ctx.strokeStyle = 'rgba(225,228,222,1)'; ctx.lineWidth = 3.2;
-  for (let i = 0; i <= cells; i++) {
-    const p = (i / cells) * S;
-    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, S); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke();
-  }
-  const t = tex(c); t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-function grating() {
-  const S = 256; // 0.5m
-  const c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = 'rgb(70,74,74)'; ctx.fillRect(0, 0, S, S);
-  ctx.globalCompositeOperation = 'destination-out';
-  for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) ctx.fillRect(x * 16 + 3, y * 64 + 4, 11, 56);
-  ctx.globalCompositeOperation = 'source-over';
-  return tex(c);
-}
-
-// ============== 貼花 / 粒子 ==============
-function bulletHole(kind) {
-  const S = 64, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const rnd = mulberry32(kind === 'wood' ? 3 : kind === 'stone' ? 5 : 4);
-  if (kind === 'wood') {
-    for (let i = 0; i < 10; i++) {
-      ctx.strokeStyle = `rgba(210,170,110,${0.5 + rnd() * 0.4})`; ctx.lineWidth = 1 + rnd() * 2;
-      const a = rnd() * 6.28; ctx.beginPath(); ctx.moveTo(32, 32); ctx.lineTo(32 + Math.cos(a) * (10 + rnd() * 16), 32 + Math.sin(a) * (10 + rnd() * 16)); ctx.stroke();
-    }
-  } else if (kind === 'stone') {
-    // 磚、水泥：不規則崩缺（較淺的碎面）+ 放射細裂紋
-    ctx.fillStyle = 'rgba(214,196,178,0.85)'; ctx.beginPath();
-    for (let i = 0; i <= 14; i++) { const a = i / 14 * Math.PI * 2, r = 12 + rnd() * 9; i ? ctx.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r) : ctx.moveTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); }
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(150,130,115,0.6)'; ctx.beginPath(); ctx.arc(32, 32, 11, 0, 7); ctx.fill();
-    for (let i = 0; i < 7; i++) { ctx.strokeStyle = 'rgba(40,35,30,0.55)'; ctx.lineWidth = 1; const a = rnd() * 6.28; ctx.beginPath(); ctx.moveTo(32 + Math.cos(a) * 8, 32 + Math.sin(a) * 8); ctx.lineTo(32 + Math.cos(a) * (18 + rnd() * 12), 32 + Math.sin(a) * (18 + rnd() * 12)); ctx.stroke(); }
-  } else {
-    const g = ctx.createRadialGradient(32, 32, 4, 32, 32, 20);
-    g.addColorStop(0, 'rgba(200,200,195,0.9)'); g.addColorStop(0.4, 'rgba(120,120,115,0.5)'); g.addColorStop(1, 'rgba(60,60,60,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(32, 32, 20, 0, 7); ctx.fill();
-  }
-  const g2 = ctx.createRadialGradient(32, 32, 0, 32, 32, 8);
-  g2.addColorStop(0, 'rgba(5,5,5,1)'); g2.addColorStop(0.7, 'rgba(15,15,15,0.95)'); g2.addColorStop(1, 'rgba(20,20,20,0)');
-  ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(32, 32, 8, 0, 7); ctx.fill();
-  return tex(c, { repeat: false });
-}
-
-function scorch() {
-  const S = 256, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const n = fbm(S, S, 8, 8, 4, 91);
-  const img = ctx.createImageData(S, S), d = img.data;
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const r = Math.hypot(x - S / 2, y - S / 2) / (S / 2);
-    const a = Math.max(0, 1 - r * (0.8 + n[y * S + x] * 0.6)) ** 1.3;
-    const i = (y * S + x) * 4; d[i] = d[i + 1] = d[i + 2] = 10; d[i + 3] = a * 235;
-  }
-  ctx.putImageData(img, 0, 0);
-  return tex(c, { repeat: false });
-}
-
-function blood() {
-  const S = 128, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const rnd = mulberry32(5);
-  for (let i = 0; i < 26; i++) {
-    const a = rnd() * 6.28, r = rnd() * 40, s = 3 + rnd() * 12 * (1 - r / 50);
-    ctx.fillStyle = `rgba(${100 + rnd() * 40},8,8,${0.7 + rnd() * 0.3})`;
-    ctx.beginPath(); ctx.arc(64 + Math.cos(a) * r, 64 + Math.sin(a) * r, s, 0, 7); ctx.fill();
-  }
-  return tex(c, { repeat: false });
-}
-
-function muzzleFlash(seed, petals) {
-  const S = 256, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const rnd = mulberry32(seed);
-  ctx.translate(S / 2, S / 2);
-  ctx.globalCompositeOperation = 'lighter';
-  for (let p = 0; p < petals; p++) {
-    const a = (p / petals) * Math.PI * 2 + rnd() * 0.4, L = S * (0.28 + rnd() * 0.2), wd = S * 0.05;
-    ctx.save(); ctx.rotate(a);
-    const g = ctx.createLinearGradient(0, 0, L, 0);
-    g.addColorStop(0, 'rgba(255,240,200,0.95)'); g.addColorStop(0.4, 'rgba(255,170,60,0.7)'); g.addColorStop(1, 'rgba(255,90,10,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(0, -wd); ctx.quadraticCurveTo(L * 0.5, -wd * 0.8, L, 0); ctx.quadraticCurveTo(L * 0.5, wd * 0.8, 0, wd); ctx.fill();
-    ctx.restore();
-  }
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, S * 0.22);
-  g.addColorStop(0, 'rgba(255,255,235,1)'); g.addColorStop(0.35, 'rgba(255,200,110,0.8)'); g.addColorStop(1, 'rgba(255,120,20,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, S * 0.22, 0, 7); ctx.fill();
-  return tex(c, { repeat: false });
-}
-
-function muzzleSide() {
-  const W = 256, H = 64, c = mkCanvas(W, H), ctx = c.getContext('2d', { willReadFrequently: true });
-  const g = ctx.createLinearGradient(0, 0, W, 0);
-  g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(0.3, 'rgba(255,190,90,0.85)'); g.addColorStop(1, 'rgba(255,100,20,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.moveTo(0, H / 2 - 14); ctx.quadraticCurveTo(W * 0.4, 2, W, H / 2); ctx.quadraticCurveTo(W * 0.4, H - 2, 0, H / 2 + 14); ctx.fill();
-  return tex(c, { repeat: false });
-}
-
-function softPuff() {
-  const S = 128, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const n = fbm(S, S, 4, 4, 4, 33);
-  const img = ctx.createImageData(S, S), d = img.data;
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const r = Math.hypot(x - S / 2, y - S / 2) / (S / 2);
-    const a = Math.max(0, 1 - r) ** 1.5 * (0.5 + n[y * S + x] * 0.8);
-    const i = (y * S + x) * 4; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = Math.min(255, a * 255);
-  }
-  ctx.putImageData(img, 0, 0);
-  return tex(c, { repeat: false });
-}
-
-function glow() {
-  const S = 64, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
-  return tex(c, { repeat: false });
-}
-
-function sparkTex() {
-  const W = 16, H = 64, c = mkCanvas(W, H), ctx = c.getContext('2d', { willReadFrequently: true });
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, 'rgba(255,255,220,0)'); g.addColorStop(0.2, 'rgba(255,240,180,1)'); g.addColorStop(1, 'rgba(255,140,40,0)');
-  ctx.fillStyle = g; ctx.fillRect(W / 2 - 2, 0, 4, H);
-  return tex(c, { repeat: false });
-}
-
-// ============== 標識牌圖集 ==============
-function signAtlas() {
-  const S = 1024, c = mkCanvas(S, S), ctx = c.getContext('2d', { willReadFrequently: true });
-  const rnd = mulberry32(123);
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
-  // 0: 黃黑警示條 (0,0,512,128)
-  for (let i = -4; i < 40; i++) {
-    ctx.fillStyle = i % 2 ? '#1a1a1a' : '#e0b21c';
-    ctx.beginPath(); ctx.moveTo(i * 32, 0); ctx.lineTo(i * 32 + 32, 0); ctx.lineTo(i * 32 + 32 - 128, 128); ctx.lineTo(i * 32 - 128, 128); ctx.fill();
-  }
-  // 1: 禁止煙火 (512,0,256,256)
-  const sign = (x, y, w, h, bg, fg, lines, icon) => {
-    ctx.fillStyle = bg; ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = fg; ctx.lineWidth = 6; ctx.strokeRect(x + 6, y + 6, w - 12, h - 12);
-    ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    lines.forEach((l, i) => { ctx.font = l[1]; ctx.fillText(l[0], x + w / 2, y + l[2]); });
-    if (icon) icon(x, y, w, h);
-  };
-  sign(512, 0, 256, 256, '#f2f2ec', '#c0201c', [['禁止煙火', 'bold 40px sans-serif', 200], ['NO SMOKING', 'bold 22px Arial', 236]], (x, y) => {
-    ctx.strokeStyle = '#c0201c'; ctx.lineWidth = 14; ctx.beginPath(); ctx.arc(x + 128, y + 95, 70, 0, 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x + 78, y + 45); ctx.lineTo(x + 178, y + 145); ctx.stroke();
-    ctx.fillStyle = '#222'; ctx.fillRect(x + 90, y + 88, 70, 14);
-  });
-  // 2: DANGER (768,0,256,256)
-  sign(768, 0, 256, 256, '#e0b21c', '#111', [['DANGER', 'bold 50px "Arial Black"', 70], ['危險', 'bold 64px sans-serif', 150], ['高壓 · 禁止攀爬', 'bold 24px sans-serif', 220]]);
-  // 3: 艙號 (0,128,512,128)
-  ctx.fillStyle = '#d9dad4'; ctx.fillRect(0, 128, 512, 128);
-  ctx.fillStyle = '#1b2a4a'; ctx.font = 'bold 76px "Arial Black", Impact'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('HOLD No.3', 256, 192);
-  // 4: 救生圈標識 / 集合點 (0,256,256,256)
-  sign(0, 256, 256, 256, '#1f8a3a', '#fff', [['集合點', 'bold 50px sans-serif', 190], ['MUSTER STATION', 'bold 20px Arial', 230]], (x, y) => {
-    ctx.fillStyle = '#fff'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(x + 70 + i * 38, y + 90, 16, 0, 7); ctx.fill(); }
-  });
-  // 5: 消防 (256,256,256,256)
-  sign(256, 256, 256, 256, '#c0201c', '#fff', [['消防栓', 'bold 56px sans-serif', 170], ['FIRE HYDRANT', 'bold 22px Arial', 225]], (x, y) => {
-    ctx.fillStyle = '#fff'; ctx.fillRect(x + 108, y + 40, 40, 70); ctx.fillRect(x + 90, y + 60, 76, 18);
-  });
-  // 6: 船名 (0,512,1024,160)
-  ctx.fillStyle = '#e9ebe6'; ctx.fillRect(0, 512, 1024, 160);
-  ctx.fillStyle = '#12213f'; ctx.font = 'bold 110px "Arial Black", Impact'; ctx.fillText('KESTREL  STAR', 512, 594);
-  // 7: 集裝箱噴漆 GR / BL 大字 (0,672,512,176)
-  ctx.fillStyle = '#20252b'; ctx.fillRect(0, 672, 512, 176);
-  ctx.fillStyle = '#d23b2e'; ctx.font = 'bold 120px "Arial Black", Impact'; ctx.fillText('BL', 256, 762);
-  ctx.fillStyle = '#20252b'; ctx.fillRect(512, 672, 512, 176);
-  ctx.fillStyle = '#3a8ee0'; ctx.fillText('GR', 768, 762);
-  // 8: 甲板箭頭 (512,256,256,256)
-  ctx.fillStyle = '#000'; ctx.fillRect(512, 256, 512, 256);
-  ctx.fillStyle = 'rgba(235,235,225,0.9)';
-  ctx.beginPath(); ctx.moveTo(640, 280); ctx.lineTo(720, 380); ctx.lineTo(670, 380); ctx.lineTo(670, 490); ctx.lineTo(610, 490); ctx.lineTo(610, 380); ctx.lineTo(560, 380); ctx.fill();
-  ctx.fillStyle = 'rgba(224,178,28,0.95)'; ctx.fillRect(800, 256, 60, 256); ctx.fillRect(900, 256, 60, 256);
-  // 做舊
-  const n = fbm(S, S, 16, 16, 3, 124);
-  paintNoise(ctx, S, S, n, (v, r, g, b) => { const k = 0.8 + v * 0.3; return [r * k, g * k, b * k]; });
-  for (let i = 0; i < 300; i++) { ctx.fillStyle = `rgba(90,60,40,${rnd() * 0.3})`; ctx.fillRect(rnd() * S, rnd() * S, 2 + rnd() * 8, 2 + rnd() * 20); }
-  return tex(c, { repeat: false });
-}
-
-export const SIGN_UV = {
-  hazard: [0, 0, 512, 128], nosmoke: [512, 0, 256, 256], danger: [768, 0, 256, 256],
-  hold: [0, 128, 512, 128], muster: [0, 256, 256, 256], hydrant: [256, 256, 256, 256],
-  shipname: [0, 512, 1024, 160], bl: [0, 672, 512, 176], gr: [512, 672, 512, 176],
-  arrow: [512, 256, 256, 256], yline: [800, 256, 160, 256],
-};
-
-// ============== 彙總 ==============
+// 回傳的物件：
+//   glow        加法發光粒子（火花、彈道亮點）
+//   puff        煙霧／粉塵粒子
+//   holeMetal / holeWood / holeStone   三種材質的彈孔
+//   blood       血跡
+//   scorch      爆炸焦痕
+//   flash[0..2] 三種正面槍口火焰（隨機輪替）
+//   flashSide   側面槍口火舌
 export function buildTextures(quality = 'high') {
-  const T = {};
-  T.deck = deckTextures();
-
-  // 集裝箱（側面法線在同長度間共享）
-  const h20 = corrugationHeight(1024, 448, 22, 0.07, 0.03);
-  const h40 = corrugationHeight(2048, 448, 44, 0.07, 0.015);
-  const n20 = tex(normalFromHeight(h20, 1024, 448, 3.2), { srgb: false });
-  const n40 = tex(normalFromHeight(h40, 2048, 448, 3.2), { srgb: false });
-  const roof = containerRoof(1024, 256, 900);
-  const roofN = tex(normalFromHeight(roof.hgt, 1024, 256, 2), { srgb: false });
-  const roofMap = tex(roof.map);
-  T.containers = CONTAINER_COLORS.map((col, i) => {
-    const s20 = containerSide(col, 1024, 448, 22, 200 + i, h20);
-    const s40 = containerSide(col, 2048, 448, 44, 300 + i, h40);
-    const door = containerDoor(col, 400 + i);
-    return {
-      color: col,
-      side20: tex(s20), side40: tex(s40), n20, n40,
-      door: tex(door.map), doorN: tex(normalFromHeight(door.hgt, door.W, door.H, 3), { srgb: false }),
-      roof: roofMap, roofN,
-    };
-  });
-  // 木箱與鐵箱
-  T.crates = [];
-  for (let i = 0; i < 4; i++) {
-    const w = woodCrate(500 + i, i % 2);
-    T.crates.push({ map: tex(w.map), normalMap: tex(normalFromHeight(w.hgt, 512, 512, 3), { srgb: false }), kind: 'wood' });
-  }
-  for (let i = 0; i < 2; i++) {
-    const m = metalCrate(600 + i);
-    T.crates.push({ map: tex(m.map), normalMap: tex(normalFromHeight(m.hgt, 512, 512, 3), { srgb: false }), kind: 'metal' });
-  }
-  T.hull = hullTexture();
-  T.bulkhead = paintedSteel(700, [168, 172, 170]);
-  T.darkSteel = paintedSteel(701, [70, 76, 80], { rust: 40 });
-  T.yellowSteel = paintedSteel(702, [214, 170, 38], { stiffeners: false, rust: 20 });
-  T.redSteel = paintedSteel(703, [150, 44, 36], { stiffeners: false, rust: 20 });
-  T.greenSteel = paintedSteel(704, [70, 96, 78], { rust: 25 });
-  T.superWall = superWall();
-  T.fence = meshFence();
-  T.grating = grating();
-  T.holeMetal = bulletHole('metal');
-  T.holeWood = bulletHole('wood');
-  T.holeStone = bulletHole('stone');
-  T.scorch = scorch();
-  T.blood = blood();
-  T.flash = [muzzleFlash(1, 5), muzzleFlash(2, 6), muzzleFlash(3, 4)];
-  T.flashSide = muzzleSide();
-  T.puff = softPuff();
-  T.glow = glow();
-  T.spark = sparkTex();
-  T.signs = signAtlas();
-  return T;
+  const q = quality === 'low' ? 0.5 : 1;
+  const sz = (n) => Math.max(32, Math.round(n * q));
+  return {
+    glow: glowTex(sz(64)),
+    puff: puffTex(sz(128)),
+    holeMetal: holeTex(sz(128), 'metal'),
+    holeWood: holeTex(sz(128), 'wood'),
+    holeStone: holeTex(sz(128), 'stone'),
+    blood: bloodTex(sz(256)),
+    scorch: scorchTex(sz(256)),
+    flash: [flashFront(sz(128), 101, 5), flashFront(sz(128), 202, 6), flashFront(sz(128), 303, 4)],
+    flashSide: flashSideTex(sz(128), sz(32)),
+  };
 }
