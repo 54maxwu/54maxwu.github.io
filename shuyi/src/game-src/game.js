@@ -589,7 +589,7 @@ export class Game {
   kill(v, att, wid, hs, wall, dir) {
     v.alive = false; v.hp = 0; v.deadT = 0; v.respawnT = 4.0; v.stats.d++;
     v.scoped = 0;
-    v.soldier.die(dir.x, dir.z, hs);
+    v.soldier.die(dir.x, dir.z, hs, this.world, v.vel, dir.y || 0);
     audio.playDeath(v.soldier.chestWorld(new THREE.Vector3()));
     const p = this.player;
     if (att && att !== v) {

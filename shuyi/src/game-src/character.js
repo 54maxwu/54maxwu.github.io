@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { buildGunMerged } from './guns.js';
 import { fbm } from './textures.js';
+import { Ragdoll } from './ragdoll.js';
 
 let ATLAS = null;
 function atlas() {
@@ -348,43 +349,20 @@ export class Soldier {
     B.handR.rotation.set(0, 0, 0); B.handL.rotation.set(0, 0, 0);
   }
   kick() { this.recoilK = 1; }
-  die(dirX, dirZ, headshot) {
+  die(dirX, dirZ, headshot, world, velocity, dirY = 0) {
     this.deadT = 0;
-    // 倒地方向：沿子彈方向
-    const fwd = new THREE.Vector3(-Math.sin(this.root.rotation.y), 0, -Math.cos(this.root.rotation.y));
-    const dot = fwd.x * dirX + fwd.z * dirZ;
-    this.fallDir = dot > 0 ? 1 : -1; // 被從背後打 -> 向前倒
-    this.fallSide = (Math.random() - 0.5) * 0.8;
-    this.fallSpeed = headshot ? 1.4 : 1;
-    this.limbR = [Math.random(), Math.random(), Math.random(), Math.random()];
-    this.opacity = 1; this.material.transparent = false; this.material.opacity = 1;
+    this.root.updateWorldMatrix(true, true);
+    this.ragdoll = new Ragdoll(this.bones, world, new THREE.Vector3(dirX, dirY, dirZ), velocity, headshot);
+    this.material.transparent = false; this.material.opacity = 1; this.opacity = 1;
   }
   updateDeath(dt) {
-    const B = this.B;
     this.deadT += dt;
-    const t = Math.min(1, this.deadT * 1.6 * this.fallSpeed);
-    const e = t * t; // 重力加速
-    const ang = e * Math.PI * 0.5 * 0.96;
-    this.mesh.rotation.x = -this.fallDir * ang;
-    this.mesh.rotation.z = this.fallSide * e;
-    B.hips.position.y = 0.98 - Math.sin(t * Math.PI) * 0.25 - t * 0.3;
-    const r = this.limbR;
-    const k = Math.min(1, this.deadT * 3);
-    B.upperArmR.rotation.x += ((r[0] * 2 - 1) * 1.5 - B.upperArmR.rotation.x) * k * 0.2;
-    B.upperArmL.rotation.x += ((r[1] * 2 - 1) * 1.5 - B.upperArmL.rotation.x) * k * 0.2;
-    B.forearmR.rotation.set(0.3 * r[2], 0, 0); B.forearmL.rotation.set(0.4 * r[3], 0, 0);
-    B.thighR.rotation.x *= 0.9; B.thighL.rotation.x += (0.4 * r[2] - B.thighL.rotation.x) * 0.1;
-    B.shinR.rotation.x *= 0.9; B.shinL.rotation.x *= 0.9;
-    B.spine.rotation.x *= 0.9; B.chest.rotation.x *= 0.9; B.neck.rotation.x += (0.3 * this.fallDir - B.neck.rotation.x) * 0.1;
+    this.ragdoll?.update(dt);
     if (this.gun) this.gun.visible = this.deadT < 0.25;
-    if (this.deadT > 4.5) {
-      this.material.transparent = true;
-      this.opacity = Math.max(0, 1 - (this.deadT - 4.5) / 1.2);
-      this.material.opacity = this.opacity;
-      this.root.position.y -= dt * 0.15;
-    }
   }
   reset() {
+    this.ragdoll = null;
+    BONES.forEach(([, , x, y, z], i) => { this.bones[i].position.set(x, y, z); this.bones[i].quaternion.identity(); });
     this.deadT = -1; this.mesh.rotation.set(0, 0, 0);
     this.material.transparent = false; this.material.opacity = 1; this.opacity = 1;
     if (this.gun) this.gun.visible = true;
