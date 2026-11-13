@@ -33028,10 +33028,10 @@ void main() {
       return k;
     }
     for (let i = 1; i < palette.length; i++) if (!skip(i)) for (let f = 0; f < 6; f++) textures.add(tex(names[i], f));
-    const tiles = [...textures], tile = 32, cols = 16, rows = Math.ceil(tiles.length / cols), atlas2 = document.createElement("canvas");
-    atlas2.width = cols * tile;
-    atlas2.height = rows * tile;
-    const ctx = atlas2.getContext("2d");
+    const tiles = [...textures], tile = 32, cols = 16, rows = Math.ceil(tiles.length / cols), atlas = document.createElement("canvas");
+    atlas.width = cols * tile;
+    atlas.height = rows * tile;
+    const ctx = atlas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     const lookup = /* @__PURE__ */ new Map();
     let missing = [];
@@ -33052,7 +33052,7 @@ void main() {
         missing.push(n);
       }
     }));
-    let texture = new CanvasTexture(atlas2);
+    let texture = new CanvasTexture(atlas);
     texture.colorSpace = SRGBColorSpace;
     texture.magFilter = NearestFilter;
     texture.minFilter = NearestMipmapLinearFilter;
@@ -34641,7 +34641,7 @@ void main() {
       return { meshes, facesCount: faces };
     }
   };
-  function placedExtrude(shape, depth, { plane = "x", at = 0, scale = 1 }) {
+  function placedExtrude(shape, depth, { plane = "x", at: at2 = 0, scale = 1 }) {
     const g = new ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 16, UVGenerator: {
       generateTopUV: (geo, v, a, b, c) => [new Vector2(v[a * 3] / scale, v[a * 3 + 1] / scale), new Vector2(v[b * 3] / scale, v[b * 3 + 1] / scale), new Vector2(v[c * 3] / scale, v[c * 3 + 1] / scale)],
       generateSideWallUV: (geo, v, a, b, c, d) => {
@@ -34650,10 +34650,10 @@ void main() {
       }
     } });
     if (plane === "x") {
-      g.translate(0, 0, -at - depth);
+      g.translate(0, 0, -at2 - depth);
     } else {
       g.rotateY(Math.PI / 2);
-      g.translate(at, 0, 0);
+      g.translate(at2, 0, 0);
     }
     return g;
   }
@@ -38589,9 +38589,9 @@ void main() {
         d[i] = lp * comp * env * 0.35;
       }
       for (const [tt, g] of taps) {
-        const at = Math.max(0, Math.floor((tt + (ch ? rand2(4e-4, 25e-4) : rand2(0, 12e-4))) * sr));
+        const at2 = Math.max(0, Math.floor((tt + (ch ? rand2(4e-4, 25e-4) : rand2(0, 12e-4))) * sr));
         const sgn = Math.random() < 0.5 ? -1 : 1;
-        for (let k = 0; k < 24 && at + k < len; k++) d[at + k] += sgn * g * Math.exp(-k / 5) * (k % 2 ? -0.35 : 1);
+        for (let k = 0; k < 24 && at2 + k < len; k++) d[at2 + k] += sgn * g * Math.exp(-k / 5) * (k % 2 ? -0.35 : 1);
       }
     }
     return buf;
@@ -40491,69 +40491,49 @@ void main() {
   };
 
   // game-src/character.js
+  var ATLAS_U = { fab: [0.01, 0.23], plaid: [0.26, 0.48], plain: [0.52, 0.98] };
   var ATLAS = null;
-  function atlas() {
+  function clothAtlas() {
     if (ATLAS) return ATLAS;
-    const W = 1024, H = 128;
+    const W = 512, H = 64;
     const c = document.createElement("canvas");
     c.width = W;
     c.height = H;
-    const ctx = c.getContext("2d");
-    const n = fbm(W, H, 16, 4, 4, 91);
-    const img = ctx.createImageData(W, H), d = img.data;
-    const camo = fbm(W, H, 8, 2, 3, 92), camo2 = fbm(W, H, 8, 2, 3, 93);
+    const ctx = c.getContext("2d"), img = ctx.createImageData(W, H), d = img.data;
+    const grain = fbm(W, H, 16, 2, 4, 314);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      let v;
+      const i = y * W + x, n = grain[i];
+      let r, g, b;
       if (x < 128) {
-        const weave = ((x + y) % 3 === 0 ? 0.92 : 1) * ((x - y + 300) % 4 === 0 ? 0.94 : 1);
-        v = (0.82 + n[i] * 0.3) * weave;
+        const warp = x & 1 ^ y & 1 ? 0.95 : 1;
+        const v = (0.86 + n * 0.22) * warp * 205;
+        r = g = b = v;
       } else if (x < 256) {
-        const qx = Math.floor(x / 4) * 4, qy = Math.floor(y / 4) * 4, qi = qy * W + qx;
-        const a = camo[qi], b = camo2[qi];
-        v = a > 0.56 ? 0.55 : b > 0.58 ? 1.25 : a < 0.42 ? 0.8 : 1;
-        v *= 0.92 + n[i] * 0.15;
-      } else if (x >= 512 && x < 640) {
-        const px2 = (x - 512) % 32, py2 = y % 32, nx = 0.9 + n[i] * 0.15;
-        let r = 30, gg = 46, b = 98;
-        if (px2 < 10 || py2 < 10) {
-          r = 52;
-          gg = 86;
-          b = 160;
-        }
-        if (px2 < 10 && py2 < 10) {
-          r = 74;
-          gg = 112;
-          b = 188;
-        }
-        if (px2 === 14 || py2 === 14) {
-          r = 225;
-          gg = 230;
-          b = 240;
-        }
-        if (px2 === 22 || py2 === 22) {
-          r = 20;
-          gg = 28;
-          b = 60;
-        }
-        d[i * 4] = Math.min(255, r * nx);
-        d[i * 4 + 1] = Math.min(255, gg * nx);
-        d[i * 4 + 2] = Math.min(255, b * nx);
-        d[i * 4 + 3] = 255;
-        continue;
-      } else v = 0.93 + n[i] * 0.12;
-      const g = Math.min(255, v * 200);
-      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = g;
+        const px2 = (x - 128) % 32, py2 = y % 32;
+        const wideX = px2 < 10, wideY = py2 < 10;
+        const k = (wideX ? 1 : 0) + (wideY ? 1 : 0);
+        [r, g, b] = [[30, 46, 98], [52, 86, 160], [74, 112, 188]][k];
+        if (px2 === 14 || py2 === 14) [r, g, b] = [225, 230, 240];
+        if (px2 === 22 || py2 === 22) [r, g, b] = [20, 28, 60];
+        const t = 0.9 + n * 0.15;
+        r *= t;
+        g *= t;
+        b *= t;
+      } else {
+        const v = (0.94 + n * 0.1) * 200;
+        r = g = b = v;
+      }
+      d[i * 4] = Math.min(255, r);
+      d[i * 4 + 1] = Math.min(255, g);
+      d[i * 4 + 2] = Math.min(255, b);
       d[i * 4 + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
-    const t = new CanvasTexture(c);
-    t.colorSpace = SRGBColorSpace;
-    t.wrapS = t.wrapT = ClampToEdgeWrapping;
-    ATLAS = t;
-    return t;
+    ATLAS = new CanvasTexture(c);
+    ATLAS.colorSpace = SRGBColorSpace;
+    return ATLAS;
   }
-  var OUTFIT = {
+  var PALETTE = {
     BL: {
       shirt: [15987436, "fab"],
       collar: [1976924, "plain"],
@@ -40568,255 +40548,237 @@ void main() {
       cuff: [1976924, "plain"]
     },
     GR: {
-      // 依 reference/uniforms/pe2.jpg：天藍上衣、綠領白邊、白 V 襟、胸前寬綠帶上下白線、肩線白綠細條、左胸校徽、及膝藍短褲側邊綠白黑條
       shirt: [2789596, "fab"],
       collar: [1872960, "plain"],
       trim: [16053490, "plain"],
       band: [1872960, "fab"],
-      button: [16053490, "plain"],
       dark: [1382429, "plain"],
       bottom: [2789596, "fab"],
-      sock: [2789596, "fab"],
       shoe: [1911626, "plain"],
       skin: [14263938, "plain"],
       hair: [1446415, "fab"],
       cuff: [2789596, "fab"]
     }
   };
-  var BONES = [
-    // name, parent, x, y, z
-    ["hips", -1, 0, 0.98, 0],
-    ["spine", 0, 0, 0.12, 0],
-    ["chest", 1, 0, 0.2, 0],
-    ["neck", 2, 0, 0.2, 0],
-    ["head", 3, 0, 0.08, 0],
-    ["shoulderR", 2, 0.17, 0.13, 0],
-    ["upperArmR", 5, 0.04, 0, 0],
-    ["forearmR", 6, 0, -0.29, 0],
-    ["handR", 7, 0, -0.26, 0],
-    ["shoulderL", 2, -0.17, 0.13, 0],
-    ["upperArmL", 9, -0.04, 0, 0],
-    ["forearmL", 10, 0, -0.29, 0],
-    ["handL", 11, 0, -0.26, 0],
-    ["thighR", 0, 0.1, -0.05, 0],
-    ["shinR", 13, 0, -0.44, 0],
-    ["footR", 14, 0, -0.44, 0],
-    ["thighL", 0, -0.1, -0.05, 0],
-    ["shinL", 16, 0, -0.44, 0],
-    ["footL", 17, 0, -0.44, 0]
+  var SKELETON = [
+    ["hips", -1, [0, 0.97, 0]],
+    ["spine", 0, [0, 0.13, 0]],
+    ["chest", 1, [0, 0.19, 0]],
+    ["neck", 2, [0, 0.21, 0]],
+    ["head", 3, [0, 0.08, 0]],
+    ["shoulderR", 2, [0.17, 0.13, 0]],
+    ["upperArmR", 5, [0.04, 0, 0]],
+    ["forearmR", 6, [0, -0.29, 0]],
+    ["handR", 7, [0, -0.26, 0]],
+    ["shoulderL", 2, [-0.17, 0.13, 0]],
+    ["upperArmL", 9, [-0.04, 0, 0]],
+    ["forearmL", 10, [0, -0.29, 0]],
+    ["handL", 11, [0, -0.26, 0]],
+    ["thighR", 0, [0.1, -0.05, 0]],
+    ["shinR", 13, [0, -0.44, 0]],
+    ["footR", 14, [0, -0.44, 0]],
+    ["thighL", 0, [-0.1, -0.05, 0]],
+    ["shinL", 16, [0, -0.44, 0]],
+    ["footL", 17, [0, -0.44, 0]]
   ];
-  var BI = Object.fromEntries(BONES.map((b, i) => [b[0], i]));
-  function bindPositions() {
+  var BONE_INDEX = Object.fromEntries(SKELETON.map(([n], i) => [n, i]));
+  var UPPER_ARM = 0.29;
+  var FOREARM = 0.28;
+  var REST = (() => {
     const out = [];
-    for (const [, p, x, y, z] of BONES) {
-      const v = new Vector3(x, y, z);
-      if (p >= 0) v.add(out[p]);
-      out.push(v);
-    }
+    SKELETON.forEach(([, parent, p], i) => {
+      out[i] = new Vector3(...p);
+      if (parent >= 0) out[i].add(out[parent]);
+    });
     return out;
+  })();
+  var at = (bone) => REST[BONE_INDEX[bone]];
+  var capsule = (r, len) => new CapsuleGeometry(r, len, 3, 10);
+  var block = (w, h, d) => new BoxGeometry(w, h, d);
+  var ball = (r) => new SphereGeometry(r, 14, 10);
+  function bodyParts(team) {
+    const school = team === "BL";
+    const P = [];
+    const put = (bone, geo, color, off, rot) => P.push([bone, geo, color, off, rot]);
+    for (const s of ["R", "L"]) {
+      const side = s === "R" ? 1 : -1;
+      put("thigh" + s, capsule(0.078, 0.3), "skin", [0, -0.2, 0]);
+      put("shin" + s, capsule(0.062, 0.32), "skin", [0, -0.2, 0]);
+      if (school) put("shin" + s, capsule(0.066, 0.12), "sock", [0, -0.33, 0]);
+      put("foot" + s, block(0.11, 0.09, 0.25), "shoe", [0, 0.02, -0.05]);
+      if (!school) {
+        put("thigh" + s, capsule(0.1, 0.2), "bottom", [0, -0.15, 0]);
+        put("thigh" + s, block(8e-3, 0.36, 0.03), "band", [side * 0.1, -0.13, 0]);
+        for (const dz of [-0.02, 0.02]) put("thigh" + s, block(8e-3, 0.36, 8e-3), "trim", [side * 0.1, -0.13, dz]);
+        put("thigh" + s, block(8e-3, 0.36, 6e-3), "dark", [side * 0.1, -0.13, 0.028]);
+      }
+      put("upperArm" + s, ball(0.08), "shirt", [0, -0.02, 0]);
+      put("upperArm" + s, capsule(0.066, 0.1), "shirt", [0, -0.09, 0]);
+      put("upperArm" + s, capsule(0.069, 0.012), "cuff", [0, -0.15, 0]);
+      put("upperArm" + s, capsule(0.05, 0.12), "skin", [0, -0.2, 0]);
+      put("forearm" + s, capsule(0.045, 0.19), "skin", [0, -0.13, 0]);
+      put("hand" + s, block(0.07, 0.09, 0.045), "skin", [0, -0.04, 0]);
+    }
+    if (school) {
+      const skirt = new CylinderGeometry(0.2, 0.31, 0.42, 18, 1, true).scale(1, 1, 0.85);
+      put("hips", skirt, "bottom", [0, -0.12, 0]);
+      put("hips", block(0.36, 0.08, 0.24), "bottom", [0, 0.06, 0]);
+    } else {
+      put("hips", block(0.37, 0.24, 0.25), "bottom", [0, -0.03, 0]);
+      for (const sx of [-1, 1]) put("hips", block(8e-3, 0.22, 0.03), "band", [sx * 0.186, -0.04, 0]);
+    }
+    put("spine", block(0.32, 0.22, 0.21), "shirt", [0, 0.1, 0]);
+    put("chest", block(0.38, 0.3, 0.23), "shirt", [0, 0.1, 0]);
+    if (school) {
+      put("chest", block(0.3, 0.17, 0.02), "collar", [0, 0.18, 0.12]);
+      put("chest", block(0.3, 0.012, 0.022), "trim", [0, 0.13, 0.125]);
+      for (const sx of [-1, 1]) put("chest", block(0.04, 0.2, 0.02), "collar", [sx * 0.075, 0.17, -0.12], [0, 0, sx * 0.5]);
+      put("chest", block(0.1, 0.05, 0.03), "bow", [0, 0.1, -0.125]);
+      for (const sx of [-1, 1]) put("chest", block(0.03, 0.11, 0.02), "bow", [sx * 0.025, 0.04, -0.125], [0, 0, -sx * 0.25]);
+      for (let i = 0; i < 3; i++) put("chest", block(0.02, 0.02, 0.01), "button", [0, -0.02 - i * 0.07, -0.118]);
+    } else {
+      put("chest", block(0.388, 0.085, 0.238), "band", [0, 0, 0]);
+      for (const dy of [-0.048, 0.048]) put("chest", block(0.39, 0.016, 0.24), "trim", [0, dy, 0]);
+      put("chest", block(0.23, 0.05, 0.19), "collar", [0, 0.262, 5e-3]);
+      put("chest", block(0.232, 0.01, 0.192), "trim", [0, 0.238, 5e-3]);
+      put("chest", block(0.05, 0.07, 8e-3), "collar", [0, 0.205, -0.117]);
+      for (const sx of [-1, 1]) put("chest", block(0.03, 0.115, 0.01), "trim", [sx * 0.026, 0.2, -0.12], [0, 0, sx * 0.46]);
+      for (const sx of [-1, 1]) {
+        put("chest", block(0.12, 6e-3, 0.014), "trim", [sx * 0.13, 0.252, -8e-3]);
+        put("chest", block(0.12, 6e-3, 0.01), "band", [sx * 0.13, 0.252, 6e-3]);
+      }
+      put("chest", block(0.036, 0.042, 6e-3), "trim", [-0.1, 0.18, -0.118]);
+      put("chest", block(0.02, 0.022, 4e-3), "band", [-0.1, 0.18, -0.122]);
+    }
+    put("neck", capsule(0.05, 0.06), "skin", [0, 0.04, 0]);
+    put("head", ball(0.105).scale(0.95, 1.1, 1), "skin", [0, 0.09, 0]);
+    put("head", new SphereGeometry(0.118, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55).scale(1, 1.02, 1.06), "hair", [0, 0.1, 8e-3]);
+    if (school) {
+      put("head", block(0.2, 0.05, 0.03), "hair", [0, 0.16, -0.1]);
+      put("head", block(0.24, 0.24, 0.1), "hair", [0, 0.02, 0.06]);
+      for (const sx of [-1, 1]) put("head", block(0.04, 0.2, 0.16), "hair", [sx * 0.11, 0.04, 0.01]);
+    }
+    return P;
   }
-  var GEO_CACHE = {};
-  function buildGeometry(team) {
-    if (GEO_CACHE[team]) return GEO_CACHE[team];
-    const O = OUTFIT[team];
-    const bp = bindPositions();
-    const parts = [];
-    const add2 = (geo2, bone, colorKey, x, y, z, rx = 0, ry = 0, rz = 0) => {
-      const g = geo2.clone();
-      const m = new Matrix4().compose(new Vector3(x, y, z), new Quaternion().setFromEuler(new Euler(rx, ry, rz)), new Vector3(1, 1, 1));
-      g.applyMatrix4(m);
-      const [col, kind] = O[colorKey];
+  var GEO = {};
+  function bodyGeometry(team) {
+    if (GEO[team]) return GEO[team];
+    const pal = PALETTE[team];
+    const m = new Matrix4(), q = new Quaternion(), e = new Euler(), one = new Vector3(1, 1, 1), col = new Color();
+    const pieces = bodyParts(team).map(([bone, geo, key, off, rot]) => {
+      const base = at(bone);
+      m.compose(new Vector3(base.x + off[0], base.y + off[1], base.z + off[2]), q.setFromEuler(e.set(...rot || [0, 0, 0])), one);
+      const g = (geo.index ? geo.toNonIndexed() : geo.clone()).applyMatrix4(m);
       const n = g.attributes.position.count;
-      const color = new Color(col);
-      const cols = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-      const uvs = new Float32Array(n * 2);
-      const u0 = kind === "fab" ? 0.01 : kind === "camo" ? 0.135 : kind === "plaid" ? 0.505 : 0.3;
-      const uw = kind === "plain" ? 0.175 : kind === "plaid" ? 0.115 : 0.1;
-      const src = g.attributes.uv;
+      const [hex, region] = pal[key];
+      col.set(hex);
+      const [u0, u1] = ATLAS_U[region];
+      const srcUV = g.attributes.uv, uv = new Float32Array(n * 2), color = new Float32Array(n * 3);
+      const skinIndex = new Uint16Array(n * 4), skinWeight = new Float32Array(n * 4);
+      const bi = BONE_INDEX[bone];
       for (let i = 0; i < n; i++) {
-        cols[i * 3] = color.r;
-        cols[i * 3 + 1] = color.g;
-        cols[i * 3 + 2] = color.b;
-        si[i * 4] = BI[bone];
-        sw[i * 4] = 1;
-        const su = src ? src.getX(i) : 0.5, sv = src ? src.getY(i) : 0.5;
-        uvs[i * 2] = u0 + su % 1 * uw;
-        uvs[i * 2 + 1] = 0.05 + sv % 1 * 0.9;
+        uv[i * 2] = u0 + (srcUV ? srcUV.getX(i) : 0.5) % 1 * (u1 - u0);
+        uv[i * 2 + 1] = 0.05 + (srcUV ? srcUV.getY(i) : 0.5) % 1 * 0.9;
+        color[i * 3] = col.r;
+        color[i * 3 + 1] = col.g;
+        color[i * 3 + 2] = col.b;
+        skinIndex[i * 4] = bi;
+        skinWeight[i * 4] = 1;
       }
       const out = new BufferGeometry();
       out.setAttribute("position", g.attributes.position);
       out.setAttribute("normal", g.attributes.normal);
-      out.setAttribute("uv", new BufferAttribute(uvs, 2));
-      out.setAttribute("color", new BufferAttribute(cols, 3));
-      out.setAttribute("skinIndex", new Uint16BufferAttribute(si, 4));
-      out.setAttribute("skinWeight", new BufferAttribute(sw, 4));
-      if (g.index) out.setIndex(g.index);
-      parts.push(out.index ? out.toNonIndexed() : out);
-    };
-    const cap = (r, l) => new CapsuleGeometry(r, l, 3, 10);
-    const box2 = (w, h, d) => new BoxGeometry(w, h, d);
-    const sph = (r) => new SphereGeometry(r, 14, 10);
-    const P = (name) => bp[BI[name]];
-    const uni = team === "BL";
-    for (const s of ["R", "L"]) {
-      const th = P("thigh" + s), sh = P("shin" + s), ft = P("foot" + s);
-      add2(cap(0.078, 0.3), "thigh" + s, "skin", th.x, th.y - 0.2, th.z);
-      add2(cap(0.062, 0.32), "shin" + s, "skin", sh.x, sh.y - 0.2, sh.z);
-      if (uni) add2(cap(0.066, 0.12), "shin" + s, "sock", sh.x, sh.y - 0.33, sh.z);
-      add2(box2(0.11, 0.09, 0.25), "foot" + s, "shoe", ft.x, ft.y + 0.02, ft.z - 0.05);
-      if (!uni) {
-        const sx = s === "R" ? 1 : -1;
-        add2(cap(0.1, 0.2), "thigh" + s, "bottom", th.x, th.y - 0.15, th.z);
-        add2(box2(8e-3, 0.36, 0.03), "thigh" + s, "band", th.x + sx * 0.1, th.y - 0.13, th.z);
-        for (const dz of [-0.02, 0.02]) add2(box2(8e-3, 0.36, 8e-3), "thigh" + s, "trim", th.x + sx * 0.1, th.y - 0.13, th.z + dz);
-        add2(box2(8e-3, 0.36, 6e-3), "thigh" + s, "dark", th.x + sx * 0.1, th.y - 0.13, th.z + 0.028);
-      }
-    }
-    const hp = P("hips"), sp = P("spine"), ch = P("chest");
-    if (uni) {
-      const skirt = new CylinderGeometry(0.2, 0.31, 0.42, 18, 1, true);
-      skirt.scale(1, 1, 0.85);
-      add2(skirt, "hips", "bottom", hp.x, hp.y - 0.12, hp.z);
-      add2(box2(0.36, 0.08, 0.24), "hips", "bottom", hp.x, hp.y + 0.06, hp.z);
-    } else {
-      add2(box2(0.37, 0.24, 0.25), "hips", "bottom", hp.x, hp.y - 0.03, hp.z);
-      for (const sx of [-1, 1]) add2(box2(8e-3, 0.22, 0.03), "hips", "band", hp.x + sx * 0.186, hp.y - 0.04, hp.z);
-    }
-    add2(box2(0.32, 0.22, 0.21), "spine", "shirt", sp.x, sp.y + 0.1, sp.z);
-    add2(box2(0.38, 0.3, 0.23), "chest", "shirt", ch.x, ch.y + 0.1, ch.z);
-    if (uni) {
-      add2(box2(0.3, 0.17, 0.02), "chest", "collar", ch.x, ch.y + 0.18, ch.z + 0.12);
-      add2(box2(0.3, 0.012, 0.022), "chest", "trim", ch.x, ch.y + 0.13, ch.z + 0.125);
-      for (const sx of [-1, 1]) add2(box2(0.04, 0.2, 0.02), "chest", "collar", ch.x + sx * 0.075, ch.y + 0.17, ch.z - 0.12, 0, 0, sx * 0.5);
-      add2(box2(0.1, 0.05, 0.03), "chest", "bow", ch.x, ch.y + 0.1, ch.z - 0.125);
-      for (const sx of [-1, 1]) add2(box2(0.03, 0.11, 0.02), "chest", "bow", ch.x + sx * 0.025, ch.y + 0.04, ch.z - 0.125, 0, 0, -sx * 0.25);
-      for (let i = 0; i < 3; i++) add2(box2(0.02, 0.02, 0.01), "chest", "button", ch.x, ch.y - 0.02 - i * 0.07, ch.z - 0.118);
-    } else {
-      add2(box2(0.388, 0.085, 0.238), "chest", "band", ch.x, ch.y + 0, ch.z);
-      for (const dy of [-0.048, 0.048]) add2(box2(0.39, 0.016, 0.24), "chest", "trim", ch.x, ch.y + dy, ch.z);
-      add2(box2(0.23, 0.05, 0.19), "chest", "collar", ch.x, ch.y + 0.262, ch.z + 5e-3);
-      add2(box2(0.232, 0.01, 0.192), "chest", "trim", ch.x, ch.y + 0.238, ch.z + 5e-3);
-      add2(box2(0.05, 0.07, 8e-3), "chest", "collar", ch.x, ch.y + 0.205, ch.z - 0.117);
-      for (const sx of [-1, 1]) add2(box2(0.03, 0.115, 0.01), "chest", "trim", ch.x + sx * 0.026, ch.y + 0.2, ch.z - 0.12, 0, 0, sx * 0.46);
-      for (const sx of [-1, 1]) {
-        add2(box2(0.12, 6e-3, 0.014), "chest", "trim", ch.x + sx * 0.13, ch.y + 0.252, ch.z - 8e-3);
-        add2(box2(0.12, 6e-3, 0.01), "chest", "band", ch.x + sx * 0.13, ch.y + 0.252, ch.z + 6e-3);
-      }
-      add2(box2(0.036, 0.042, 6e-3), "chest", "trim", ch.x - 0.1, ch.y + 0.18, ch.z - 0.118);
-      add2(box2(0.02, 0.022, 4e-3), "chest", "band", ch.x - 0.1, ch.y + 0.18, ch.z - 0.122);
-    }
-    const nk = P("neck"), hd = P("head");
-    add2(cap(0.05, 0.06), "neck", "skin", nk.x, nk.y + 0.04, nk.z);
-    const headG = sph(0.105);
-    headG.scale(0.95, 1.1, 1);
-    add2(headG, "head", "skin", hd.x, hd.y + 0.09, hd.z);
-    const hairTop = new SphereGeometry(0.118, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
-    hairTop.scale(1, 1.02, 1.06);
-    add2(hairTop, "head", "hair", hd.x, hd.y + 0.1, hd.z + 8e-3);
-    if (uni) {
-      add2(box2(0.2, 0.05, 0.03), "head", "hair", hd.x, hd.y + 0.16, hd.z - 0.1);
-      add2(box2(0.24, 0.24, 0.1), "head", "hair", hd.x, hd.y + 0.02, hd.z + 0.06);
-      for (const sx of [-1, 1]) add2(box2(0.04, 0.2, 0.16), "head", "hair", hd.x + sx * 0.11, hd.y + 0.04, hd.z + 0.01);
-    }
-    for (const s of ["R", "L"]) {
-      const ua = P("upperArm" + s), fa = P("forearm" + s), hn = P("hand" + s);
-      add2(sph(0.08), "upperArm" + s, "shirt", ua.x, ua.y - 0.02, ua.z);
-      add2(cap(0.066, 0.1), "upperArm" + s, "shirt", ua.x, ua.y - 0.09, ua.z);
-      add2(cap(0.069, 0.012), "upperArm" + s, "cuff", ua.x, ua.y - 0.15, ua.z);
-      add2(cap(0.05, 0.12), "upperArm" + s, "skin", ua.x, ua.y - 0.2, ua.z);
-      add2(cap(0.045, 0.19), "forearm" + s, "skin", fa.x, fa.y - 0.13, fa.z);
-      add2(box2(0.07, 0.09, 0.045), "hand" + s, "skin", hn.x, hn.y - 0.04, hn.z);
-    }
-    const geo = mergeAll(parts);
-    geo.computeBoundingSphere();
-    GEO_CACHE[team] = geo;
-    return geo;
-  }
-  function mergeAll(list) {
-    let n = 0;
-    for (const g of list) n += g.attributes.position.count;
-    const out = new BufferGeometry();
-    const names = ["position", "normal", "uv", "color", "skinIndex", "skinWeight"];
-    for (const name of names) {
-      const s = list[0].attributes[name];
-      const Arr = s.array.constructor, isz = s.itemSize;
-      const arr = new Arr(n * isz);
-      let o = 0;
-      for (const g of list) {
-        arr.set(g.attributes[name].array, o);
-        o += g.attributes[name].array.length;
-      }
-      out.setAttribute(name, name === "skinIndex" ? new Uint16BufferAttribute(arr, isz) : new BufferAttribute(arr, isz));
-    }
-    return out;
+      out.setAttribute("uv", new BufferAttribute(uv, 2));
+      out.setAttribute("color", new BufferAttribute(color, 3));
+      out.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndex, 4));
+      out.setAttribute("skinWeight", new BufferAttribute(skinWeight, 4));
+      return out;
+    });
+    const merged = mergeGeometries(pieces, false);
+    merged.computeBoundingSphere();
+    return GEO[team] = merged;
   }
   var HITBOXES = [
-    // bone, cx, cy, cz, hx, hy, hz, part
-    ["head", 0, 0.1, 0, 0.1, 0.12, 0.11, "head"],
-    ["chest", 0, 0.1, 0, 0.21, 0.18, 0.145, "chest"],
-    ["spine", 0, 0.09, 0, 0.17, 0.12, 0.12, "stomach"],
-    ["hips", 0, -0.02, 0, 0.18, 0.11, 0.13, "stomach"],
-    ["upperArmR", 0, -0.14, 0, 0.065, 0.16, 0.065, "arm"],
-    ["upperArmL", 0, -0.14, 0, 0.065, 0.16, 0.065, "arm"],
-    ["forearmR", 0, -0.13, 0, 0.055, 0.15, 0.055, "arm"],
-    ["forearmL", 0, -0.13, 0, 0.055, 0.15, 0.055, "arm"],
-    ["thighR", 0, -0.21, 0, 0.09, 0.24, 0.09, "leg"],
-    ["thighL", 0, -0.21, 0, 0.09, 0.24, 0.09, "leg"],
-    ["shinR", 0, -0.22, 0, 0.07, 0.24, 0.075, "leg"],
-    ["shinL", 0, -0.22, 0, 0.07, 0.24, 0.075, "leg"]
+    ["head", [0, 0.1, 0], [0.1, 0.12, 0.11], "head"],
+    ["chest", [0, 0.1, 0], [0.21, 0.18, 0.145], "chest"],
+    ["spine", [0, 0.09, 0], [0.17, 0.12, 0.12], "stomach"],
+    ["hips", [0, -0.02, 0], [0.18, 0.11, 0.13], "stomach"],
+    ...["R", "L"].flatMap((s) => [
+      ["upperArm" + s, [0, -0.14, 0], [0.065, 0.16, 0.065], "arm"],
+      ["forearm" + s, [0, -0.13, 0], [0.055, 0.15, 0.055], "arm"],
+      ["thigh" + s, [0, -0.21, 0], [0.09, 0.24, 0.09], "leg"],
+      ["shin" + s, [0, -0.22, 0], [0.07, 0.24, 0.075], "leg"]
+    ])
   ];
+  var AXES = ["x", "y", "z"];
+  function rayBox(o, d, c, h, maxT) {
+    let lo = 0, hi = maxT;
+    for (let i = 0; i < 3; i++) {
+      const k = AXES[i];
+      const oo = o[k] - c[i];
+      if (Math.abs(d[k]) < 1e-9) {
+        if (oo < -h[i] || oo > h[i]) return -1;
+        continue;
+      }
+      let a = (-h[i] - oo) / d[k], b = (h[i] - oo) / d[k];
+      if (a > b) {
+        const t = a;
+        a = b;
+        b = t;
+      }
+      if (a > lo) lo = a;
+      if (b < hi) hi = b;
+      if (lo > hi) return -1;
+    }
+    return lo;
+  }
   var _v = new Vector3();
-  var _v2 = new Vector3();
+  var _w = new Vector3();
+  var _lo = new Vector3();
+  var _ld = new Vector3();
   var _q = new Quaternion();
   var _q2 = new Quaternion();
-  var _m2 = new Matrix4();
   var DOWN = new Vector3(0, -1, 0);
   var Soldier = class {
     constructor(team) {
       this.team = team;
       this.root = new Group();
-      const geo = buildGeometry(team);
-      this.material = new MeshStandardMaterial({ vertexColors: true, map: atlas(), roughness: 0.82, metalness: 0.05 });
+      this.material = new MeshStandardMaterial({ vertexColors: true, map: clothAtlas(), roughness: 0.82, metalness: 0.05 });
       this.rimU = { value: new Vector4(0, 0, 0, 0) };
       this.material.onBeforeCompile = (sh) => {
         sh.uniforms.uRim = this.rimU;
-        sh.fragmentShader = "uniform vec4 uRim;\n" + sh.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uRim.rgb * uRim.a * pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.2);");
+        sh.fragmentShader = "uniform vec4 uRim;\n" + sh.fragmentShader.replace(
+          "#include <emissivemap_fragment>",
+          "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uRim.rgb * uRim.a * pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.2);"
+        );
       };
-      this.flinchK = 0;
-      this.flinchSide = 0;
-      this.flinchH = 0;
-      this.mesh = new SkinnedMesh(geo, this.material);
-      this.mesh.castShadow = true;
-      this.mesh.receiveShadow = true;
+      this.mesh = new SkinnedMesh(bodyGeometry(team), this.material);
+      this.mesh.castShadow = this.mesh.receiveShadow = true;
       this.mesh.frustumCulled = false;
-      const bp = bindPositions();
-      this.bones = BONES.map(([name], i) => {
+      this.bones = SKELETON.map(([name, , p]) => {
         const b = new Bone();
         b.name = name;
+        b.position.set(...p);
         return b;
       });
-      BONES.forEach(([, p, x, y, z], i) => {
-        this.bones[i].position.set(x, y, z);
-        if (p >= 0) this.bones[p].add(this.bones[i]);
-        else this.mesh.add(this.bones[i]);
-      });
-      void bp;
+      SKELETON.forEach(([, parent], i) => (parent >= 0 ? this.bones[parent] : this.mesh).add(this.bones[i]));
       this.mesh.updateMatrixWorld(true);
       this.mesh.bind(new Skeleton(this.bones));
       this.root.add(this.mesh);
       this.B = Object.fromEntries(this.bones.map((b) => [b.name, b]));
-      this.phase = Math.random() * 10;
+      this.gait = Math.random() * 10;
+      this.stride = 0;
       this.crouchK = 0;
-      this.deadT = -1;
-      this.fallDir = 1;
-      this.fallSide = 0;
       this.recoilK = 0;
+      this.flinchK = 0;
+      this.flinchSide = 0;
+      this.flinchH = 0;
+      this.deadT = -1;
+      this.opacity = 1;
       this.gun = null;
       this.gunId = null;
-      this.invs = HITBOXES.map(() => new Matrix4());
-      this.invFrame = -1;
-      this.opacity = 1;
-      this.flashT = 0;
+      this.hitInv = HITBOXES.map(() => new Matrix4());
+      this.hitFrame = -1;
     }
     setWeapon(id) {
       if (this.gunId === id) return;
@@ -40824,76 +40786,41 @@ void main() {
       this.gunId = id;
       this.gun = buildGunMerged(id);
       this.B.chest.add(this.gun);
-      this.gunType = id;
     }
-    // 兩骨骼 IK：讓手到達胸骨座標系下的目標點
-    solveArm(side, targetWorld, poleWorld) {
-      const up = this.B["upperArm" + side], fore = this.B["forearm" + side];
-      const S = up.getWorldPosition(new Vector3());
-      const a = 0.29, b = 0.28;
-      const toT = _v.copy(targetWorld).sub(S);
-      let d = toT.length();
-      d = Math.min(d, a + b - 1e-3);
+    // 兩段式 IK：讓手到達目標；pole 決定手肘往哪邊彎
+    solveArm(side, target, pole) {
+      const upper = this.B["upperArm" + side], fore = this.B["forearm" + side];
+      const S = upper.getWorldPosition(new Vector3());
+      const toT = _v.copy(target).sub(S);
+      const dist = Math.min(toT.length(), UPPER_ARM + FOREARM - 1e-3);
       const dir = toT.normalize();
-      const cosA = (a * a + d * d - b * b) / (2 * a * d);
-      const ang = Math.acos(MathUtils.clamp(cosA, -1, 1));
-      const pole = _v2.copy(poleWorld).sub(S);
-      pole.addScaledVector(dir, -pole.dot(dir)).normalize();
-      const elbowDir = dir.clone().multiplyScalar(Math.cos(ang)).addScaledVector(pole, Math.sin(ang)).normalize();
-      const E = S.clone().addScaledVector(elbowDir, a);
-      const parentQ = up.parent.getWorldQuaternion(_q);
-      const wq = _q2.setFromUnitVectors(DOWN, elbowDir);
-      up.quaternion.copy(parentQ.invert().multiply(wq));
-      up.updateMatrixWorld(true);
-      const T2 = S.clone().addScaledVector(dir, d);
-      const fdir = T2.sub(E).normalize();
-      const pq = up.getWorldQuaternion(new Quaternion());
-      fore.quaternion.copy(pq.invert().multiply(new Quaternion().setFromUnitVectors(DOWN, fdir)));
+      const cos = (UPPER_ARM ** 2 + dist ** 2 - FOREARM ** 2) / (2 * UPPER_ARM * dist);
+      const ang = Math.acos(MathUtils.clamp(cos, -1, 1));
+      const bend = _w.copy(pole).sub(S);
+      bend.addScaledVector(dir, -bend.dot(dir)).normalize();
+      const elbowDir = dir.clone().multiplyScalar(Math.cos(ang)).addScaledVector(bend, Math.sin(ang)).normalize();
+      const elbow = S.clone().addScaledVector(elbowDir, UPPER_ARM);
+      upper.quaternion.copy(upper.parent.getWorldQuaternion(_q).invert().multiply(_q2.setFromUnitVectors(DOWN, elbowDir)));
+      upper.updateMatrixWorld(true);
+      const wrist = S.clone().addScaledVector(dir, dist);
+      const foreDir = wrist.sub(elbow).normalize();
+      fore.quaternion.copy(upper.getWorldQuaternion(_q).invert().multiply(_q2.setFromUnitVectors(DOWN, foreDir)));
     }
-    // st: {speed, fwd, side, crouch, pitch, onGround, dead, t}
     update(dt, st) {
-      const B = this.B;
       if (this.deadT >= 0) {
         this.updateDeath(dt);
         return;
       }
+      const B = this.B;
       this.crouchK += ((st.crouch ? 1 : 0) - this.crouchK) * Math.min(1, dt * 10);
-      const ck = this.crouchK;
-      const sp = st.speed;
-      const moving = sp > 0.3 && st.onGround;
-      this.phase += dt * (moving ? 2.2 + sp * 1.15 : 0) * (ck > 0.5 ? 0.7 : 1);
-      const amp = moving ? Math.min(1, sp / 5) : 0;
-      this.amp = (this.amp || 0) + (amp - (this.amp || 0)) * Math.min(1, dt * 8);
-      const A = this.amp;
-      const ph = this.phase;
-      const back = st.fwd < -0.3 ? -1 : 1;
-      const swing = Math.sin(ph) * 0.62 * A * back;
-      const bendR = Math.max(0, Math.sin(ph + Math.PI * 0.5 * back)) * 1 * A;
-      const bendL = Math.max(0, Math.sin(ph + Math.PI + Math.PI * 0.5 * back)) * 1 * A;
-      let thR = swing, thL = -swing, shR = -bendR, shL = -bendL;
-      thR = thR * (1 - ck) + (1.25 + swing * 0.3) * ck;
-      thL = thL * (1 - ck) + (0.55 - swing * 0.3) * ck;
-      shR = shR * (1 - ck) + -1.9 * ck;
-      shL = shL * (1 - ck) + (-1.2 + Math.min(0, -swing)) * ck;
-      if (!st.onGround) {
-        thR = 0.7;
-        thL = 0.25;
-        shR = -1.1;
-        shL = -0.6;
-      }
-      B.thighR.rotation.set(thR, 0, 0.02);
-      B.thighL.rotation.set(thL, 0, -0.02);
-      B.shinR.rotation.set(shR, 0, 0);
-      B.shinL.rotation.set(shL, 0, 0);
-      B.footR.rotation.set(-thR - shR - 0, 0, 0);
-      B.footL.rotation.set(-thL - shL, 0, 0);
-      if (ck > 0.01) {
-        B.footL.rotation.x = 0.5 * ck + B.footL.rotation.x * (1 - ck);
-      }
-      const bob = moving ? Math.abs(Math.cos(ph)) * 0.035 * A : 0;
-      B.hips.position.y = 0.98 - ck * 0.38 - bob + (st.onGround ? 0 : 0.02);
+      const ck = this.crouchK, moving = st.speed > 0.3 && st.onGround;
+      this.gait += dt * (moving ? 2.2 + st.speed * 1.15 : 0) * (ck > 0.5 ? 0.7 : 1);
+      this.stride += ((moving ? Math.min(1, st.speed / 5) : 0) - this.stride) * Math.min(1, dt * 8);
+      this.legs(st, ck);
+      const g = this.gait, A = this.stride;
+      B.hips.position.y = 0.97 - ck * 0.38 - (moving ? Math.abs(Math.cos(g)) * 0.035 * A : 0) + (st.onGround ? 0 : 0.02);
       B.hips.position.z = ck * 0.08;
-      B.hips.rotation.y = Math.sin(ph) * 0.08 * A;
+      B.hips.rotation.y = Math.sin(g) * 0.08 * A;
       const pitch = MathUtils.clamp(st.pitch, -1.2, 1.2);
       B.spine.rotation.set(pitch * 0.3 + ck * 0.15, -B.hips.rotation.y - 0.25, 0);
       B.chest.rotation.set(pitch * 0.45 - this.recoilK * 0.08, -0.12, 0);
@@ -40907,33 +40834,59 @@ void main() {
       }
       this.flinchK *= Math.exp(-dt * 9);
       this.recoilK *= Math.exp(-dt * 12);
-      if (this.gun) {
-        const sniper = this.gunType === "awm", pistol = this.gunType === "deagle", knife = this.gunType === "knife" || this.gunType === "he";
-        const gx = pistol ? 0.03 : 0.1, gy = pistol ? 0.14 : 0.1, gz = pistol ? -0.42 : -0.3;
-        this.gun.position.set(gx, gy + (st.reloading ? -0.08 : 0), gz + this.recoilK * 0.05);
-        this.gun.rotation.set(st.reloading ? -0.5 : 0, 0.37, st.reloading ? 0.4 : 0);
-        if (knife) {
-          this.gun.position.set(0.18, 0.02, -0.28);
-          this.gun.rotation.set(-0.3, 0.37, 0);
-        }
-        void sniper;
-        this.mesh.updateMatrixWorld(true);
-        const an = this.gun.userData.anchors;
-        const grip = this.gun.localToWorld(_v.copy(an.grip || new Vector3()));
-        const gW = grip.clone();
-        const poleR = this.B.chest.localToWorld(new Vector3(0.6, -0.5, 0.1));
-        this.solveArm("R", gW, poleR);
-        if (an.fore && !knife) {
-          const fw = this.gun.localToWorld(_v.copy(an.fore));
-          const poleL = this.B.chest.localToWorld(new Vector3(-0.5, -0.6, 0));
-          this.solveArm("L", fw, poleL);
-        } else {
-          B.upperArmL.rotation.set(0.3, 0, -0.15);
-          B.forearmL.rotation.set(0.6, 0, 0);
-        }
-      }
+      if (this.gun) this.holdGun(st);
       B.handR.rotation.set(0, 0, 0);
       B.handL.rotation.set(0, 0, 0);
+    }
+    legs(st, ck) {
+      const B = this.B, g = this.gait, A = this.stride;
+      const dir = st.fwd < -0.3 ? -1 : 1;
+      const swing = Math.sin(g) * 0.62 * A * dir;
+      const kneeR = Math.max(0, Math.sin(g + Math.PI * 0.5 * dir)) * A;
+      const kneeL = Math.max(0, Math.sin(g + Math.PI + Math.PI * 0.5 * dir)) * A;
+      let hipR = swing, hipL = -swing, shinR = -kneeR, shinL = -kneeL;
+      const lerp2 = (a, b) => a * (1 - ck) + b * ck;
+      hipR = lerp2(hipR, 1.25 + swing * 0.3);
+      hipL = lerp2(hipL, 0.55 - swing * 0.3);
+      shinR = lerp2(shinR, -1.9);
+      shinL = lerp2(shinL, -1.2 + Math.min(0, -swing));
+      if (!st.onGround) {
+        hipR = 0.7;
+        hipL = 0.25;
+        shinR = -1.1;
+        shinL = -0.6;
+      }
+      B.thighR.rotation.set(hipR, 0, 0.02);
+      B.thighL.rotation.set(hipL, 0, -0.02);
+      B.shinR.rotation.set(shinR, 0, 0);
+      B.shinL.rotation.set(shinL, 0, 0);
+      B.footR.rotation.set(-hipR - shinR, 0, 0);
+      B.footL.rotation.set(-hipL - shinL, 0, 0);
+      if (ck > 0.01) B.footL.rotation.x = 0.5 * ck + B.footL.rotation.x * (1 - ck);
+    }
+    // 槍的位置（胸骨座標），再用 IK 讓雙手握上去
+    holdGun(st) {
+      const id = this.gunId, pistol = id === "deagle", melee = id === "knife" || id === "he";
+      const gun2 = this.gun;
+      if (melee) {
+        gun2.position.set(0.18, 0.02, -0.28);
+        gun2.rotation.set(-0.3, 0.37, 0);
+      } else {
+        const reload = st.reloading ? 1 : 0;
+        gun2.position.set(pistol ? 0.03 : 0.1, (pistol ? 0.14 : 0.1) - reload * 0.08, (pistol ? -0.42 : -0.3) + this.recoilK * 0.05);
+        gun2.rotation.set(-0.5 * reload, 0.37, 0.4 * reload);
+      }
+      this.mesh.updateMatrixWorld(true);
+      const an = gun2.userData.anchors;
+      const grip = gun2.localToWorld(new Vector3().copy(an.grip || _v.set(0, 0, 0)));
+      this.solveArm("R", grip, this.B.chest.localToWorld(new Vector3(0.6, -0.5, 0.1)));
+      if (an.fore && !melee) {
+        const fore = gun2.localToWorld(new Vector3().copy(an.fore));
+        this.solveArm("L", fore, this.B.chest.localToWorld(new Vector3(-0.5, -0.6, 0)));
+      } else {
+        this.B.upperArmL.rotation.set(0.3, 0, -0.15);
+        this.B.forearmL.rotation.set(0.6, 0, 0);
+      }
     }
     kick() {
       this.recoilK = 1;
@@ -40943,7 +40896,6 @@ void main() {
       this.flinchSide = Math.random() - 0.5;
       this.flinchH = part === "head" ? 1 : 0.2;
     }
-    // 0 = 無、1 = 隊友（淡藍）、2 = 敵人（暖紅）
     setRim(kind) {
       const v = this.rimU.value;
       if (kind === 2) v.set(1, 0.5, 0.38, 0.5);
@@ -40965,8 +40917,8 @@ void main() {
     }
     reset() {
       this.ragdoll = null;
-      BONES.forEach(([, , x, y, z], i) => {
-        this.bones[i].position.set(x, y, z);
+      SKELETON.forEach(([, , p], i) => {
+        this.bones[i].position.set(...p);
         this.bones[i].quaternion.identity();
       });
       this.deadT = -1;
@@ -40976,41 +40928,27 @@ void main() {
       this.opacity = 1;
       if (this.gun) this.gun.visible = true;
     }
-    // 射線命中測試，返回 {t, part}
+    // 子彈命中：先用一顆包住全身的球粗篩，再逐一測各骨頭的命中盒（同一幀只算一次反矩陣）
     hitTest(o, d, maxT, frame) {
-      const hp = this.B.hips.getWorldPosition(_v);
-      const wx = hp.x - o.x, wy = hp.y + 0.3 - o.y, wz = hp.z - o.z;
-      const tc = wx * d.x + wy * d.y + wz * d.z;
-      if (tc < -1.5 || tc > maxT + 1.5) return null;
-      const px2 = wx - d.x * tc, py2 = wy - d.y * tc, pz2 = wz - d.z * tc;
+      const hip = this.B.hips.getWorldPosition(_v);
+      const wx = hip.x - o.x, wy = hip.y + 0.3 - o.y, wz = hip.z - o.z;
+      const along = wx * d.x + wy * d.y + wz * d.z;
+      if (along < -1.5 || along > maxT + 1.5) return null;
+      const px2 = wx - d.x * along, py2 = wy - d.y * along, pz2 = wz - d.z * along;
       if (px2 * px2 + py2 * py2 + pz2 * pz2 > 1.6) return null;
-      if (this.invFrame !== frame) {
+      if (this.hitFrame !== frame) {
         this.mesh.updateMatrixWorld(true);
-        HITBOXES.forEach((h, i) => this.invs[i].copy(this.B[h[0]].matrixWorld).invert());
-        this.invFrame = frame;
+        HITBOXES.forEach(([bone], i) => this.hitInv[i].copy(this.B[bone].matrixWorld).invert());
+        this.hitFrame = frame;
       }
       let best = maxT, part = null;
-      const lo = new Vector3(), ld = new Vector3();
       for (let i = 0; i < HITBOXES.length; i++) {
-        const [, cx, cy, cz, hx, hy, hz, name] = HITBOXES[i];
-        lo.copy(o).applyMatrix4(this.invs[i]);
-        ld.copy(d).transformDirection(this.invs[i]);
-        const ox = lo.x - cx, oy = lo.y - cy, oz = lo.z - cz;
-        let tmin = 0, tmax = best;
-        const slab = (oo, dd, h) => {
-          if (Math.abs(dd) < 1e-9) return oo >= -h && oo <= h;
-          let t1 = (-h - oo) / dd, t2 = (h - oo) / dd;
-          if (t1 > t2) {
-            const tt = t1;
-            t1 = t2;
-            t2 = tt;
-          }
-          tmin = Math.max(tmin, t1);
-          tmax = Math.min(tmax, t2);
-          return tmin <= tmax;
-        };
-        if (slab(ox, ld.x, hx) && slab(oy, ld.y, hy) && slab(oz, ld.z, hz) && tmin < best) {
-          best = tmin;
+        const [, center, half, name] = HITBOXES[i];
+        _lo.copy(o).applyMatrix4(this.hitInv[i]);
+        _ld.copy(d).transformDirection(this.hitInv[i]);
+        const t = rayBox(_lo, _ld, center, half, best);
+        if (t >= 0 && t < best) {
+          best = t;
           part = name;
         }
       }
@@ -42238,7 +42176,7 @@ void main() {
   var nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
   var MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "MULTI KILL", "ULTRA KILL", "RAMPAGE", "UNSTOPPABLE", "GODLIKE"];
   var MULTI_CN = ["", "", "\u96D9\u6BBA", "\u4E09\u6BBA", "\u56DB\u6BBA", "\u4E94\u6BBA", "\u516D\u6BBA\uFF01", "\u7121\u4EBA\u80FD\u64CB", "\u8D85\u795E"];
-  var _v3 = new Vector3();
+  var _v2 = new Vector3();
   var _v22 = new Vector3();
   var _d2 = new Vector3();
   var CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1, shotgun: 1 };
@@ -42650,7 +42588,7 @@ void main() {
       this._quiet = false;
       const p = this.player;
       if (p && p.alive && a !== p && a.team !== p.team) {
-        const hp = p.eye(_v3);
+        const hp = p.eye(_v2);
         const t = _d2.copy(hp).sub(eye).dot(dir);
         if (t > 2 && t < eye.distanceTo(end)) {
           const closest = eye.clone().addScaledVector(dir, t);
@@ -42687,8 +42625,8 @@ void main() {
           const dist = bestT;
           const partMul = part === "head" ? d.headMul : part === "arm" || part === "leg" ? d.limbMul : 1;
           const dmg = d.dmg * mul * Math.pow(d.falloff, dist / 10) * partMul;
-          this.fx.impact(pt2, _v3.copy(dir).negate(), "flesh", dir);
-          if (part === "head") this.fx.impact(pt2, _v3.copy(dir).negate(), "flesh", dir);
+          this.fx.impact(pt2, _v2.copy(dir).negate(), "flesh", dir);
+          if (part === "head") this.fx.impact(pt2, _v2.copy(dir).negate(), "flesh", dir);
           if (!this._quiet) audio.playImpact(pt2, "flesh");
           this.damage(best, shooter, dmg, part, d.id, dir, wall);
           return pt2;
@@ -42765,7 +42703,7 @@ void main() {
             const vf = hit.a.forward(new Vector3());
             vf.y = 0;
             vf.normalize();
-            const back = vf.dot(_v3.copy(hit.dir).setY(0).normalize()) > 0.5;
+            const back = vf.dot(_v2.copy(hit.dir).setY(0).normalize()) > 0.5;
             let dmg = heavy ? d.dmgHeavy : d.dmgLight;
             if (back) dmg *= heavy ? 2 : 1.6;
             if (hit.part === "head") dmg *= 1.3;
@@ -42859,7 +42797,7 @@ void main() {
       this.afterWreck(owner);
       if (this.map.pushAt) this.map.pushAt(p, 10, 1);
       const pl = this.player;
-      const cp = this.renderer.camera.position, dv = _v3.copy(cp).sub(p), L = dv.length();
+      const cp = this.renderer.camera.position, dv = _v2.copy(cp).sub(p), L = dv.length();
       if (pl && pl.alive && L < 14) {
         let k = 1 - L / 14;
         if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, "sight")) k *= 0.45;
@@ -43242,7 +43180,7 @@ void main() {
         const lbl = document.querySelector("#radarWrap .lbl"), where = this.playing ? this.map.locate(this.player.pos) : "";
         if (lbl) lbl.textContent = (where || "\u6A39\u7FA9\u570B\u5C0F") + ` \xB7 ${this.fps || "--"} FPS`;
       }
-      const fwd = _v3.set(0, 0, -1).applyQuaternion(cam.quaternion), up = _v22.set(0, 1, 0).applyQuaternion(cam.quaternion);
+      const fwd = _v2.set(0, 0, -1).applyQuaternion(cam.quaternion), up = _v22.set(0, 1, 0).applyQuaternion(cam.quaternion);
       audio.setListener(cam.position, fwd, up);
       audio.update(dt);
       if (this.player && (this.playing || this.ended)) this.updateHUD(dt);
@@ -43266,7 +43204,7 @@ void main() {
       R.render();
     }
     updateLightProbe() {
-      const p = this.player, e = p.eye(_v3), s = this.env.sunDir;
+      const p = this.player, e = p.eye(_v2), s = this.env.sunDir;
       const sunBlocked = !!this.world.raycast(e.x, e.y, e.z, s.x, s.y, s.z, 80, "sight");
       const roof = !!this.world.raycast(e.x, e.y, e.z, 0, 1, 0, 5, "sight");
       const tl = sunBlocked ? 0.22 : 1, ti = roof ? 1 : 0;
