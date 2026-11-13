@@ -1,89 +1,196 @@
-// 特效：粒子、貼花、曳光、槍口火焰、爆炸、煙囪排煙、海鷗
+// 樹義國小校園對戰：視覺特效
+//
+// 對外介面（new Effects(scene, T, camera)）
+//   muzzle(pos, dir, big)        第三人稱槍口火焰＋槍口煙
+//   tracer(from, to)             曳光
+//   impact(p, n, mat, dir)       子彈命中：flesh／metal／wood／mesh／其他（石材類）
+//   light(pos, intensity, dur, color?, dist?)  短暫閃光
+//   explosion(p)  bloodSplat(p)  shake（鏡頭震動量，外部讀寫）
+//   破壞相關：shatter、debris、slash、casing、remnants、wakeRubble、clearDecalsIn、clearDecals
+//   update(dt, t, camera)        每幀呼叫
+//
+// 粒子物件格式（emit 的參數）：
+//   { x,y,z 位置, vx,vy,vz 速度, life 已存活秒數（通常 0）, max 壽命,
+//     s0→s1 大小（公尺）, r,g,b 顏色（可 >1 表示發光）, a0→a1 透明度,
+//     grav 重力（負值往上飄）, drag 空氣阻力, floor? 落地高度 }
 import * as THREE from 'three';
 
-class Particles {
+// ───────── 粒子池 ─────────
+// 以「欄位陣列」存放（每個屬性一條 Float32Array），不產生垃圾物件；
+// 死掉的粒子用最後一顆補位，所以有效粒子永遠是前 n 顆。
+
+const FIELDS = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'age', 'ttl', 's0', 's1', 'r', 'g', 'b', 'a0', 'a1', 'grav', 'drag', 'floor'];
+
+class ParticlePool {
   constructor(scene, tex, additive, max) {
     this.max = max;
-    const g = new THREE.BufferGeometry();
-    this.pos = new Float32Array(max * 3); this.col = new Float32Array(max * 4); this.size = new Float32Array(max);
-    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('color', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
-    this.geo = g;
+    this.n = 0;
+    this.ring = 0;
+    this.f = {};
+    for (const k of FIELDS) this.f[k] = new Float32Array(max);
+
+    this.posBuf = new Float32Array(max * 3);
+    this.colBuf = new Float32Array(max * 4);
+    this.sizeBuf = new Float32Array(max);
+    const g = this.geo = new THREE.BufferGeometry();
+    const attr = (arr, n) => new THREE.BufferAttribute(arr, n).setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', attr(this.posBuf, 3));
+    g.setAttribute('color', attr(this.colBuf, 4));
+    g.setAttribute('size', attr(this.sizeBuf, 1));
+    g.setDrawRange(0, 0);
+
     this.mat = new THREE.ShaderMaterial({
       uniforms: { map: { value: tex }, scale: { value: 800 } },
-      vertexShader: `attribute float size; attribute vec4 color; varying vec4 vC; uniform float scale;
-        void main(){ vC = color; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = size * scale / max(0.1, -mv.z); gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: `uniform sampler2D map; varying vec4 vC;
-        void main(){ vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(vC.rgb * t.rgb, vC.a * t.a);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
+      vertexShader: /* glsl */`
+        attribute float size;
+        attribute vec4 color;
+        uniform float scale;
+        varying vec4 vColor;
+        void main() {
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          float dist = max(0.05, -mv.z);
+          vColor = color;
+          // 貼在鏡頭前的大煙團會整個糊住畫面，靠近時淡出
+          vColor.a *= smoothstep(0.25, 1.2, dist);
+          gl_PointSize = min(size * scale / dist, 1024.0);
+          gl_Position = projectionMatrix * mv;
         }`,
-      transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+      fragmentShader: /* glsl */`
+        uniform sampler2D map;
+        varying vec4 vColor;
+        void main() {
+          vec4 t = texture2D(map, gl_PointCoord);
+          gl_FragColor = vec4(vColor.rgb * t.rgb, vColor.a * t.a);
+          if (gl_FragColor.a < 0.004) discard;
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+      transparent: true,
+      depthWrite: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
     });
     this.points = new THREE.Points(g, this.mat);
     this.points.frustumCulled = false;
     this.points.renderOrder = additive ? 5 : 4;
     scene.add(this.points);
-    // 模擬資料
-    this.p = []; // {x,y,z,vx,vy,vz,life,max,s0,s1,r,g,b,a0,a1,grav,drag}
   }
-  emit(o) { if (this.p.length < this.max) this.p.push(o); else this.p[(Math.random() * this.max) | 0] = o; }
+
+  emit(o) {
+    let i;
+    if (this.n < this.max) i = this.n++;
+    else { i = this.ring; this.ring = (this.ring + 1) % this.max; }   // 滿了就輪流覆蓋
+    const f = this.f;
+    f.x[i] = o.x; f.y[i] = o.y; f.z[i] = o.z;
+    f.vx[i] = o.vx || 0; f.vy[i] = o.vy || 0; f.vz[i] = o.vz || 0;
+    f.age[i] = o.life || 0; f.ttl[i] = o.max;
+    f.s0[i] = o.s0; f.s1[i] = o.s1 ?? o.s0;
+    f.r[i] = o.r; f.g[i] = o.g; f.b[i] = o.b;
+    f.a0[i] = o.a0; f.a1[i] = o.a1 ?? 0;
+    f.grav[i] = o.grav || 0; f.drag[i] = o.drag || 0;
+    f.floor[i] = o.floor === undefined ? -1e9 : o.floor;
+  }
+
+  kill(i) {
+    const last = --this.n, f = this.f;
+    if (i !== last) for (const k of FIELDS) f[k][i] = f[k][last];
+  }
+
   update(dt) {
-    const P = this.p;
-    let n = 0;
-    for (let i = 0; i < P.length; i++) {
-      const q = P[i];
-      q.life += dt;
-      if (q.life >= q.max) continue;
-      const dr = Math.exp(-q.drag * dt);
-      q.vx *= dr; q.vy = q.vy * dr - q.grav * dt; q.vz *= dr;
-      q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
-      if (q.floor !== undefined && q.y < q.floor) { q.y = q.floor; q.vy *= -0.3; q.vx *= 0.5; q.vz *= 0.5; }
-      const t = q.life / q.max;
-      this.pos[n * 3] = q.x; this.pos[n * 3 + 1] = q.y; this.pos[n * 3 + 2] = q.z;
-      this.col[n * 4] = q.r; this.col[n * 4 + 1] = q.g; this.col[n * 4 + 2] = q.b;
-      this.col[n * 4 + 3] = q.a0 + (q.a1 - q.a0) * t;
-      this.size[n] = q.s0 + (q.s1 - q.s0) * t;
-      P[n] = q; n++;
+    const f = this.f, P = this.posBuf, C = this.colBuf, S = this.sizeBuf;
+    let i = 0;
+    while (i < this.n) {
+      const age = (f.age[i] += dt);
+      if (age >= f.ttl[i]) { this.kill(i); continue; }
+      const k = Math.exp(-f.drag[i] * dt);
+      f.vx[i] *= k; f.vz[i] *= k;
+      f.vy[i] = f.vy[i] * k - f.grav[i] * dt;
+      f.x[i] += f.vx[i] * dt; f.y[i] += f.vy[i] * dt; f.z[i] += f.vz[i] * dt;
+      if (f.y[i] < f.floor[i]) {           // 碰到地面：小彈跳、摩擦
+        f.y[i] = f.floor[i];
+        f.vy[i] *= -0.25; f.vx[i] *= 0.45; f.vz[i] *= 0.45;
+      }
+      const t = age / f.ttl[i];
+      P[i * 3] = f.x[i]; P[i * 3 + 1] = f.y[i]; P[i * 3 + 2] = f.z[i];
+      C[i * 4] = f.r[i]; C[i * 4 + 1] = f.g[i]; C[i * 4 + 2] = f.b[i];
+      C[i * 4 + 3] = f.a0[i] + (f.a1[i] - f.a0[i]) * t;
+      S[i] = f.s0[i] + (f.s1[i] - f.s0[i]) * t;
+      i++;
     }
-    P.length = n;
-    this.geo.setDrawRange(0, n);
-    this.geo.attributes.position.needsUpdate = true;
-    this.geo.attributes.color.needsUpdate = true;
-    this.geo.attributes.size.needsUpdate = true;
+    const g = this.geo;
+    g.setDrawRange(0, this.n);
+    if (this.n) {
+      g.attributes.position.needsUpdate = true;
+      g.attributes.color.needsUpdate = true;
+      g.attributes.size.needsUpdate = true;
+    }
   }
 }
 
-class Decals {
+// ───────── 表面貼片（彈孔、血跡、焦痕、刀痕） ─────────
+// 環狀緩衝：超過上限時覆蓋最舊的一張。每張有一點色調差異，避免看起來是同一張貼圖蓋章。
+
+const _Z = new THREE.Vector3(0, 0, 1);
+
+class DecalLayer {
   constructor(scene, tex, max, opts = {}) {
-    const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, roughness: 0.9, metalness: 0, ...opts });
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex, transparent: true, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+      roughness: 0.9, metalness: 0, ...opts,
+    });
     this.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, max);
-    this.mesh.count = 0; this.mesh.frustumCulled = false;
+    this.mesh.count = 0;
+    this.mesh.frustumCulled = false;
     this.mesh.receiveShadow = true;
     this.mesh.renderOrder = 2;
+    this.mesh.setColorAt(0, new THREE.Color(1, 1, 1));   // 建立 instanceColor
     scene.add(this.mesh);
-    this.max = max; this.i = 0;
-    this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.q2 = new THREE.Quaternion();
+    this.max = max;
+    this.i = 0;   // 已放過的總數（clearDecals 會歸零）
+    this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._spin = new THREE.Quaternion();
+    this._p = new THREE.Vector3(); this._s = new THREE.Vector3(); this._c = new THREE.Color();
   }
-  // 指定角度與長寬（刀痕用）
-  addAligned(p, n, sx, sy, angle) {
-    const q = this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
-    q.multiply(this.q2.setFromAxisAngle(new THREE.Vector3(0, 0, 1), angle));
-    this.m.compose(new THREE.Vector3(p.x + n.x * 0.004, p.y + n.y * 0.004, p.z + n.z * 0.004), q, new THREE.Vector3(sx, sy, 1));
-    this.mesh.setMatrixAt(this.i % this.max, this.m); this.i++;
-    this.mesh.count = Math.min(this.i, this.max); this.mesh.instanceMatrix.needsUpdate = true;
-  }
-  add(p, n, size) {
-    const q = this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
-    q.multiply(this.q2.setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.random() * Math.PI * 2));
-    this.m.compose(new THREE.Vector3(p.x + n.x * 0.004, p.y + n.y * 0.004, p.z + n.z * 0.004), q, new THREE.Vector3(size, size, size));
-    this.mesh.setMatrixAt(this.i % this.max, this.m);
+
+  place(p, n, sx, sy, angle) {
+    const q = this._q.setFromUnitVectors(_Z, n).multiply(this._spin.setFromAxisAngle(_Z, angle));
+    this._p.copy(p).addScaledVector(n, 0.003);
+    this._m.compose(this._p, q, this._s.set(sx, sy, 1));
+    const slot = this.i % this.max;
+    this.mesh.setMatrixAt(slot, this._m);
+    const v = 0.88 + Math.random() * 0.12;
+    this.mesh.setColorAt(slot, this._c.setRGB(v, v, v * (0.97 + Math.random() * 0.03)));
     this.i++;
     this.mesh.count = Math.min(this.i, this.max);
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.mesh.instanceColor.needsUpdate = true;
   }
+
+  add(p, n, size) { this.place(p, n, size, size, Math.random() * Math.PI * 2); }
+
+  addAligned(p, n, sx, sy, angle) { this.place(p, n, sx, sy, angle); }
 }
+
+// 曳光貼圖：橫向是彈頭（右）→ 尾巴（左）的亮度漸層，縱向是細細的光芯
+function makeTracerTex() {
+  const W = 128, H = 16, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(W, H), d = img.data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const along = x / (W - 1);                                  // 0 尾 → 1 頭
+    const across = Math.abs((y + 0.5) / H * 2 - 1);
+    const core = Math.exp(-across * across * 14);
+    const a = Math.pow(along, 1.6) * core;
+    const i = (y * W + x) * 4;
+    d[i] = 255; d[i + 1] = 200 + 55 * core; d[i + 2] = 130 + 110 * core; d[i + 3] = a * 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const spread = (k) => (Math.random() - 0.5) * k;
 
 // 刀痕：細長、兩端尖的刻痕，中間深色、邊緣崩出較淺的碎面
 function slashTex() {
@@ -125,53 +232,48 @@ class StaticSet {
   }
 }
 
-function tracerTex() {
-  const c = document.createElement('canvas'); c.width = 64; c.height = 16;
-  const x = c.getContext('2d');
-  const g = x.createLinearGradient(0, 0, 0, 16);
-  g.addColorStop(0, 'rgba(255,220,150,0)'); g.addColorStop(0.5, 'rgba(255,245,210,1)'); g.addColorStop(1, 'rgba(255,220,150,0)');
-  x.fillStyle = g; x.fillRect(0, 0, 64, 16);
-  const g2 = x.createLinearGradient(0, 0, 64, 0);
-  g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
-  x.globalCompositeOperation = 'destination-out'; x.fillStyle = g2; x.fillRect(0, 0, 64, 16);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
 
 export class Effects {
   constructor(scene, T, camera) {
     this.scene = scene; this.camera = camera; this.T = T;
-    this.add = new Particles(scene, T.glow, true, 900);
-    this.smoke = new Particles(scene, T.puff, false, 900);
+    this.add = new ParticlePool(scene, T.glow, true, 900);      // 發光：火花、火球
+    this.smoke = new ParticlePool(scene, T.puff, false, 900);   // 不發光：煙、塵、木屑、血霧
     this.decals = {
-      metal: new Decals(scene, T.holeMetal, 300),
-      wood: new Decals(scene, T.holeWood, 250),
-      concrete: new Decals(scene, T.holeStone, 700),
-      slash: new Decals(scene, slashTex(), 300),
-      blood: new Decals(scene, T.blood, 60),
-      scorch: new Decals(scene, T.scorch, 12),
+      metal: new DecalLayer(scene, T.holeMetal, 300),
+      wood: new DecalLayer(scene, T.holeWood, 250),
+      concrete: new DecalLayer(scene, T.holeStone, 700),
+      slash: new DecalLayer(scene, slashTex(), 300),
+      blood: new DecalLayer(scene, T.blood, 60),
+      scorch: new DecalLayer(scene, T.scorch, 12),
     };
-    // 曳光
+
+    // 曳光：一條朝向鏡頭的細長面片
     this.tracerMax = 48;
     this.tracers = [];
-    this.tracerMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ map: tracerTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffe0a0, toneMapped: false }), this.tracerMax);
-    this.tracerMesh.frustumCulled = false; this.tracerMesh.count = 0; this.tracerMesh.renderOrder = 6;
+    this.tracerMesh = new THREE.InstancedMesh(
+      new THREE.PlaneGeometry(1, 1),
+      // 白天的亮背景會把加法混合的光吃掉，所以用一般混合、偏橘黃的實色
+      new THREE.MeshBasicMaterial({ map: makeTracerTex(), color: 0xffc860, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
+      this.tracerMax,
+    );
+    this.tracerMesh.count = 0; this.tracerMesh.frustumCulled = false; this.tracerMesh.renderOrder = 6;
     scene.add(this.tracerMesh);
-    // 第三人稱槍口火焰
-    this.flashes = [];
-    for (let i = 0; i < 12; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.flash[i % 3], blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffd8a0, toneMapped: false }));
+
+    // 第三人稱槍口火焰（其他角色開槍時看到的）
+    this.flashes = Array.from({ length: 12 }, (_, i) => {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.flash[i % T.flash.length], blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, color: 0xffe0b0 }));
       s.visible = false; s.renderOrder = 7; scene.add(s);
-      this.flashes.push({ s, t: 0 });
-    }
-    this.flashI = 0;
-    // 動態點光源池
-    this.lights = [];
-    for (let i = 0; i < 3; i++) {
+      return { s, t: 0 };
+    });
+    this.flashNext = 0;
+
+    // 閃光用的點光源：數量固定，避免開關燈時重新編譯 shader
+    this.lights = Array.from({ length: 3 }, () => {
       const l = new THREE.PointLight(0xffa850, 0, 9, 2);
-      scene.add(l); this.lights.push({ l, t: 0, peak: 0, dur: 0.06 });
-    }
-    this.lightI = 0;
+      scene.add(l);
+      return { l, t: 0, dur: 1, peak: 0 };
+    });
+    this.lightNext = 0;
     // 玻璃碎片：三角形實體碎片（InstancedMesh），會旋轉、落地彈跳後淡出
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.55, 0, -0.5, -0.4, 0.02, 0.48, -0.32, -0.02], 3));
@@ -195,56 +297,66 @@ export class Effects {
     this.caseMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 7), new THREE.MeshStandardMaterial({ color: 0xc9a046, roughness: 0.3, metalness: 0.9 }), this.caseMax);
     this.caseMesh.count = 0; this.caseMesh.frustumCulled = false; scene.add(this.caseMesh);
     this.shake = 0;
-    this.funnelT = 0;
-    this.birds = [];
+    this._tm = new THREE.Matrix4(); this._ta = new THREE.Vector3(); this._tb = new THREE.Vector3(); this._tc = new THREE.Vector3(); this._tmid = new THREE.Vector3();
   }
+
   light(pos, intensity, dur, color = 0xffa850, dist = 9) {
-    const L = this.lights[this.lightI++ % this.lights.length];
+    const L = this.lights[this.lightNext++ % this.lights.length];
     L.l.position.copy(pos); L.l.color.set(color); L.l.distance = dist;
-    L.t = dur; L.dur = dur; L.peak = intensity; L.l.intensity = intensity;
+    L.t = L.dur = dur; L.peak = intensity; L.l.intensity = intensity;
   }
+
   muzzle(pos, dir, big = 1) {
-    const F = this.flashes[this.flashI++ % this.flashes.length];
-    F.s.position.copy(pos).addScaledVector(dir, 0.06);
-    F.s.material.rotation = Math.random() * 6.28;
-    F.s.scale.setScalar(0.45 * big * (0.8 + Math.random() * 0.4));
+    const F = this.flashes[this.flashNext++ % this.flashes.length];
+    F.s.position.copy(pos).addScaledVector(dir, 0.05);
+    F.s.material.rotation = Math.random() * Math.PI * 2;
+    F.s.scale.setScalar(0.42 * big * rand(0.8, 1.2));
     F.s.visible = true; F.t = 0.05;
     this.light(pos, 6 * big, 0.06);
-    // 槍口煙
-    this.smoke.emit({ x: pos.x, y: pos.y, z: pos.z, vx: dir.x * 1.5, vy: 0.4, vz: dir.z * 1.5, life: 0, max: 0.7, s0: 0.1, s1: 0.5, r: 0.7, g: 0.7, b: 0.7, a0: 0.18, a1: 0, grav: -0.3, drag: 3 });
+    // 兩小團槍口煙，往槍口方向推出後緩緩上飄
+    for (let i = 0; i < 2; i++) {
+      this.smoke.emit({ x: pos.x, y: pos.y, z: pos.z, vx: dir.x * rand(0.8, 1.8), vy: 0.25 + dir.y, vz: dir.z * rand(0.8, 1.8), max: rand(0.5, 0.8), s0: 0.08, s1: 0.45, r: 0.72, g: 0.71, b: 0.7, a0: 0.16, a1: 0, grav: -0.35, drag: 3.2 });
+    }
   }
+
   tracer(from, to) {
-    const d = to.clone().sub(from); const L = d.length();
-    if (L < 2) return;
-    d.divideScalar(L);
-    this.tracers.push({ from: from.clone(), dir: d, len: L, t: 0 });
+    const len = from.distanceTo(to);
+    if (len < 2) return;
+    this.tracers.push({ from: from.clone(), dir: to.clone().sub(from).divideScalar(len), len, t: 0 });
     if (this.tracers.length > this.tracerMax) this.tracers.shift();
   }
+
   impact(p, n, mat, dir) {
-    const nx = n.x, ny = n.y, nz = n.z;
+    const S = this.smoke, A = this.add;
     if (mat === 'flesh') {
-      for (let i = 0; i < 10; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 2 + (Math.random() - 0.5) * 1.5, vy: Math.random() * 1.2, vz: dir.z * 2 + (Math.random() - 0.5) * 1.5, life: 0, max: 0.35 + Math.random() * 0.3, s0: 0.06, s1: 0.28, r: 0.45, g: 0.02, b: 0.02, a0: 0.8, a1: 0, grav: 2, drag: 4 });
-      for (let i = 0; i < 6; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 3 + (Math.random() - 0.5) * 2, vy: Math.random() * 2, vz: dir.z * 3 + (Math.random() - 0.5) * 2, life: 0, max: 0.6, s0: 0.035, s1: 0.03, r: 0.35, g: 0.0, b: 0.0, a0: 1, a1: 0.6, grav: 9, drag: 0.5, floor: 0.01 });
+      // 血霧＋往後噴的血滴（會落地）
+      for (let i = 0; i < 9; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 1.8 + spread(1.6), vy: rand(0, 1.1), vz: dir.z * 1.8 + spread(1.6), max: rand(0.3, 0.6), s0: 0.05, s1: 0.3, r: 0.42, g: 0.02, b: 0.03, a0: 0.75, a1: 0, grav: 1.8, drag: 4 });
+      for (let i = 0; i < 7; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 3 + spread(2.2), vy: rand(0.3, 2.2), vz: dir.z * 3 + spread(2.2), max: 0.65, s0: 0.035, s1: 0.03, r: 0.33, g: 0, b: 0.01, a0: 1, a1: 0.6, grav: 9.8, drag: 0.5, floor: 0.01 });
       return;
     }
     if (mat === 'metal') {
-      const cnt = 6 + (Math.random() * 6) | 0;
-      for (let i = 0; i < cnt; i++) {
-        const sp = 3 + Math.random() * 5;
-        this.add.emit({ x: p.x, y: p.y, z: p.z, vx: (nx + (Math.random() - 0.5) * 1.4) * sp, vy: (ny + Math.random() * 0.8) * sp, vz: (nz + (Math.random() - 0.5) * 1.4) * sp, life: 0, max: 0.18 + Math.random() * 0.25, s0: 0.035, s1: 0.01, r: 1.6, g: 1.1, b: 0.5, a0: 1, a1: 0.3, grav: 9, drag: 1.5 });
+      // 火花：沿反彈方向噴出，受重力下墜
+      const count = 6 + ((Math.random() * 7) | 0);
+      for (let i = 0; i < count; i++) {
+        const v = rand(3, 8);
+        A.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.4)) * v, vy: (n.y + rand(0, 0.8)) * v, vz: (n.z + spread(1.4)) * v, max: rand(0.15, 0.42), s0: 0.035, s1: 0.01, r: 1.7, g: 1.15, b: 0.5, a0: 1, a1: 0.25, grav: 9.8, drag: 1.5, floor: 0.01 });
       }
-      this.add.emit({ x: p.x + nx * 0.02, y: p.y + ny * 0.02, z: p.z + nz * 0.02, vx: 0, vy: 0, vz: 0, life: 0, max: 0.05, s0: 0.25, s1: 0.1, r: 1.5, g: 1.2, b: 0.7, a0: 1, a1: 0, grav: 0, drag: 0 });
-      this.decals.metal.add(p, n, 0.07 + Math.random() * 0.03);
+      A.emit({ x: p.x + n.x * 0.02, y: p.y + n.y * 0.02, z: p.z + n.z * 0.02, max: 0.05, s0: 0.24, s1: 0.1, r: 1.5, g: 1.25, b: 0.8, a0: 1, a1: 0 });
+      this.decals.metal.add(p, n, rand(0.07, 0.1));
     } else if (mat === 'wood') {
-      for (let i = 0; i < 8; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: (nx + (Math.random() - 0.5)) * 3, vy: (ny + Math.random()) * 3, vz: (nz + (Math.random() - 0.5)) * 3, life: 0, max: 0.6, s0: 0.03, s1: 0.025, r: 0.55, g: 0.4, b: 0.25, a0: 1, a1: 0.8, grav: 9, drag: 1, floor: 0.01 });
-      this.decals.wood.add(p, n, 0.08 + Math.random() * 0.03);
+      // 木屑：較大、會落地
+      for (let i = 0; i < 8; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1)) * 3, vy: (n.y + rand(0, 1)) * 3, vz: (n.z + spread(1)) * 3, max: 0.7, s0: 0.035, s1: 0.03, r: 0.6, g: 0.44, b: 0.27, a0: 1, a1: 0.8, grav: 9.8, drag: 1, floor: 0.01 });
+      this.decals.wood.add(p, n, rand(0.08, 0.11));
     } else if (mat !== 'mesh') {
-      // 磚、水泥、石材：留下崩缺彈孔
-      this.decals.concrete.add(p, n, 0.07 + Math.random() * 0.04);
+      // 磚、混凝土、磨石子：碎石屑＋崩缺彈孔
+      for (let i = 0; i < 5; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.2)) * 2.6, vy: (n.y + rand(0, 1)) * 2.6, vz: (n.z + spread(1.2)) * 2.6, max: 0.6, s0: 0.025, s1: 0.02, r: 0.62, g: 0.6, b: 0.56, a0: 1, a1: 0.7, grav: 9.8, drag: 0.8, floor: 0.01 });
+      this.decals.concrete.add(p, n, rand(0.07, 0.11));
     }
-    // 塵煙
-    const dust = mat === 'wood' ? [0.62, 0.52, 0.4] : [0.55, 0.55, 0.53];
-    for (let i = 0; i < 3; i++) this.smoke.emit({ x: p.x + nx * 0.05, y: p.y + ny * 0.05, z: p.z + nz * 0.05, vx: nx * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, vy: ny * 0.8 + 0.3, vz: nz * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, life: 0, max: 0.8 + Math.random() * 0.6, s0: 0.12, s1: 0.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
+    // 命中處揚起的塵
+    const tint = mat === 'wood' ? [0.62, 0.52, 0.4] : mat === 'metal' ? [0.5, 0.5, 0.5] : [0.6, 0.58, 0.55];
+    for (let i = 0; i < 3; i++) {
+      S.emit({ x: p.x + n.x * 0.05, y: p.y + n.y * 0.05, z: p.z + n.z * 0.05, vx: n.x * rand(0.5, 1.5) + spread(0.4), vy: n.y * 0.8 + 0.3, vz: n.z * rand(0.5, 1.5) + spread(0.4), max: rand(0.8, 1.4), s0: 0.12, s1: 0.6, r: tint[0], g: tint[1], b: tint[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
+    }
   }
   // 玻璃碎裂：整片玻璃化為碎片，沿子彈方向（或爆炸外推）噴出後落地
   shatter(b, dir, from) {
@@ -426,45 +538,37 @@ export class Effects {
     for (const d of Object.values(this.decals)) { d.mesh.count = 0; d.i = 0; }
     this.rubble.clear(); this.jag.clear(); this.rebar.clear(); this.chunks = []; this.shards = []; this.cases = [];
   }
-  bloodSplat(p) { this.decals.blood.add(p, new THREE.Vector3(0, 1, 0), 0.5 + Math.random() * 0.4); }
+  bloodSplat(p) {
+    this.decals.blood.add(p, new THREE.Vector3(0, 1, 0), rand(0.5, 0.9));
+  }
+
+  // 手雷爆炸：閃光 → 火球 → 四散火星 → 貼地衝擊塵環 → 上升黑煙柱 → 地面焦痕
   explosion(p) {
+    const A = this.add, S = this.smoke, y = p.y + 0.3;
     this.light(p, 60, 0.35, 0xff9040, 22);
-    this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: 0, vy: 0, vz: 0, life: 0, max: 0.18, s0: 2, s1: 7, r: 2.2, g: 1.6, b: 0.9, a0: 1, a1: 0, grav: 0, drag: 0 });
-    for (let i = 0; i < 26; i++) {
-      const a = Math.random() * 6.28, e = Math.random() * 1.2, sp = 3 + Math.random() * 6;
-      this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: Math.cos(a) * Math.cos(e) * sp, vy: Math.sin(e) * sp + 1, vz: Math.sin(a) * Math.cos(e) * sp, life: 0, max: 0.35 + Math.random() * 0.35, s0: 0.9, s1: 2.2, r: 1.8, g: 0.8, b: 0.25, a0: 0.9, a1: 0, grav: -1, drag: 4 });
+    A.emit({ x: p.x, y, z: p.z, max: 0.16, s0: 2.2, s1: 7, r: 2.4, g: 1.8, b: 1.1, a0: 1, a1: 0 });
+    // 火球：一團團往外膨脹、迅速冷卻
+    for (let i = 0; i < 24; i++) {
+      const az = rand(0, Math.PI * 2), el = rand(0, 1.2), v = rand(3, 9);
+      A.emit({ x: p.x, y, z: p.z, vx: Math.cos(az) * Math.cos(el) * v, vy: Math.sin(el) * v + 1, vz: Math.sin(az) * Math.cos(el) * v, max: rand(0.35, 0.7), s0: 0.9, s1: 2.3, r: 1.9, g: 0.85, b: 0.28, a0: 0.9, a1: 0, grav: -1, drag: 4 });
     }
+    // 火星：飛得遠、落地彈跳
     for (let i = 0; i < 40; i++) {
-      const a = Math.random() * 6.28, sp = 8 + Math.random() * 14;
-      this.add.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: Math.cos(a) * sp, vy: Math.random() * 10, vz: Math.sin(a) * sp, life: 0, max: 0.4 + Math.random() * 0.5, s0: 0.06, s1: 0.02, r: 1.8, g: 1.2, b: 0.5, a0: 1, a1: 0.4, grav: 12, drag: 1.2, floor: 0.02 });
+      const az = rand(0, Math.PI * 2), v = rand(8, 22);
+      A.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: Math.cos(az) * v, vy: rand(0, 10), vz: Math.sin(az) * v, max: rand(0.4, 0.9), s0: 0.06, s1: 0.02, r: 1.9, g: 1.2, b: 0.5, a0: 1, a1: 0.4, grav: 12, drag: 1.2, floor: 0.02 });
     }
+    // 衝擊塵環：貼著地面快速向外擴散
+    for (let i = 0; i < 18; i++) {
+      const az = (i / 18) * Math.PI * 2 + spread(0.3), v = rand(5, 9);
+      S.emit({ x: p.x, y: p.y + 0.15, z: p.z, vx: Math.cos(az) * v, vy: 0.2, vz: Math.sin(az) * v, max: rand(1.2, 2), s0: 0.6, s1: 2.6, r: 0.55, g: 0.5, b: 0.44, a0: 0.45, a1: 0, grav: 0, drag: 2.6 });
+    }
+    // 黑煙柱：慢慢升起、擴散
     for (let i = 0; i < 22; i++) {
-      const a = Math.random() * 6.28, sp = 1 + Math.random() * 3;
-      this.smoke.emit({ x: p.x + Math.cos(a) * 0.5, y: p.y + 0.4 + Math.random(), z: p.z + Math.sin(a) * 0.5, vx: Math.cos(a) * sp, vy: 1 + Math.random() * 2, vz: Math.sin(a) * sp, life: 0, max: 3 + Math.random() * 3, s0: 1.2, s1: 5, r: 0.22, g: 0.21, b: 0.2, a0: 0.75, a1: 0, grav: -0.4, drag: 1.2 });
+      const az = rand(0, Math.PI * 2), v = rand(1, 3);
+      S.emit({ x: p.x + Math.cos(az) * 0.5, y: p.y + rand(0.4, 1.4), z: p.z + Math.sin(az) * 0.5, vx: Math.cos(az) * v, vy: rand(1, 3), vz: Math.sin(az) * v, max: rand(3, 6), s0: 1.2, s1: 5, r: 0.21, g: 0.2, b: 0.19, a0: 0.75, a1: 0, grav: -0.4, drag: 1.2 });
     }
     this.decals.scorch.add(new THREE.Vector3(p.x, 0.01, p.z), new THREE.Vector3(0, 1, 0), 3.2);
     this.shake = Math.max(this.shake, 1);
-  }
-  // 煙囪排煙 & 海鷗
-  initAmbient(funnelTop) {
-    this.funnelTop = funnelTop;
-    const birdMat = new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.8, side: THREE.DoubleSide });
-    const tipMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, side: THREE.DoubleSide });
-    for (let i = 0; i < 6; i++) {
-      const b = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.35, 3, 6), birdMat); body.rotation.x = Math.PI / 2;
-      const wg = new THREE.BufferGeometry();
-      wg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -0.1, 0.75, 0.05, 0.05, 0, 0, 0.15, 0.75, 0.05, 0.05, 1.05, 0, 0.12, 0.75, 0.05, 0.05], 3));
-      wg.computeVertexNormals();
-      const wR = new THREE.Mesh(wg, birdMat), wL = new THREE.Mesh(wg, birdMat); wL.scale.x = -1;
-      const tipG = new THREE.BufferGeometry(); tipG.setAttribute('position', new THREE.Float32BufferAttribute([0.75, 0.05, 0.05, 1.05, 0, 0.12, 1.2, 0, 0.18], 3)); tipG.computeVertexNormals();
-      const tR = new THREE.Mesh(tipG, tipMat), tL = new THREE.Mesh(tipG, tipMat); tL.scale.x = -1;
-      const wrR = new THREE.Group(); wrR.add(wR, tR); const wrL = new THREE.Group(); wrL.add(wL, tL);
-      b.add(body, wrR, wrL);
-      b.scale.setScalar(1.1);
-      this.scene.add(b);
-      this.birds.push({ g: b, wR: wrR, wL: wrL, r: 25 + Math.random() * 30, h: 18 + Math.random() * 16, sp: 0.18 + Math.random() * 0.12, ph: Math.random() * 6.28, cx: -10 + Math.random() * 30, flap: Math.random() * 6 });
-    }
   }
   updateShards(dt) {
     const D = this._dummy, M = this.shardMesh, dq = new THREE.Quaternion(), ax = new THREE.Vector3();
@@ -483,60 +587,55 @@ export class Effects {
     this.shards = this.shards.filter(sh => sh.life < sh.max);
     M.count = n; M.instanceMatrix.needsUpdate = true;
   }
-  update(dt, t, camera, shipSpeed) {
+  update(dt, t, camera) {
+    // 破壞系統
     this.updateShards(dt);
     this.updateChunks(dt);
     this.updateCases(dt);
     this.rubble.flush(); this.jag.flush(); this.rebar.flush();
+
+    // 粒子：大小以「實際繪圖像素」換算，高解析度手機上不會變大一倍
     this.add.update(dt); this.smoke.update(dt);
-    const h = window.innerHeight * Math.min(window.devicePixelRatio, 2);
-    const sc = h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
-    this.add.mat.uniforms.scale.value = sc; this.smoke.mat.uniforms.scale.value = sc;
-    // 曳光
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), pv = new THREE.Vector3();
-    const camPos = camera.position;
+    const canvasH = document.getElementById('c')?.height || window.innerHeight;
+    const pxPerUnit = canvasH / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+    this.add.mat.uniforms.scale.value = pxPerUnit;
+    this.smoke.mat.uniforms.scale.value = pxPerUnit;
+
+    this.updateTracers(dt, camera);
+
+    for (const F of this.flashes) if (F.t > 0 && (F.t -= dt) <= 0) F.s.visible = false;
+    for (const L of this.lights) {
+      if (L.t > 0) { L.t -= dt; L.l.intensity = Math.max(0, L.t / L.dur) * L.peak; } else L.l.intensity = 0;
+    }
+    this.shake *= Math.exp(-dt * 5);
+  }
+
+  // 曳光：彈頭以 300 m/s 前進（比真實慢，肉眼才看得到），拖著 10 m 的尾巴；面片繞著彈道軸轉向鏡頭
+  updateTracers(dt, camera) {
+    const SPEED = 300, TAIL = 10, M = this._tm, mid = this._tmid, side = this._ta, face = this._tb, toCam = this._tc;
     let n = 0;
-    const speed = 380;
     this.tracers = this.tracers.filter((tr) => {
       tr.t += dt;
-      const head = Math.min(tr.len, tr.t * speed), tail = Math.max(0, head - 7);
+      const head = Math.min(tr.len, tr.t * SPEED), tail = Math.max(0, head - TAIL);
       if (tail >= tr.len) return false;
-      const mid = pv.copy(tr.from).addScaledVector(tr.dir, (head + tail) / 2);
-      const toCam = camPos.clone().sub(mid).normalize();
-      const up = new THREE.Vector3().crossVectors(tr.dir, toCam).normalize();
-      const nrm = new THREE.Vector3().crossVectors(tr.dir, up);
-      const basis = new THREE.Matrix4().makeBasis(tr.dir, up, nrm);
-      q.setFromRotationMatrix(basis);
-      const dist = mid.distanceTo(camPos);
-      sv.set(head - tail, 0.018 + dist * 0.0012, 1);
-      m.compose(mid, q, sv);
-      if (n < this.tracerMax) this.tracerMesh.setMatrixAt(n++, m);
+      if (n >= this.tracerMax) return true;
+      mid.copy(tr.from).addScaledVector(tr.dir, (head + tail) / 2);
+      toCam.copy(camera.position).sub(mid);
+      const dist = toCam.length();
+      side.crossVectors(tr.dir, toCam).normalize();
+      face.crossVectors(tr.dir, side);
+      const L = head - tail, W = 0.03 + dist * 0.0022;
+      // 直接寫出縮放後的基底：X 軸沿彈道（長度 L）、Y 軸橫向（寬度 W）
+      M.set(
+        tr.dir.x * L, side.x * W, face.x, mid.x,
+        tr.dir.y * L, side.y * W, face.y, mid.y,
+        tr.dir.z * L, side.z * W, face.z, mid.z,
+        0, 0, 0, 1,
+      );
+      this.tracerMesh.setMatrixAt(n++, M);
       return true;
     });
-    this.tracerMesh.count = n; this.tracerMesh.instanceMatrix.needsUpdate = true;
-    for (const F of this.flashes) if (F.t > 0) { F.t -= dt; if (F.t <= 0) F.s.visible = false; }
-    for (const L of this.lights) { if (L.t > 0) { L.t -= dt; L.l.intensity = Math.max(0, L.t / L.dur) * L.peak; } else L.l.intensity = 0; }
-    this.shake *= Math.exp(-dt * 5);
-    // 煙囪排煙
-    if (this.funnelTop) {
-      this.funnelT -= dt;
-      if (this.funnelT <= 0) {
-        this.funnelT = 0.14;
-        const f = this.funnelTop;
-        const g = 0.18 + Math.random() * 0.1;
-        this.smoke.emit({ x: f.x + (Math.random() - 0.5) * 2, y: f.y, z: f.z + (Math.random() - 0.5) * 1.5, vx: -shipSpeed * 0.9 - Math.random(), vy: 2.2 + Math.random(), vz: (Math.random() - 0.5) * 0.8, life: 0, max: 9, s0: 2.2, s1: 11, r: g, g: g, b: g * 1.02, a0: 0.42, a1: 0, grav: -0.05, drag: 0.08 });
-      }
-    }
-    for (const b of this.birds) {
-      b.ph += dt * b.sp;
-      const x = b.cx + Math.cos(b.ph) * b.r, z = Math.sin(b.ph) * b.r * 0.6, y = b.h + Math.sin(b.ph * 2.3) * 3;
-      b.g.position.set(x, y, z);
-      b.g.rotation.y = -b.ph + Math.PI;
-      b.g.rotation.z = Math.sin(b.ph) * 0.3;
-      b.flap += dt * 7;
-      const gl = Math.sin(b.ph * 0.7) > 0.3;
-      const fa = gl ? 0.08 : Math.sin(b.flap) * 0.6;
-      b.wR.rotation.z = fa; b.wL.rotation.z = -fa;
-    }
+    this.tracerMesh.count = n;
+    this.tracerMesh.instanceMatrix.needsUpdate = true;
   }
 }

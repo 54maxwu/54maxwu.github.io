@@ -35759,26 +35759,55 @@ void main() {
   };
 
   // game-src/effects.js
-  var Particles = class {
+  var FIELDS = ["x", "y", "z", "vx", "vy", "vz", "age", "ttl", "s0", "s1", "r", "g", "b", "a0", "a1", "grav", "drag", "floor"];
+  var ParticlePool = class {
     constructor(scene, tex, additive, max) {
       this.max = max;
-      const g = new BufferGeometry();
-      this.pos = new Float32Array(max * 3);
-      this.col = new Float32Array(max * 4);
-      this.size = new Float32Array(max);
-      g.setAttribute("position", new BufferAttribute(this.pos, 3).setUsage(DynamicDrawUsage));
-      g.setAttribute("color", new BufferAttribute(this.col, 4).setUsage(DynamicDrawUsage));
-      g.setAttribute("size", new BufferAttribute(this.size, 1).setUsage(DynamicDrawUsage));
-      this.geo = g;
+      this.n = 0;
+      this.ring = 0;
+      this.f = {};
+      for (const k of FIELDS) this.f[k] = new Float32Array(max);
+      this.posBuf = new Float32Array(max * 3);
+      this.colBuf = new Float32Array(max * 4);
+      this.sizeBuf = new Float32Array(max);
+      const g = this.geo = new BufferGeometry();
+      const attr = (arr, n) => new BufferAttribute(arr, n).setUsage(DynamicDrawUsage);
+      g.setAttribute("position", attr(this.posBuf, 3));
+      g.setAttribute("color", attr(this.colBuf, 4));
+      g.setAttribute("size", attr(this.sizeBuf, 1));
+      g.setDrawRange(0, 0);
       this.mat = new ShaderMaterial({
         uniforms: { map: { value: tex }, scale: { value: 800 } },
-        vertexShader: `attribute float size; attribute vec4 color; varying vec4 vC; uniform float scale;
-        void main(){ vC = color; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = size * scale / max(0.1, -mv.z); gl_Position = projectionMatrix * mv; }`,
-        fragmentShader: `uniform sampler2D map; varying vec4 vC;
-        void main(){ vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(vC.rgb * t.rgb, vC.a * t.a);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-        }`,
+        vertexShader: (
+          /* glsl */
+          `
+        attribute float size;
+        attribute vec4 color;
+        uniform float scale;
+        varying vec4 vColor;
+        void main() {
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          float dist = max(0.05, -mv.z);
+          vColor = color;
+          // \u8CBC\u5728\u93E1\u982D\u524D\u7684\u5927\u7159\u5718\u6703\u6574\u500B\u7CCA\u4F4F\u756B\u9762\uFF0C\u9760\u8FD1\u6642\u6DE1\u51FA
+          vColor.a *= smoothstep(0.25, 1.2, dist);
+          gl_PointSize = min(size * scale / dist, 1024.0);
+          gl_Position = projectionMatrix * mv;
+        }`
+        ),
+        fragmentShader: (
+          /* glsl */
+          `
+        uniform sampler2D map;
+        varying vec4 vColor;
+        void main() {
+          vec4 t = texture2D(map, gl_PointCoord);
+          gl_FragColor = vec4(vColor.rgb * t.rgb, vColor.a * t.a);
+          if (gl_FragColor.a < 0.004) discard;
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`
+        ),
         transparent: true,
         depthWrite: false,
         blending: additive ? AdditiveBlending : NormalBlending
@@ -35787,86 +35816,153 @@ void main() {
       this.points.frustumCulled = false;
       this.points.renderOrder = additive ? 5 : 4;
       scene.add(this.points);
-      this.p = [];
     }
     emit(o) {
-      if (this.p.length < this.max) this.p.push(o);
-      else this.p[Math.random() * this.max | 0] = o;
+      let i;
+      if (this.n < this.max) i = this.n++;
+      else {
+        i = this.ring;
+        this.ring = (this.ring + 1) % this.max;
+      }
+      const f = this.f;
+      f.x[i] = o.x;
+      f.y[i] = o.y;
+      f.z[i] = o.z;
+      f.vx[i] = o.vx || 0;
+      f.vy[i] = o.vy || 0;
+      f.vz[i] = o.vz || 0;
+      f.age[i] = o.life || 0;
+      f.ttl[i] = o.max;
+      f.s0[i] = o.s0;
+      f.s1[i] = o.s1 ?? o.s0;
+      f.r[i] = o.r;
+      f.g[i] = o.g;
+      f.b[i] = o.b;
+      f.a0[i] = o.a0;
+      f.a1[i] = o.a1 ?? 0;
+      f.grav[i] = o.grav || 0;
+      f.drag[i] = o.drag || 0;
+      f.floor[i] = o.floor === void 0 ? -1e9 : o.floor;
+    }
+    kill(i) {
+      const last = --this.n, f = this.f;
+      if (i !== last) for (const k of FIELDS) f[k][i] = f[k][last];
     }
     update(dt) {
-      const P = this.p;
-      let n = 0;
-      for (let i = 0; i < P.length; i++) {
-        const q = P[i];
-        q.life += dt;
-        if (q.life >= q.max) continue;
-        const dr = Math.exp(-q.drag * dt);
-        q.vx *= dr;
-        q.vy = q.vy * dr - q.grav * dt;
-        q.vz *= dr;
-        q.x += q.vx * dt;
-        q.y += q.vy * dt;
-        q.z += q.vz * dt;
-        if (q.floor !== void 0 && q.y < q.floor) {
-          q.y = q.floor;
-          q.vy *= -0.3;
-          q.vx *= 0.5;
-          q.vz *= 0.5;
+      const f = this.f, P = this.posBuf, C = this.colBuf, S = this.sizeBuf;
+      let i = 0;
+      while (i < this.n) {
+        const age = f.age[i] += dt;
+        if (age >= f.ttl[i]) {
+          this.kill(i);
+          continue;
         }
-        const t = q.life / q.max;
-        this.pos[n * 3] = q.x;
-        this.pos[n * 3 + 1] = q.y;
-        this.pos[n * 3 + 2] = q.z;
-        this.col[n * 4] = q.r;
-        this.col[n * 4 + 1] = q.g;
-        this.col[n * 4 + 2] = q.b;
-        this.col[n * 4 + 3] = q.a0 + (q.a1 - q.a0) * t;
-        this.size[n] = q.s0 + (q.s1 - q.s0) * t;
-        P[n] = q;
-        n++;
+        const k = Math.exp(-f.drag[i] * dt);
+        f.vx[i] *= k;
+        f.vz[i] *= k;
+        f.vy[i] = f.vy[i] * k - f.grav[i] * dt;
+        f.x[i] += f.vx[i] * dt;
+        f.y[i] += f.vy[i] * dt;
+        f.z[i] += f.vz[i] * dt;
+        if (f.y[i] < f.floor[i]) {
+          f.y[i] = f.floor[i];
+          f.vy[i] *= -0.25;
+          f.vx[i] *= 0.45;
+          f.vz[i] *= 0.45;
+        }
+        const t = age / f.ttl[i];
+        P[i * 3] = f.x[i];
+        P[i * 3 + 1] = f.y[i];
+        P[i * 3 + 2] = f.z[i];
+        C[i * 4] = f.r[i];
+        C[i * 4 + 1] = f.g[i];
+        C[i * 4 + 2] = f.b[i];
+        C[i * 4 + 3] = f.a0[i] + (f.a1[i] - f.a0[i]) * t;
+        S[i] = f.s0[i] + (f.s1[i] - f.s0[i]) * t;
+        i++;
       }
-      P.length = n;
-      this.geo.setDrawRange(0, n);
-      this.geo.attributes.position.needsUpdate = true;
-      this.geo.attributes.color.needsUpdate = true;
-      this.geo.attributes.size.needsUpdate = true;
+      const g = this.geo;
+      g.setDrawRange(0, this.n);
+      if (this.n) {
+        g.attributes.position.needsUpdate = true;
+        g.attributes.color.needsUpdate = true;
+        g.attributes.size.needsUpdate = true;
+      }
     }
   };
-  var Decals = class {
+  var _Z = new Vector3(0, 0, 1);
+  var DecalLayer = class {
     constructor(scene, tex, max, opts = {}) {
-      const mat = new MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, roughness: 0.9, metalness: 0, ...opts });
+      const mat = new MeshStandardMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -4,
+        polygonOffsetUnits: -4,
+        roughness: 0.9,
+        metalness: 0,
+        ...opts
+      });
       this.mesh = new InstancedMesh(new PlaneGeometry(1, 1), mat, max);
       this.mesh.count = 0;
       this.mesh.frustumCulled = false;
       this.mesh.receiveShadow = true;
       this.mesh.renderOrder = 2;
+      this.mesh.setColorAt(0, new Color(1, 1, 1));
       scene.add(this.mesh);
       this.max = max;
       this.i = 0;
-      this.m = new Matrix4();
-      this.q = new Quaternion();
-      this.q2 = new Quaternion();
+      this._m = new Matrix4();
+      this._q = new Quaternion();
+      this._spin = new Quaternion();
+      this._p = new Vector3();
+      this._s = new Vector3();
+      this._c = new Color();
     }
-    // 指定角度與長寬（刀痕用）
-    addAligned(p, n, sx, sy, angle) {
-      const q = this.q.setFromUnitVectors(new Vector3(0, 0, 1), n);
-      q.multiply(this.q2.setFromAxisAngle(new Vector3(0, 0, 1), angle));
-      this.m.compose(new Vector3(p.x + n.x * 4e-3, p.y + n.y * 4e-3, p.z + n.z * 4e-3), q, new Vector3(sx, sy, 1));
-      this.mesh.setMatrixAt(this.i % this.max, this.m);
+    place(p, n, sx, sy, angle) {
+      const q = this._q.setFromUnitVectors(_Z, n).multiply(this._spin.setFromAxisAngle(_Z, angle));
+      this._p.copy(p).addScaledVector(n, 3e-3);
+      this._m.compose(this._p, q, this._s.set(sx, sy, 1));
+      const slot = this.i % this.max;
+      this.mesh.setMatrixAt(slot, this._m);
+      const v = 0.88 + Math.random() * 0.12;
+      this.mesh.setColorAt(slot, this._c.setRGB(v, v, v * (0.97 + Math.random() * 0.03)));
       this.i++;
       this.mesh.count = Math.min(this.i, this.max);
       this.mesh.instanceMatrix.needsUpdate = true;
+      this.mesh.instanceColor.needsUpdate = true;
     }
     add(p, n, size) {
-      const q = this.q.setFromUnitVectors(new Vector3(0, 0, 1), n);
-      q.multiply(this.q2.setFromAxisAngle(new Vector3(0, 0, 1), Math.random() * Math.PI * 2));
-      this.m.compose(new Vector3(p.x + n.x * 4e-3, p.y + n.y * 4e-3, p.z + n.z * 4e-3), q, new Vector3(size, size, size));
-      this.mesh.setMatrixAt(this.i % this.max, this.m);
-      this.i++;
-      this.mesh.count = Math.min(this.i, this.max);
-      this.mesh.instanceMatrix.needsUpdate = true;
+      this.place(p, n, size, size, Math.random() * Math.PI * 2);
+    }
+    addAligned(p, n, sx, sy, angle) {
+      this.place(p, n, sx, sy, angle);
     }
   };
+  function makeTracerTex() {
+    const W = 128, H = 16, c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext("2d"), img = ctx.createImageData(W, H), d = img.data;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const along = x / (W - 1);
+      const across = Math.abs((y + 0.5) / H * 2 - 1);
+      const core = Math.exp(-across * across * 14);
+      const a = Math.pow(along, 1.6) * core;
+      const i = (y * W + x) * 4;
+      d[i] = 255;
+      d[i + 1] = 200 + 55 * core;
+      d[i + 2] = 130 + 110 * core;
+      d[i + 3] = a * 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  }
+  var rand = (a, b) => a + Math.random() * (b - a);
+  var spread = (k) => (Math.random() - 0.5) * k;
   function slashTex() {
     const c = document.createElement("canvas");
     c.width = 256;
@@ -35941,69 +36037,47 @@ void main() {
       if (M2.instanceColor) M2.instanceColor.needsUpdate = true;
     }
   };
-  function tracerTex() {
-    const c = document.createElement("canvas");
-    c.width = 64;
-    c.height = 16;
-    const x = c.getContext("2d");
-    const g = x.createLinearGradient(0, 0, 0, 16);
-    g.addColorStop(0, "rgba(255,220,150,0)");
-    g.addColorStop(0.5, "rgba(255,245,210,1)");
-    g.addColorStop(1, "rgba(255,220,150,0)");
-    x.fillStyle = g;
-    x.fillRect(0, 0, 64, 16);
-    const g2 = x.createLinearGradient(0, 0, 64, 0);
-    g2.addColorStop(0, "rgba(0,0,0,1)");
-    g2.addColorStop(1, "rgba(0,0,0,0)");
-    x.globalCompositeOperation = "destination-out";
-    x.fillStyle = g2;
-    x.fillRect(0, 0, 64, 16);
-    const t = new CanvasTexture(c);
-    t.colorSpace = SRGBColorSpace;
-    return t;
-  }
   var Effects = class {
     constructor(scene, T, camera) {
       this.scene = scene;
       this.camera = camera;
       this.T = T;
-      this.add = new Particles(scene, T.glow, true, 900);
-      this.smoke = new Particles(scene, T.puff, false, 900);
+      this.add = new ParticlePool(scene, T.glow, true, 900);
+      this.smoke = new ParticlePool(scene, T.puff, false, 900);
       this.decals = {
-        metal: new Decals(scene, T.holeMetal, 300),
-        wood: new Decals(scene, T.holeWood, 250),
-        concrete: new Decals(scene, T.holeStone, 700),
-        slash: new Decals(scene, slashTex(), 300),
-        blood: new Decals(scene, T.blood, 60),
-        scorch: new Decals(scene, T.scorch, 12)
+        metal: new DecalLayer(scene, T.holeMetal, 300),
+        wood: new DecalLayer(scene, T.holeWood, 250),
+        concrete: new DecalLayer(scene, T.holeStone, 700),
+        slash: new DecalLayer(scene, slashTex(), 300),
+        blood: new DecalLayer(scene, T.blood, 60),
+        scorch: new DecalLayer(scene, T.scorch, 12)
       };
       this.tracerMax = 48;
       this.tracers = [];
       this.tracerMesh = new InstancedMesh(
         new PlaneGeometry(1, 1),
-        new MeshBasicMaterial({ map: tracerTex(), transparent: true, blending: AdditiveBlending, depthWrite: false, color: 16769184, toneMapped: false }),
+        // 白天的亮背景會把加法混合的光吃掉，所以用一般混合、偏橘黃的實色
+        new MeshBasicMaterial({ map: makeTracerTex(), color: 16762976, transparent: true, opacity: 0.95, side: DoubleSide, depthWrite: false, toneMapped: false }),
         this.tracerMax
       );
-      this.tracerMesh.frustumCulled = false;
       this.tracerMesh.count = 0;
+      this.tracerMesh.frustumCulled = false;
       this.tracerMesh.renderOrder = 6;
       scene.add(this.tracerMesh);
-      this.flashes = [];
-      for (let i = 0; i < 12; i++) {
-        const s = new Sprite(new SpriteMaterial({ map: T.flash[i % 3], blending: AdditiveBlending, depthWrite: false, color: 16767136, toneMapped: false }));
+      this.flashes = Array.from({ length: 12 }, (_, i) => {
+        const s = new Sprite(new SpriteMaterial({ map: T.flash[i % T.flash.length], blending: AdditiveBlending, depthWrite: false, toneMapped: false, color: 16769200 }));
         s.visible = false;
         s.renderOrder = 7;
         scene.add(s);
-        this.flashes.push({ s, t: 0 });
-      }
-      this.flashI = 0;
-      this.lights = [];
-      for (let i = 0; i < 3; i++) {
+        return { s, t: 0 };
+      });
+      this.flashNext = 0;
+      this.lights = Array.from({ length: 3 }, () => {
         const l = new PointLight(16754768, 0, 9, 2);
         scene.add(l);
-        this.lights.push({ l, t: 0, peak: 0, dur: 0.06 });
-      }
-      this.lightI = 0;
+        return { l, t: 0, dur: 1, peak: 0 };
+      });
+      this.lightNext = 0;
       const sg = new BufferGeometry();
       sg.setAttribute("position", new Float32BufferAttribute([0, 0.55, 0, -0.5, -0.4, 0.02, 0.48, -0.32, -0.02], 3));
       sg.computeVertexNormals();
@@ -36033,60 +36107,65 @@ void main() {
       this.caseMesh.frustumCulled = false;
       scene.add(this.caseMesh);
       this.shake = 0;
-      this.funnelT = 0;
-      this.birds = [];
+      this._tm = new Matrix4();
+      this._ta = new Vector3();
+      this._tb = new Vector3();
+      this._tc = new Vector3();
+      this._tmid = new Vector3();
     }
     light(pos, intensity, dur, color = 16754768, dist = 9) {
-      const L = this.lights[this.lightI++ % this.lights.length];
+      const L = this.lights[this.lightNext++ % this.lights.length];
       L.l.position.copy(pos);
       L.l.color.set(color);
       L.l.distance = dist;
-      L.t = dur;
-      L.dur = dur;
+      L.t = L.dur = dur;
       L.peak = intensity;
       L.l.intensity = intensity;
     }
     muzzle(pos, dir, big = 1) {
-      const F = this.flashes[this.flashI++ % this.flashes.length];
-      F.s.position.copy(pos).addScaledVector(dir, 0.06);
-      F.s.material.rotation = Math.random() * 6.28;
-      F.s.scale.setScalar(0.45 * big * (0.8 + Math.random() * 0.4));
+      const F = this.flashes[this.flashNext++ % this.flashes.length];
+      F.s.position.copy(pos).addScaledVector(dir, 0.05);
+      F.s.material.rotation = Math.random() * Math.PI * 2;
+      F.s.scale.setScalar(0.42 * big * rand(0.8, 1.2));
       F.s.visible = true;
       F.t = 0.05;
       this.light(pos, 6 * big, 0.06);
-      this.smoke.emit({ x: pos.x, y: pos.y, z: pos.z, vx: dir.x * 1.5, vy: 0.4, vz: dir.z * 1.5, life: 0, max: 0.7, s0: 0.1, s1: 0.5, r: 0.7, g: 0.7, b: 0.7, a0: 0.18, a1: 0, grav: -0.3, drag: 3 });
+      for (let i = 0; i < 2; i++) {
+        this.smoke.emit({ x: pos.x, y: pos.y, z: pos.z, vx: dir.x * rand(0.8, 1.8), vy: 0.25 + dir.y, vz: dir.z * rand(0.8, 1.8), max: rand(0.5, 0.8), s0: 0.08, s1: 0.45, r: 0.72, g: 0.71, b: 0.7, a0: 0.16, a1: 0, grav: -0.35, drag: 3.2 });
+      }
     }
     tracer(from, to) {
-      const d = to.clone().sub(from);
-      const L = d.length();
-      if (L < 2) return;
-      d.divideScalar(L);
-      this.tracers.push({ from: from.clone(), dir: d, len: L, t: 0 });
+      const len = from.distanceTo(to);
+      if (len < 2) return;
+      this.tracers.push({ from: from.clone(), dir: to.clone().sub(from).divideScalar(len), len, t: 0 });
       if (this.tracers.length > this.tracerMax) this.tracers.shift();
     }
     impact(p, n, mat, dir) {
-      const nx = n.x, ny = n.y, nz = n.z;
+      const S = this.smoke, A = this.add;
       if (mat === "flesh") {
-        for (let i = 0; i < 10; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 2 + (Math.random() - 0.5) * 1.5, vy: Math.random() * 1.2, vz: dir.z * 2 + (Math.random() - 0.5) * 1.5, life: 0, max: 0.35 + Math.random() * 0.3, s0: 0.06, s1: 0.28, r: 0.45, g: 0.02, b: 0.02, a0: 0.8, a1: 0, grav: 2, drag: 4 });
-        for (let i = 0; i < 6; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 3 + (Math.random() - 0.5) * 2, vy: Math.random() * 2, vz: dir.z * 3 + (Math.random() - 0.5) * 2, life: 0, max: 0.6, s0: 0.035, s1: 0.03, r: 0.35, g: 0, b: 0, a0: 1, a1: 0.6, grav: 9, drag: 0.5, floor: 0.01 });
+        for (let i = 0; i < 9; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 1.8 + spread(1.6), vy: rand(0, 1.1), vz: dir.z * 1.8 + spread(1.6), max: rand(0.3, 0.6), s0: 0.05, s1: 0.3, r: 0.42, g: 0.02, b: 0.03, a0: 0.75, a1: 0, grav: 1.8, drag: 4 });
+        for (let i = 0; i < 7; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 3 + spread(2.2), vy: rand(0.3, 2.2), vz: dir.z * 3 + spread(2.2), max: 0.65, s0: 0.035, s1: 0.03, r: 0.33, g: 0, b: 0.01, a0: 1, a1: 0.6, grav: 9.8, drag: 0.5, floor: 0.01 });
         return;
       }
       if (mat === "metal") {
-        const cnt = 6 + Math.random() * 6 | 0;
-        for (let i = 0; i < cnt; i++) {
-          const sp = 3 + Math.random() * 5;
-          this.add.emit({ x: p.x, y: p.y, z: p.z, vx: (nx + (Math.random() - 0.5) * 1.4) * sp, vy: (ny + Math.random() * 0.8) * sp, vz: (nz + (Math.random() - 0.5) * 1.4) * sp, life: 0, max: 0.18 + Math.random() * 0.25, s0: 0.035, s1: 0.01, r: 1.6, g: 1.1, b: 0.5, a0: 1, a1: 0.3, grav: 9, drag: 1.5 });
+        const count = 6 + (Math.random() * 7 | 0);
+        for (let i = 0; i < count; i++) {
+          const v = rand(3, 8);
+          A.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.4)) * v, vy: (n.y + rand(0, 0.8)) * v, vz: (n.z + spread(1.4)) * v, max: rand(0.15, 0.42), s0: 0.035, s1: 0.01, r: 1.7, g: 1.15, b: 0.5, a0: 1, a1: 0.25, grav: 9.8, drag: 1.5, floor: 0.01 });
         }
-        this.add.emit({ x: p.x + nx * 0.02, y: p.y + ny * 0.02, z: p.z + nz * 0.02, vx: 0, vy: 0, vz: 0, life: 0, max: 0.05, s0: 0.25, s1: 0.1, r: 1.5, g: 1.2, b: 0.7, a0: 1, a1: 0, grav: 0, drag: 0 });
-        this.decals.metal.add(p, n, 0.07 + Math.random() * 0.03);
+        A.emit({ x: p.x + n.x * 0.02, y: p.y + n.y * 0.02, z: p.z + n.z * 0.02, max: 0.05, s0: 0.24, s1: 0.1, r: 1.5, g: 1.25, b: 0.8, a0: 1, a1: 0 });
+        this.decals.metal.add(p, n, rand(0.07, 0.1));
       } else if (mat === "wood") {
-        for (let i = 0; i < 8; i++) this.smoke.emit({ x: p.x, y: p.y, z: p.z, vx: (nx + (Math.random() - 0.5)) * 3, vy: (ny + Math.random()) * 3, vz: (nz + (Math.random() - 0.5)) * 3, life: 0, max: 0.6, s0: 0.03, s1: 0.025, r: 0.55, g: 0.4, b: 0.25, a0: 1, a1: 0.8, grav: 9, drag: 1, floor: 0.01 });
-        this.decals.wood.add(p, n, 0.08 + Math.random() * 0.03);
+        for (let i = 0; i < 8; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1)) * 3, vy: (n.y + rand(0, 1)) * 3, vz: (n.z + spread(1)) * 3, max: 0.7, s0: 0.035, s1: 0.03, r: 0.6, g: 0.44, b: 0.27, a0: 1, a1: 0.8, grav: 9.8, drag: 1, floor: 0.01 });
+        this.decals.wood.add(p, n, rand(0.08, 0.11));
       } else if (mat !== "mesh") {
-        this.decals.concrete.add(p, n, 0.07 + Math.random() * 0.04);
+        for (let i = 0; i < 5; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.2)) * 2.6, vy: (n.y + rand(0, 1)) * 2.6, vz: (n.z + spread(1.2)) * 2.6, max: 0.6, s0: 0.025, s1: 0.02, r: 0.62, g: 0.6, b: 0.56, a0: 1, a1: 0.7, grav: 9.8, drag: 0.8, floor: 0.01 });
+        this.decals.concrete.add(p, n, rand(0.07, 0.11));
       }
-      const dust = mat === "wood" ? [0.62, 0.52, 0.4] : [0.55, 0.55, 0.53];
-      for (let i = 0; i < 3; i++) this.smoke.emit({ x: p.x + nx * 0.05, y: p.y + ny * 0.05, z: p.z + nz * 0.05, vx: nx * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, vy: ny * 0.8 + 0.3, vz: nz * (0.5 + Math.random()) + (Math.random() - 0.5) * 0.4, life: 0, max: 0.8 + Math.random() * 0.6, s0: 0.12, s1: 0.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
+      const tint = mat === "wood" ? [0.62, 0.52, 0.4] : mat === "metal" ? [0.5, 0.5, 0.5] : [0.6, 0.58, 0.55];
+      for (let i = 0; i < 3; i++) {
+        S.emit({ x: p.x + n.x * 0.05, y: p.y + n.y * 0.05, z: p.z + n.z * 0.05, vx: n.x * rand(0.5, 1.5) + spread(0.4), vy: n.y * 0.8 + 0.3, vz: n.z * rand(0.5, 1.5) + spread(0.4), max: rand(0.8, 1.4), s0: 0.12, s1: 0.6, r: tint[0], g: tint[1], b: tint[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
+      }
     }
     // 玻璃碎裂：整片玻璃化為碎片，沿子彈方向（或爆炸外推）噴出後落地
     shatter(b, dir, from) {
@@ -36358,54 +36437,31 @@ void main() {
       this.cases = [];
     }
     bloodSplat(p) {
-      this.decals.blood.add(p, new Vector3(0, 1, 0), 0.5 + Math.random() * 0.4);
+      this.decals.blood.add(p, new Vector3(0, 1, 0), rand(0.5, 0.9));
     }
+    // 手雷爆炸：閃光 → 火球 → 四散火星 → 貼地衝擊塵環 → 上升黑煙柱 → 地面焦痕
     explosion(p) {
+      const A = this.add, S = this.smoke, y = p.y + 0.3;
       this.light(p, 60, 0.35, 16748608, 22);
-      this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: 0, vy: 0, vz: 0, life: 0, max: 0.18, s0: 2, s1: 7, r: 2.2, g: 1.6, b: 0.9, a0: 1, a1: 0, grav: 0, drag: 0 });
-      for (let i = 0; i < 26; i++) {
-        const a = Math.random() * 6.28, e = Math.random() * 1.2, sp = 3 + Math.random() * 6;
-        this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: Math.cos(a) * Math.cos(e) * sp, vy: Math.sin(e) * sp + 1, vz: Math.sin(a) * Math.cos(e) * sp, life: 0, max: 0.35 + Math.random() * 0.35, s0: 0.9, s1: 2.2, r: 1.8, g: 0.8, b: 0.25, a0: 0.9, a1: 0, grav: -1, drag: 4 });
+      A.emit({ x: p.x, y, z: p.z, max: 0.16, s0: 2.2, s1: 7, r: 2.4, g: 1.8, b: 1.1, a0: 1, a1: 0 });
+      for (let i = 0; i < 24; i++) {
+        const az = rand(0, Math.PI * 2), el2 = rand(0, 1.2), v = rand(3, 9);
+        A.emit({ x: p.x, y, z: p.z, vx: Math.cos(az) * Math.cos(el2) * v, vy: Math.sin(el2) * v + 1, vz: Math.sin(az) * Math.cos(el2) * v, max: rand(0.35, 0.7), s0: 0.9, s1: 2.3, r: 1.9, g: 0.85, b: 0.28, a0: 0.9, a1: 0, grav: -1, drag: 4 });
       }
       for (let i = 0; i < 40; i++) {
-        const a = Math.random() * 6.28, sp = 8 + Math.random() * 14;
-        this.add.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: Math.cos(a) * sp, vy: Math.random() * 10, vz: Math.sin(a) * sp, life: 0, max: 0.4 + Math.random() * 0.5, s0: 0.06, s1: 0.02, r: 1.8, g: 1.2, b: 0.5, a0: 1, a1: 0.4, grav: 12, drag: 1.2, floor: 0.02 });
+        const az = rand(0, Math.PI * 2), v = rand(8, 22);
+        A.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: Math.cos(az) * v, vy: rand(0, 10), vz: Math.sin(az) * v, max: rand(0.4, 0.9), s0: 0.06, s1: 0.02, r: 1.9, g: 1.2, b: 0.5, a0: 1, a1: 0.4, grav: 12, drag: 1.2, floor: 0.02 });
+      }
+      for (let i = 0; i < 18; i++) {
+        const az = i / 18 * Math.PI * 2 + spread(0.3), v = rand(5, 9);
+        S.emit({ x: p.x, y: p.y + 0.15, z: p.z, vx: Math.cos(az) * v, vy: 0.2, vz: Math.sin(az) * v, max: rand(1.2, 2), s0: 0.6, s1: 2.6, r: 0.55, g: 0.5, b: 0.44, a0: 0.45, a1: 0, grav: 0, drag: 2.6 });
       }
       for (let i = 0; i < 22; i++) {
-        const a = Math.random() * 6.28, sp = 1 + Math.random() * 3;
-        this.smoke.emit({ x: p.x + Math.cos(a) * 0.5, y: p.y + 0.4 + Math.random(), z: p.z + Math.sin(a) * 0.5, vx: Math.cos(a) * sp, vy: 1 + Math.random() * 2, vz: Math.sin(a) * sp, life: 0, max: 3 + Math.random() * 3, s0: 1.2, s1: 5, r: 0.22, g: 0.21, b: 0.2, a0: 0.75, a1: 0, grav: -0.4, drag: 1.2 });
+        const az = rand(0, Math.PI * 2), v = rand(1, 3);
+        S.emit({ x: p.x + Math.cos(az) * 0.5, y: p.y + rand(0.4, 1.4), z: p.z + Math.sin(az) * 0.5, vx: Math.cos(az) * v, vy: rand(1, 3), vz: Math.sin(az) * v, max: rand(3, 6), s0: 1.2, s1: 5, r: 0.21, g: 0.2, b: 0.19, a0: 0.75, a1: 0, grav: -0.4, drag: 1.2 });
       }
       this.decals.scorch.add(new Vector3(p.x, 0.01, p.z), new Vector3(0, 1, 0), 3.2);
       this.shake = Math.max(this.shake, 1);
-    }
-    // 煙囪排煙 & 海鷗
-    initAmbient(funnelTop) {
-      this.funnelTop = funnelTop;
-      const birdMat = new MeshStandardMaterial({ color: 15921902, roughness: 0.8, side: DoubleSide });
-      const tipMat = new MeshStandardMaterial({ color: 3355443, roughness: 0.8, side: DoubleSide });
-      for (let i = 0; i < 6; i++) {
-        const b = new Group();
-        const body = new Mesh(new CapsuleGeometry(0.1, 0.35, 3, 6), birdMat);
-        body.rotation.x = Math.PI / 2;
-        const wg = new BufferGeometry();
-        wg.setAttribute("position", new Float32BufferAttribute([0, 0, -0.1, 0.75, 0.05, 0.05, 0, 0, 0.15, 0.75, 0.05, 0.05, 1.05, 0, 0.12, 0.75, 0.05, 0.05], 3));
-        wg.computeVertexNormals();
-        const wR = new Mesh(wg, birdMat), wL = new Mesh(wg, birdMat);
-        wL.scale.x = -1;
-        const tipG = new BufferGeometry();
-        tipG.setAttribute("position", new Float32BufferAttribute([0.75, 0.05, 0.05, 1.05, 0, 0.12, 1.2, 0, 0.18], 3));
-        tipG.computeVertexNormals();
-        const tR = new Mesh(tipG, tipMat), tL = new Mesh(tipG, tipMat);
-        tL.scale.x = -1;
-        const wrR = new Group();
-        wrR.add(wR, tR);
-        const wrL = new Group();
-        wrL.add(wL, tL);
-        b.add(body, wrR, wrL);
-        b.scale.setScalar(1.1);
-        this.scene.add(b);
-        this.birds.push({ g: b, wR: wrR, wL: wrL, r: 25 + Math.random() * 30, h: 18 + Math.random() * 16, sp: 0.18 + Math.random() * 0.12, ph: Math.random() * 6.28, cx: -10 + Math.random() * 30, flap: Math.random() * 6 });
-      }
     }
     updateShards(dt) {
       const D2 = this._dummy, M2 = this.shardMesh, dq = new Quaternion(), ax = new Vector3();
@@ -36447,7 +36503,7 @@ void main() {
       M2.count = n;
       M2.instanceMatrix.needsUpdate = true;
     }
-    update(dt, t, camera, shipSpeed) {
+    update(dt, t, camera) {
       this.updateShards(dt);
       this.updateChunks(dt);
       this.updateCases(dt);
@@ -36456,36 +36512,12 @@ void main() {
       this.rebar.flush();
       this.add.update(dt);
       this.smoke.update(dt);
-      const h = window.innerHeight * Math.min(window.devicePixelRatio, 2);
-      const sc = h / (2 * Math.tan(MathUtils.degToRad(camera.fov) / 2));
-      this.add.mat.uniforms.scale.value = sc;
-      this.smoke.mat.uniforms.scale.value = sc;
-      const m = new Matrix4(), q = new Quaternion(), sv = new Vector3(), pv = new Vector3();
-      const camPos = camera.position;
-      let n = 0;
-      const speed = 380;
-      this.tracers = this.tracers.filter((tr) => {
-        tr.t += dt;
-        const head = Math.min(tr.len, tr.t * speed), tail = Math.max(0, head - 7);
-        if (tail >= tr.len) return false;
-        const mid = pv.copy(tr.from).addScaledVector(tr.dir, (head + tail) / 2);
-        const toCam = camPos.clone().sub(mid).normalize();
-        const up = new Vector3().crossVectors(tr.dir, toCam).normalize();
-        const nrm = new Vector3().crossVectors(tr.dir, up);
-        const basis = new Matrix4().makeBasis(tr.dir, up, nrm);
-        q.setFromRotationMatrix(basis);
-        const dist = mid.distanceTo(camPos);
-        sv.set(head - tail, 0.018 + dist * 12e-4, 1);
-        m.compose(mid, q, sv);
-        if (n < this.tracerMax) this.tracerMesh.setMatrixAt(n++, m);
-        return true;
-      });
-      this.tracerMesh.count = n;
-      this.tracerMesh.instanceMatrix.needsUpdate = true;
-      for (const F of this.flashes) if (F.t > 0) {
-        F.t -= dt;
-        if (F.t <= 0) F.s.visible = false;
-      }
+      const canvasH = document.getElementById("c")?.height || window.innerHeight;
+      const pxPerUnit = canvasH / (2 * Math.tan(MathUtils.degToRad(camera.fov) / 2));
+      this.add.mat.uniforms.scale.value = pxPerUnit;
+      this.smoke.mat.uniforms.scale.value = pxPerUnit;
+      this.updateTracers(dt, camera);
+      for (const F of this.flashes) if (F.t > 0 && (F.t -= dt) <= 0) F.s.visible = false;
       for (const L of this.lights) {
         if (L.t > 0) {
           L.t -= dt;
@@ -36493,27 +36525,45 @@ void main() {
         } else L.l.intensity = 0;
       }
       this.shake *= Math.exp(-dt * 5);
-      if (this.funnelTop) {
-        this.funnelT -= dt;
-        if (this.funnelT <= 0) {
-          this.funnelT = 0.14;
-          const f = this.funnelTop;
-          const g = 0.18 + Math.random() * 0.1;
-          this.smoke.emit({ x: f.x + (Math.random() - 0.5) * 2, y: f.y, z: f.z + (Math.random() - 0.5) * 1.5, vx: -shipSpeed * 0.9 - Math.random(), vy: 2.2 + Math.random(), vz: (Math.random() - 0.5) * 0.8, life: 0, max: 9, s0: 2.2, s1: 11, r: g, g, b: g * 1.02, a0: 0.42, a1: 0, grav: -0.05, drag: 0.08 });
-        }
-      }
-      for (const b of this.birds) {
-        b.ph += dt * b.sp;
-        const x = b.cx + Math.cos(b.ph) * b.r, z = Math.sin(b.ph) * b.r * 0.6, y = b.h + Math.sin(b.ph * 2.3) * 3;
-        b.g.position.set(x, y, z);
-        b.g.rotation.y = -b.ph + Math.PI;
-        b.g.rotation.z = Math.sin(b.ph) * 0.3;
-        b.flap += dt * 7;
-        const gl = Math.sin(b.ph * 0.7) > 0.3;
-        const fa = gl ? 0.08 : Math.sin(b.flap) * 0.6;
-        b.wR.rotation.z = fa;
-        b.wL.rotation.z = -fa;
-      }
+    }
+    // 曳光：彈頭以 300 m/s 前進（比真實慢，肉眼才看得到），拖著 10 m 的尾巴；面片繞著彈道軸轉向鏡頭
+    updateTracers(dt, camera) {
+      const SPEED = 300, TAIL = 10, M2 = this._tm, mid = this._tmid, side = this._ta, face = this._tb, toCam = this._tc;
+      let n = 0;
+      this.tracers = this.tracers.filter((tr) => {
+        tr.t += dt;
+        const head = Math.min(tr.len, tr.t * SPEED), tail = Math.max(0, head - TAIL);
+        if (tail >= tr.len) return false;
+        if (n >= this.tracerMax) return true;
+        mid.copy(tr.from).addScaledVector(tr.dir, (head + tail) / 2);
+        toCam.copy(camera.position).sub(mid);
+        const dist = toCam.length();
+        side.crossVectors(tr.dir, toCam).normalize();
+        face.crossVectors(tr.dir, side);
+        const L = head - tail, W = 0.03 + dist * 22e-4;
+        M2.set(
+          tr.dir.x * L,
+          side.x * W,
+          face.x,
+          mid.x,
+          tr.dir.y * L,
+          side.y * W,
+          face.y,
+          mid.y,
+          tr.dir.z * L,
+          side.z * W,
+          face.z,
+          mid.z,
+          0,
+          0,
+          0,
+          1
+        );
+        this.tracerMesh.setMatrixAt(n++, M2);
+        return true;
+      });
+      this.tracerMesh.count = n;
+      this.tracerMesh.instanceMatrix.needsUpdate = true;
     }
   };
 
@@ -37645,13 +37695,13 @@ void main() {
     const [up, right] = sampleRecoil(r.pattern, ws.shotsFired);
     return [up * (0.96 + rnd2() * 0.08), right + (rnd2() - 0.5) * 0.1 * D];
   }
-  function jitterDir(dir, spread, rnd2) {
-    if (!(spread > 0)) return dir;
+  function jitterDir(dir, spread2, rnd2) {
+    if (!(spread2 > 0)) return dir;
     const sign2 = dir.z >= 0 ? 1 : -1;
     const a = -1 / (sign2 + dir.z), b = dir.x * dir.y * a;
     const t1x = 1 + sign2 * dir.x * dir.x * a, t1y = sign2 * b, t1z = -sign2 * dir.x;
     const t2x = b, t2y = sign2 + dir.y * dir.y * a, t2z = -dir.y;
-    const r = spread * Math.abs(rnd2() + rnd2() - 1);
+    const r = spread2 * Math.abs(rnd2() + rnd2() - 1);
     const ang = rnd2() * Math.PI * 2;
     const c = Math.cos(ang) * r, s = Math.sin(ang) * r;
     dir.x += t1x * c + t2x * s;
@@ -38231,7 +38281,7 @@ void main() {
   var LOOKAHEAD = 0.01;
   var NOISE_SEC = 5;
   var IR_SEC = 1.8;
-  var rand = (a, b) => a + Math.random() * (b - a);
+  var rand2 = (a, b) => a + Math.random() * (b - a);
   var jit = (p = 0.05) => 1 + (Math.random() * 2 - 1) * p;
   var clamp2 = (v, a, b) => v < a ? a : v > b ? b : v;
   var num = (v, d) => typeof v === "number" && Number.isFinite(v) ? v : d;
@@ -38398,7 +38448,7 @@ void main() {
         d[i] = lp * comp * env * 0.35;
       }
       for (const [tt, g] of taps) {
-        const at = Math.max(0, Math.floor((tt + (ch ? rand(4e-4, 25e-4) : rand(0, 12e-4))) * sr));
+        const at = Math.max(0, Math.floor((tt + (ch ? rand2(4e-4, 25e-4) : rand2(0, 12e-4))) * sr));
         const sgn = Math.random() < 0.5 ? -1 : 1;
         for (let k = 0; k < 24 && at + k < len; k++) d[at + k] += sgn * g * Math.exp(-k / 5) * (k % 2 ? -0.35 : 1);
       }
@@ -38729,7 +38779,7 @@ void main() {
           this._surf(v, t + 0.03 * jit(0.2), surface, 0.5, r * 1.05, s * 0.5, 0.8);
         }
         this._nz(v, t + 0.01, { n: "white", a: 0.01, dur: 0.1, g: 0.08 + 0.08 * s, flt: [{ t: "bandpass", f: 2200, q: 0.8 }] });
-        if (s > 0.4) this._metal(v, t + rand(0.03, 0.09), rand(2200, 3400), 0.04 * s, [[1, 1, 0.06], [1.9, 0.5, 0.04]]);
+        if (s > 0.4) this._metal(v, t + rand2(0.03, 0.09), rand2(2200, 3400), 0.04 * s, [[1, 1, 0.06], [1.9, 0.5, 0.04]]);
         this._done(v);
       } catch (e) {
         this._warn("playLand", e);
@@ -38744,7 +38794,7 @@ void main() {
         this._nz(v, t, { n: "pink", a: 4e-3, dur: 0.06, g: 0.35, flt: [{ t: "bandpass", f: 900 * r, q: 1 }] });
         this._tn(v, t, { f: 120 * r, f1: 80, a: 2e-3, dur: 0.05, g: 0.25 });
         this._nz(v, t + 0.01, { n: "white", a: 0.03, dur: 0.12, g: 0.1, flt: [{ t: "bandpass", f: 2400 * r, q: 0.8 }] });
-        this._metal(v, t + rand(0.03, 0.08), rand(2600, 3600), 0.035, [[1, 1, 0.05], [1.7, 0.5, 0.03]]);
+        this._metal(v, t + rand2(0.03, 0.08), rand2(2600, 3600), 0.035, [[1, 1, 0.05], [1.7, 0.5, 0.03]]);
         this._done(v);
       } catch (e) {
         this._warn("playJump", e);
@@ -38761,7 +38811,7 @@ void main() {
         const t = this._now(), r = jit(0.06);
         const rec = material === "flesh" ? "impf" : material === "metal" ? "impm" : material === "mesh" ? null : this._pick("impc", "impc2");
         if (rec && this._play(v, t, rec, { g: IMPACT_G, rate: r * (material === "wood" ? 1.25 : 1) })) {
-          if (material === "metal" && Math.random() < 0.5) this._metal(v, t, rand(1700, 3e3), 0.08, [[1, 1, 0.12], [1.47, 0.8, 0.08], [2.09, 0.6, 0.06]]);
+          if (material === "metal" && Math.random() < 0.5) this._metal(v, t, rand2(1700, 3e3), 0.08, [[1, 1, 0.12], [1.47, 0.8, 0.08], [2.09, 0.6, 0.06]]);
           this._done(v);
           return;
         }
@@ -38769,14 +38819,14 @@ void main() {
           case "metal":
             this._nz(v, t, { n: "white", a: 2e-4, dur: 3e-3, g: 0.6, flt: [{ t: "highpass", f: 3e3 * r, q: 0 }] });
             this._nz(v, t, { n: "pink", a: 5e-4, dur: 0.025, g: 0.35, flt: [{ t: "bandpass", f: 900 * r, q: 1 }] });
-            this._metal(v, t, rand(1700, 3e3), 0.16, [[1, 1, 0.14], [1.47, 0.8, 0.1], [2.09, 0.6, 0.08], [2.93, 0.4, 0.05], [4.1, 0.25, 0.035]]);
+            this._metal(v, t, rand2(1700, 3e3), 0.16, [[1, 1, 0.14], [1.47, 0.8, 0.1], [2.09, 0.6, 0.08], [2.93, 0.4, 0.05], [4.1, 0.25, 0.035]]);
             this._nz(v, t + 4e-3, { n: "white", a: 2e-3, dur: 0.07, g: 0.1, flt: [{ t: "highpass", f: 6e3, q: 0 }] });
             break;
           case "wood":
             this._nz(v, t, { n: "white", a: 3e-4, dur: 4e-3, g: 0.35, flt: [{ t: "highpass", f: 2e3 * r, q: 0 }] });
             this._nz(v, t, { n: "pink", a: 8e-4, dur: 0.06, g: 0.7, flt: [{ t: "bandpass", f: 700 * r, q: 1.2 }] });
             this._tn(v, t, { f: 190 * r, f1: 110, a: 1e-3, dur: 0.05, g: 0.35 });
-            for (let i = 0; i < 3; i++) this._click(v, t + rand(5e-3, 0.04), rand(2500, 4500), 0.12, 3, 8e-3);
+            for (let i = 0; i < 3; i++) this._click(v, t + rand2(5e-3, 0.04), rand2(2500, 4500), 0.12, 3, 8e-3);
             break;
           case "flesh":
             this._nz(v, t, { n: "pink", a: 1e-3, dur: 0.07, g: 0.8, flt: [{ t: "lowpass", f: 700 * r, f1: 250, sw: 0.06, q: 0 }] });
@@ -38788,8 +38838,8 @@ void main() {
             let tt = t, g = 0.12;
             const n = 6 + (Math.random() * 4 | 0);
             for (let i = 0; i < n; i++) {
-              this._metal(v, tt, rand(2500, 5200), g, [[1, 1, 0.05], [1.8, 0.5, 0.04]]);
-              tt += rand(8e-3, 0.03);
+              this._metal(v, tt, rand2(2500, 5200), g, [[1, 1, 0.05], [1.8, 0.5, 0.04]]);
+              tt += rand2(8e-3, 0.03);
               g *= 0.8;
             }
             this._nz(v, t, { n: "white", a: 5e-3, dur: 0.15, g: 0.08, flt: [{ t: "bandpass", f: 900, q: 1 }] });
@@ -38800,7 +38850,7 @@ void main() {
             this._nz(v, t, { n: "pink", a: 6e-4, dur: 0.05, g: 0.5, flt: [{ t: "bandpass", f: 1300 * r, q: 0.9 }] });
             this._tn(v, t, { f: 160 * r, f1: 90, a: 1e-3, dur: 0.04, g: 0.25 });
             for (let i = 0, n = 4 + (Math.random() * 3 | 0); i < n; i++) {
-              this._click(v, t + rand(0.02, 0.2), rand(2e3, 5e3), 0.08, 3, 6e-3);
+              this._click(v, t + rand2(0.02, 0.2), rand2(2e3, 5e3), 0.08, 3, 6e-3);
             }
         }
         this._done(v);
@@ -38818,15 +38868,15 @@ void main() {
         const gl = this._pick("glass", "glass2");
         if (gl) {
           this._play(v, t, gl, { g: GLASS_G, rate: jit(0.06) });
-          if (big > 1.1) this._play(v, t + rand(0.05, 0.15), gl === "glass" ? "glass2" : "glass", { g: GLASS_G * 0.6, rate: jit(0.08) });
+          if (big > 1.1) this._play(v, t + rand2(0.05, 0.15), gl === "glass" ? "glass2" : "glass", { g: GLASS_G * 0.6, rate: jit(0.08) });
           this._done(v);
           return;
         }
         this._nz(v, t, { n: "white", a: 3e-4, dur: 0.05, g: 0.9, flt: [{ t: "highpass", f: 2500, q: 0 }] });
         this._nz(v, t, { n: "pink", a: 1e-3, dur: 0.12, g: 0.5, flt: [{ t: "bandpass", f: 1800, q: 0.8 }] });
         const n = Math.round((14 + Math.random() * 10) * Math.min(1.6, big));
-        for (let i = 0; i < n; i++) this._metal(v, t + 0.01 + Math.pow(Math.random(), 1.6) * 0.6 * big, rand(3500, 9e3), 0.05 + Math.random() * 0.06, [[1, 1, 0.03 + Math.random() * 0.05], [2.3, 0.5, 0.03]]);
-        for (let i = 0; i < 8; i++) this._click(v, t + 0.15 + Math.random() * 0.7 * big, rand(4e3, 8e3), 0.05, 3, 5e-3);
+        for (let i = 0; i < n; i++) this._metal(v, t + 0.01 + Math.pow(Math.random(), 1.6) * 0.6 * big, rand2(3500, 9e3), 0.05 + Math.random() * 0.06, [[1, 1, 0.03 + Math.random() * 0.05], [2.3, 0.5, 0.03]]);
+        for (let i = 0; i < 8; i++) this._click(v, t + 0.15 + Math.random() * 0.7 * big, rand2(4e3, 8e3), 0.05, 3, 5e-3);
         this._done(v);
       } catch (e) {
         this._warn("playGlassBreak", e);
@@ -38842,7 +38892,7 @@ void main() {
         const t = this._now();
         if (!wood && this._play(v, t, "collapse", { g: DESTROY_G * Math.min(1.4, 0.6 + 0.4 * big), rate: clamp2(1.15 - 0.15 * big, 0.8, 1.15) * jit(0.05) })) {
           const n2 = Math.round(8 * big);
-          for (let i = 0; i < n2; i++) this._click(v, t + 0.1 + Math.random() * 0.9 * big, rand(800, 3500), 0.06, 3, 0.01);
+          for (let i = 0; i < n2; i++) this._click(v, t + 0.1 + Math.random() * 0.9 * big, rand2(800, 3500), 0.06, 3, 0.01);
           this._done(v);
           return;
         }
@@ -38850,7 +38900,7 @@ void main() {
         this._nz(v, t, { n: "pink", a: 2e-3, dur: 0.5 * big, g: 0.7, flt: [{ t: "lowpass", f: wood ? 1800 : 1200, f1: 300, sw: 0.4, q: 0 }] });
         if (wood) this._nz(v, t, { n: "white", a: 5e-4, dur: 0.08, g: 0.7, flt: [{ t: "bandpass", f: 2400, q: 1.5 }] });
         const n = Math.round(18 * big);
-        for (let i = 0; i < n; i++) this._click(v, t + 0.05 + Math.random() * 0.9 * big, rand(800, 3500), 0.08, 3, 0.01);
+        for (let i = 0; i < n; i++) this._click(v, t + 0.05 + Math.random() * 0.9 * big, rand2(800, 3500), 0.08, 3, 0.01);
         this._done(v);
       } catch (e) {
         this._warn("playDestroy", e);
@@ -38861,9 +38911,9 @@ void main() {
       try {
         const p = this._pos(pos);
         const v = this._voice(p, { g: 1.2, ref: 3, roll: 1, max: 100, wet: 0.15 });
-        const t = this._now(), f = rand(2600, 4200), d = rand(0.25, 0.5);
+        const t = this._now(), f = rand2(2600, 4200), d = rand2(0.25, 0.5);
         this._nz(v, t, { n: "white", a: 2e-4, dur: 4e-3, g: 0.45, flt: [{ t: "highpass", f: 3500, q: 0 }] });
-        this._tn(v, t + 4e-3, { f, f1: f * rand(0.35, 0.55), sw: d, a: 4e-3, hold: d * 0.1, dur: d * 0.9, g: 0.3, fm: [rand(45, 90), f * 0.025] });
+        this._tn(v, t + 4e-3, { f, f1: f * rand2(0.35, 0.55), sw: d, a: 4e-3, hold: d * 0.1, dur: d * 0.9, g: 0.3, fm: [rand2(45, 90), f * 0.025] });
         this._tn(v, t + 4e-3, { w: "triangle", f: f * 1.5, f1: f * 0.7, sw: d * 0.8, a: 3e-3, dur: d * 0.6, g: 0.06 });
         this._nz(v, t + 4e-3, { n: "white", a: 0.01, dur: d * 0.8, g: 0.06, flt: [{ t: "bandpass", f, f1: f * 0.45, sw: d, q: 6 }] });
         this._done(v);
@@ -38876,7 +38926,7 @@ void main() {
       try {
         const p = this._pos(pos);
         const v = this._voice(p, { g: 1.8, ref: 1.5, roll: 1, max: 40, wet: 0.04 });
-        const t = this._now(), d = rand(0.12, 0.2);
+        const t = this._now(), d = rand2(0.12, 0.2);
         if (this._play(v, t, "whiz", { g: WHIZ_G, rate: jit(0.1) })) {
           this._done(v);
           return;
@@ -38918,7 +38968,7 @@ void main() {
         const v = this._voice(p, { g: local ? 0.9 : 1.6, ref: 3, roll: 1.1, max: 50, wet: 0.08 });
         const t = this._now();
         this._nz(v, t, { n: "white", a: 5e-4, dur: 0.09, g: 0.55, flt: [{ t: "bandpass", f: 3800, f1: 1600, sw: 0.08, q: 1.2 }] });
-        for (let i = 0; i < 4; i++) this._click(v, t + 0.01 + i * rand(0.012, 0.03), rand(2500, 5200), 0.35, 2, 0.012);
+        for (let i = 0; i < 4; i++) this._click(v, t + 0.01 + i * rand2(0.012, 0.03), rand2(2500, 5200), 0.35, 2, 0.012);
         this._metal(v, t, 1650 * jit(0.04), 0.2, [[1, 1, 0.18], [1.48, 0.6, 0.12], [2.7, 0.35, 0.08]]);
         this._tn(v, t, { f: 210, f1: 90, sw: 0.06, a: 1e-3, dur: 0.09, g: 0.4 });
         this._done(v);
@@ -38979,14 +39029,14 @@ void main() {
         const v = this._voice(p, { g: local ? 0.7 : 1, ref: 3, roll: 1.1, max: 80, wet: 0.12 });
         const t = this._now(), r = jit(0.06);
         this._grunt(v, t, 150 * r, 90 * r, 0.24, 0.16);
-        const tf = t + rand(0.28, 0.4);
+        const tf = t + rand2(0.28, 0.4);
         this._tn(v, tf, { f: 80 * r, f1: 40, sw: 0.12, a: 3e-3, dur: 0.24, g: 0.7 });
         this._nz(v, tf, { n: "pink", a: 2e-3, dur: 0.18, g: 0.55, flt: [{ t: "lowpass", f: 450 * r, q: 0 }] });
         this._nz(v, tf, { n: "white", a: 1e-3, dur: 0.035, g: 0.2, flt: [{ t: "bandpass", f: 1500 * r, q: 1.2 }] });
-        const tg = tf + rand(0.08, 0.15);
+        const tg = tf + rand2(0.08, 0.15);
         this._tn(v, tg, { f: 110 * r, f1: 70, a: 2e-3, dur: 0.07, g: 0.35 });
-        this._metal(v, tg + 0.01, rand(1400, 2200), 0.1, [[1, 1, 0.09], [2.3, 0.6, 0.06], [3.7, 0.3, 0.04]]);
-        this._metal(v, tg + rand(0.08, 0.16), rand(2400, 3400), 0.05, [[1, 1, 0.05], [1.8, 0.5, 0.03]]);
+        this._metal(v, tg + 0.01, rand2(1400, 2200), 0.1, [[1, 1, 0.09], [2.3, 0.6, 0.06], [3.7, 0.3, 0.04]]);
+        this._metal(v, tg + rand2(0.08, 0.16), rand2(2400, 3400), 0.05, [[1, 1, 0.05], [1.8, 0.5, 0.03]]);
         this._done(v);
       } catch (e) {
         this._warn("playDeath", e);
@@ -39012,7 +39062,7 @@ void main() {
           this._nz(v, th + 4e-3, { n: "white", a: 5e-3, dur: 0.05, g: 0.25, flt: [{ t: "bandpass", f: 1600 * r, q: 3 }] });
         } else if (result === "wall") {
           this._nz(v, th, { n: "white", a: 2e-4, dur: 4e-3, g: 0.5 * hv, flt: [{ t: "highpass", f: 2500, q: 0 }] });
-          this._metal(v, th, rand(1300, 1800), 0.2 * hv, [[1, 1, 0.25], [2.41, 0.7, 0.18], [3.87, 0.5, 0.12], [5.3, 0.3, 0.08]]);
+          this._metal(v, th, rand2(1300, 1800), 0.2 * hv, [[1, 1, 0.25], [2.41, 0.7, 0.18], [3.87, 0.5, 0.12], [5.3, 0.3, 0.08]]);
           this._nz(v, th + 3e-3, { n: "white", a: 3e-3, dur: 0.06, g: 0.15, flt: [{ t: "bandpass", f: 3500, q: 2 }] });
         }
         this._done(v);
@@ -39029,10 +39079,10 @@ void main() {
         const v = this._voice(null, { g: 0.55, wet: 0.05 });
         const t = this._now();
         this._click(v, t, 4200, 0.3);
-        this._metal(v, t, rand(3400, 3900), 0.1, [[1, 1, 0.09], [1.62, 0.6, 0.06], [2.5, 0.3, 0.04]]);
+        this._metal(v, t, rand2(3400, 3900), 0.1, [[1, 1, 0.09], [1.62, 0.6, 0.06], [2.5, 0.3, 0.04]]);
         this._nz(v, t + 0.015, { n: "white", a: 0.01, dur: 0.05, g: 0.1, flt: [{ t: "bandpass", f: 4500, q: 3 }] });
-        this._metal(v, t + 0.08, rand(2300, 2700), 0.08, [[1, 1, 0.12], [2.1, 0.5, 0.07]]);
-        this._metal(v, t + 0.13, rand(2500, 2900), 0.04, [[1, 1, 0.08]]);
+        this._metal(v, t + 0.08, rand2(2300, 2700), 0.08, [[1, 1, 0.12], [2.1, 0.5, 0.07]]);
+        this._metal(v, t + 0.13, rand2(2500, 2900), 0.04, [[1, 1, 0.08]]);
         this._done(v);
       } catch (e) {
         this._warn("playGrenadePin", e);
@@ -39051,7 +39101,7 @@ void main() {
       try {
         const p = this._pos(pos);
         const v = this._voice(p, { g: 0.8, ref: 3, roll: 1.1, max: 80, wet: 0.12 });
-        const t = this._now(), f = rand(750, 1050);
+        const t = this._now(), f = rand2(750, 1050);
         this._nz(v, t, { n: "white", a: 3e-4, dur: 4e-3, g: 0.4, flt: [{ t: "highpass", f: 2500, q: 0 }] });
         this._tn(v, t, { f: 210, f1: 120, a: 1e-3, dur: 0.05, g: 0.35 });
         this._metal(v, t, f, 0.22, [[1, 1, 0.16], [2.14, 0.7, 0.11], [3.63, 0.45, 0.07], [5.1, 0.25, 0.05]]);
@@ -39075,7 +39125,7 @@ void main() {
           const n2 = 10 + (Math.random() * 6 | 0);
           for (let i = 0; i < n2; i++) {
             const dt = 0.15 + 1.6 * Math.pow(Math.random(), 1.7);
-            this._click(v, t + dt, rand(1200, 6e3), 0.12 * (1 - dt / 2) * rand(0.4, 1), 3, rand(8e-3, 0.03));
+            this._click(v, t + dt, rand2(1200, 6e3), 0.12 * (1 - dt / 2) * rand2(0.4, 1), 3, rand2(8e-3, 0.03));
           }
           this._done(v);
           if (p && d < 12) {
@@ -39098,9 +39148,9 @@ void main() {
         const n = 16 + (Math.random() * 8 | 0);
         for (let i = 0; i < n; i++) {
           const dt = 0.08 + 1.6 * Math.pow(Math.random(), 1.7);
-          const gg = 0.12 * (1 - dt / 2) * rand(0.4, 1);
-          if (Math.random() < 0.55) this._metal(v, t + dt, rand(1600, 5200), gg, [[1, 1, rand(0.03, 0.08)], [1.71, 0.5, 0.03]]);
-          else this._click(v, t + dt, rand(1200, 6e3), gg * 1.5, 3, rand(8e-3, 0.03));
+          const gg = 0.12 * (1 - dt / 2) * rand2(0.4, 1);
+          if (Math.random() < 0.55) this._metal(v, t + dt, rand2(1600, 5200), gg, [[1, 1, rand2(0.03, 0.08)], [1.71, 0.5, 0.03]]);
+          else this._click(v, t + dt, rand2(1200, 6e3), gg * 1.5, 3, rand2(8e-3, 0.03));
         }
         this._done(v);
         if (p && d < 12) {
@@ -39124,7 +39174,7 @@ void main() {
         switch (weaponId) {
           case "knife":
             this._nz(v, t + 0.03, { n: "white", a: 0.06, dur: 0.14, g: 0.18, flt: [{ t: "bandpass", f: 2800, f1: 7500, sw: 0.18, q: 4 }] });
-            this._metal(v, t + 0.17, rand(4800, 5600), 0.07, [[1, 1, 0.35], [1.43, 0.6, 0.25], [2.2, 0.3, 0.15]]);
+            this._metal(v, t + 0.17, rand2(4800, 5600), 0.07, [[1, 1, 0.35], [1.43, 0.6, 0.25], [2.2, 0.3, 0.15]]);
             break;
           case "grenade":
             this._metal(v, t + 0.06, 3e3, 0.08, [[1, 1, 0.06], [1.6, 0.5, 0.04]]);
@@ -39172,19 +39222,19 @@ void main() {
       try {
         const p = this._pos(pos), local = !p;
         const v = this._voice(p, { g: local ? 0.28 : 0.6, ref: 1.5, roll: 1.4, max: 30, wet: 0.06 });
-        let t = this._now() + rand(0.3, 0.6);
+        let t = this._now() + rand2(0.3, 0.6);
         if (this._play(v, t, "shell", { g: SHELL_G, rate: jit(0.08) })) {
           this._done(v);
           return;
         }
-        const f = rand(3300, 4600), n = 2 + (Math.random() * 3 | 0);
-        let gap = rand(0.07, 0.11), amp = 1;
+        const f = rand2(3300, 4600), n = 2 + (Math.random() * 3 | 0);
+        let gap = rand2(0.07, 0.11), amp = 1;
         for (let i = 0; i < n; i++) {
           this._nz(v, t, { n: "white", a: 2e-4, dur: 3e-3, g: 0.3 * amp, flt: [{ t: "highpass", f: 5e3, q: 0 }] });
           this._metal(v, t, f * jit(0.02), 0.35 * amp, [[1, 1, 0.1 * amp + 0.03], [1.58, 0.6, 0.07], [2.43, 0.35, 0.05], [3.66, 0.2, 0.03]]);
           t += gap;
-          gap *= rand(0.55, 0.7);
-          amp *= rand(0.45, 0.6);
+          gap *= rand2(0.55, 0.7);
+          amp *= rand2(0.45, 0.6);
         }
         this._nz(v, t, { n: "white", a: 0.02, dur: 0.12, g: 0.03, flt: [{ t: "bandpass", f: 5200, q: 4 }] });
         this._done(v);
@@ -39349,11 +39399,11 @@ void main() {
         out.gain.linearRampToValueAtTime(1, now + 3);
         a.out = out;
         for (const side of [-0.65, 0.65]) {
-          const s = loop("brown", rand(0.85, 1.15));
-          const lp = biq("lowpass", rand(550, 750), 0);
+          const s = loop("brown", rand2(0.85, 1.15));
+          const lp = biq("lowpass", rand2(550, 750), 0);
           const g = gain(0.1);
-          lfo(rand(0.055, 0.1), 0.065, g.gain);
-          lfo(rand(0.04, 0.08), 300, lp.frequency);
+          lfo(rand2(0.055, 0.1), 0.065, g.gain);
+          lfo(rand2(0.04, 0.08), 300, lp.frequency);
           const p = pan(side);
           s.connect(lp);
           lp.connect(g);
@@ -39387,7 +39437,7 @@ void main() {
           a.windF = 520;
         }
         {
-          const f0 = rand(46, 52);
+          const f0 = rand2(46, 52);
           const eng = gain(0.05);
           const lp = biq("lowpass", 260, 0);
           eng.connect(lp);
@@ -39412,11 +39462,11 @@ void main() {
           rl.connect(rg);
           rg.connect(eng);
         }
-        a.nGust = now + rand(3, 8);
-        a.nGull = now + rand(3, 9);
-        a.nCreak = now + rand(6, 15);
-        a.nSplash = now + rand(2, 6);
-        a.nHorn = now + rand(30, 70);
+        a.nGust = now + rand2(3, 8);
+        a.nGull = now + rand2(3, 9);
+        a.nCreak = now + rand2(6, 15);
+        a.nSplash = now + rand2(2, 6);
+        a.nHorn = now + rand2(30, 70);
         this._amb = a;
       } catch (e) {
         this._warn("startAmbient", e);
@@ -39891,7 +39941,7 @@ void main() {
           this._nz(v, t, { n: "pink", a: 15e-4, dur: 0.055 * hd, g: 0.55 * g, flt: [{ t: "lowpass", f: 1100 * r * (0.6 + 0.4 * br), q: 0 }] });
           this._nz(v, t, { n: "white", a: 6e-4, dur: 0.014, g: 0.12 * g * br, flt: [{ t: "bandpass", f: 2600 * r, q: 2 }] });
           if (Math.random() < 0.15) {
-            this._tn(v, t + 0.02, { w: "sawtooth", f: rand(28, 40), a: 0.02, dur: 0.12, g: 0.1 * g, flt: [{ t: "bandpass", f: rand(600, 900), q: 8 }] });
+            this._tn(v, t + 0.02, { w: "sawtooth", f: rand2(28, 40), a: 0.02, dur: 0.12, g: 0.1 * g, flt: [{ t: "bandpass", f: rand2(600, 900), q: 8 }] });
           }
           break;
         case "grate": {
@@ -39900,8 +39950,8 @@ void main() {
           let tt = t;
           const n = 3 + (Math.random() * 2 | 0) + Math.round(heavy * 3);
           for (let i = 0; i < n; i++) {
-            tt += rand(7e-3, 0.02);
-            this._click(v, tt, rand(3e3, 5600), 0.2 * g * br * Math.pow(0.72, i), 5, 0.012);
+            tt += rand2(7e-3, 0.02);
+            this._click(v, tt, rand2(3e3, 5600), 0.2 * g * br * Math.pow(0.72, i), 5, 0.012);
           }
           this._metal(v, t, 910 * r, 0.05 * g * br, [[1, 1, 0.08 * hd], [2.6, 0.5, 0.05]]);
           break;
@@ -39946,13 +39996,13 @@ void main() {
       const t = this._now();
       this._nz(v, t, { n: "white", a: 0.03, dur: 0.12, g: 0.1, flt: [{ t: "bandpass", f: 2200, q: 0.8 }] });
       this._whoosh(v, t + 0.04, { a: 0.1, dur: 0.22, g: 0.45, f0: 350, fp: 1700, f1: 500, q: 1.3 });
-      this._metal(v, t + 0.12, rand(4e3, 4600), 0.05, [[1, 1, 0.1], [1.5, 0.4, 0.06]]);
+      this._metal(v, t + 0.12, rand2(4e3, 4600), 0.05, [[1, 1, 0.1], [1.5, 0.4, 0.06]]);
       this._done(v);
     }
     // 耳鳴（走 ui 匯流排，不被 muffle 影響）
     _ring(level, dur) {
       const v = this._voice(null, { bus: "ui", g: 1, wet: 0, pool: false });
-      const t = this._now(), f = rand(3700, 4300), g = 0.012 + 0.035 * level;
+      const t = this._now(), f = rand2(3700, 4300), g = 0.012 + 0.035 * level;
       if (this._has("tinnitus")) {
         const gg = this.ctx.createGain(), L = Math.min(dur, 4);
         gg.connect(v.input);
@@ -40067,23 +40117,23 @@ void main() {
         if (a && !a.stopping) {
           if (now >= a.nGust) {
             this._gust(a, now);
-            a.nGust = now + rand(5, 14);
+            a.nGust = now + rand2(5, 14);
           }
           if (now >= a.nGull) {
             this._gulls();
-            a.nGull = now + rand(7, 22);
+            a.nGull = now + rand2(7, 22);
           }
           if (now >= a.nCreak) {
             this._creak();
-            a.nCreak = now + rand(9, 26);
+            a.nCreak = now + rand2(9, 26);
           }
           if (now >= a.nSplash) {
             this._splash();
-            a.nSplash = now + rand(3, 9);
+            a.nSplash = now + rand2(3, 9);
           }
           if (now >= a.nHorn) {
             this._horn();
-            a.nHorn = now + rand(80, 180);
+            a.nHorn = now + rand2(80, 180);
           }
         }
       } catch (e) {
@@ -40102,13 +40152,13 @@ void main() {
     }
     // 環境事件：隨機點（相對聽者）
     _around(dMin, dMax, yMin, yMax) {
-      const L = this._L, ang = rand(0, TAU), d = rand(dMin, dMax);
-      return { x: L.x + Math.cos(ang) * d, y: L.y + rand(yMin, yMax), z: L.z + Math.sin(ang) * d };
+      const L = this._L, ang = rand2(0, TAU), d = rand2(dMin, dMax);
+      return { x: L.x + Math.cos(ang) * d, y: L.y + rand2(yMin, yMax), z: L.z + Math.sin(ang) * d };
     }
     // 陣風：風噪增益與帶通中心頻率一起上揚再回落，偶爾伴隨集裝箱縫隙的呼哨
     _gust(a, now) {
-      const up = rand(0.8, 2.2), hold = rand(0.4, 2), down = rand(1.5, 3.5);
-      const pairs = [[a.windG.gain, a.windBase * rand(1.8, 3.2), a.windBase], [a.windBP.frequency, a.windF * rand(1.5, 2.4), a.windF]];
+      const up = rand2(0.8, 2.2), hold = rand2(0.4, 2), down = rand2(1.5, 3.5);
+      const pairs = [[a.windG.gain, a.windBase * rand2(1.8, 3.2), a.windBase], [a.windBP.frequency, a.windF * rand2(1.5, 2.4), a.windF]];
       for (const [p, hi, lo] of pairs) {
         p.cancelScheduledValues(now);
         p.setValueAtTime(p.value, now);
@@ -40117,35 +40167,35 @@ void main() {
       }
       if (Math.random() < 0.5) {
         const v = this._voice(null, { bus: "ambient", g: 0.5, wet: 0.1 });
-        const f = rand(900, 1700);
+        const f = rand2(900, 1700);
         this._nz(v, now + 0.01, { n: "pink", a: up, hold, dur: down, g: 0.05, flt: [{ t: "bandpass", f, q: 14, path: [[up, f * 1.15], [up + hold + down, f * 0.9]] }] });
         this._done(v);
       }
     }
     // 海鷗：鋸齒波頻率上滑後下滑 + FM 顫音 + 共振峰帶通
     _gulls() {
-      const v = this._voice(this._around(20, 60, 8, 25), { bus: "ambient", g: rand(1.6, 2.6), ref: 15, roll: 1, max: 400, wet: 0.3, wd: 1e9, hrtf: false, air: 0.4 });
+      const v = this._voice(this._around(20, 60, 8, 25), { bus: "ambient", g: rand2(1.6, 2.6), ref: 15, roll: 1, max: 400, wet: 0.3, wd: 1e9, hrtf: false, air: 0.4 });
       let t = this._now();
-      const n = 1 + (Math.random() * 4 | 0), base = rand(1350, 1900);
+      const n = 1 + (Math.random() * 4 | 0), base = rand2(1350, 1900);
       for (let i = 0; i < n; i++) {
-        const d = rand(0.18, 0.38), f = base * jit(0.04) * (i === n - 1 && n > 2 ? 0.85 : 1);
-        this._tn(v, t, { w: "sawtooth", f: f * 0.75, path: [[d * 0.2, f * 1.2], [d, f * 0.62]], fm: [rand(26, 42), f * 0.05], a: 0.025, hold: d * 0.35, dur: d * 0.65, g: 0.22, flt: [{ t: "bandpass", f: 2100, q: 1.6 }, { t: "highpass", f: 900, q: 0 }] });
+        const d = rand2(0.18, 0.38), f = base * jit(0.04) * (i === n - 1 && n > 2 ? 0.85 : 1);
+        this._tn(v, t, { w: "sawtooth", f: f * 0.75, path: [[d * 0.2, f * 1.2], [d, f * 0.62]], fm: [rand2(26, 42), f * 0.05], a: 0.025, hold: d * 0.35, dur: d * 0.65, g: 0.22, flt: [{ t: "bandpass", f: 2100, q: 1.6 }, { t: "highpass", f: 900, q: 0 }] });
         this._nz(v, t, { n: "white", a: 0.03, hold: d * 0.3, dur: d * 0.6, g: 0.035, flt: [{ t: "bandpass", f: 2800, q: 2.5 }] });
-        t += d + rand(0.1, 0.3);
+        t += d + rand2(0.1, 0.3);
       }
       this._done(v);
     }
     // 金屬結構吱嘎：粘滑摩擦脈衝串激勵高 Q 共振
     _creak() {
       const c = this.ctx;
-      const v = this._voice(this._around(5, 22, -3, 4), { bus: "ambient", g: rand(0.8, 1.3), ref: 5, roll: 1, max: 120, wet: 0.35, hrtf: false });
-      const t = this._now(), dur = rand(0.7, 2);
+      const v = this._voice(this._around(5, 22, -3, 4), { bus: "ambient", g: rand2(0.8, 1.3), ref: 5, roll: 1, max: 120, wet: 0.35, hrtf: false });
+      const t = this._now(), dur = rand2(0.7, 2);
       const o = c.createOscillator();
       o.type = "sawtooth";
-      let f = rand(14, 30);
+      let f = rand2(14, 30);
       o.frequency.setValueAtTime(f, t);
       for (let i = 1; i <= 6; i++) {
-        f = clamp2(f * rand(0.75, 1.35), 8, 55);
+        f = clamp2(f * rand2(0.75, 1.35), 8, 55);
         o.frequency.linearRampToValueAtTime(f, t + dur * i / 6);
       }
       const env = c.createGain();
@@ -40157,11 +40207,11 @@ void main() {
       eg.linearRampToValueAtTime(0, t + dur);
       o.connect(env);
       v.nodes.push(env);
-      for (const [fr, q, amp] of [[rand(320, 450), 22, 1], [rand(800, 1e3), 28, 0.7], [rand(1500, 1900), 30, 0.4], [rand(2600, 3100), 30, 0.2]]) {
+      for (const [fr, q, amp] of [[rand2(320, 450), 22, 1], [rand2(800, 1e3), 28, 0.7], [rand2(1500, 1900), 30, 0.4], [rand2(2600, 3100), 30, 0.2]]) {
         const b = c.createBiquadFilter();
         b.type = "bandpass";
         b.frequency.setValueAtTime(fr, t);
-        b.frequency.linearRampToValueAtTime(fr * rand(0.93, 1.07), t + dur);
+        b.frequency.linearRampToValueAtTime(fr * rand2(0.93, 1.07), t + dur);
         b.Q.value = q;
         const g = c.createGain();
         g.gain.value = amp * 3;
@@ -40177,8 +40227,8 @@ void main() {
     }
     // 浪拍船舷
     _splash() {
-      const v = this._voice(this._around(6, 20, -5, -3), { bus: "ambient", g: rand(0.35, 0.7), ref: 5, roll: 1, max: 100, wet: 0.2, hrtf: false });
-      const t = this._now(), a = rand(0.25, 0.6), dur = rand(0.8, 1.8);
+      const v = this._voice(this._around(6, 20, -5, -3), { bus: "ambient", g: rand2(0.35, 0.7), ref: 5, roll: 1, max: 100, wet: 0.2, hrtf: false });
+      const t = this._now(), a = rand2(0.25, 0.6), dur = rand2(0.8, 1.8);
       this._nz(v, t, { n: "pink", a, dur, g: 0.6, flt: [{ t: "bandpass", f: 900, q: 0.7, path: [[a, 1300], [a + dur, 380]] }] });
       this._nz(v, t + a * 0.8, { n: "white", a: 0.1, dur: dur * 0.7, g: 0.08, flt: [{ t: "highpass", f: 2500, q: 0 }] });
       this._nz(v, t, { n: "brown", a: a * 1.2, dur, g: 0.4, flt: [{ t: "lowpass", f: 250, q: 0 }] });
@@ -40187,10 +40237,10 @@ void main() {
     // 遠處汽笛：失諧鋸齒 + 五度 + 八度，低通，長混響
     _horn() {
       const v = this._voice(this._around(250, 420, 10, 20), { bus: "ambient", g: 0.22, ref: 150, roll: 1, max: 3e3, wet: 0.7, wd: 1e9, hrtf: false, air: 0.2 });
-      const f = rand(78, 98), t0 = this._now();
+      const f = rand2(78, 98), t0 = this._now();
       const n = Math.random() < 0.35 ? 2 : 1;
       for (let i = 0; i < n; i++) {
-        const t = t0 + i * 4.2, hold = i === 0 ? rand(1.8, 3) : rand(1, 1.6);
+        const t = t0 + i * 4.2, hold = i === 0 ? rand2(1.8, 3) : rand2(1, 1.6);
         for (const [h, amp, det] of [[1, 0.5, -4], [1, 0.4, 5], [1.5, 0.3, 0], [2, 0.18, 3]]) {
           this._tn(v, t, { w: "sawtooth", f: f * h * 0.97, path: [[0.35, f * h]], det, a: 0.35, hold, dur: 1.3, g: amp, flt: [{ t: "lowpass", f: 650, q: 1 }] });
         }
@@ -41197,8 +41247,8 @@ void main() {
       w.lastShot = now;
       w.nextFire = (now - w.nextFire < 0.05 ? w.nextFire : now) + 60 / d.rpm;
       this.stats.shots++;
-      const spread = currentSpread(w, { speed: this.speed || 0, onGround: this.onGround, crouch: this.crouch, scoped: this.scoped > 0, scopeReady: this.scopeReady });
-      g.fireWeapon(this, w, spread);
+      const spread2 = currentSpread(w, { speed: this.speed || 0, onGround: this.onGround, crouch: this.crouch, scoped: this.scoped > 0, scopeReady: this.scopeReady });
+      g.fireWeapon(this, w, spread2);
       const [up, side] = recoilKick(w, Math.random);
       const ctl = this.recoilControl ?? 1;
       this.punchP = Math.min(d.recoil.upMax, this.punchP + up * ctl);
@@ -42329,11 +42379,11 @@ void main() {
       this.vm.setVisible(false);
     }
     // ================= 戰鬥 =================
-    fireWeapon(a, ws, spread) {
+    fireWeapon(a, ws, spread2) {
       const d = ws.def;
       const eye = a.eye(new Vector3());
       const dir = a.forward(new Vector3());
-      jitterDir(dir, spread, Math.random);
+      jitterDir(dir, spread2, Math.random);
       let muzzle;
       if (a.isPlayer) {
         const cam = this.renderer.camera;
@@ -42391,7 +42441,13 @@ void main() {
         const t = _d.copy(hp).sub(eye).dot(dir);
         if (t > 2 && t < eye.distanceTo(end)) {
           const closest = eye.clone().addScaledVector(dir, t);
-          if (closest.distanceTo(hp) < 1.3) audio.playBulletWhiz(closest);
+          const md = closest.distanceTo(hp);
+          if (md < 1.3) {
+            audio.playBulletWhiz(closest);
+            this.suppK = Math.max(this.suppK || 0, 1 - md / 1.3);
+            this.suppT = 0.4;
+            this.fx.shake = Math.max(this.fx.shake, 0.12 + 0.2 * (1 - md / 1.3));
+          }
         }
       }
     }
@@ -42952,7 +43008,9 @@ void main() {
       if (this.concT <= 0) this.concK = 0;
       this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
       const alive = this.player && this.player.alive && this.playing;
-      fxu.uConc.value = alive ? (this.concK || 0) * Math.min(1, this.concT / 1.2) : 0;
+      this.suppT = Math.max(0, (this.suppT || 0) - dt);
+      if (this.suppT <= 0) this.suppK = 0;
+      fxu.uConc.value = alive ? Math.max((this.concK || 0) * Math.min(1, this.concT / 1.2), (this.suppK || 0) * 0.28 * (this.suppT / 0.4)) : 0;
       fxu.uFlash.value = alive ? this.flash : 0;
       const p = this.player;
       fxu.uLowHP.value = p && p.alive && this.playing ? Math.max(0, (35 - p.hp) / 35) : 0;

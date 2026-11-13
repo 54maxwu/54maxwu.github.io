@@ -348,7 +348,13 @@ export class Game {
       const t = _d.copy(hp).sub(eye).dot(dir);
       if (t > 2 && t < eye.distanceTo(end)) {
         const closest = eye.clone().addScaledVector(dir, t);
-        if (closest.distanceTo(hp) < 1.3) audio.playBulletWhiz(closest);
+        const md = closest.distanceTo(hp);
+        if (md < 1.3) {
+          audio.playBulletWhiz(closest);
+          // 子彈從耳邊擦過：畫面短暫模糊、輕微震動（壓制感）
+          this.suppK = Math.max(this.suppK || 0, 1 - md / 1.3); this.suppT = 0.4;
+          this.fx.shake = Math.max(this.fx.shake, 0.12 + 0.2 * (1 - md / 1.3));
+        }
       }
     }
   }
@@ -807,7 +813,8 @@ export class Game {
     this.concT = Math.max(0, (this.concT || 0) - dt); if (this.concT <= 0) this.concK = 0;
     this.flash = Math.max(0, (this.flash || 0) - dt * 2.2);
     const alive = this.player && this.player.alive && this.playing;
-    fxu.uConc.value = alive ? (this.concK || 0) * Math.min(1, this.concT / 1.2) : 0;
+    this.suppT = Math.max(0, (this.suppT || 0) - dt); if (this.suppT <= 0) this.suppK = 0;
+    fxu.uConc.value = alive ? Math.max((this.concK || 0) * Math.min(1, this.concT / 1.2), (this.suppK || 0) * 0.28 * (this.suppT / 0.4)) : 0;
     fxu.uFlash.value = alive ? this.flash : 0;
     const p = this.player;
     fxu.uLowHP.value = p && p.alive && this.playing ? Math.max(0, (35 - p.hp) / 35) : 0;
