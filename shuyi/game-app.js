@@ -34071,7 +34071,7 @@ void main() {
         return;
       }
       const kind = this.M[k].col, hx = x1 - x0, hn = n1 - n0, hy = y1 - y0;
-      const breakable = !!(col && kind && !this.noBreak && !(hy < 0.6 && Math.max(hx, hn) > 1.5) && !(hx > 2.5 && hn > 2.5));
+      const breakable = !!(col && kind && !this.noBreak && (this.forceBreak || !(hy < 0.6 && Math.max(hx, hn) > 1.5)) && !(hx > 2.5 && hn > 2.5));
       if (breakable && !this._split) {
         const L = Math.max(hx, hn), T = Math.min(hx, hn);
         if (T <= 0.7 && (L > 1.8 || hy > 2.8)) {
@@ -34768,7 +34768,9 @@ void main() {
         wallU(lb, "brick", a0, a1, yb, ceil, D2 - 0.3, D2, cuts2, "glass");
         if (f >= 1 && s.type === "class" && cuts2.length) {
           const [c0, c1] = cuts2[0];
+          B.forceBreak = true;
           lb("concrete", c0 - 0.3, c1 + 0.3, yb - SLAB, yb, D2, D2 + 1.2);
+          B.forceBreak = false;
           lb("brick", c0 - 0.3, c1 + 0.3, yb, yb + 1, D2 + 1, D2 + 1.2);
           lb("brick", c0 - 0.3, c0 - 0.1, yb, yb + 1, D2, D2 + 1.2);
           lb("brick", c1 + 0.1, c1 + 0.3, yb, yb + 1, D2, D2 + 1.2);
@@ -41451,48 +41453,59 @@ void main() {
   };
 
   // game-src/player.js
+  var MOVE = {
+    KeyW: [1, 0],
+    ArrowUp: [1, 0],
+    KeyS: [-1, 0],
+    ArrowDown: [-1, 0],
+    KeyD: [0, 1],
+    ArrowRight: [0, 1],
+    KeyA: [0, -1],
+    ArrowLeft: [0, -1]
+  };
+  var SWALLOW = /* @__PURE__ */ new Set(["Tab", "Space", "KeyB", "KeyF", "KeyQ", "ControlLeft", "ControlRight", "ArrowUp", "ArrowDown"]);
+  var CTRL_SWALLOW = /* @__PURE__ */ new Set(["KeyW", "KeyA", "KeyS", "KeyD", "KeyR"]);
+  var SLOT_KEYS = ["Digit1", "Digit2", "Digit3", "Digit4"];
+  var MOUSE_SENS = 22e-4;
+  var _head = new Vector3();
   var Player = class extends Actor {
     constructor(game, o) {
       super(game, { ...o, isPlayer: true });
       this.keys = /* @__PURE__ */ new Set();
-      this.mouse = { l: false, r: false, lp: false, rp: false, dx: 0, dy: 0, wheel: 0 };
       this.pressed = /* @__PURE__ */ new Set();
+      this.mouse = { l: false, r: false, lp: false, rp: false, dx: 0, dy: 0, wheel: 0 };
+      this.touch = { mx: 0, mz: 0, fire: false, jump: false, crouch: false };
       this.lookDX = 0;
       this.lookDY = 0;
       this.bobT = 0;
       this.land = 0;
-      this.shakeT = 0;
       this.camRoll = 0;
       this.deathCam = null;
-      this.touch = { mx: 0, mz: 0, fire: false, jump: false, crouch: false };
     }
-    // 輸入監聽只繫結一次，始終路由到當前玩家
     bind(canvas2) {
       const g = this.game;
       if (g._inputBound) return;
       g._inputBound = true;
-      const P = () => g.playing ? g.player : null;
-      window.addEventListener("keydown", (e) => {
-        const p = P();
+      const active = () => g.playing ? g.player : null;
+      const any = () => g.player;
+      addEventListener("keydown", (e) => {
+        const p = active();
         if (!p) return;
-        if (["Tab", "Space", "KeyB", "KeyF", "KeyQ", "ControlLeft", "ControlRight", "ArrowUp", "ArrowDown"].includes(e.code) || e.ctrlKey && ["KeyW", "KeyA", "KeyS", "KeyD", "KeyR"].includes(e.code)) e.preventDefault();
+        if (SWALLOW.has(e.code) || e.ctrlKey && CTRL_SWALLOW.has(e.code)) e.preventDefault();
         if (e.repeat) return;
         p.keys.add(e.code);
         p.pressed.add(e.code);
       });
-      window.addEventListener("keyup", (e) => {
-        const p = g.player;
-        if (p) p.keys.delete(e.code);
-      });
-      window.addEventListener("blur", () => {
-        const p = g.player;
+      addEventListener("keyup", (e) => any()?.keys.delete(e.code));
+      addEventListener("blur", () => {
+        const p = any();
         if (p) {
           p.keys.clear();
           p.mouse.l = p.mouse.r = false;
         }
       });
       canvas2.addEventListener("mousedown", (e) => {
-        const p = P();
+        const p = active();
         if (!p) return;
         if (!g.locked && !g.touchMode) {
           g.lock();
@@ -41507,33 +41520,32 @@ void main() {
           p.mouse.rp = true;
         }
       });
-      window.addEventListener("mouseup", (e) => {
-        const p = g.player;
+      addEventListener("mouseup", (e) => {
+        const p = any();
         if (!p) return;
         if (e.button === 0) p.mouse.l = false;
         if (e.button === 2) p.mouse.r = false;
       });
-      window.addEventListener("contextmenu", (e) => e.preventDefault());
-      window.addEventListener("mousemove", (e) => {
-        const p = P();
+      addEventListener("contextmenu", (e) => e.preventDefault());
+      addEventListener("mousemove", (e) => {
+        const p = active();
         if (!p || !g.locked) return;
         if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
         p.mouse.dx += e.movementX;
         p.mouse.dy += e.movementY;
       });
-      window.addEventListener("wheel", (e) => {
-        const p = P();
+      addEventListener("wheel", (e) => {
+        const p = active();
         if (p && g.locked) p.mouse.wheel += Math.sign(e.deltaY);
       }, { passive: true });
     }
     consumePressed(code) {
-      const p = this.pressed.has(code);
+      const had = this.pressed.has(code);
       this.pressed.delete(code);
-      return p;
+      return had;
     }
     update(dt) {
-      const g = this.game, K = this.keys;
-      const sens = g.opts.sens * 22e-4;
+      const g = this.game;
       let dx = this.mouse.dx, dy = this.mouse.dy;
       this.mouse.dx = this.mouse.dy = 0;
       if (this.touchLook) {
@@ -41543,45 +41555,13 @@ void main() {
       }
       this.lookDX += dx;
       this.lookDY += dy;
-      const fovK = this.scoped ? g.renderer.camera.fov / g.opts.fov : 1;
       if (this.alive) {
-        this.yaw -= dx * sens * fovK;
-        this.pitch = MathUtils.clamp(this.pitch - dy * sens * fovK, -1.5, 1.5);
-        let f = 0, s = 0;
-        if (K.has("KeyW") || K.has("ArrowUp")) f += 1;
-        if (K.has("KeyS") || K.has("ArrowDown")) f -= 1;
-        if (K.has("KeyD") || K.has("ArrowRight")) s += 1;
-        if (K.has("KeyA") || K.has("ArrowLeft")) s -= 1;
-        f += this.touch.mz;
-        s += this.touch.mx;
-        const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
-        const wx = -sy * f + cy * s, wz = -cy * f - sy * s;
-        const jump = K.has("Space") || this.touch.jump;
-        const crouch = K.has("ControlLeft") || K.has("ControlRight") || this.touch.crouch;
-        this.walk = K.has("ShiftLeft") || K.has("ShiftRight");
-        this.move(dt, wx, wz, jump, crouch, this.walk);
-        if (this.touch.jump) this.touch.jump = false;
-        let sw = null;
-        for (let i = 1; i <= 4; i++) if (this.consumePressed("Digit" + i)) sw = i - 1;
-        if (this.consumePressed("KeyQ")) sw = this.lastSlot;
-        if (this.mouse.wheel) {
-          const dir = this.mouse.wheel > 0 ? 1 : -1;
-          this.mouse.wheel = 0;
-          let n = this.slot;
-          for (let k = 0; k < 4; k++) {
-            n = (n + dir + 4) % 4;
-            if (this.inv[n] && !(this.inv[n].def.type === "grenade" && this.inv[n].mag <= 0)) break;
-          }
-          sw = n;
-        }
-        if (sw !== null && this.inv[sw] && this.inv[sw].def.type === "grenade" && this.inv[sw].mag <= 0) {
-          g.hud.toast("\u6C92\u6709\u624B\u96F7\u4E86", 1.2);
-          sw = null;
-        }
-        const lp = this.mouse.lp || this.touch.firePressed, rp = this.mouse.rp;
-        this.mouse.lp = this.mouse.rp = false;
-        this.touch.firePressed = false;
-        this.weaponUpdate(dt, { fire: this.mouse.l || this.touch.fire, firePressed: lp, alt: this.mouse.r, altPressed: rp, reload: this.consumePressed("KeyR"), sw });
+        const zoomK = this.scoped ? g.renderer.camera.fov / g.opts.fov : 1;
+        const k = g.opts.sens * MOUSE_SENS * zoomK;
+        this.yaw -= dx * k;
+        this.pitch = MathUtils.clamp(this.pitch - dy * k, -1.5, 1.5);
+        this.readMovement(dt);
+        this.readWeapon(dt);
         if (this.consumePressed("KeyF")) g.vm.inspect();
       } else {
         this.pressed.delete("KeyR");
@@ -41591,16 +41571,77 @@ void main() {
       this.pressed.clear();
       this.updateCamera(dt);
     }
+    readMovement(dt) {
+      let fwd = this.touch.mz, right = this.touch.mx;
+      for (const code of this.keys) {
+        const m = MOVE[code];
+        if (m) {
+          fwd += m[0];
+          right += m[1];
+        }
+      }
+      fwd = MathUtils.clamp(fwd, -1, 1);
+      right = MathUtils.clamp(right, -1, 1);
+      const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
+      const wx = -s * fwd + c * right, wz = -c * fwd - s * right;
+      const K = this.keys;
+      const jump = K.has("Space") || this.touch.jump;
+      const crouch = K.has("ControlLeft") || K.has("ControlRight") || this.touch.crouch;
+      this.walk = K.has("ShiftLeft") || K.has("ShiftRight");
+      this.move(dt, wx, wz, jump, crouch, this.walk);
+      this.touch.jump = false;
+    }
+    // 換槍目標：數字鍵 > Q（上一把）> 滾輪；手雷用完就跳過
+    pickSlot() {
+      let sw = null;
+      SLOT_KEYS.forEach((code, i) => {
+        if (this.consumePressed(code)) sw = i;
+      });
+      if (this.consumePressed("KeyQ")) sw = this.lastSlot;
+      if (this.mouse.wheel) {
+        const step = this.mouse.wheel > 0 ? 1 : -1;
+        this.mouse.wheel = 0;
+        let n = this.slot;
+        for (let tries = 0; tries < 4; tries++) {
+          n = (n + step + 4) % 4;
+          if (this.inv[n] && !this.isEmptyNade(n)) break;
+        }
+        sw = n;
+      }
+      if (sw !== null && this.isEmptyNade(sw)) {
+        this.game.hud.toast("\u6C92\u6709\u624B\u96F7\u4E86", 1.2);
+        sw = null;
+      }
+      return sw;
+    }
+    isEmptyNade(slot) {
+      const w = this.inv[slot];
+      return !!w && w.def.type === "grenade" && w.mag <= 0;
+    }
+    readWeapon(dt) {
+      const sw = this.pickSlot();
+      const firePressed = this.mouse.lp || this.touch.firePressed;
+      const altPressed = this.mouse.rp;
+      this.mouse.lp = this.mouse.rp = false;
+      this.touch.firePressed = false;
+      this.weaponUpdate(dt, {
+        fire: this.mouse.l || this.touch.fire,
+        firePressed,
+        alt: this.mouse.r,
+        altPressed,
+        reload: this.consumePressed("KeyR"),
+        sw
+      });
+    }
     updateCamera(dt) {
       const g = this.game, cam = g.renderer.camera;
       if (!this.alive) {
         const dc = this.deathCam;
         if (dc) {
           dc.t += dt;
-          const k = Math.min(1, dc.t * 1.2);
-          const e = 1 - (1 - k) * (1 - k);
+          const k = Math.min(1, dc.t * 1.2), e = 1 - Math.pow(1 - k, 3);
           cam.position.lerpVectors(dc.from, dc.to, e);
-          if (dc.killer && dc.killer.alive) dc.look.lerp(dc.killer.soldier.headWorld(new Vector3()), Math.min(1, dt * 3));
+          if (dc.killer?.alive) dc.look.lerp(dc.killer.soldier.headWorld(_head), Math.min(1, dt * 3));
           cam.lookAt(dc.look);
         }
         cam.fov += (g.opts.fov - cam.fov) * Math.min(1, dt * 8);
@@ -41608,38 +41649,44 @@ void main() {
         return;
       }
       const sp = this.onGround ? this.speed : 0;
-      this.bobT += dt * (sp > 0.5 ? 6 + sp * 0.9 : 0);
-      const bobK = Math.min(1, sp / 6) * (this.scoped ? 0.2 : 1);
-      const by = Math.abs(Math.sin(this.bobT)) * 0.028 * bobK, bx = Math.cos(this.bobT) * 0.012 * bobK;
+      if (sp > 0.5) this.bobT += dt * (6 + sp * 0.9);
+      const amt = Math.min(1, sp / 6) * (this.scoped ? 0.2 : 1);
+      const bobY = Math.abs(Math.sin(this.bobT)) * 0.028 * amt;
+      const bobX = Math.cos(this.bobT) * 0.012 * amt;
       if (this.landed && this.landSpeed > 3) this.land = Math.min(0.14, this.landSpeed * 0.012);
       this.land *= Math.exp(-dt * 7);
       const shake = g.fx.shake * 0.06;
+      const jitter = () => (Math.random() - 0.5) * shake;
       this.eye(cam.position);
-      cam.position.y += by - this.land + (Math.random() - 0.5) * shake;
-      const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
-      cam.position.x += cy * bx + (Math.random() - 0.5) * shake;
-      cam.position.z += -sy * bx;
-      this.camRoll += ((this.keys.has("KeyA") ? 8e-3 : 0) - (this.keys.has("KeyD") ? 8e-3 : 0) + (this.slideT > 0 ? 0.05 : 0) - this.camRoll) * Math.min(1, dt * 6);
+      const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
+      cam.position.x += c * bobX + jitter();
+      cam.position.y += bobY - this.land + jitter();
+      cam.position.z += -s * bobX;
+      const strafe = (this.keys.has("KeyA") ? 1 : 0) - (this.keys.has("KeyD") ? 1 : 0);
+      const rollTarget = strafe * 8e-3 + (this.slideT > 0 ? 0.05 : 0);
+      this.camRoll += (rollTarget - this.camRoll) * Math.min(1, dt * 6);
       cam.rotation.order = "YXZ";
       cam.rotation.set(this.pitch + this.punchP * 0.75 + this.aimPunch, this.yaw + this.punchY * 0.75, this.camRoll);
       const w = this.weapon;
-      let fov2 = g.opts.fov;
-      if (w && w.def.type === "sniper" && this.scoped) fov2 = w.def.zoom[this.scoped - 1];
-      const fk = this.scoped ? 1 : Math.min(1, dt * 10);
-      cam.fov += (fov2 - cam.fov) * fk;
+      const fov2 = w && w.def.type === "sniper" && this.scoped ? w.def.zoom[this.scoped - 1] : g.opts.fov;
+      cam.fov += (fov2 - cam.fov) * (this.scoped ? 1 : Math.min(1, dt * 10));
       cam.updateProjectionMatrix();
     }
     startDeathCam(killer) {
       const cam = this.game.renderer.camera;
-      const from = cam.position.clone();
       const head = this.pos.clone().add(new Vector3(0, 1.2, 0));
-      const want = new Vector3(Math.sin(this.yaw) * 2.2, 1.4, Math.cos(this.yaw) * 2.2);
-      const L = want.length();
-      want.divideScalar(L);
-      const hit = this.game.world.raycast(head.x, head.y, head.z, want.x, want.y, want.z, L, "move");
-      const to = head.clone().addScaledVector(want, hit ? Math.max(0.2, hit.t - 0.35) : L);
-      const look = this.pos.clone().add(new Vector3(0, 0.4, 0));
-      this.deathCam = { t: 0, from, to, look, killer: killer && killer !== this ? killer : null };
+      const back = new Vector3(Math.sin(this.yaw) * 2.2, 1.4, Math.cos(this.yaw) * 2.2);
+      const dist = back.length();
+      back.divideScalar(dist);
+      const hit = this.game.world.raycast(head.x, head.y, head.z, back.x, back.y, back.z, dist, "move");
+      const to = head.clone().addScaledVector(back, hit ? Math.max(0.2, hit.t - 0.35) : dist);
+      this.deathCam = {
+        t: 0,
+        from: cam.position.clone(),
+        to,
+        look: this.pos.clone().add(new Vector3(0, 0.4, 0)),
+        killer: killer && killer !== this ? killer : null
+      };
       this.soldier.root.visible = true;
     }
   };
