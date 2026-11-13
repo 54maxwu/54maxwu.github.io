@@ -616,7 +616,7 @@ export class Effects {
     let n = 0;
     this.tracers = this.tracers.filter((tr) => {
       tr.t += dt;
-      const head = Math.min(tr.len, tr.t * SPEED), tail = Math.max(0, head - TAIL);
+      const front = tr.t * SPEED, head = Math.min(tr.len, front), tail = Math.max(0, front - TAIL);   // 尾巴要用未截斷的位置算，彈頭到達終點後尾巴才會跟著收進去
       if (tail >= tr.len) return false;
       if (n >= this.tracerMax) return true;
       mid.copy(tr.from).addScaledVector(tr.dir, (head + tail) / 2);

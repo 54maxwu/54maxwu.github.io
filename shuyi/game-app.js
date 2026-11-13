@@ -36647,7 +36647,7 @@ void main() {
       let n = 0;
       this.tracers = this.tracers.filter((tr) => {
         tr.t += dt;
-        const head = Math.min(tr.len, tr.t * SPEED), tail = Math.max(0, head - TAIL);
+        const front = tr.t * SPEED, head = Math.min(tr.len, front), tail = Math.max(0, front - TAIL);
         if (tail >= tr.len) return false;
         if (n >= this.tracerMax) return true;
         mid.copy(tr.from).addScaledVector(tr.dir, (head + tail) / 2);
