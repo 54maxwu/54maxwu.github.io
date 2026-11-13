@@ -16791,8 +16791,8 @@
   function onSegment(p, q, r) {
     return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
   }
-  function sign(num2) {
-    return num2 > 0 ? 1 : num2 < 0 ? -1 : 0;
+  function sign(num) {
+    return num > 0 ? 1 : num < 0 ? -1 : 0;
   }
   function intersectsPolygon(a, b) {
     let p = a;
@@ -36852,8 +36852,8 @@ void main() {
     const rr = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
     return rr > 5e-4 ? new RoundedBoxGeometry(w, h, d, 2, rr) : new BoxGeometry(w, h, d);
   }
-  function tube(r, len, axis = "z", seg = 14, rEnd = r) {
-    const g = new CylinderGeometry(rEnd, r, len, seg);
+  function tube(r, len, axis = "z", seg2 = 14, rEnd = r) {
+    const g = new CylinderGeometry(rEnd, r, len, seg2);
     if (axis === "z") g.rotateX(-Math.PI / 2);
     else if (axis === "x") g.rotateZ(-Math.PI / 2);
     return g;
@@ -37852,13 +37852,130 @@ void main() {
   }
 
   // game-src/hud.js
-  var TEAM_CN = { BL: "\u5973\u751F\u968A", GR: "\u7537\u751F\u968A" };
-  var $ = (s, r = document) => r.querySelector(s);
-  var HS_ICON = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><g fill="none" stroke="#ff4030" stroke-width="3"><circle cx="20" cy="20" r="11"/><path d="M20 2v10M20 28v10M2 20h10M28 20h10"/></g><circle cx="20" cy="20" r="3.5" fill="#ff4030"/></svg>`);
-  var WB_ICON = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect x="15" y="4" width="10" height="32" fill="#bbb"/><path d="M2 20h36" stroke="#ffd24a" stroke-width="3"/></svg>`);
-  var BADGE_SVG = (color, inner) => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bg" cx="50%" cy="45%"><stop offset="0" stop-color="${color}" stop-opacity=".95"/><stop offset="1" stop-color="#1a0a00" stop-opacity=".9"/></radialGradient></defs><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="url(#bg)" stroke="#ffd24a" stroke-width="3"/>${inner}</svg>`;
-  var SKULL = `<g fill="#fff"><path d="M50 22c-14 0-24 9-24 22 0 8 4 13 9 16v9h30v-9c5-3 9-8 9-16 0-13-10-22-24-22z"/><rect x="40" y="66" width="4" height="8"/><rect x="48" y="66" width="4" height="8"/><rect x="56" y="66" width="4" height="8"/></g><circle cx="41" cy="45" r="6" fill="#3a1500"/><circle cx="59" cy="45" r="6" fill="#3a1500"/>`;
-  var CROSSHAIR_B = `<g fill="none" stroke="#fff" stroke-width="4"><circle cx="50" cy="50" r="20"/><path d="M50 18v14M50 68v14M18 50h14M68 50h14"/></g><circle cx="50" cy="50" r="5" fill="#ff3020"/>`;
+  var TEAM_NAME = { BL: "\u5973\u751F\u968A", GR: "\u7537\u751F\u968A" };
+  var OPTS_KEY = "sy_campus_opts";
+  var $ = (sel, root = document) => root.querySelector(sel);
+  var esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  var svgURL = (svg) => "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  var ICON_HEADSHOT = svgURL('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="12" fill="none" stroke="#ff5a4a" stroke-width="3"/><path d="M20 3v9M20 28v9M3 20h9M28 20h9" stroke="#ff5a4a" stroke-width="3"/><circle cx="20" cy="20" r="4" fill="#ff5a4a"/></svg>');
+  var ICON_WALLBANG = svgURL('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><g fill="#b4533d" stroke="#5b2a1f" stroke-width="1"><rect x="13" y="4" width="14" height="9"/><rect x="13" y="14" width="14" height="9"/><rect x="13" y="24" width="14" height="9"/></g><path d="M2 19h36" stroke="#ffe066" stroke-width="3" stroke-dasharray="5 3"/></svg>');
+  var STAMP = (word, color) => `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs><filter id="ink"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.3"/><feComposite in="SourceGraphic" operator="in"/></filter></defs>
+  <g filter="url(#ink)" fill="none" stroke="${color}">
+    <circle cx="60" cy="60" r="52" stroke-width="7"/><circle cx="60" cy="60" r="42" stroke-width="2.5"/>
+    <text x="60" y="76" text-anchor="middle" font-size="44" font-weight="900" fill="${color}" stroke="none" font-family="Microsoft JhengHei,PingFang TC,Noto Sans TC,sans-serif">${word}</text>
+  </g></svg>`;
+  var ROLE = {
+    ak47: "\u4E2D\u8DDD\u96E2 \xB7 \u50B7\u5BB3\u9AD8\u3001\u5F8C\u5EA7\u5927",
+    m4a1: "\u4E2D\u8DDD\u96E2 \xB7 \u7A69\u5B9A\u597D\u58D3",
+    awm: "\u9060\u8DDD\u96E2 \xB7 \u4E00\u69CD\u81F4\u547D\u3001\u9700\u958B\u93E1",
+    mp5: "\u8FD1\u8DDD\u96E2 \xB7 \u5C04\u901F\u5FEB\u3001\u9060\u4E86\u6C92\u529B",
+    m870: "\u8CBC\u81C9 \xB7 \u4E00\u767C\u6583\u547D\u3001\u9060\u4E86\u6C92\u7528"
+  };
+  function weaponCard(id) {
+    const d = WEAPONS[id];
+    const reach = Math.min(d.range, 10 * Math.log(0.6) / Math.log(d.falloff));
+    const stats = [["\u50B7\u5BB3", d.dmg * (d.pellets || 1) / 130], ["\u5C04\u901F", d.rpm / 850], ["\u5C04\u7A0B", reach / 400], ["\u6A5F\u52D5", (d.speed - 0.76) / 0.26]];
+    const bars = stats.map(([k, v]) => `<span>${k}</span><i><em style="width:${Math.round(Math.max(0.06, Math.min(1, v)) * 100)}%"></em></i>`).join("");
+    return `<button class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${ROLE[id] || ""}</small><div class="st">${bars}</div></button>`;
+  }
+  var seg = (key, items, cls = "") => `<div class="seg ${cls}" data-k="${key}">${items.map(([v, label, sub]) => `<button data-v="${v}">${label}${sub ? `<small>${sub}</small>` : ""}</button>`).join("")}</div>`;
+  var slider = (key, min, max, step) => `<div class="slider" data-k="${key}"><input type="range" min="${min}" max="${max}" step="${step}"><span></span></div>`;
+  var field = (label, body) => `<div class="opt"><div class="lab">${label}</div>${body}</div>`;
+  var SENS = field("\u6ED1\u9F20\u9748\u654F\u5EA6", slider("sens", 0.2, 3, 0.05));
+  var FOV = field("\u8996\u91CE FOV", slider("fov", 65, 100, 1));
+  var VOL = field("\u97F3\u91CF", slider("vol", 0, 1, 0.05));
+  var TOD = field("\u6642\u9593", seg("tod", [["day", "\u767D\u5929"], ["dusk", "\u9EC3\u660F"]]));
+  var TEMPLATE = `
+<div id="hud" class="hidden">
+  <div id="score">
+    <div class="team BL" id="tBL"><span class="nm">\u5973\u751F\u968A</span><b id="sBL">0</b></div>
+    <div class="clock"><div id="sTime">10:00</div><small id="sGoal"></small></div>
+    <div class="team GR" id="tGR"><b id="sGR">0</b><span class="nm">\u7537\u751F\u968A</span></div>
+  </div>
+  <div id="radarWrap"><canvas id="radar"></canvas><div class="lbl">\u6A39\u7FA9\u570B\u5C0F</div></div>
+  <div id="feed"></div>
+  <div id="vitals">
+    <div class="pill" id="hpBox"><i class="ic">\u271A</i><b id="hpVal">100</b></div>
+    <div class="pill" id="arBox"><i class="ic">\u26E8</i><b id="arVal">100</b></div>
+  </div>
+  <div id="slots"></div>
+  <div id="ammo"><div class="wname" id="wName"></div><div class="row"><img class="wicon" id="wIcon" alt=""><b id="aMag">30</b><span id="aRes">/ 90</span></div><div class="hint" id="aHint"></div></div>
+  <div id="cross"><i id="cT"></i><i id="cB"></i><i id="cL"></i><i id="cR"></i></div>
+  <div id="hit"><i></i><i></i><i></i><i></i></div>
+  <div id="dmgDirs"></div>
+  <div id="scope"><div class="lens"></div><div class="reticle"></div></div>
+  <div id="badge"><div class="ico"></div><div class="txt"></div><div class="sub"></div></div>
+  <div id="center" class="hidden"><div class="big" id="cBig"></div><div class="small" id="cSmall"></div></div>
+  <div id="toast"></div>
+  <div id="protect"></div>
+  <div id="nameTip"></div>
+  <div id="board" class="hidden tbl"><h3><span>\u6A39\u7FA9\u570B\u5C0F \xB7 \u5718\u968A\u7AF6\u6280</span><kbd>Tab</kbd></h3><div id="boardBody"></div></div>
+  <div id="touch" class="hidden"></div>
+</div>
+
+<div id="loading" class="screen">
+  <div class="chalk-title">\u6A39\u7FA9\u570B\u5C0F</div>
+  <div class="s" id="loadTxt">\u8F09\u5165\u4E2D</div>
+  <div class="bar"><i id="loadBar"></i></div>
+  <div class="tip">WASD \u79FB\u52D5\u30FB\u5DE6\u9375\u5C04\u64CA\u30FBR \u63DB\u5F48\u30FBB \u63DB\u4E3B\u6B66\u5668\u30FBEsc \u66AB\u505C</div>
+</div>
+
+<div id="menu" class="screen hidden">
+  <div class="board-frame">
+    <section class="intro">
+      <div class="kicker">\u6821\u5712\u5C0D\u6230\u30FB\u5718\u968A\u7AF6\u6280</div>
+      <h1 class="chalk-title">\u6A39\u7FA9\u570B\u5C0F</h1>
+      <p>\u4F9D\u5B98\u7DB2\u6821\u5712\u914D\u7F6E\u5716\u3001\u7167\u7247\u8207 OpenStreetMap \u5BE6\u969B\u5C3A\u5BF8\uFF0C1:1 \u91CD\u5EFA\u81FA\u4E2D\u5E02\u6A39\u7FA9\u570B\u5C0F\u3002\u5973\u751F\u968A\u5C0D\u7537\u751F\u968A\uFF0C\u4E94\u5C64\u6A13\u6559\u5BA4\u90FD\u6709\u5802\u865F\u8207\u73ED\u7D1A\u9580\u724C\uFF1B\u6CBF\u8D70\u5ECA\u3001\u6A13\u68AF\u8207\u4E2D\u5EAD\u627E\u8DEF\u7DDA\uFF0C\u5584\u7528\u7246\u9762\u63A9\u8B77\uFF0C\u5148\u9054\u5230\u76EE\u6A19\u64CA\u6BBA\u6578\u7684\u968A\u4F0D\u7372\u52DD\u3002</p>
+      <dl class="keys">
+        <dt><kbd>W A S D</kbd></dt><dd>\u79FB\u52D5\u3000<kbd>Shift</kbd> \u975C\u6B65\u3000<kbd>\u7A7A\u767D</kbd> \u8DF3\u3000<kbd>Ctrl</kbd> \u8E72\uFF0F\u885D\u523A\u4E2D\u6ED1\u93DF</dd>
+        <dt><kbd>\u5DE6\u9375</kbd></dt><dd>\u958B\u706B\u3000<kbd>\u53F3\u9375</kbd> \u72D9\u64CA\u958B\u93E1\uFF0F\u5200\u91CD\u64CA</dd>
+        <dt><kbd>1 2 3 4</kbd></dt><dd>\u4E3B\u6B66\u5668\uFF0F\u624B\u69CD\uFF0F\u5200\uFF0F\u624B\u96F7\u3000<kbd>Q</kbd> \u5FEB\u5207\u3000<kbd>\u6EFE\u8F2A</kbd> \u5207\u63DB</dd>
+        <dt><kbd>R</kbd></dt><dd>\u63DB\u5F48\u3000<kbd>F</kbd> \u6AA2\u8996\u6B66\u5668\u3000<kbd>B</kbd> \u63DB\u4E3B\u6B66\u5668</dd>
+        <dt><kbd>Tab</kbd></dt><dd>\u8A08\u5206\u677F\u3000<kbd>Esc</kbd> \u66AB\u505C\uFF0F\u8A2D\u5B9A</dd>
+      </dl>
+      <div class="note hidden" id="touchNote">\u5075\u6E2C\u5230\u89F8\u63A7\u88DD\u7F6E\uFF1A\u5DE6\u534A\u908A\u62D6\u66F3\u79FB\u52D5\u3001\u53F3\u534A\u908A\u62D6\u66F3\u8F49\u8996\u89D2\u3002\u7528\u96FB\u8166\u52A0\u6ED1\u9F20\u73A9\u9AD4\u9A57\u6700\u597D\u3002</div>
+    </section>
+    <section class="opts">
+      ${field("\u968A\u4F0D", seg("team", [["BL", "\u5973\u751F\u968A", "\u5236\u670D"], ["GR", "\u7537\u751F\u968A", "\u9AD4\u80B2\u670D"]], "team"))}
+      ${field("\u4E3B\u6B66\u5668", seg("primary", PRIMARIES.map((id) => [id, WEAPONS[id].name])))}
+      <div class="row2">
+        ${field("\u4EBA\u6578", seg("size", [[4, "4v4"], [6, "6v6"], [8, "8v8"]]))}
+        ${field("\u76EE\u6A19\u64CA\u6BBA", seg("goal", [[30, "30"], [50, "50"], [100, "100"]]))}
+      </div>
+      ${field("\u96FB\u8166\u96E3\u5EA6", seg("diff", [["easy", "\u7C21\u55AE"], ["normal", "\u666E\u901A"], ["hard", "\u56F0\u96E3"], ["hell", "\u5730\u7344"]]))}
+      <div class="row2">
+        ${TOD}
+        ${field("\u756B\u8CEA", seg("quality", [["low", "\u6D41\u66A2"], ["medium", "\u5747\u8861"], ["high", "\u6975\u81F4"]]))}
+      </div>
+      <div class="row3">${field("\u9748\u654F\u5EA6", slider("sens", 0.2, 3, 0.05))}${FOV}${VOL}</div>
+      <button class="go" id="btnStart">\u958B\u59CB\u4E0A\u8AB2</button>
+      <div class="note">\u6309\u4E0B\u958B\u59CB\u5F8C\u6ED1\u9F20\u6703\u88AB\u9396\u5B9A\uFF0C\u6309 Esc \u66AB\u505C\u3002\u5207\u63DB\u756B\u8CEA\u6703\u91CD\u65B0\u8F09\u5165\u9801\u9762\u3002</div>
+      <div class="mlinks"><span>\u904A\u6232\u5F15\u64CE\u6539\u7DE8\u81EA</span><a href="https://github.com/riba2534/claude-opus-5-5-demo" target="_blank" rel="noopener noreferrer">riba2534/claude-opus-5-5-demo</a><span>\xB7</span><a href="https://x.com/riba2534" target="_blank" rel="noopener noreferrer">X @riba2534</a></div>
+      <div class="mlinks credits"><span>\u5730\u5716\u8CC7\u6599 \xA9</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap \u8CA2\u737B\u8005\uFF08ODbL\uFF09</a><span>\xB7</span><span>\u6821\u5712\u914D\u7F6E\u8207\u5802\u865F\uFF1A</span><a href="https://tanghao.neocities.org/" target="_blank" rel="noopener noreferrer">\u81FA\u4E2D\u5E02\u5357\u5340\u6A39\u7FA9\u570B\u6C11\u5C0F\u5B78\uFF08CC BY-NC-SA\uFF09</a></div>
+    </section>
+  </div>
+</div>
+
+<div id="pause" class="screen hidden"><div class="panel"><h2>\u4E0B\u8AB2\u6642\u9593</h2>
+  ${SENS}${FOV}${VOL}${TOD}
+  <button class="go" id="btnResume">\u7E7C\u7E8C</button>
+  <button class="go sec" id="btnQuit">\u56DE\u4E3B\u9078\u55AE</button>
+</div></div>
+
+<div id="loadout" class="screen hidden"><div class="panel wide"><h2>\u63DB\u4E3B\u6B66\u5668</h2>
+  <div class="sub">\u5728\u51FA\u751F\u9EDE\u5167\u7ACB\u5373\u63DB\u4E0A\uFF0C\u5426\u5247\u4E0B\u6B21\u5FA9\u6D3B\u751F\u6548\u3002\u624B\u69CD\u3001\u8ECD\u5200\u3001\u624B\u96F7\u56FA\u5B9A\u914D\u5099\u3002</div>
+  <div class="cards" id="loadCards">${PRIMARIES.map(weaponCard).join("")}</div>
+  <button class="go sec" id="btnLoadClose">\u78BA\u5B9A\uFF08B\uFF09</button>
+</div></div>
+
+<div id="end" class="screen hidden"><div class="panel wide">
+  <div class="res" id="endRes"></div><div class="sc" id="endSc"></div>
+  <div class="mvp" id="endMvp"></div><div class="mvp me" id="endMe"></div>
+  <div id="endTable" class="tbl"></div>
+  <div class="btns"><button class="go" id="btnAgain">\u518D\u4F86\u4E00\u5C40</button><button class="go sec" id="btnMenu">\u4E3B\u9078\u55AE</button></div>
+</div></div>
+`;
   var HUD = class {
     constructor(game) {
       this.g = game;
@@ -37876,74 +37993,71 @@ void main() {
       const touch = matchMedia("(pointer:coarse)").matches;
       this.opts = { team: "BL", primary: "ak47", size: 4, diff: "normal", goal: 50, tod: "day", quality: touch ? "low" : "high", sens: 1, fov: 78, vol: 0.8 };
       try {
-        Object.assign(this.opts, JSON.parse(localStorage.getItem("sy_campus_opts") || "{}"));
-      } catch (e) {
+        Object.assign(this.opts, JSON.parse(localStorage.getItem(OPTS_KEY) || "{}"));
+      } catch {
       }
-      this.buildMenu();
+      this.wireMenu(touch);
     }
     saveOpts() {
       try {
-        localStorage.setItem("sy_campus_opts", JSON.stringify(this.opts));
-      } catch (e) {
+        localStorage.setItem(OPTS_KEY, JSON.stringify(this.opts));
+      } catch {
       }
     }
-    // ---------- 選單 ----------
-    buildMenu() {
-      const o = this.opts;
-      const segs = this.root.querySelectorAll(".seg[data-k]");
-      for (const s of segs) {
-        const k = s.dataset.k;
-        for (const b of s.querySelectorAll("button")) {
-          if (String(o[k]) === b.dataset.v) b.classList.add("on");
-          b.addEventListener("click", () => {
-            for (const x of s.querySelectorAll("button")) x.classList.remove("on");
-            b.classList.add("on");
-            o[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v;
-            this.saveOpts();
-            this.g.onOption?.(k, o[k]);
-            this.g.audio?.playUI("click");
-          });
-        }
+    // ───────── 選單 ─────────
+    setOpt(k, raw) {
+      this.opts[k] = isNaN(+raw) ? raw : +raw;
+      this.saveOpts();
+      this.g.onOption?.(k, this.opts[k]);
+    }
+    wireMenu(touch) {
+      for (const s of this.root.querySelectorAll(".seg[data-k]")) {
+        s.addEventListener("click", (e) => {
+          const b = e.target.closest("button");
+          if (!b) return;
+          this.setOpt(s.dataset.k, b.dataset.v);
+          this.syncControls();
+        });
       }
       for (const sl of this.root.querySelectorAll(".slider[data-k]")) {
-        const k = sl.dataset.k, inp = sl.querySelector("input"), sp = sl.querySelector("span");
-        inp.value = o[k];
-        sp.textContent = (+o[k]).toFixed(k === "fov" ? 0 : 2);
-        inp.addEventListener("input", () => {
-          o[k] = +inp.value;
-          sp.textContent = (+inp.value).toFixed(k === "fov" ? 0 : 2);
-          this.saveOpts();
-          this.g.onOption?.(k, o[k]);
+        const input = sl.querySelector("input");
+        input.addEventListener("input", () => {
+          this.setOpt(sl.dataset.k, input.value);
+          this.syncControls();
         });
       }
-      $("#btnStart").addEventListener("click", () => this.g.startMatch());
-      $("#btnResume").addEventListener("click", () => this.g.resume());
-      $("#btnQuit").addEventListener("click", () => this.g.quitToMenu());
-      $("#btnAgain").addEventListener("click", () => this.g.startMatch());
-      $("#btnMenu").addEventListener("click", () => this.g.quitToMenu());
-      for (const c of this.root.querySelectorAll("#loadCards .card")) {
-        c.addEventListener("click", () => {
-          this.g.chooseLoadout(c.dataset.w);
-          for (const x of this.root.querySelectorAll("#loadCards .card")) x.classList.toggle("on", x === c);
-        });
-      }
-      $("#btnLoadClose").addEventListener("click", () => this.g.closeLoadout());
-      if (matchMedia("(pointer:coarse)").matches) $("#touchNote").classList.remove("hidden");
-      for (const a of this.root.querySelectorAll(".mlinks a"))
-        a.addEventListener("touchstart", (e) => e.stopPropagation(), { passive: true });
+      const on = (id, fn) => this.el[id].addEventListener("click", fn);
+      on("btnStart", () => this.g.startMatch());
+      on("btnResume", () => this.g.resume());
+      on("btnQuit", () => this.g.quitToMenu());
+      on("btnAgain", () => this.g.startMatch());
+      on("btnMenu", () => this.g.quitToMenu());
+      on("btnLoadClose", () => this.g.closeLoadout());
+      this.el.loadCards.addEventListener("click", (e) => {
+        const c = e.target.closest(".card");
+        if (!c) return;
+        this.g.chooseLoadout(c.dataset.w);
+        for (const x of this.el.loadCards.children) x.classList.toggle("on", x === c);
+      });
+      if (touch) this.el.touchNote.classList.remove("hidden");
+      for (const a of this.root.querySelectorAll(".mlinks a")) a.addEventListener("touchstart", (e) => e.stopPropagation(), { passive: true });
+      this.syncControls();
     }
-    setIcons(icons) {
-      this.icons = icons;
-      for (const c of this.root.querySelectorAll("#loadCards .card")) c.querySelector("img").src = icons[c.dataset.w] || "";
-    }
+    // 依目前設定更新所有選單按鈕與滑桿（主選單、暫停選單共用同一組設定）
     syncControls() {
       const o = this.opts;
-      for (const s of this.root.querySelectorAll(".seg[data-k]")) for (const b of s.querySelectorAll("button")) b.classList.toggle("on", String(o[s.dataset.k]) === b.dataset.v);
+      for (const s of this.root.querySelectorAll(".seg[data-k]")) {
+        for (const b of s.querySelectorAll("button")) b.classList.toggle("on", String(o[s.dataset.k]) === b.dataset.v);
+      }
       for (const sl of this.root.querySelectorAll(".slider[data-k]")) {
         const k = sl.dataset.k;
         sl.querySelector("input").value = o[k];
         sl.querySelector("span").textContent = (+o[k]).toFixed(k === "fov" ? 0 : 2);
       }
+    }
+    setIcons(icons) {
+      this.icons = icons;
+      for (const c of this.el.loadCards.children) c.querySelector("img").src = icons[c.dataset.w] || "";
     }
     show(name) {
       if (name === "menu" || name === "pause") this.syncControls();
@@ -37951,83 +38065,48 @@ void main() {
       this.el.hud.classList.toggle("hidden", name === "menu" || name === "loading" || name === "end");
     }
     loading(p, text) {
-      this.el.loadBar.style.width = (p * 100).toFixed(0) + "%";
+      this.el.loadBar.style.width = `${Math.round(p * 100)}%`;
       if (text) this.el.loadTxt.textContent = text;
     }
-    // ---------- 局內 ----------
+    // ───────── 遊戲中 ─────────
+    // state：score timeLeft goal myTeam hp armor alive weapon scoped spreadPx yaw respawnIn killedBy protect aimName aimTeam
     update(dt, s) {
       const e = this.el;
       e.sBL.textContent = s.score.BL;
       e.sGR.textContent = s.score.GR;
-      const tl = Math.max(0, s.timeLeft), mm = tl / 60 | 0, ss = tl % 60 | 0;
-      e.sTime.textContent = `${mm}:${ss < 10 ? "0" : ""}${ss}`;
-      e.sGoal.textContent = `\u5718\u968A\u7AF6\u6280 \xB7 \u76EE\u6A19 ${s.goal}`;
+      const left = Math.max(0, s.timeLeft), m = Math.floor(left / 60), sec = Math.floor(left % 60);
+      e.sTime.textContent = `${m}:${String(sec).padStart(2, "0")}`;
+      e.sGoal.textContent = `\u5148\u5230 ${s.goal} \u6BBA\u7372\u52DD`;
       e.tBL.classList.toggle("mine", s.myTeam === "BL");
       e.tGR.classList.toggle("mine", s.myTeam === "GR");
       e.hpVal.textContent = Math.max(0, Math.ceil(s.hp));
       e.arVal.textContent = Math.max(0, Math.ceil(s.armor));
       e.hpBox.classList.toggle("low", s.hp <= 30 && s.alive);
-      const w = s.weapon;
-      if (w) {
-        const d = w.def;
-        e.wName.textContent = d.hudName;
-        if (d.type === "melee") {
-          e.aMag.textContent = "\u221E";
-          e.aRes.textContent = "";
-        } else if (d.type === "grenade") {
-          e.aMag.textContent = w.mag;
-          e.aRes.textContent = "";
-        } else {
-          e.aMag.textContent = w.mag;
-          e.aRes.textContent = "/ " + w.reserve;
-        }
-        e.aMag.classList.toggle("low", d.mag > 1 && w.mag <= Math.ceil(d.mag * 0.2));
-        if (this.icons[d.id] && e.wIcon.dataset.id !== d.id) {
-          e.wIcon.src = this.icons[d.id];
-          e.wIcon.dataset.id = d.id;
-        }
-        e.aHint.textContent = w.reloading ? "\u63DB\u5F48\u4E2D\u2026" : d.mag > 1 && w.mag === 0 && w.reserve === 0 ? "\u5F48\u85E5\u8017\u76E1" : d.mag > 1 && w.mag === 0 ? "\u6309 R \u63DB\u5F48" : "";
-      }
-      const showX = s.alive && !s.scoped && w && w.def.type !== "sniper";
-      e.cross.style.display = showX ? "" : "none";
-      if (showX) {
-        const gap = 4 + s.spreadPx;
-        e.cT.style.top = -(gap + 9) + "px";
-        e.cB.style.top = gap + "px";
-        e.cL.style.left = -(gap + 9) + "px";
-        e.cR.style.left = gap + "px";
-      }
-      e.scope.classList.toggle("on", !!s.scoped && s.alive);
+      e.hpBox.style.setProperty("--fill", `${Math.max(0, Math.min(100, s.hp))}%`);
+      e.arBox.style.setProperty("--fill", `${Math.max(0, Math.min(100, s.armor))}%`);
+      this.updateAmmo(s.weapon);
+      this.updateCrosshair(s);
       if (this.hitT > 0) {
         this.hitT -= dt;
         e.hit.style.opacity = Math.min(1, this.hitT * 5);
       } else e.hit.style.opacity = 0;
       for (const d of this.dmgDirs) {
         d.t -= dt;
-        const rel = d.ang - s.yaw;
-        d.el.style.transform = `rotate(${-rel}rad)`;
+        d.el.style.transform = `rotate(${-(d.ang - s.yaw)}rad)`;
         d.el.style.opacity = Math.max(0, Math.min(1, d.t));
         if (d.t <= 0) d.el.remove();
       }
       this.dmgDirs = this.dmgDirs.filter((d) => d.t > 0);
       const now = performance.now();
-      this.feedItems = this.feedItems.filter((f) => {
-        if (now - f.t > 7e3) {
-          f.el.remove();
-          return false;
-        }
-        return true;
-      });
-      if (this.toastT > 0) {
-        this.toastT -= dt;
-        if (this.toastT <= 0) e.toast.style.opacity = 0;
-      }
-      if (!s.alive && s.respawnIn > 0) {
-        e.center.classList.remove("hidden");
+      this.feedItems = this.feedItems.filter((f) => now - f.t > 7e3 ? (f.el.remove(), false) : true);
+      if (this.toastT > 0 && (this.toastT -= dt) <= 0) e.toast.style.opacity = 0;
+      const dead = !s.alive && s.respawnIn > 0;
+      e.center.classList.toggle("hidden", !dead);
+      if (dead) {
         e.cBig.innerHTML = s.killedBy || "\u4F60\u9663\u4EA1\u4E86";
-        e.cSmall.textContent = `${s.respawnIn.toFixed(1)} \u79D2\u5F8C\u5FA9\u6D3B \xB7 \u6309 B \u66F4\u63DB\u6B66\u5668`;
-      } else e.center.classList.add("hidden");
-      e.protect.textContent = s.protect > 0 && s.alive ? `\u51FA\u751F\u4FDD\u8B77 ${s.protect.toFixed(1)}s\uFF08\u958B\u706B\u5373\u89E3\u9664\uFF09` : "";
+        e.cSmall.textContent = `${s.respawnIn.toFixed(1)} \u79D2\u5F8C\u5FA9\u6D3B\u30FB\u6309 B \u63DB\u4E3B\u6B66\u5668`;
+      }
+      e.protect.textContent = s.protect > 0 && s.alive ? `\u51FA\u751F\u4FDD\u8B77 ${s.protect.toFixed(1)} \u79D2\uFF08\u958B\u706B\u5373\u89E3\u9664\uFF09` : "";
       e.nameTip.textContent = s.aimName || "";
       e.nameTip.className = s.aimTeam || "";
       if (this.slotsT > 0) {
@@ -38035,33 +38114,50 @@ void main() {
         e.slots.style.opacity = Math.min(1, this.slotsT * 2);
       } else e.slots.style.opacity = 0;
     }
+    updateAmmo(w) {
+      const e = this.el;
+      if (!w) return;
+      const d = w.def;
+      e.wName.textContent = d.hudName;
+      if (d.type === "melee") {
+        e.aMag.textContent = "\u221E";
+        e.aRes.textContent = "";
+      } else {
+        e.aMag.textContent = w.mag;
+        e.aRes.textContent = d.type === "grenade" ? "" : `/ ${w.reserve}`;
+      }
+      e.aMag.classList.toggle("low", d.mag > 1 && w.mag <= Math.ceil(d.mag * 0.2));
+      if (this.icons[d.id] && e.wIcon.dataset.id !== d.id) {
+        e.wIcon.src = this.icons[d.id];
+        e.wIcon.dataset.id = d.id;
+      }
+      const empty = d.mag > 1 && w.mag === 0;
+      e.aHint.textContent = w.reloading ? "\u63DB\u5F48\u4E2D\u2026" : empty && w.reserve === 0 ? "\u5F48\u85E5\u8017\u76E1" : empty ? "\u6309 R \u63DB\u5F48" : "";
+    }
+    // 準星四條線隨散佈張開；狙擊槍、開鏡時不顯示
+    updateCrosshair(s) {
+      const e = this.el, w = s.weapon;
+      const show = s.alive && !s.scoped && w && w.def.type !== "sniper";
+      e.cross.style.display = show ? "" : "none";
+      if (show) e.cross.style.setProperty("--gap", `${4 + s.spreadPx}px`);
+      e.scope.classList.toggle("on", !!s.scoped && s.alive);
+    }
     slots(inv, cur) {
-      const e = this.el.slots;
-      e.innerHTML = "";
-      ["\u4E3B\u6B66\u5668", "\u526F\u6B66\u5668", "\u8FD1\u8EAB", "\u6295\u64F2"].forEach((lab, i) => {
-        const w = inv[i];
-        if (!w) return;
-        const d = document.createElement("div");
-        d.className = "s" + (i === cur ? " on" : "");
-        d.innerHTML = `<span>${w.def.name}</span><img src="${this.icons[w.id] || ""}"><b>${i + 1}</b>`;
-        e.appendChild(d);
-      });
+      const box2 = this.el.slots;
+      box2.innerHTML = inv.map((w, i) => w ? `<div class="s${i === cur ? " on" : ""}"><span>${w.def.name}</span><img src="${this.icons[w.id] || ""}" alt=""><b>${i + 1}</b></div>` : "").join("");
       this.slotsT = 2.2;
     }
-    killFeed(k, v, wid, hs, wb, mine) {
-      const d = document.createElement("div");
-      d.className = "kf" + (mine ? " me" : "");
-      const icon = this.icons[wid] ? `<img src="${this.icons[wid]}">` : `<span>[${WEAPONS[wid]?.name || CAUSES[wid]?.name || wid}]</span>`;
-      d.innerHTML = (k ? `<span class="k ${k.team}">${esc(k.name)}</span>` : "") + icon + (wb ? `<img class="hs" src="${WB_ICON}">` : "") + (hs ? `<img class="hs" src="${HS_ICON}">` : "") + `<span class="v ${v.team}">${esc(v.name)}</span>`;
-      this.el.feed.prepend(d);
-      this.feedItems.push({ el: d, t: performance.now() });
-      while (this.feedItems.length > 6) {
-        const f = this.feedItems.shift();
-        f.el.remove();
-      }
+    killFeed(killer, victim, wid, headshot, wallbang, mine) {
+      const row = document.createElement("div");
+      row.className = "kf" + (mine ? " me" : "");
+      const weapon = this.icons[wid] ? `<img src="${this.icons[wid]}" alt="">` : `<span class="cause">${WEAPONS[wid]?.name || CAUSES[wid]?.name || wid}</span>`;
+      row.innerHTML = (killer ? `<span class="${killer.team}">${esc(killer.name)}</span>` : "") + weapon + (wallbang ? `<img class="tag" src="${ICON_WALLBANG}" alt="\u7A7F\u7246">` : "") + (headshot ? `<img class="tag" src="${ICON_HEADSHOT}" alt="\u7206\u982D">` : "") + `<span class="${victim.team}">${esc(victim.name)}</span>`;
+      this.el.feed.prepend(row);
+      this.feedItems.push({ el: row, t: performance.now() });
+      while (this.feedItems.length > 6) this.feedItems.shift().el.remove();
     }
-    hitmarker(hs, kill, armorBreak) {
-      this.el.hit.className = kill ? "kill" : hs ? "hs" : armorBreak ? "ab" : "";
+    hitmarker(headshot, kill, armorBreak) {
+      this.el.hit.className = kill ? "kill" : headshot ? "hs" : armorBreak ? "ab" : "";
       this.hitT = kill ? 0.45 : 0.22;
     }
     damageFrom(ang) {
@@ -38074,100 +38170,73 @@ void main() {
       const b = this.el.badge;
       b.classList.remove("show");
       void b.offsetWidth;
-      b.querySelector(".ico").innerHTML = BADGE_SVG(headshot ? "#c0301a" : "#b8860b", headshot ? CROSSHAIR_B : SKULL);
+      b.querySelector(".ico").innerHTML = STAMP(headshot ? "\u7206\u982D" : "\u64CA\u6BBA", headshot ? "#d42a1e" : "#c0392b");
       b.querySelector(".txt").textContent = text;
       b.querySelector(".sub").textContent = sub || "";
       b.classList.add("show");
     }
-    toast(text, dur = 2.5) {
-      const t = this.el.toast;
-      t.innerHTML = text;
-      t.style.opacity = 1;
+    toast(html, dur = 2.5) {
+      this.el.toast.innerHTML = html;
+      this.el.toast.style.opacity = 1;
       this.toastT = dur;
+    }
+    teamTables(actors, myId, cols, header) {
+      const table = (team) => {
+        const rows = actors.filter((a) => a.team === team).sort((a, b) => b.stats.k - a.stats.k || a.stats.d - b.stats.d).map((a) => `<tr class="${a.id === myId ? "me" : ""}${a.alive === false && cols.includes("ping") ? " dead" : ""}"><td>${esc(a.name)}</td>${cols.map((c) => `<td>${c === "ping" ? a.ping : a.stats[c]}</td>`).join("")}</tr>`).join("");
+        return `<table class="t${team}"><tr><th class="team">${header(team)}</th>${cols.map((c) => `<th>${{ k: "\u64CA\u6BBA", d: "\u6B7B\u4EA1", hs: "\u7206\u982D", ping: "\u5EF6\u9072" }[c]}</th>`).join("")}</tr>${rows}</table>`;
+      };
+      return `<div class="cols">${table("BL")}${table("GR")}</div>`;
     }
     scoreboard(show, actors, myId, score) {
       this.el.board.classList.toggle("hidden", !show);
-      if (!show) return;
-      const rows = (team) => actors.filter((a) => a.team === team).sort((a, b) => b.stats.k - a.stats.k || a.stats.d - b.stats.d).map((a) => `<tr class="${a.id === myId ? "me" : ""} ${a.alive ? "" : "dead"}"><td>${esc(a.name)}</td><td>${a.stats.k}</td><td>${a.stats.d}</td><td>${a.stats.hs}</td><td>${a.ping}</td></tr>`).join("");
-      const tbl = (team) => `<table class="t${team}"><tr><th class="team">${TEAM_CN[team]} \xB7 ${score[team]}</th><th>\u64CA\u6BBA</th><th>\u6B7B\u4EA1</th><th>\u7206\u982D</th><th>\u5EF6\u9072</th></tr>${rows(team)}</table>`;
-      this.el.boardBody.innerHTML = `<div class="cols">${tbl("BL")}${tbl("GR")}</div>`;
+      if (show) this.el.boardBody.innerHTML = this.teamTables(actors, myId, ["k", "d", "hs", "ping"], (t) => `${TEAM_NAME[t]}\u30FB${score[t]}`);
     }
     endScreen(win, score, actors, myId) {
       this.show("end");
-      const r = this.el.endRes;
-      r.textContent = win === null ? "\u5E73\u5C40" : win ? "\u52DD\u5229" : "\u5931\u6557";
-      r.className = "res " + (win ? "win" : "lose");
-      this.el.endSc.textContent = `\u5973\u751F\u968A ${score.BL} : ${score.GR} \u7537\u751F\u968A`;
-      const mvp = [...actors].sort((a, b) => b.stats.k * 2 - b.stats.d + b.stats.hs - (a.stats.k * 2 - a.stats.d + a.stats.hs))[0];
-      this.el.endMvp.textContent = mvp ? `MVP\uFF1A${mvp.name}\uFF08${mvp.stats.k} \u6BBA / ${mvp.stats.hs} \u7206\u982D\uFF09` : "";
+      const e = this.el;
+      e.endRes.textContent = win === null ? "\u5E73\u624B" : win ? "\u52DD\u5229" : "\u843D\u6557";
+      e.endRes.className = "res " + (win ? "win" : "lose");
+      e.endSc.textContent = `\u5973\u751F\u968A ${score.BL} : ${score.GR} \u7537\u751F\u968A`;
+      const rating = (a) => a.stats.k * 2 - a.stats.d + a.stats.hs;
+      const mvp = [...actors].sort((a, b) => rating(b) - rating(a))[0];
+      e.endMvp.textContent = mvp ? `\u672C\u5C40 MVP\uFF1A${mvp.name}\uFF08${mvp.stats.k} \u6BBA\uFF0F${mvp.stats.hs} \u7206\u982D\uFF09` : "";
       const me = actors.find((a) => a.id === myId);
-      const acc = me && me.stats.shots ? (me.stats.hits / me.stats.shots * 100).toFixed(1) : "0";
-      this.el.endMe.textContent = me ? `\u4F60\u7684\u6230\u7E3E\uFF1A${me.stats.k} \u64CA\u6BBA \xB7 ${me.stats.d} \u6B7B\u4EA1 \xB7 ${me.stats.hs} \u7206\u982D \xB7 \u547D\u4E2D\u7387 ${acc}%` : "";
-      const rows = (team) => actors.filter((a) => a.team === team).sort((a, b) => b.stats.k - a.stats.k).map((a) => `<tr class="${a.id === myId ? "me" : ""}"><td>${esc(a.name)}</td><td>${a.stats.k}</td><td>${a.stats.d}</td><td>${a.stats.hs}</td></tr>`).join("");
-      const tbl = (team) => `<table class="t${team}"><tr><th class="team">${TEAM_CN[team]}</th><th>\u64CA\u6BBA</th><th>\u6B7B\u4EA1</th><th>\u7206\u982D</th></tr>${rows(team)}</table>`;
-      this.el.endTable.innerHTML = `<div class="cols">${tbl("BL")}${tbl("GR")}</div>`;
+      const acc = me?.stats.shots ? (me.stats.hits / me.stats.shots * 100).toFixed(1) : "0";
+      e.endMe.textContent = me ? `\u4F60\u7684\u6210\u7E3E\uFF1A${me.stats.k} \u64CA\u6BBA\u30FB${me.stats.d} \u6B7B\u4EA1\u30FB${me.stats.hs} \u7206\u982D\u30FB\u547D\u4E2D\u7387 ${acc}%` : "";
+      e.endTable.innerHTML = this.teamTables(actors, myId, ["k", "d", "hs"], (t) => TEAM_NAME[t]);
     }
-    // ---------- 小地圖 ----------
-    buildRadar(world) {
-      if (this.g.map?.radar) {
-        const r = this.g.map.radar;
-        this.radarImg = r.image;
-        this.radarS = r.scale;
-        this.radarX = r.x;
-        this.radarZ = r.z;
-        return;
-      }
-      const S = 8;
-      const W = 74 * S, H = 26 * S;
-      const c = document.createElement("canvas");
-      c.width = W;
-      c.height = H;
-      const x = c.getContext("2d");
-      x.fillStyle = "rgba(70,80,84,0.95)";
-      x.fillRect(0, 0, W, H);
-      const cols = [...world.colliders].filter((k) => k.solid && k.top > 0.3 && k.bottom < 2 && k.hx < 30 && k.tag !== "deck").sort((a, b) => a.top - b.top);
-      for (const k of cols) {
-        if (k.bullet === "pass" && k.mat !== "mesh") continue;
-        x.save();
-        x.translate((k.x + 37) * S, (k.z + 13) * S);
-        x.rotate(-k.yaw);
-        const hgt = k.top;
-        x.fillStyle = k.mat === "mesh" ? "rgba(200,200,190,.5)" : hgt > 4 ? "#1d2327" : hgt > 2 ? "#2d353a" : hgt > 1.3 ? "#3b454b" : "#56616a";
-        x.fillRect(-k.hx * S, -k.hz * S, k.hx * 2 * S, k.hz * 2 * S);
-        x.strokeStyle = "rgba(0,0,0,.5)";
-        x.lineWidth = 1;
-        x.strokeRect(-k.hx * S, -k.hz * S, k.hx * 2 * S, k.hz * 2 * S);
-        x.restore();
-      }
-      x.strokeStyle = "rgba(245,179,33,.35)";
-      x.setLineDash([6, 4]);
-      x.strokeRect((-29.5 + 37) * S, (9.4 + 13) * S, 36.6 * S, 2.44 * S);
-      x.strokeRect((29.5 - 36.6 + 37) * S, (-11.84 + 13) * S, 36.6 * S, 2.44 * S);
-      this.radarImg = c;
-      this.radarS = S;
+    // ───────── 小地圖 ─────────
+    // 校園地圖提供俯視圖（radar.image）與座標換算（每公尺 scale 像素、世界原點在圖上 x/z）
+    buildRadar() {
+      const r = this.g.map?.radar;
+      if (!r) return;
+      this.radar = { img: r.image, s: r.scale, x: r.x, z: r.z };
     }
-    drawRadar(me, actors, t) {
+    drawRadar(me, actors = this.g.actors || []) {
       const ctx = this.radarCtx, cv = this.el.radar;
-      const W = cv.width = cv.clientWidth * 1.5 | 0, H = cv.height = cv.clientHeight * 1.5 | 0;
+      const W = cv.width = Math.round(cv.clientWidth * 1.5), H = cv.height = Math.round(cv.clientHeight * 1.5);
       ctx.clearRect(0, 0, W, H);
-      if (!this.radarImg) return;
-      const S = this.radarS, zoom = 0.55 * (W / 294);
+      const R = this.radar;
+      if (!R) return;
+      const toMap = (p) => [(p.x + R.x) * R.s, (p.z + R.z) * R.s];
+      const zoom = 0.55 * (W / 294);
       ctx.save();
       ctx.translate(W / 2, H / 2);
       ctx.rotate(me.yaw);
       ctx.scale(zoom, zoom);
-      ctx.translate(-(me.pos.x + (this.radarX ?? 37)) * S, -(me.pos.z + (this.radarZ ?? 13)) * S);
+      const [mx, mz] = toMap(me.pos);
+      ctx.translate(-mx, -mz);
       ctx.globalAlpha = 0.95;
-      ctx.drawImage(this.radarImg, 0, 0);
+      ctx.drawImage(R.img, 0, 0);
       ctx.globalAlpha = 1;
       for (const a of actors) {
         if (a === me) continue;
-        const seen = a.team === me.team || a.radarT > 0;
-        if (!seen) continue;
-        const px2 = (a.pos.x + (this.radarX ?? 37)) * S, pz2 = (a.pos.z + (this.radarZ ?? 13)) * S;
+        const ally = a.team === me.team;
+        if (!ally && !(a.radarT > 0)) continue;
+        const [px2, pz2] = toMap(a.pos);
         if (!a.alive) {
-          if (a.team !== me.team || a.deadT > 5) continue;
-          ctx.strokeStyle = "#9aa";
+          if (!ally || a.deadT > 5) continue;
+          ctx.strokeStyle = "#a9b4b0";
           ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.moveTo(px2 - 8, pz2 - 8);
@@ -38177,8 +38246,8 @@ void main() {
           ctx.stroke();
           continue;
         }
-        ctx.fillStyle = a.team === me.team ? "#4fb0ff" : "#ff4a3a";
-        if (a.team === me.team) {
+        if (ally) {
+          ctx.fillStyle = "#5fb8ff";
           ctx.save();
           ctx.translate(px2, pz2);
           ctx.rotate(-a.yaw);
@@ -38191,134 +38260,35 @@ void main() {
           ctx.fill();
           ctx.restore();
         } else {
+          ctx.fillStyle = "#ff5a4a";
           ctx.globalAlpha = Math.min(1, a.radarT);
           ctx.beginPath();
-          ctx.arc(px2, pz2, 9, 0, 7);
+          ctx.arc(px2, pz2, 9, 0, Math.PI * 2);
           ctx.fill();
           ctx.globalAlpha = 1;
         }
       }
       ctx.restore();
-      ctx.fillStyle = "#ffd24a";
+      const cx = W / 2, cy = H / 2;
+      const fan = ctx.createRadialGradient(cx, cy, 0, cx, cy, W * 0.45);
+      fan.addColorStop(0, "rgba(255,240,180,.22)");
+      fan.addColorStop(1, "rgba(255,240,180,0)");
+      ctx.fillStyle = fan;
       ctx.beginPath();
-      ctx.moveTo(W / 2, H / 2 - 10);
-      ctx.lineTo(W / 2 + 7, H / 2 + 8);
-      ctx.lineTo(W / 2, H / 2 + 4);
-      ctx.lineTo(W / 2 - 7, H / 2 + 8);
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, W * 0.45, -Math.PI / 2 - 0.6, -Math.PI / 2 + 0.6);
       ctx.closePath();
       ctx.fill();
-      const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.45);
-      g.addColorStop(0, "rgba(255,255,255,.18)");
-      g.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = g;
+      ctx.fillStyle = "#ffe066";
       ctx.beginPath();
-      ctx.moveTo(W / 2, H / 2);
-      ctx.arc(W / 2, H / 2, W * 0.45, -Math.PI / 2 - 0.6, -Math.PI / 2 + 0.6);
+      ctx.moveTo(cx, cy - 10);
+      ctx.lineTo(cx + 7, cy + 8);
+      ctx.lineTo(cx, cy + 4);
+      ctx.lineTo(cx - 7, cy + 8);
       ctx.closePath();
       ctx.fill();
     }
   };
-  function esc(s) {
-    return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-  }
-  var PRIM_CARDS = PRIMARIES.map((id) => {
-    const d = WEAPONS[id];
-    const sub = { ak47: "\u4E2D\u8DDD\u96E2 \xB7 \u50B7\u5BB3\u9AD8\u3001\u5F8C\u5EA7\u5927", m4a1: "\u4E2D\u8DDD\u96E2 \xB7 \u7A69\u5B9A\u597D\u58D3", awm: "\u9060\u8DDD\u96E2 \xB7 \u4E00\u69CD\u81F4\u547D\u3001\u9700\u958B\u93E1", mp5: "\u8FD1\u8DDD\u96E2 \xB7 \u5C04\u901F\u5FEB\u3001\u9060\u4E86\u6C92\u529B", m870: "\u8CBC\u81C9 \xB7 \u4E00\u767C\u6583\u547D\u3001\u9060\u4E86\u6C92\u7528" }[id];
-    const eff = Math.min(d.range, 10 * Math.log(0.6) / Math.log(d.falloff));
-    const st = [["\u50B7\u5BB3", d.dmg * (d.pellets || 1) / 130], ["\u5C04\u901F", d.rpm / 850], ["\u5C04\u7A0B", eff / 400], ["\u6A5F\u52D5", (d.speed - 0.76) / 0.26]];
-    const bars = st.map(([k, v]) => `<span>${k}</span><i><em style="width:${Math.round(Math.max(0.06, Math.min(1, v)) * 100)}%"></em></i>`).join("");
-    return `<div class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${sub}</small><div class="st">${bars}</div></div>`;
-  }).join("");
-  var TEMPLATE = `
-<div id="hud" class="hidden">
-  <div id="score">
-    <div class="team bl" id="tBL"><span class="nm">\u5973\u751F\u968A</span><span class="pts" id="sBL">0</span></div>
-    <div class="mid"><div class="time" id="sTime">10:00</div><div class="goal" id="sGoal"></div></div>
-    <div class="team gr" id="tGR"><span class="pts" id="sGR">0</span><span class="nm">\u7537\u751F\u968A</span></div>
-  </div>
-  <div id="radarWrap"><canvas id="radar"></canvas><div class="lbl">\u6A39\u7FA9\u570B\u5C0F</div></div>
-  <div id="feed"></div>
-  <div id="vitals">
-    <div class="vbox" id="hpBox"><div class="ic">\u271A</div><div class="val" id="hpVal">100</div></div>
-    <div class="vbox" id="arBox"><div class="ic">\u26E8</div><div class="val" id="arVal">100</div></div>
-  </div>
-  <div id="slots"></div>
-  <div id="ammo"><div class="wname" id="wName"></div><div class="row"><img class="wicon" id="wIcon" alt=""><span class="mag" id="aMag">30</span><span class="res" id="aRes">/ 90</span></div><div class="hint" id="aHint"></div></div>
-  <div id="cross"><i class="t" id="cT"></i><i class="b" id="cB"></i><i class="l" id="cL"></i><i class="r" id="cR"></i></div>
-  <div id="hit"><i></i><i></i><i></i><i></i></div>
-  <div id="dmgDirs"></div>
-  <div id="scope"><div class="ring"></div><div class="h"></div><div class="v"></div><div class="h2 l"></div><div class="h2 r"></div><div class="v2"></div><div class="dot"></div></div>
-  <div id="badge"><div class="ico"></div><div class="txt"></div><div class="sub"></div></div>
-  <div id="center" class="hidden"><div class="big" id="cBig"></div><div class="small" id="cSmall"></div></div>
-  <div id="toast"></div>
-  <div id="protect"></div>
-  <div id="nameTip"></div>
-  <div id="board" class="hidden tbl"><h3><span>\u6A39\u7FA9\u570B\u5C0F \xB7 \u5718\u968A\u7AF6\u6280</span><span>Tab</span></h3><div id="boardBody"></div></div>
-  <div id="touch" class="hidden"></div>
-</div>
-
-<div id="loading" class="screen"><div class="t">\u6A39 \u7FA9 \u570B \u5C0F</div><div class="s" id="loadTxt">LOADING</div><div class="bar"><i id="loadBar"></i></div><div class="tip">\u63D0\u793A\uFF1AWASD \u79FB\u52D5\uFF0C\u5DE6\u9375\u5C04\u64CA\uFF0CR \u63DB\u5F48\uFF0CB \u66F4\u63DB\u4E3B\u6B66\u5668\uFF0CEsc \u66AB\u505C\u3002</div></div>
-
-<div id="menu" class="screen hidden">
-  <div class="menuBox">
-    <div class="title">
-      <div class="logo">\u6821 \u5712 \u5C0D \u6230 \xB7 \u5718 \u968A \u7AF6 \u6280</div>
-      <h1>\u6A39\u7FA9\u570B\u5C0F</h1>
-      <div class="en">SHU YI CAMPUS</div>
-      <p>\u4F9D\u5B98\u7DB2\u6821\u5712\u914D\u7F6E\u5716\u3001\u7167\u7247\u8207 OpenStreetMap \u5BE6\u969B\u5C3A\u5BF8 1:1 \u91CD\u5EFA\u7684\u6A39\u7FA9\u570B\u5C0F\uFF0C\u7537\u751F\u968A\u5C0D\u5973\u751F\u968A\u7684\u5718\u968A\u5C0D\u6230\u3002<br>\u4E94\u5C64\u6A13\u6559\u5BA4\u90FD\u6709\u5802\u865F\u8207\u73ED\u7D1A\u9580\u724C\uFF0C\u6CBF\u8D70\u5ECA\u3001\u6A13\u68AF\u8207\u4E2D\u5EAD\u5C0B\u627E\u8DEF\u7DDA\uFF0C\u5584\u7528\u7246\u9762\u548C\u5EFA\u7BC9\u63A9\u8B77\u3002\u7387\u5148\u9054\u6210\u76EE\u6A19\u64CA\u6BBA\u7684\u968A\u4F0D\u7372\u52DD\u3002</p>
-      <div class="keys">
-        <kbd>W A S D</kbd><span>\u79FB\u52D5\u3000<kbd>Shift</kbd> \u975C\u6B65\u3000<kbd>\u7A7A\u683C</kbd> \u8DF3\u3000<kbd>Ctrl</kbd> \u8E72</span>
-        <kbd>\u6ED1\u9F20\u5DE6\u9375</kbd><span>\u958B\u706B\u3000<kbd>\u53F3\u9375</kbd> \u72D9\u64CA\u958B\u93E1 / \u5200\u91CD\u64CA</span>
-        <kbd>1 2 3 4</kbd><span>\u4E3B\u6B66\u5668 / \u624B\u69CD / \u5200 / \u624B\u96F7\u3000<kbd>Q</kbd> \u5FEB\u5207\u3000<kbd>\u6EFE\u8F2A</kbd> \u5207\u63DB</span>
-        <kbd>R</kbd><span>\u63DB\u5F48\u3000<kbd>F</kbd> \u6AA2\u8996\u6B66\u5668\u3000<kbd>B</kbd> \u66F4\u63DB\u4E3B\u6B66\u5668</span>
-        <kbd>Tab</kbd><span>\u8A08\u5206\u677F\u3000<kbd>Esc</kbd> \u66AB\u505C / \u8A2D\u5B9A</span>
-      </div>
-      <div class="note hidden" id="touchNote">\u6AA2\u6E2C\u5230\u89F8\u5C4F\u88DD\u7F6E\uFF1A\u5DF2\u555F\u7528\u865B\u64EC\u6416\u687F\uFF08\u5DE6\u5074\u79FB\u52D5\u3001\u53F3\u5074\u6ED1\u52D5\u8996\u89D2\uFF09\u3002\u96FB\u8166 + \u6ED1\u9F20\u9AD4\u9A57\u6700\u4F73\u3002</div>
-    </div>
-    <div class="opts">
-      <div class="opt"><div class="lab">\u9663\u71DF</div><div class="seg team" data-k="team"><button data-v="BL">\u5973\u751F\u968A<small>Girls</small></button><button data-v="GR">\u7537\u751F\u968A<small>Boys</small></button></div></div>
-      <div class="opt"><div class="lab">\u4E3B\u6B66\u5668</div><div class="seg" data-k="primary"><button data-v="ak47">AK-47</button><button data-v="m4a1">M4A1</button><button data-v="awm">AWM</button><button data-v="mp5">MP5</button><button data-v="m870">M870</button></div></div>
-      <div class="row2">
-        <div class="opt"><div class="lab">\u5C0D\u6230\u898F\u6A21</div><div class="seg" data-k="size"><button data-v="4">4v4</button><button data-v="6">6v6</button><button data-v="8">8v8</button></div></div>
-        <div class="opt"><div class="lab">\u76EE\u6A19\u64CA\u6BBA</div><div class="seg" data-k="goal"><button data-v="30">30</button><button data-v="50">50</button><button data-v="100">100</button></div></div>
-      </div>
-      <div class="opt"><div class="lab">\u96FB\u8166\u96E3\u5EA6</div><div class="seg" data-k="diff"><button data-v="easy">\u7C21\u55AE</button><button data-v="normal">\u666E\u901A</button><button data-v="hard">\u56F0\u96E3</button><button data-v="hell">\u5730\u7344</button></div></div>
-      <div class="row2">
-        <div class="opt"><div class="lab">\u6642\u9593</div><div class="seg" data-k="tod"><button data-v="day">\u767D\u5929</button><button data-v="dusk">\u9EC3\u660F</button></div></div>
-        <div class="opt"><div class="lab">\u756B\u8CEA</div><div class="seg" data-k="quality"><button data-v="low">\u6D41\u66A2</button><button data-v="medium">\u5747\u8861</button><button data-v="high">\u6975\u81F4</button></div></div>
-      </div>
-      <div class="row3">
-        <div class="opt"><div class="lab">\u9748\u654F\u5EA6</div><div class="slider" data-k="sens"><input type="range" min="0.2" max="3" step="0.05"><span></span></div></div>
-        <div class="opt"><div class="lab">\u8996\u91CE FOV</div><div class="slider" data-k="fov"><input type="range" min="65" max="100" step="1"><span></span></div></div>
-        <div class="opt"><div class="lab">\u97F3\u91CF</div><div class="slider" data-k="vol"><input type="range" min="0" max="1" step="0.05"><span></span></div></div>
-      </div>
-      <button class="go" id="btnStart">\u958B \u59CB \u904A \u6232</button>
-      <div class="note">\u9EDE\u9078\u958B\u59CB\u5F8C\u6ED1\u9F20\u5C07\u88AB\u9396\u5B9A\uFF0C\u6309 Esc \u66AB\u505C\u3002\u756B\u8CEA\u5207\u63DB\u6703\u91CD\u65B0\u8F09\u5165\u9801\u9762\u3002</div>
-      <div class="mlinks"><span>\u904A\u6232\u5F15\u64CE\u6539\u7DE8\u81EA</span><a href="https://github.com/riba2534/claude-opus-5-5-demo" target="_blank" rel="noopener noreferrer">riba2534/claude-opus-5-5-demo</a><span>\xB7</span><a href="https://x.com/riba2534" target="_blank" rel="noopener noreferrer">X @riba2534</a></div>
-      <div class="mlinks credits"><span>\u5730\u5716\u8CC7\u6599 \xA9</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap \u8CA2\u737B\u8005\uFF08ODbL\uFF09</a><span>\xB7</span><span>\u6821\u5712\u914D\u7F6E\u8207\u5802\u865F\uFF1A</span><a href="https://tanghao.neocities.org/" target="_blank" rel="noopener noreferrer">\u81FA\u4E2D\u5E02\u5357\u5340\u6A39\u7FA9\u570B\u6C11\u5C0F\u5B78\uFF08CC BY-NC-SA\uFF09</a></div>
-    </div>
-  </div>
-</div>
-
-<div id="pause" class="screen hidden"><div class="pauseBox"><h2>\u66AB\u505C</h2>
-  <div class="opt"><div class="lab">\u6ED1\u9F20\u9748\u654F\u5EA6</div><div class="slider" data-k="sens"><input type="range" min="0.2" max="3" step="0.05"><span></span></div></div>
-  <div class="opt"><div class="lab">\u8996\u91CE FOV</div><div class="slider" data-k="fov"><input type="range" min="65" max="100" step="1"><span></span></div></div>
-  <div class="opt"><div class="lab">\u97F3\u91CF</div><div class="slider" data-k="vol"><input type="range" min="0" max="1" step="0.05"><span></span></div></div>
-  <div class="opt"><div class="lab">\u6642\u9593</div><div class="seg" data-k="tod"><button data-v="day">\u767D\u5929</button><button data-v="dusk">\u9EC3\u660F</button></div></div>
-  <button class="go" id="btnResume">\u7E7C \u7E8C</button><button class="go sec" id="btnQuit" style="margin-top:10px">\u9000\u51FA\u5230\u4E3B\u9078\u55AE</button>
-</div></div>
-
-<div id="loadout" class="screen hidden"><div class="loadBox"><h2>\u66F4\u63DB\u4E3B\u6B66\u5668</h2><div class="sub">\u5FA9\u6D3B\u6642\u751F\u6548\uFF1B\u5728\u51FA\u751F\u9EDE\u5167\u7ACB\u5373\u751F\u6548\u3002\u526F\u6B66\u5668\u6C99\u6F20\u4E4B\u9DF9\u3001\u8ECD\u5200\u3001\u624B\u96F7\u81EA\u52D5\u914D\u5099\u3002</div>
-  <div class="cards" id="loadCards">${PRIM_CARDS}</div>
-  <button class="go sec" id="btnLoadClose" style="margin-top:14px">\u78BA \u5B9A\uFF08B\uFF09</button>
-</div></div>
-
-<div id="end" class="screen hidden"><div class="endBox">
-  <div class="res" id="endRes">\u52DD\u5229</div><div class="sc" id="endSc"></div><div class="mvp" id="endMvp"></div><div class="mvp" id="endMe" style="color:#dfe4e8"></div>
-  <div id="endTable" class="tbl"></div>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="go" id="btnAgain">\u518D \u4F86 \u4E00 \u5C40</button><button class="go sec" id="btnMenu">\u4E3B\u9078\u55AE</button></div>
-</div></div>
-`;
 
   // sfx/ak47.mp3
   var ak47_default = __toBinary("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1eVnuW/3+X0b4hqAdCIQRHMwICZyX+TrLprliS64SGDSqQGgSkOEiaM89osZ6oECptI/K1YxRue7FpA0OIxZkKF+MJvjIbb07neKRQnZN/Y2z31P5KxUobdPXiHRjuu39uakznmuSe+Ra3vPpWRrIbGamzxuZBCQRjAKogKCr8f/+2DE6QAOQKsYzeDDwdaX4tm8JDjdLZqimpb1ftU54BMDGkEaxmHIC3dkyOSY4SkoDiMUDJcrQTUlnpaibpcdkdZDL2hSnqoxitbOsYlpjlc6arwy+S5ZE3Vyk6ZER+nSnaWtfpP02heUZMylj6f/z4vn/5ln5Eb7Q/mO4q0mg6pckwsQItWra8jdd/UzRjRrztHRoEvVX6sLyv5CwCi90eREH8rFEQSTQyjPj1yq0m1rl1z2tf6ahSiGMxnJYFoXuUM8lwcmUMyMgfqUZcp6dM0NTQyzWiW4e3DHErYZY9Ll2BGafvsbjEdkJeSuuCsm+078HnrdTXJWsx4ZMtz668r91G7/+2DE7QIOqLUUzbDNCfUvYYG0jXAVlhbU9QFVARYTLoB3TXXhZK4TOoGBdySlkVHEiYVVVVhcZmbWlVAQEgwoMBARr+GVVIp0KzH0mZof/lF9tVKLsx8b+qq+2wZtS4q//hT/bWMpM2qxl2PVdvjfxtjqrs0YCAsOzrTxYKhoRD9QFcST4i0ezuniqAEss91ZI04souLURJCQOBUDAcECxxEkaBCxAOZFs7P9ySRpxZR5iezTs7OzGnGlFmWgiSNOLa4t2dnb5tGnGlFmHiH/9INVVEHkqqqqaabIStNNP//piVVQY7//tNNIlLTTTRVVUsDEqoh//+wlTEFNRTMuMTAwVVX/+2DE64OOVV0KDbBpQeqwIIWmDPhVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+2LE7IAN7Vz2TJhmwbmWTiRjmUFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
@@ -38417,1976 +38387,225 @@ void main() {
   var SFX = { ak47: ak47_default, awm: awm_default, bolt: bolt_default, boltback: boltback_default, boltfwd: boltfwd_default, collapse: collapse_default, deagle: deagle_default, dry: dry_default, explosion: explosion_default, explosion2: explosion2_default, glass: glass_default, glass2: glass2_default, impc: impc_default, impc2: impc2_default, impf: impf_default, impm: impm_default, knife: knife_default, land: land_default, m4a1: m4a1_default, m870: m870_default, magin: magin_default, magout: magout_default, mp5: mp5_default, pump: pump_default, shell: shell_default, step1: step1_default, step2: step2_default, step3: step3_default, step4: step4_default, tinnitus: tinnitus_default, whiz: whiz_default };
 
   // game-src/audio.js
-  var TAU = Math.PI * 2;
-  var MAX_VOICES = 48;
-  var LOOKAHEAD = 0.01;
-  var NOISE_SEC = 5;
-  var IR_SEC = 1.8;
-  var rand2 = (a, b) => a + Math.random() * (b - a);
-  var jit = (p = 0.05) => 1 + (Math.random() * 2 - 1) * p;
-  var clamp2 = (v, a, b) => v < a ? a : v > b ? b : v;
-  var num = (v, d) => typeof v === "number" && Number.isFinite(v) ? v : d;
-  var GUNS = {
-    ak47: {
-      gain: 1,
-      drive: 2.6,
-      wet: 0.16,
-      crack: { hp: 2200, dur: 25e-4, g: 0.55 },
-      body: { f0: 4200, f1: 650, dur: 0.16, g: 0.9 },
-      mid: { f: 1e3, q: 1.1, dur: 0.09, g: 0.5 },
-      punch: { f0: 150, f1: 42, sw: 0.07, dur: 0.17, g: 0.8 },
-      tail: { f: 900, dur: 0.55, g: 0.28 },
-      mech: { f: 2800, g: 0.09, delay: 0.045 },
-      echo: [[0.16, 0.12]]
-    },
-    m4a1: {
-      gain: 1.2,
-      drive: 2.2,
-      wet: 0.15,
-      crack: { hp: 3200, dur: 2e-3, g: 0.6 },
-      body: { f0: 6500, f1: 1100, dur: 0.12, g: 0.85 },
-      mid: { f: 1900, q: 1.3, dur: 0.07, g: 0.5 },
-      punch: { f0: 175, f1: 52, sw: 0.05, dur: 0.12, g: 0.65 },
-      tail: { f: 1300, dur: 0.42, g: 0.24 },
-      mech: { f: 3400, g: 0.09, delay: 0.038 },
-      echo: [[0.15, 0.09]]
-    },
-    awm: {
-      gain: 0.85,
-      drive: 3,
-      wet: 0.28,
-      crack: { hp: 1800, dur: 3e-3, g: 0.7 },
-      body: { f0: 3800, f1: 420, dur: 0.3, g: 1 },
-      mid: { f: 780, q: 0.9, dur: 0.16, g: 0.6 },
-      punch: { f0: 135, f1: 32, sw: 0.13, dur: 0.4, g: 1 },
-      sub: { f0: 70, f1: 28, dur: 0.5, g: 0.5 },
-      tail: { f: 700, dur: 1.4, g: 0.45 },
-      mech: { f: 2200, g: 0.06, delay: 0.06 },
-      echo: [[0.19, 0.3], [0.44, 0.18], [0.82, 0.09]]
-    },
-    mp5: {
-      gain: 1.5,
-      drive: 1.9,
-      wet: 0.12,
-      crack: { hp: 3800, dur: 15e-4, g: 0.45 },
-      body: { f0: 3600, f1: 850, dur: 0.075, g: 0.8 },
-      mid: { f: 850, q: 1, dur: 0.05, g: 0.55 },
-      punch: { f0: 185, f1: 68, sw: 0.035, dur: 0.08, g: 0.5 },
-      tail: { f: 1100, dur: 0.25, g: 0.16 },
-      mech: { f: 3800, g: 0.08, delay: 0.03 },
-      echo: null
-    },
-    m870: {
-      gain: 1.1,
-      drive: 3.2,
-      wet: 0.24,
-      crack: { hp: 1600, dur: 3e-3, g: 0.6 },
-      body: { f0: 3200, f1: 380, dur: 0.26, g: 1.1 },
-      mid: { f: 650, q: 0.8, dur: 0.14, g: 0.6 },
-      punch: { f0: 120, f1: 30, sw: 0.1, dur: 0.3, g: 1.1 },
-      sub: { f0: 65, f1: 26, dur: 0.35, g: 0.45 },
-      tail: { f: 750, dur: 1, g: 0.38 },
-      mech: { f: 2e3, g: 0.05, delay: 0.05 },
-      echo: [[0.18, 0.2], [0.42, 0.1]]
-    },
-    deagle: {
-      gain: 1.05,
-      drive: 2.9,
-      wet: 0.2,
-      crack: { hp: 2600, dur: 3e-3, g: 0.7 },
-      body: { f0: 5500, f1: 600, dur: 0.2, g: 1 },
-      mid: { f: 1200, q: 1, dur: 0.11, g: 0.65 },
-      punch: { f0: 165, f1: 40, sw: 0.06, dur: 0.21, g: 0.95 },
-      tail: { f: 1e3, dur: 0.7, g: 0.35 },
-      mech: { f: 2500, g: 0.11, delay: 0.028 },
-      echo: [[0.17, 0.16], [0.4, 0.07]]
-    }
-  };
-  var SHOT_G = 1;
-  var RELOAD_G = 1.6;
-  var STEP_G = 0.9;
-  var LAND_G = 0.9;
-  var IMPACT_G = 0.55;
-  var GLASS_G = 0.6;
-  var DESTROY_G = 0.55;
-  var WHIZ_G = 0.5;
-  var KNIFE_G = 0.9;
-  var EXPL_G = 1.3;
-  var RING_G = 0.25;
-  var SHELL_G = 0.9;
-  var NG = { ak47: 0.8, m4a1: 0.4, awm: 1.05, mp5: 0.13, m870: 0.84, deagle: 1.12, magout: 0.17, magin: 0.21, bolt: 0.6, boltback: 0.6, boltfwd: 0.6, pump: 0.25, dry: 0.39, step1: 0.87, step2: 0.87, step3: 0.87, step4: 0.87, land: 0.62, impc: 0.18, impc2: 0.18, impm: 2, impf: 0.355, glass: 0.48, glass2: 0.48, collapse: 1.5, whiz: 0.145, knife: 0.24, explosion: 0.94, explosion2: 0.94, shell: 2.6 };
-  var WEIGHT = { m870: 0.78, ak47: 0.85, m4a1: 1, awm: 0.8, mp5: 1.12, deagle: 1.05, knife: 1.2, grenade: 1.1 };
-  var BANKS = /* @__PURE__ */ new Map();
-  function makeNoise(ctx, kind) {
-    const sr = ctx.sampleRate;
-    const n = Math.floor(sr * NOISE_SEC);
-    const buf = ctx.createBuffer(1, n, sr);
-    const d = buf.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, last = 0;
-    for (let i = 0; i < n; i++) {
-      const w = Math.random() * 2 - 1;
-      if (kind === "pink") {
-        b0 = 0.99886 * b0 + w * 0.0555179;
-        b1 = 0.99332 * b1 + w * 0.0750759;
-        b2 = 0.969 * b2 + w * 0.153852;
-        b3 = 0.8665 * b3 + w * 0.3104856;
-        b4 = 0.55 * b4 + w * 0.5329522;
-        b5 = -0.7616 * b5 - w * 0.016898;
-        d[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362;
-        b6 = w * 0.115926;
-      } else if (kind === "brown") {
-        last = (last + 0.02 * w) / 1.02;
-        d[i] = last;
-      } else d[i] = w;
-    }
-    let mean = 0;
-    for (let i = 0; i < n; i++) mean += d[i];
-    mean /= n;
-    const drift = d[n - 1] - d[0];
-    let e = 0;
-    for (let i = 0; i < n; i++) {
-      d[i] -= mean + drift * (i / (n - 1) - 0.5);
-      e += d[i] * d[i];
-    }
-    const k = 0.3 / Math.sqrt(e / n || 1);
-    for (let i = 0; i < n; i++) d[i] *= k;
-    return buf;
-  }
-  function makeIR(ctx) {
-    const sr = ctx.sampleRate;
-    const len = Math.floor(sr * IR_SEC);
-    const buf = ctx.createBuffer(2, len, sr);
-    const taps = [
-      [65e-4, 0.62],
-      [0.011, 0.5],
-      [0.0175, 0.46],
-      [0.024, 0.4],
-      [0.031, 0.36],
-      [0.039, 0.3],
-      [0.047, 0.3],
-      [0.058, 0.25],
-      [0.071, 0.22],
-      [0.086, 0.18],
-      [0.104, 0.15],
-      [0.127, 0.12],
-      [0.155, 0.1],
-      [0.19, 0.08],
-      [0.24, 0.06],
-      [0.31, 0.04]
-    ];
-    for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch);
-      let lp = 0, a = 0, comp = 1;
-      for (let i = 0; i < len; i++) {
-        const t = i / sr;
-        if ((i & 63) === 0) {
-          const fc = 1100 + 9e3 * Math.exp(-t / 0.28);
-          a = Math.exp(-TAU * fc / sr);
-          comp = Math.sqrt((1 + a) / (1 - a));
-        }
-        lp = (1 - a) * (Math.random() * 2 - 1) + a * lp;
-        const env = Math.exp(-t / 0.24) * (t < 0.015 ? (t / 0.015) ** 2 : 1);
-        d[i] = lp * comp * env * 0.35;
-      }
-      for (const [tt, g] of taps) {
-        const at2 = Math.max(0, Math.floor((tt + (ch ? rand2(4e-4, 25e-4) : rand2(0, 12e-4))) * sr));
-        const sgn = Math.random() < 0.5 ? -1 : 1;
-        for (let k = 0; k < 24 && at2 + k < len; k++) d[at2 + k] += sgn * g * Math.exp(-k / 5) * (k % 2 ? -0.35 : 1);
-      }
-    }
-    return buf;
-  }
-  function getBank(ctx) {
-    let b = BANKS.get(ctx.sampleRate);
-    if (!b) {
-      b = { white: makeNoise(ctx, "white"), pink: makeNoise(ctx, "pink"), brown: makeNoise(ctx, "brown"), ir: makeIR(ctx) };
-      BANKS.set(ctx.sampleRate, b);
-    }
-    return b;
-  }
-  function softClipCurve() {
-    const n = 2049, c = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const x = i / (n - 1) * 4 - 2, ax = Math.abs(x);
-      c[i] = Math.sign(x) * (ax <= 0.7 ? ax : 0.7 + 0.28 * Math.tanh((ax - 0.7) / 0.28));
-    }
-    return c;
-  }
-  function tanhCurve() {
-    const n = 1025, c = new Float32Array(n);
-    for (let i = 0; i < n; i++) c[i] = Math.tanh((i / (n - 1) * 2 - 1) * 3);
-    return c;
-  }
+  var clamp2 = (v, a, b) => Math.max(a, Math.min(b, v));
+  var pick = (...names) => names[Math.floor(Math.random() * names.length)];
   var AudioSystem = class {
     constructor() {
       this.ctx = null;
-      this.voices = [];
-      this.maxVoices = MAX_VOICES;
-      this._vol = { master: 0.8, sfx: 0.9, ambient: 0.5, voice: 0.9 };
-      this._L = { x: 0, y: 0, z: 0 };
-      this._amb = null;
-      this._hbOn = false;
-      this._hbNext = 0;
-      this._hbGain = null;
-      this._timer = 0;
-      this._offline = false;
-      this._warned = /* @__PURE__ */ new Set();
-      this._sv = null;
-      this._speechInit = false;
+      this.ready = false;
+      this.samples = {};
+      this.active = [];
+      this.vol = { master: 0.8, sfx: 0.9, voice: 0.9, ambient: 0 };
+      this.listener = { x: 0, y: 0, z: 0 };
+      this.lowHealth = false;
+      this.nextBeat = 0;
     }
-    get ready() {
-      return !!this.ctx && this.ctx.state !== "closed";
-    }
-    /** 在使用者手勢中呼叫。可選傳入外部 context（如 OfflineAudioContext，用於測試/離線渲染）。 */
     init(context) {
-      let created = null;
-      try {
-        if (this.ctx) {
-          this._resume();
-          return this.ready;
-        }
-        const G = globalThis;
-        let ctx = context || null;
-        if (!ctx) {
-          const AC = G.AudioContext || G.webkitAudioContext;
-          if (!AC) return false;
-          try {
-            ctx = new AC({ latencyHint: "interactive" });
-          } catch (e) {
-            ctx = new AC();
-          }
-          created = ctx;
-        }
-        this.ctx = ctx;
-        this._offline = !!G.OfflineAudioContext && ctx instanceof G.OfflineAudioContext;
-        this._build();
-        this._loadSamples();
-        this._resume();
-        if (!this._offline && typeof setInterval === "function") {
-          this._timer = setInterval(() => this._tick(), 100);
-        }
-        if (!this._offline) this._initSpeech();
-        return true;
-      } catch (e) {
-        this._warn("init", e);
-        this.ctx = null;
-        if (created) try {
-          created.close();
-        } catch (_) {
-        }
-        return false;
-      }
-    }
-    setVolumes(v) {
-      try {
-        if (!v || typeof v !== "object") return;
-        for (const k of ["master", "sfx", "ambient", "voice"]) {
-          if (typeof v[k] === "number" && Number.isFinite(v[k])) this._vol[k] = clamp2(v[k], 0, 1);
-        }
-        if (this._ok()) this._applyVolumes(false);
-      } catch (e) {
-        this._warn("setVolumes", e);
-      }
-    }
-    setListener(pos, forward, up) {
-      try {
-        if (pos && typeof pos === "object") {
-          const L = this._L;
-          this._L = { x: num(pos.x, L.x), y: num(pos.y, L.y), z: num(pos.z, L.z) };
-        }
-        if (!this._ok()) return;
-        const li = this.ctx.listener, p = this._L;
-        let f = null, u = { x: 0, y: 1, z: 0 };
-        if (forward && typeof forward === "object") {
-          const fx = num(forward.x, 0), fy = num(forward.y, 0), fz = num(forward.z, 0);
-          const fl = Math.hypot(fx, fy, fz);
-          if (fl > 1e-6) f = { x: fx / fl, y: fy / fl, z: fz / fl };
-        }
-        if (up && typeof up === "object") {
-          const ux = num(up.x, 0), uy = num(up.y, 1), uz = num(up.z, 0);
-          const ul = Math.hypot(ux, uy, uz);
-          if (ul > 1e-6) u = { x: ux / ul, y: uy / ul, z: uz / ul };
-        }
-        if (li.positionX) {
-          li.positionX.value = p.x;
-          li.positionY.value = p.y;
-          li.positionZ.value = p.z;
-          if (f) {
-            li.forwardX.value = f.x;
-            li.forwardY.value = f.y;
-            li.forwardZ.value = f.z;
-            li.upX.value = u.x;
-            li.upY.value = u.y;
-            li.upZ.value = u.z;
-          }
-        } else {
-          if (li.setPosition) li.setPosition(p.x, p.y, p.z);
-          if (f && li.setOrientation) li.setOrientation(f.x, f.y, f.z, u.x, u.y, u.z);
-        }
-      } catch (e) {
-        this._warn("setListener", e);
-      }
-    }
-    // -------------------------------------------------------------------------
-    // 槍聲
-    // -------------------------------------------------------------------------
-    playShot(weaponId, pos, opts) {
-      if (!this._ok()) return;
-      try {
-        const o = opts || {};
-        if (weaponId === "knife") return this.playKnife("light", "miss", pos);
-        if (weaponId === "grenade") return this._throwWhoosh(this._pos(pos));
-        const P = GUNS[weaponId] || GUNS.m4a1;
-        const p = this._pos(pos);
-        const local = !p;
-        const sup = !!o.suppressed;
-        const d = local ? 0 : Math.max(0, num(o.distance, this._dist(p)));
-        const far = clamp2(d / 80, 0, 1);
-        const r = jit(0.05), k = jit(0.05);
-        const v = this._voice(p, {
-          g: P.gain * jit(0.06) * (local ? 1.8 : 1.25) * (sup ? 0.5 : 1),
-          ref: sup ? 2.5 : 5,
-          roll: sup ? 1.3 : 0.6,
-          max: 400,
-          dist: d,
-          wet: local ? P.wet * (sup ? 0.5 : 1) : P.wet * 1.2 * (sup ? 0.5 : 1)
+      if (this.ctx) {
+        if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {
         });
-        const t = this._now();
-        const drv = this._drive(v, P.drive * (sup ? 0.55 : 1), 0.7);
-        const U = P.punch;
-        if (!sup && this._has(weaponId)) {
-          this._play(v, t, weaponId, { g: SHOT_G * (P.sg || 1), rate: r * (local ? 1 : 1 - 0.06 * far) });
-          const T = P.tail;
-          if (!local) this._nz(v, t + 6e-3, { n: "brown", a: 0.015, dur: T.dur * k * (1 + 0.6 * far), g: T.g * far * 1.2, flt: [{ t: "lowpass", f: T.f * r, f1: T.f * 0.45 * r, sw: T.dur, q: 0 }] });
-          if (!local && d > 30) this._nz(v, t + 0.08 + d / 600, { n: "pink", a: 8e-3, dur: 0.22 * k, g: 0.1 + 0.15 * far, flt: [{ t: "lowpass", f: 1500 * r, q: 0 }, { t: "highpass", f: 160, q: 0 }] });
-        } else if (!sup) {
-          const C = P.crack, B = P.body, M = P.mid, T = P.tail;
-          this._nz(v, t, { n: "white", a: 2e-4, dur: C.dur * k, g: C.g * (local ? 1 : 1 - 0.6 * far), flt: [{ t: "highpass", f: C.hp * r, q: 0 }] });
-          this._nz(v, t, { n: "pink", a: 6e-4, dur: B.dur * k, g: B.g, flt: [{ t: "lowpass", f: B.f0 * r, f1: B.f1 * r, sw: B.dur * k * 0.6, q: 1 }], to: drv });
-          this._nz(v, t, { n: "white", a: 4e-4, dur: M.dur * k, g: M.g, flt: [{ t: "bandpass", f: M.f * r, q: M.q }], to: drv });
-          this._tn(v, t, { f: U.f0 * r, f1: U.f1 * r, sw: U.sw * k, a: 15e-4, dur: U.dur * k, g: U.g, to: drv });
-          if (P.sub) this._tn(v, t, { w: "triangle", f: P.sub.f0 * r, f1: P.sub.f1 * r, sw: P.sub.dur * 0.5, a: 3e-3, dur: P.sub.dur * k, g: P.sub.g, to: drv });
-          this._nz(v, t + 6e-3, { n: "brown", a: 0.015, dur: T.dur * k * (1 + 0.6 * far), g: T.g * (1 + 0.5 * far), flt: [{ t: "lowpass", f: T.f * r, f1: T.f * 0.45 * r, sw: T.dur, q: 0 }] });
-          const echoes = P.echo ? P.echo.slice() : [];
-          if (!local && d > 30) echoes.push([0.08 + d / 600, 0.1 + 0.15 * far]);
-          for (const [dt, eg] of echoes) {
-            this._nz(v, t + dt * jit(0.08), { n: "pink", a: 8e-3, dur: 0.22 * k, g: eg, flt: [{ t: "lowpass", f: 1500 * r, q: 0 }, { t: "highpass", f: 160, q: 0 }] });
-          }
-        } else {
-          this._nz(v, t, { n: "white", a: 3e-4, dur: 4e-3, g: 0.12, flt: [{ t: "bandpass", f: 3200 * r, q: 1.2 }] });
-          this._nz(v, t, { n: "pink", a: 8e-4, dur: 0.07 * k, g: 0.9, flt: [{ t: "lowpass", f: 2400 * r, f1: 450 * r, sw: 0.05, q: 1 }], to: drv });
-          this._nz(v, t, { n: "white", a: 5e-4, dur: 0.035 * k, g: 0.4, flt: [{ t: "bandpass", f: 700 * r, q: 1.4 }], to: drv });
-          this._tn(v, t, { f: U.f0 * 0.8 * r, f1: U.f1 * r, sw: 0.04, a: 1e-3, dur: U.dur * 0.45 * k, g: U.g * 0.4, to: drv });
-          this._nz(v, t, { n: "white", a: 1e-3, dur: 0.045 * k, g: 0.12, flt: [{ t: "highpass", f: 5500 * r, q: 0 }] });
-          this._nz(v, t + 4e-3, { n: "brown", a: 0.01, dur: 0.12, g: 0.06, flt: [{ t: "lowpass", f: 700, q: 0 }] });
-        }
-        if (local && !this._has(weaponId)) this._mech(v, t + P.mech.delay * jit(0.12), P.mech.f * r, P.mech.g * (sup ? 1.3 : 1));
-        this._done(v);
-      } catch (e) {
-        this._warn("playShot", e);
+        return this.ready;
       }
-    }
-    playReload(weaponId, stage) {
-      if (!this._ok()) return;
-      try {
-        if (stage === "draw") return this.playWeaponSwitch(weaponId);
-        const fm = (WEIGHT[weaponId] || 1) * jit(0.04);
-        const v = this._voice(null, { g: 0.42, wet: 0.06 });
-        const t = this._now();
-        const rr = (0.9 + 0.1 * fm) * jit(0.03), RG = RELOAD_G;
-        const rec = weaponId === "m870" ? { boltback: "pump", boltforward: "-" } : { magout: "magout", magin: "magin", bolt: "bolt", boltback: "boltback", boltforward: "boltfwd" };
-        const nm = rec[stage];
-        if (nm === "-") {
-          this._done(v);
-          return;
-        }
-        if (nm && this._play(v, t, nm, { g: RG, rate: rr })) {
-          this._done(v);
-          return;
-        }
-        switch (stage) {
-          case "magout": {
-            this._click(v, t, 3e3 * fm, 0.45);
-            this._metal(v, t, 2500 * fm, 0.08, [[1, 1, 0.04], [1.6, 0.5, 0.03]]);
-            this._nz(v, t + 0.02, { n: "white", a: 0.015, dur: 0.08, g: 0.16, flt: [{ t: "bandpass", f: 1400 * fm, f1: 2600 * fm, sw: 0.09, q: 1.6 }] });
-            this._tn(v, t + 0.11, { f: 190 * fm, f1: 110, a: 2e-3, dur: 0.06, g: 0.2 });
-            this._click(v, t + 0.11, 1600 * fm, 0.25, 1.5, 0.02);
-            break;
-          }
-          case "magin": {
-            this._nz(v, t, { n: "white", a: 0.02, dur: 0.07, g: 0.14, flt: [{ t: "bandpass", f: 1200 * fm, f1: 2e3 * fm, sw: 0.08, q: 1.5 }] });
-            const tc = t + 0.09;
-            this._click(v, tc, 1900 * fm, 0.6, 1.2, 0.03);
-            this._tn(v, tc, { f: 230 * fm, f1: 120, a: 15e-4, dur: 0.05, g: 0.35 });
-            this._metal(v, tc, 2100 * fm, 0.12, [[1, 1, 0.07], [1.47, 0.6, 0.05], [2.3, 0.35, 0.03]]);
-            this._click(v, tc + 0.012, 3600 * fm, 0.3);
-            break;
-          }
-          case "shell": {
-            this._nz(v, t, { n: "white", a: 0.01, dur: 0.05, g: 0.12, flt: [{ t: "bandpass", f: 1800 * fm, f1: 1200 * fm, sw: 0.05, q: 1.5 }] });
-            this._click(v, t + 0.06, 2300 * fm, 0.5, 1.4, 0.02);
-            this._tn(v, t + 0.06, { f: 260 * fm, f1: 150, a: 15e-4, dur: 0.04, g: 0.25 });
-            break;
-          }
-          case "bolt": {
-            this._click(v, t, 2600 * fm, 0.35);
-            this._nz(v, t + 0.01, { n: "white", a: 0.01, dur: 0.07, g: 0.18, flt: [{ t: "bandpass", f: 1500 * fm, f1: 3e3 * fm, sw: 0.07, q: 2 }] });
-            this._click(v, t + 0.085, 2200 * fm, 0.3);
-            const tr = t + 0.2 * jit(0.08);
-            this._nz(v, tr, { n: "white", a: 4e-3, dur: 0.035, g: 0.15, flt: [{ t: "bandpass", f: 3e3 * fm, f1: 1600 * fm, sw: 0.03, q: 2 }] });
-            this._click(v, tr + 0.03, 2e3 * fm, 0.7, 1.2, 0.03);
-            this._tn(v, tr + 0.03, { f: 170 * fm, f1: 95, a: 15e-4, dur: 0.06, g: 0.35 });
-            this._metal(v, tr + 0.03, 2600 * fm, 0.12, [[1, 1, 0.08], [1.53, 0.6, 0.06], [2.41, 0.35, 0.04]]);
-            break;
-          }
-          case "boltback": {
-            this._click(v, t, 2400 * fm, 0.4);
-            this._tn(v, t, { f: 300 * fm, f1: 200, a: 1e-3, dur: 0.03, g: 0.15 });
-            this._nz(v, t + 0.045, { n: "white", a: 0.02, dur: 0.12, g: 0.2, flt: [{ t: "bandpass", f: 1e3 * fm, f1: 2400 * fm, sw: 0.14, q: 1.8 }] });
-            this._click(v, t + 0.18, 1800 * fm, 0.45, 1.5, 0.02);
-            this._metal(v, t + 0.18, 1900 * fm, 0.08, [[1, 1, 0.08], [2.2, 0.5, 0.05]]);
-            break;
-          }
-          case "boltforward": {
-            this._nz(v, t, { n: "white", a: 0.015, dur: 0.1, g: 0.2, flt: [{ t: "bandpass", f: 2400 * fm, f1: 1100 * fm, sw: 0.11, q: 1.8 }] });
-            this._click(v, t + 0.11, 1700 * fm, 0.6, 1.3, 0.03);
-            this._tn(v, t + 0.11, { f: 200 * fm, f1: 110, a: 15e-4, dur: 0.05, g: 0.3 });
-            this._metal(v, t + 0.11, 2300 * fm, 0.1, [[1, 1, 0.07], [1.6, 0.5, 0.05]]);
-            this._click(v, t + 0.19, 2900 * fm, 0.4);
-            break;
-          }
-          default:
-            this._click(v, t, 2500 * fm, 0.4);
-        }
-        this._done(v);
-      } catch (e) {
-        this._warn("playReload", e);
-      }
-    }
-    playDryFire() {
-      if (!this._ok()) return;
-      try {
-        if (this._has("dry")) {
-          const v2 = this._voice(null, { g: 0.45, wet: 0.04 });
-          this._play(v2, this._now(), "dry", { g: RELOAD_G, rate: jit(0.04) });
-          this._done(v2);
-          return;
-        }
-        const v = this._voice(null, { g: 0.45, wet: 0.04 });
-        const t = this._now();
-        this._nz(v, t, { n: "white", a: 2e-4, dur: 6e-3, g: 0.6, flt: [{ t: "highpass", f: 4e3, q: 0 }] });
-        this._metal(v, t, 3100 * jit(0.03), 0.18, [[1, 1, 0.03], [1.73, 0.6, 0.02]]);
-        this._tn(v, t, { f: 900, f1: 600, a: 5e-4, dur: 0.015, g: 0.2 });
-        this._done(v);
-      } catch (e) {
-        this._warn("playDryFire", e);
-      }
-    }
-    // -------------------------------------------------------------------------
-    // 移動
-    // -------------------------------------------------------------------------
-    playFootstep(pos, surface, opts) {
-      if (!this._ok()) return;
-      try {
-        const o = opts || {};
-        const run = !!o.run, crouch = !!o.crouch;
-        const p = this._pos(pos), local = !p;
-        const lvl = (crouch ? 0.32 : run ? 1 : 0.6) * jit(0.12);
-        const v = this._voice(p, { g: (local ? 0.45 : 1.8) * lvl, ref: 2.5, roll: 1.25, max: 60, wet: local ? 0.04 : 0.1 });
-        const t = this._now(), r = jit(0.06), br = crouch ? 0.45 : 1;
-        const st = surface === "metal" || surface === "grass" ? null : this._pick("step1", "step2", "step3", "step4");
-        if (st) this._play(v, t, st, { g: STEP_G * (crouch ? 0.5 : 1), rate: r * (crouch ? 1.08 : 1) });
-        else {
-          this._surf(v, t, surface, 1, r, 0, br);
-          const gap = crouch ? 0.09 : run ? 0.045 : 0.07;
-          this._surf(v, t + gap * jit(0.15), surface, 0.45, r * 1.06, 0, br * 0.8);
-        }
-        if (run) this._nz(v, t, { n: "white", a: 0.02, dur: 0.08, g: 0.06, flt: [{ t: "bandpass", f: 2200 * r, q: 0.8 }] });
-        this._done(v);
-      } catch (e) {
-        this._warn("playFootstep", e);
-      }
-    }
-    playLand(pos, surface, strength) {
-      if (!this._ok()) return;
-      try {
-        const s = clamp2(num(strength, 0.5), 0, 1);
-        const p = this._pos(pos), local = !p;
-        const v = this._voice(p, { g: (local ? 0.5 : 1.6) * (0.45 + 0.65 * s), ref: 3, roll: 1.2, max: 70, wet: 0.08 });
-        const t = this._now(), r = jit(0.06);
-        this._tn(v, t, { f: 95 * r, f1: 45, sw: 0.1, a: 2e-3, dur: 0.1 + 0.12 * s, g: 0.55 + 0.3 * s });
-        if (!this._play(v, t, "land", { g: LAND_G * (0.6 + 0.6 * s), rate: r })) {
-          this._surf(v, t, surface, 0.9, r, s, 1);
-          this._surf(v, t + 0.03 * jit(0.2), surface, 0.5, r * 1.05, s * 0.5, 0.8);
-        }
-        this._nz(v, t + 0.01, { n: "white", a: 0.01, dur: 0.1, g: 0.08 + 0.08 * s, flt: [{ t: "bandpass", f: 2200, q: 0.8 }] });
-        if (s > 0.4) this._metal(v, t + rand2(0.03, 0.09), rand2(2200, 3400), 0.04 * s, [[1, 1, 0.06], [1.9, 0.5, 0.04]]);
-        this._done(v);
-      } catch (e) {
-        this._warn("playLand", e);
-      }
-    }
-    playJump(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos), local = !p;
-        const v = this._voice(p, { g: local ? 0.4 : 0.8, ref: 2.5, roll: 1.25, max: 50, wet: 0.05 });
-        const t = this._now(), r = jit(0.06);
-        this._nz(v, t, { n: "pink", a: 4e-3, dur: 0.06, g: 0.35, flt: [{ t: "bandpass", f: 900 * r, q: 1 }] });
-        this._tn(v, t, { f: 120 * r, f1: 80, a: 2e-3, dur: 0.05, g: 0.25 });
-        this._nz(v, t + 0.01, { n: "white", a: 0.03, dur: 0.12, g: 0.1, flt: [{ t: "bandpass", f: 2400 * r, q: 0.8 }] });
-        this._metal(v, t + rand2(0.03, 0.08), rand2(2600, 3600), 0.035, [[1, 1, 0.05], [1.7, 0.5, 0.03]]);
-        this._done(v);
-      } catch (e) {
-        this._warn("playJump", e);
-      }
-    }
-    // -------------------------------------------------------------------------
-    // 彈著/反饋
-    // -------------------------------------------------------------------------
-    playImpact(pos, material) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos);
-        const v = this._voice(p, { g: 1.8, ref: 3, roll: 1.2, max: 90, wet: 0.1 });
-        const t = this._now(), r = jit(0.06);
-        const rec = material === "flesh" ? "impf" : material === "metal" ? "impm" : material === "mesh" ? null : this._pick("impc", "impc2");
-        if (rec && this._play(v, t, rec, { g: IMPACT_G, rate: r * (material === "wood" ? 1.25 : 1) })) {
-          if (material === "metal" && Math.random() < 0.5) this._metal(v, t, rand2(1700, 3e3), 0.08, [[1, 1, 0.12], [1.47, 0.8, 0.08], [2.09, 0.6, 0.06]]);
-          this._done(v);
-          return;
-        }
-        switch (material) {
-          case "metal":
-            this._nz(v, t, { n: "white", a: 2e-4, dur: 3e-3, g: 0.6, flt: [{ t: "highpass", f: 3e3 * r, q: 0 }] });
-            this._nz(v, t, { n: "pink", a: 5e-4, dur: 0.025, g: 0.35, flt: [{ t: "bandpass", f: 900 * r, q: 1 }] });
-            this._metal(v, t, rand2(1700, 3e3), 0.16, [[1, 1, 0.14], [1.47, 0.8, 0.1], [2.09, 0.6, 0.08], [2.93, 0.4, 0.05], [4.1, 0.25, 0.035]]);
-            this._nz(v, t + 4e-3, { n: "white", a: 2e-3, dur: 0.07, g: 0.1, flt: [{ t: "highpass", f: 6e3, q: 0 }] });
-            break;
-          case "wood":
-            this._nz(v, t, { n: "white", a: 3e-4, dur: 4e-3, g: 0.35, flt: [{ t: "highpass", f: 2e3 * r, q: 0 }] });
-            this._nz(v, t, { n: "pink", a: 8e-4, dur: 0.06, g: 0.7, flt: [{ t: "bandpass", f: 700 * r, q: 1.2 }] });
-            this._tn(v, t, { f: 190 * r, f1: 110, a: 1e-3, dur: 0.05, g: 0.35 });
-            for (let i = 0; i < 3; i++) this._click(v, t + rand2(5e-3, 0.04), rand2(2500, 4500), 0.12, 3, 8e-3);
-            break;
-          case "flesh":
-            this._nz(v, t, { n: "pink", a: 1e-3, dur: 0.07, g: 0.8, flt: [{ t: "lowpass", f: 700 * r, f1: 250, sw: 0.06, q: 0 }] });
-            this._tn(v, t, { f: 120 * r, f1: 55, a: 1e-3, dur: 0.08, g: 0.5 });
-            this._nz(v, t + 3e-3, { n: "white", a: 4e-3, dur: 0.04, g: 0.25, flt: [{ t: "bandpass", f: 1400 * r, q: 2 }] });
-            break;
-          case "mesh": {
-            this._nz(v, t, { n: "white", a: 2e-4, dur: 0.01, g: 0.35, flt: [{ t: "highpass", f: 2e3, q: 0 }] });
-            let tt = t, g = 0.12;
-            const n = 6 + (Math.random() * 4 | 0);
-            for (let i = 0; i < n; i++) {
-              this._metal(v, tt, rand2(2500, 5200), g, [[1, 1, 0.05], [1.8, 0.5, 0.04]]);
-              tt += rand2(8e-3, 0.03);
-              g *= 0.8;
-            }
-            this._nz(v, t, { n: "white", a: 5e-3, dur: 0.15, g: 0.08, flt: [{ t: "bandpass", f: 900, q: 1 }] });
-            break;
-          }
-          default:
-            this._nz(v, t, { n: "white", a: 2e-4, dur: 4e-3, g: 0.6, flt: [{ t: "highpass", f: 1800 * r, q: 0 }] });
-            this._nz(v, t, { n: "pink", a: 6e-4, dur: 0.05, g: 0.5, flt: [{ t: "bandpass", f: 1300 * r, q: 0.9 }] });
-            this._tn(v, t, { f: 160 * r, f1: 90, a: 1e-3, dur: 0.04, g: 0.25 });
-            for (let i = 0, n = 4 + (Math.random() * 3 | 0); i < n; i++) {
-              this._click(v, t + rand2(0.02, 0.2), rand2(2e3, 5e3), 0.08, 3, 6e-3);
-            }
-        }
-        this._done(v);
-      } catch (e) {
-        this._warn("playImpact", e);
-      }
-    }
-    // 玻璃碎裂：高頻爆裂 + 一連串細碎的玻璃叮噹聲，big 越大碎片聲越多越長
-    playGlassBreak(pos, big = 1) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos);
-        const v = this._voice(p, { g: 2.2, ref: 4, roll: 1.1, max: 110, wet: 0.18 });
-        const t = this._now();
-        const gl = this._pick("glass", "glass2");
-        if (gl) {
-          this._play(v, t, gl, { g: GLASS_G, rate: jit(0.06) });
-          if (big > 1.1) this._play(v, t + rand2(0.05, 0.15), gl === "glass" ? "glass2" : "glass", { g: GLASS_G * 0.6, rate: jit(0.08) });
-          this._done(v);
-          return;
-        }
-        this._nz(v, t, { n: "white", a: 3e-4, dur: 0.05, g: 0.9, flt: [{ t: "highpass", f: 2500, q: 0 }] });
-        this._nz(v, t, { n: "pink", a: 1e-3, dur: 0.12, g: 0.5, flt: [{ t: "bandpass", f: 1800, q: 0.8 }] });
-        const n = Math.round((14 + Math.random() * 10) * Math.min(1.6, big));
-        for (let i = 0; i < n; i++) this._metal(v, t + 0.01 + Math.pow(Math.random(), 1.6) * 0.6 * big, rand2(3500, 9e3), 0.05 + Math.random() * 0.06, [[1, 1, 0.03 + Math.random() * 0.05], [2.3, 0.5, 0.03]]);
-        for (let i = 0; i < 8; i++) this._click(v, t + 0.15 + Math.random() * 0.7 * big, rand2(4e3, 8e3), 0.05, 3, 5e-3);
-        this._done(v);
-      } catch (e) {
-        this._warn("playGlassBreak", e);
-      }
-    }
-    // 物件被打爛：低頻悶響 + 崩落碎屑（木頭／樹木帶斷裂聲）
-    playDestroy(pos, kind, big = 1) {
-      if (!this._ok()) return;
-      try {
-        const wood = /wood|bark|tree|board/.test(kind || "");
-        const p = this._pos(pos);
-        const v = this._voice(p, { g: 2.6, ref: 5, roll: 1, max: 130, wet: 0.25 });
-        const t = this._now();
-        if (!wood && this._play(v, t, "collapse", { g: DESTROY_G * Math.min(1.4, 0.6 + 0.4 * big), rate: clamp2(1.15 - 0.15 * big, 0.8, 1.15) * jit(0.05) })) {
-          const n2 = Math.round(8 * big);
-          for (let i = 0; i < n2; i++) this._click(v, t + 0.1 + Math.random() * 0.9 * big, rand2(800, 3500), 0.06, 3, 0.01);
-          this._done(v);
-          return;
-        }
-        this._tn(v, t, { f: wood ? 140 : 95, f1: 40, a: 2e-3, dur: 0.35 * big, g: 0.9 });
-        this._nz(v, t, { n: "pink", a: 2e-3, dur: 0.5 * big, g: 0.7, flt: [{ t: "lowpass", f: wood ? 1800 : 1200, f1: 300, sw: 0.4, q: 0 }] });
-        if (wood) this._nz(v, t, { n: "white", a: 5e-4, dur: 0.08, g: 0.7, flt: [{ t: "bandpass", f: 2400, q: 1.5 }] });
-        const n = Math.round(18 * big);
-        for (let i = 0; i < n; i++) this._click(v, t + 0.05 + Math.random() * 0.9 * big, rand2(800, 3500), 0.08, 3, 0.01);
-        this._done(v);
-      } catch (e) {
-        this._warn("playDestroy", e);
-      }
-    }
-    playRicochet(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos);
-        const v = this._voice(p, { g: 1.2, ref: 3, roll: 1, max: 100, wet: 0.15 });
-        const t = this._now(), f = rand2(2600, 4200), d = rand2(0.25, 0.5);
-        this._nz(v, t, { n: "white", a: 2e-4, dur: 4e-3, g: 0.45, flt: [{ t: "highpass", f: 3500, q: 0 }] });
-        this._tn(v, t + 4e-3, { f, f1: f * rand2(0.35, 0.55), sw: d, a: 4e-3, hold: d * 0.1, dur: d * 0.9, g: 0.3, fm: [rand2(45, 90), f * 0.025] });
-        this._tn(v, t + 4e-3, { w: "triangle", f: f * 1.5, f1: f * 0.7, sw: d * 0.8, a: 3e-3, dur: d * 0.6, g: 0.06 });
-        this._nz(v, t + 4e-3, { n: "white", a: 0.01, dur: d * 0.8, g: 0.06, flt: [{ t: "bandpass", f, f1: f * 0.45, sw: d, q: 6 }] });
-        this._done(v);
-      } catch (e) {
-        this._warn("playRicochet", e);
-      }
-    }
-    playBulletWhiz(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos);
-        const v = this._voice(p, { g: 1.8, ref: 1.5, roll: 1, max: 40, wet: 0.04 });
-        const t = this._now(), d = rand2(0.12, 0.2);
-        if (this._play(v, t, "whiz", { g: WHIZ_G, rate: jit(0.1) })) {
-          this._done(v);
-          return;
-        }
-        this._nz(v, t, { n: "white", a: 2e-4, dur: 2e-3, g: 0.35, flt: [{ t: "highpass", f: 4e3, q: 0 }] });
-        this._nz(v, t, { n: "white", a: d * 0.35, dur: d * 0.65, g: 0.45, flt: [{ t: "bandpass", f: 5200, f1: 900, sw: d, q: 2.5 }] });
-        this._tn(v, t, { f: 2e3, f1: 600, sw: d, a: d * 0.3, dur: d * 0.7, g: 0.07 });
-        this._done(v);
-      } catch (e) {
-        this._warn("playBulletWhiz", e);
-      }
-    }
-    playHitmarker(headshot, armored) {
-      if (!this._ok()) return;
-      try {
-        const v = this._voice(null, { bus: "ui", g: 1.5, wet: 0 });
-        const t = this._now();
-        if (headshot) {
-          const f = 2450 * jit(0.015);
-          this._nz(v, t, { n: "white", a: 2e-4, dur: 4e-3, g: 0.35, flt: [{ t: "highpass", f: 5e3, q: 0 }] });
-          this._metal(v, t, f, 0.3, [[1, 1, 0.5], [1.004, 0.5, 0.45], [2.76, 0.45, 0.28], [5.4, 0.22, 0.14]]);
-          this._click(v, t, 2200, 0.25, 1.5, 0.012);
-        } else {
-          this._click(v, t, 2400 * jit(0.03), 1, 1.5, 0.016);
-          this._tn(v, t, { f: 1500, f1: 1100, sw: 0.03, a: 5e-4, dur: 0.03, g: 0.4 });
-          if (armored) this._metal(v, t, 1300 * jit(0.03), 0.14, [[1, 1, 0.05], [2.1, 0.4, 0.03]]);
-          this._nz(v, t, { n: "white", a: 2e-4, dur: 3e-3, g: 0.35, flt: [{ t: "highpass", f: 6e3, q: 0 }] });
-        }
-        this._done(v);
-      } catch (e) {
-        this._warn("playHitmarker", e);
-      }
-    }
-    // 防彈衣被打穿：陶瓷板碎裂聲
-    playArmorBreak(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos), local = !p;
-        const v = this._voice(p, { g: local ? 0.9 : 1.6, ref: 3, roll: 1.1, max: 50, wet: 0.08 });
-        const t = this._now();
-        this._nz(v, t, { n: "white", a: 5e-4, dur: 0.09, g: 0.55, flt: [{ t: "bandpass", f: 3800, f1: 1600, sw: 0.08, q: 1.2 }] });
-        for (let i = 0; i < 4; i++) this._click(v, t + 0.01 + i * rand2(0.012, 0.03), rand2(2500, 5200), 0.35, 2, 0.012);
-        this._metal(v, t, 1650 * jit(0.04), 0.2, [[1, 1, 0.18], [1.48, 0.6, 0.12], [2.7, 0.35, 0.08]]);
-        this._tn(v, t, { f: 210, f1: 90, sw: 0.06, a: 1e-3, dur: 0.09, g: 0.4 });
-        this._done(v);
-      } catch (e) {
-        this._warn("playArmorBreak", e);
-      }
-    }
-    // 滑鏟：衣物與地面摩擦
-    playSlide(pos, surface) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos), local = !p;
-        const v = this._voice(p, { g: local ? 0.55 : 1.5, ref: 2.5, roll: 1.2, max: 50, wet: 0.06 });
-        const t = this._now();
-        this._nz(v, t, { n: "pink", a: 0.03, dur: 0.6, g: 0.4, flt: [{ t: "bandpass", f: 1400, f1: 500, sw: 0.6, q: 0.7 }] });
-        this._nz(v, t, { n: "white", a: 0.02, dur: 0.45, g: 0.1, flt: [{ t: "highpass", f: 3e3, q: 0 }] });
-        this._surf(v, t, surface, 0.7, 1, 0.3, 1);
-        this._done(v);
-      } catch (e) {
-        this._warn("playSlide", e);
-      }
-    }
-    playKillConfirm(headshot) {
-      if (!this._ok()) return;
-      try {
-        const v = this._voice(null, { bus: "ui", g: 0.7, wet: 0.06 });
-        const t = this._now();
-        this._tn(v, t, { f: 150, f1: 60, sw: 0.08, a: 2e-3, dur: 0.12, g: 0.45 });
-        this._click(v, t, 1800, 0.35, 1.2, 0.015);
-        this._tn(v, t, { w: "triangle", f: 1318.5, a: 3e-3, dur: 0.16, g: 0.22 });
-        this._tn(v, t + 0.07, { w: "triangle", f: 1975.5, a: 3e-3, hold: 0.03, dur: 0.26, g: 0.22 });
-        if (headshot) this._metal(v, t + 0.12, 2637, 0.2, [[1, 1, 0.55], [1.005, 0.5, 0.5], [2.76, 0.4, 0.3], [5.4, 0.18, 0.15]]);
-        this._done(v);
-      } catch (e) {
-        this._warn("playKillConfirm", e);
-      }
-    }
-    playHurt(amount) {
-      if (!this._ok()) return;
-      try {
-        const a = clamp2(num(amount, 20) / 100, 0.03, 1);
-        const v = this._voice(null, { bus: "ui", g: 0.35 + 0.5 * a, wet: 0.03 });
-        const t = this._now(), r = jit(0.05);
-        this._nz(v, t, { n: "pink", a: 2e-3, dur: 0.15, g: 0.7, flt: [{ t: "lowpass", f: 400 * r, f1: 150, sw: 0.12, q: 0 }] });
-        this._tn(v, t, { f: 85 * r, f1: 42, sw: 0.12, a: 2e-3, dur: 0.18, g: 0.6 });
-        this._nz(v, t, { n: "white", a: 1e-3, dur: 0.03, g: 0.25, flt: [{ t: "bandpass", f: 1100 * r, q: 1.2 }] });
-        this._done(v);
-        if (a >= 0.12) this._ring(a * 0.8, 0.6 + 1.4 * a);
-        if (a >= 0.25) this._muffle(0.35 + 0.5 * a, 0.5 + a);
-      } catch (e) {
-        this._warn("playHurt", e);
-      }
-    }
-    playDeath(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos), local = !p;
-        const v = this._voice(p, { g: local ? 0.7 : 1, ref: 3, roll: 1.1, max: 80, wet: 0.12 });
-        const t = this._now(), r = jit(0.06);
-        this._grunt(v, t, 150 * r, 90 * r, 0.24, 0.16);
-        const tf = t + rand2(0.28, 0.4);
-        this._tn(v, tf, { f: 80 * r, f1: 40, sw: 0.12, a: 3e-3, dur: 0.24, g: 0.7 });
-        this._nz(v, tf, { n: "pink", a: 2e-3, dur: 0.18, g: 0.55, flt: [{ t: "lowpass", f: 450 * r, q: 0 }] });
-        this._nz(v, tf, { n: "white", a: 1e-3, dur: 0.035, g: 0.2, flt: [{ t: "bandpass", f: 1500 * r, q: 1.2 }] });
-        const tg = tf + rand2(0.08, 0.15);
-        this._tn(v, tg, { f: 110 * r, f1: 70, a: 2e-3, dur: 0.07, g: 0.35 });
-        this._metal(v, tg + 0.01, rand2(1400, 2200), 0.1, [[1, 1, 0.09], [2.3, 0.6, 0.06], [3.7, 0.3, 0.04]]);
-        this._metal(v, tg + rand2(0.08, 0.16), rand2(2400, 3400), 0.05, [[1, 1, 0.05], [1.8, 0.5, 0.03]]);
-        this._done(v);
-      } catch (e) {
-        this._warn("playDeath", e);
-      }
-    }
-    playKnife(kind, result, pos) {
-      if (!this._ok()) return;
-      try {
-        const heavy = kind === "heavy";
-        const p = this._pos(pos), local = !p;
-        const v = this._voice(p, { g: local ? 0.6 : 0.9, ref: 2, roll: 1.2, max: 50, wet: 0.08 });
-        const t = this._now(), r = jit(0.06);
-        const a = heavy ? 0.11 : 0.06, dur = heavy ? 0.26 : 0.15;
-        if (!this._play(v, t, "knife", { g: KNIFE_G * (heavy ? 1.2 : 1), rate: r * (heavy ? 0.8 : 1.05) })) {
-          this._whoosh(v, t, { a, dur, g: heavy ? 0.55 : 0.45, f0: 450 * r, fp: (heavy ? 2200 : 3e3) * r, f1: 800 * r, q: 1.4 });
-          this._whoosh(v, t, { n: "white", a: a * 0.9, dur: dur * 0.7, g: 0.12, f0: 2500 * r, fp: 6e3 * r, f1: 3e3 * r, q: 2.5 });
-        }
-        const th = t + a * (heavy ? 1.1 : 0.9);
-        const hv = heavy ? 1.3 : 1;
-        if (result === "flesh") {
-          this._nz(v, th, { n: "pink", a: 2e-3, dur: 0.08, g: 0.7 * hv, flt: [{ t: "lowpass", f: 800 * r, f1: 250, sw: 0.07, q: 0 }] });
-          this._tn(v, th, { f: 130 * r, f1: 60, a: 2e-3, dur: 0.09, g: 0.5 * hv });
-          this._nz(v, th + 4e-3, { n: "white", a: 5e-3, dur: 0.05, g: 0.25, flt: [{ t: "bandpass", f: 1600 * r, q: 3 }] });
-        } else if (result === "wall") {
-          this._nz(v, th, { n: "white", a: 2e-4, dur: 4e-3, g: 0.5 * hv, flt: [{ t: "highpass", f: 2500, q: 0 }] });
-          this._metal(v, th, rand2(1300, 1800), 0.2 * hv, [[1, 1, 0.25], [2.41, 0.7, 0.18], [3.87, 0.5, 0.12], [5.3, 0.3, 0.08]]);
-          this._nz(v, th + 3e-3, { n: "white", a: 3e-3, dur: 0.06, g: 0.15, flt: [{ t: "bandpass", f: 3500, q: 2 }] });
-        }
-        this._done(v);
-      } catch (e) {
-        this._warn("playKnife", e);
-      }
-    }
-    // -------------------------------------------------------------------------
-    // 手雷
-    // -------------------------------------------------------------------------
-    playGrenadePin() {
-      if (!this._ok()) return;
-      try {
-        const v = this._voice(null, { g: 0.55, wet: 0.05 });
-        const t = this._now();
-        this._click(v, t, 4200, 0.3);
-        this._metal(v, t, rand2(3400, 3900), 0.1, [[1, 1, 0.09], [1.62, 0.6, 0.06], [2.5, 0.3, 0.04]]);
-        this._nz(v, t + 0.015, { n: "white", a: 0.01, dur: 0.05, g: 0.1, flt: [{ t: "bandpass", f: 4500, q: 3 }] });
-        this._metal(v, t + 0.08, rand2(2300, 2700), 0.08, [[1, 1, 0.12], [2.1, 0.5, 0.07]]);
-        this._metal(v, t + 0.13, rand2(2500, 2900), 0.04, [[1, 1, 0.08]]);
-        this._done(v);
-      } catch (e) {
-        this._warn("playGrenadePin", e);
-      }
-    }
-    playGrenadeThrow() {
-      if (!this._ok()) return;
-      try {
-        this._throwWhoosh(null);
-      } catch (e) {
-        this._warn("playGrenadeThrow", e);
-      }
-    }
-    playGrenadeBounce(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos);
-        const v = this._voice(p, { g: 0.8, ref: 3, roll: 1.1, max: 80, wet: 0.12 });
-        const t = this._now(), f = rand2(750, 1050);
-        this._nz(v, t, { n: "white", a: 3e-4, dur: 4e-3, g: 0.4, flt: [{ t: "highpass", f: 2500, q: 0 }] });
-        this._tn(v, t, { f: 210, f1: 120, a: 1e-3, dur: 0.05, g: 0.35 });
-        this._metal(v, t, f, 0.22, [[1, 1, 0.16], [2.14, 0.7, 0.11], [3.63, 0.45, 0.07], [5.1, 0.25, 0.05]]);
-        this._nz(v, t, { n: "pink", a: 1e-3, dur: 0.05, g: 0.3, flt: [{ t: "bandpass", f: 1200, q: 1 }] });
-        this._done(v);
-      } catch (e) {
-        this._warn("playGrenadeBounce", e);
-      }
-    }
-    playExplosion(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos), d = p ? this._dist(p) : 0;
-        const v = this._voice(p, { g: 1.25, ref: 10, roll: 0.8, max: 500, wet: 0.55, wd: 60, air: 0.6 });
-        const t = this._now(), r = jit(0.05), k = jit(0.05);
-        const ex = this._pick("explosion", "explosion2");
-        if (ex) {
-          this._play(v, t, ex, { g: EXPL_G, rate: r * 0.97 });
-          this._tn(v, t, { f: 70 * r, f1: 28, sw: 0.4, a: 4e-3, dur: 0.6, g: 0.5 });
-          this._nz(v, t + 0.02, { n: "brown", a: 0.06, dur: 2.6 * k, g: 0.45, flt: [{ t: "lowpass", f: 240, f1: 80, sw: 2.2, q: 0 }] });
-          const n2 = 10 + (Math.random() * 6 | 0);
-          for (let i = 0; i < n2; i++) {
-            const dt = 0.15 + 1.6 * Math.pow(Math.random(), 1.7);
-            this._click(v, t + dt, rand2(1200, 6e3), 0.12 * (1 - dt / 2) * rand2(0.4, 1), 3, rand2(8e-3, 0.03));
-          }
-          this._done(v);
-          if (p && d < 12) {
-            const s = 1 - d / 12;
-            this._muffle(0.55 + 0.45 * s, 1.5 + 2.5 * s);
-            this._ring(0.35 + 0.65 * s, 2 + 2.5 * s);
-          }
-          return;
-        }
-        const drv = this._drive(v, 2.2, 0.75);
-        this._nz(v, t, { n: "white", a: 4e-4, dur: 0.012, g: 0.7, flt: [{ t: "highpass", f: 1500 * r, q: 0 }] });
-        this._tn(v, t, { f: 95 * r, f1: 28, sw: 0.45 * k, a: 3e-3, dur: 0.8 * k, g: 1, to: drv });
-        this._tn(v, t, { w: "triangle", f: 62 * r, f1: 30, sw: 0.3, a: 4e-3, dur: 0.55, g: 0.45, to: drv });
-        this._nz(v, t, { n: "pink", a: 2e-3, dur: 0.95 * k, g: 1, flt: [{ t: "lowpass", f: 5200 * r, f1: 260, sw: 0.7, q: 0 }], to: drv });
-        this._nz(v, t, { n: "white", a: 1e-3, dur: 0.35 * k, g: 0.45, flt: [{ t: "bandpass", f: 950 * r, q: 0.8 }], to: drv });
-        this._nz(v, t + 0.02, { n: "brown", a: 0.06, dur: 2.6 * k, g: 0.55, flt: [{ t: "lowpass", f: 240, f1: 80, sw: 2.2, q: 0 }] });
-        for (const [dt, eg] of [[0.21, 0.22], [0.47, 0.13], [0.9, 0.06]]) {
-          this._nz(v, t + dt * jit(0.1), { n: "pink", a: 0.01, dur: 0.35, g: eg, flt: [{ t: "lowpass", f: 1100, q: 0 }, { t: "highpass", f: 120, q: 0 }] });
-        }
-        const n = 16 + (Math.random() * 8 | 0);
-        for (let i = 0; i < n; i++) {
-          const dt = 0.08 + 1.6 * Math.pow(Math.random(), 1.7);
-          const gg = 0.12 * (1 - dt / 2) * rand2(0.4, 1);
-          if (Math.random() < 0.55) this._metal(v, t + dt, rand2(1600, 5200), gg, [[1, 1, rand2(0.03, 0.08)], [1.71, 0.5, 0.03]]);
-          else this._click(v, t + dt, rand2(1200, 6e3), gg * 1.5, 3, rand2(8e-3, 0.03));
-        }
-        this._done(v);
-        if (p && d < 12) {
-          const s = 1 - d / 12;
-          this._muffle(0.55 + 0.45 * s, 1.5 + 2.5 * s);
-          this._ring(0.35 + 0.65 * s, 2 + 2.5 * s);
-        }
-      } catch (e) {
-        this._warn("playExplosion", e);
-      }
-    }
-    // -------------------------------------------------------------------------
-    // 武器操作
-    // -------------------------------------------------------------------------
-    playWeaponSwitch(weaponId) {
-      if (!this._ok()) return;
-      try {
-        const v = this._voice(null, { g: 0.42, wet: 0.05 });
-        const t = this._now(), fm = (WEIGHT[weaponId] || 1) * jit(0.04);
-        this._nz(v, t, { n: "pink", a: 0.03, dur: 0.12, g: 0.18, flt: [{ t: "bandpass", f: 1600, q: 0.7 }] });
-        switch (weaponId) {
-          case "knife":
-            this._nz(v, t + 0.03, { n: "white", a: 0.06, dur: 0.14, g: 0.18, flt: [{ t: "bandpass", f: 2800, f1: 7500, sw: 0.18, q: 4 }] });
-            this._metal(v, t + 0.17, rand2(4800, 5600), 0.07, [[1, 1, 0.35], [1.43, 0.6, 0.25], [2.2, 0.3, 0.15]]);
-            break;
-          case "grenade":
-            this._metal(v, t + 0.06, 3e3, 0.08, [[1, 1, 0.06], [1.6, 0.5, 0.04]]);
-            this._tn(v, t + 0.06, { f: 220, f1: 140, a: 2e-3, dur: 0.04, g: 0.15 });
-            break;
-          case "awm":
-            this._tn(v, t + 0.07, { f: 150, f1: 90, a: 2e-3, dur: 0.08, g: 0.35 });
-            this._click(v, t + 0.07, 1700, 0.45, 1.3, 0.025);
-            this._metal(v, t + 0.07, 1600, 0.09, [[1, 1, 0.09], [2.2, 0.5, 0.06]]);
-            this._click(v, t + 0.2, 2600, 0.3);
-            break;
-          case "deagle":
-            this._click(v, t + 0.05, 2600, 0.45, 2, 0.015);
-            this._metal(v, t + 0.05, 2400, 0.1, [[1, 1, 0.06], [1.55, 0.5, 0.04]]);
-            this._click(v, t + 0.13, 3400, 0.3);
-            break;
-          default:
-            this._click(v, t + 0.05, 2200 * fm, 0.45, 2, 0.012);
-            this._tn(v, t + 0.05, { f: 180 * fm, f1: 110, a: 2e-3, dur: 0.045, g: 0.2 });
-            this._click(v, t + 0.14, 3e3 * fm, 0.35);
-            this._metal(v, t + 0.14, 2600 * fm, 0.07, [[1, 1, 0.06], [1.5, 0.5, 0.04]]);
-        }
-        this._done(v);
-      } catch (e) {
-        this._warn("playWeaponSwitch", e);
-      }
-    }
-    playScope(zoomIn) {
-      if (!this._ok()) return;
-      try {
-        const up = zoomIn !== false;
-        const v = this._voice(null, { g: 0.45, wet: 0 });
-        const t = this._now();
-        this._nz(v, t, { n: "white", a: 3e-4, dur: 6e-3, g: 0.4, flt: [{ t: "highpass", f: 3500, q: 0 }] });
-        this._nz(v, t + 5e-3, { n: "white", a: 0.012, dur: 0.08, g: 0.12, flt: [{ t: "bandpass", f: up ? 1200 : 3400, f1: up ? 3400 : 1200, sw: 0.09, q: 3 }] });
-        this._metal(v, t + (up ? 0.07 : 0.04), up ? 4600 : 3800, 0.04, [[1, 1, 0.05], [1.6, 0.5, 0.03]]);
-        this._tn(v, t, { f: up ? 180 : 140, f1: up ? 120 : 90, a: 2e-3, dur: 0.05, g: 0.12 });
-        this._done(v);
-      } catch (e) {
-        this._warn("playScope", e);
-      }
-    }
-    playShellDrop(pos) {
-      if (!this._ok()) return;
-      try {
-        const p = this._pos(pos), local = !p;
-        const v = this._voice(p, { g: local ? 0.28 : 0.6, ref: 1.5, roll: 1.4, max: 30, wet: 0.06 });
-        let t = this._now() + rand2(0.3, 0.6);
-        if (this._play(v, t, "shell", { g: SHELL_G, rate: jit(0.08) })) {
-          this._done(v);
-          return;
-        }
-        const f = rand2(3300, 4600), n = 2 + (Math.random() * 3 | 0);
-        let gap = rand2(0.07, 0.11), amp = 1;
-        for (let i = 0; i < n; i++) {
-          this._nz(v, t, { n: "white", a: 2e-4, dur: 3e-3, g: 0.3 * amp, flt: [{ t: "highpass", f: 5e3, q: 0 }] });
-          this._metal(v, t, f * jit(0.02), 0.35 * amp, [[1, 1, 0.1 * amp + 0.03], [1.58, 0.6, 0.07], [2.43, 0.35, 0.05], [3.66, 0.2, 0.03]]);
-          t += gap;
-          gap *= rand2(0.55, 0.7);
-          amp *= rand2(0.45, 0.6);
-        }
-        this._nz(v, t, { n: "white", a: 0.02, dur: 0.12, g: 0.03, flt: [{ t: "bandpass", f: 5200, q: 4 }] });
-        this._done(v);
-      } catch (e) {
-        this._warn("playShellDrop", e);
-      }
-    }
-    // -------------------------------------------------------------------------
-    // UI / 播報
-    // -------------------------------------------------------------------------
-    playUI(kind) {
-      if (!this._ok()) return;
-      try {
-        const v = this._voice(null, { bus: "ui", g: 1.1, wet: kind === "roundEnd" || kind === "start" ? 0.12 : 0 });
-        const t = this._now();
-        switch (kind) {
-          case "hover":
-            this._tn(v, t, { f: 2300, a: 2e-3, dur: 0.03, g: 0.12 });
-            break;
-          case "buy":
-            this._nz(v, t, { n: "white", a: 5e-4, dur: 0.01, g: 0.25, flt: [{ t: "highpass", f: 3e3, q: 0 }] });
-            this._tn(v, t, { w: "triangle", f: 1046.5, a: 3e-3, dur: 0.09, g: 0.3 });
-            this._tn(v, t + 0.07, { w: "triangle", f: 1568, a: 3e-3, dur: 0.22, g: 0.3 });
-            this._metal(v, t + 0.07, 3136, 0.06, [[1, 1, 0.2], [2.7, 0.4, 0.1]]);
-            break;
-          case "start": {
-            const notes = [523.25, 659.25, 783.99, 1046.5];
-            notes.forEach((f, i) => {
-              const last = i === notes.length - 1;
-              this._tn(v, t + i * 0.075, { w: "sawtooth", f, a: 5e-3, hold: last ? 0.15 : 0.03, dur: last ? 0.5 : 0.14, g: 0.12, flt: [{ t: "lowpass", f: 1500, f1: 4500, sw: 0.3, q: 2 }] });
-              this._tn(v, t + i * 0.075, { w: "square", f: f * 0.5, a: 5e-3, hold: last ? 0.15 : 0.03, dur: last ? 0.5 : 0.14, g: 0.04, flt: [{ t: "lowpass", f: 1800, q: 0 }] });
-            });
-            this._tn(v, t, { f: 110, f1: 55, a: 3e-3, dur: 0.2, g: 0.35 });
-            break;
-          }
-          case "countdown":
-            this._tn(v, t, { w: "square", f: 880, a: 2e-3, hold: 0.06, dur: 0.1, g: 0.12, flt: [{ t: "lowpass", f: 3e3, q: 0 }] });
-            this._tn(v, t, { f: 1760, a: 2e-3, hold: 0.04, dur: 0.08, g: 0.06 });
-            break;
-          case "roundEnd": {
-            for (const f of [659.25, 783.99, 987.77]) this._tn(v, t, { w: "triangle", f, a: 4e-3, dur: 0.25, g: 0.12 });
-            for (const f of [523.25, 659.25, 783.99, 1046.5]) {
-              this._tn(v, t + 0.22, { w: "triangle", f, a: 6e-3, hold: 0.35, dur: 0.9, g: 0.12 });
-              this._tn(v, t + 0.22, { w: "sawtooth", f: f * 0.5, a: 0.01, hold: 0.3, dur: 0.8, g: 0.03, flt: [{ t: "lowpass", f: 1400, q: 0 }] });
-            }
-            break;
-          }
-          default:
-            this._tn(v, t, { f: 1500, f1: 1e3, sw: 0.03, a: 1e-3, dur: 0.035, g: 0.45 });
-            this._nz(v, t, { n: "white", a: 3e-4, dur: 4e-3, g: 0.3, flt: [{ t: "highpass", f: 4e3, q: 0 }] });
-        }
-        this._done(v);
-      } catch (e) {
-        this._warn("playUI", e);
-      }
-    }
-    announce(text) {
-      if (!this._ok()) return;
-      try {
-        const s = String(text == null ? "" : text).trim();
-        this._badge(s);
-        if (!s || this._offline) return;
-        if (typeof setTimeout === "function") setTimeout(() => this._speak(s), 130);
-        else this._speak(s);
-      } catch (e) {
-        this._warn("announce", e);
-      }
-    }
-    // -------------------------------------------------------------------------
-    // 迴圈結構：心跳 / 環境音
-    // -------------------------------------------------------------------------
-    setLowHealth(on) {
-      if (!this._ok()) return;
-      try {
-        on = !!on;
-        const c = this.ctx, now = c.currentTime;
-        if (!this._hbGain) {
-          this._hbGain = c.createGain();
-          this._hbGain.gain.value = 0;
-          this._hbGain.connect(this._sfx);
-        }
-        if (on === this._hbOn) return;
-        this._hbOn = on;
-        const g = this._hbGain.gain;
-        g.cancelScheduledValues(now);
-        g.setValueAtTime(g.value, now);
-        if (on) {
-          g.linearRampToValueAtTime(1, now + 0.3);
-          if (this._hbNext < now + 0.02) this._hbNext = now + 0.05;
-          this._tick();
-        } else {
-          g.linearRampToValueAtTime(0, now + 0.9);
-        }
-      } catch (e) {
-        this._warn("setLowHealth", e);
-      }
-    }
-    startAmbient() {
-      if (!this._ok()) return;
-      try {
-        const c = this.ctx, now = c.currentTime;
-        const cur = this._amb;
-        if (cur) {
-          if (cur.stopping) {
-            cur.stopping = false;
-            clearTimeout(cur.timer);
-            const g = cur.out.gain;
-            g.cancelScheduledValues(now);
-            g.setValueAtTime(g.value, now);
-            g.linearRampToValueAtTime(1, now + 1.5);
-          }
-          return;
-        }
-        const a = { srcs: [], nodes: [], stopping: false, timer: 0 };
-        const node = (n) => (a.nodes.push(n), n);
-        const gain = (val) => {
-          const g = node(c.createGain());
-          g.gain.value = val;
-          return g;
-        };
-        const biq = (type, f, q) => {
-          const b = node(c.createBiquadFilter());
-          b.type = type;
-          b.frequency.value = f;
-          b.Q.value = q;
-          return b;
-        };
-        const pan = (x) => {
-          if (!c.createStereoPanner) return gain(1);
-          const p = node(c.createStereoPanner());
-          p.pan.value = x;
-          return p;
-        };
-        const loop = (kind, rate = 1) => {
-          const s = c.createBufferSource();
-          s.buffer = this._bank[kind];
-          s.loop = true;
-          s.playbackRate.value = rate;
-          s.start(now, Math.random() * (s.buffer.duration - 0.1));
-          a.srcs.push(s);
-          return s;
-        };
-        const osc = (type, f) => {
-          const o = c.createOscillator();
-          o.type = type;
-          o.frequency.value = f;
-          o.start(now);
-          a.srcs.push(o);
-          return o;
-        };
-        const lfo = (f, depth, param) => {
-          const o = osc("sine", f);
-          o.frequency.value = f;
-          const g = gain(depth);
-          o.connect(g);
-          g.connect(param);
-          return o;
-        };
-        const out = gain(0);
-        out.connect(this._ambBus);
-        out.gain.setValueAtTime(0, now);
-        out.gain.linearRampToValueAtTime(1, now + 3);
-        a.out = out;
-        for (const side of [-0.65, 0.65]) {
-          const s = loop("brown", rand2(0.85, 1.15));
-          const lp = biq("lowpass", rand2(550, 750), 0);
-          const g = gain(0.1);
-          lfo(rand2(0.055, 0.1), 0.065, g.gain);
-          lfo(rand2(0.04, 0.08), 300, lp.frequency);
-          const p = pan(side);
-          s.connect(lp);
-          lp.connect(g);
-          g.connect(p);
-          p.connect(out);
-        }
-        {
-          const s = loop("pink");
-          const bp = biq("bandpass", 1300, 0.6);
-          const g = gain(0.03);
-          lfo(0.083, 0.025, g.gain);
-          s.connect(bp);
-          bp.connect(g);
-          g.connect(out);
-        }
-        {
-          const s = loop("pink", 0.9);
-          const bp = biq("bandpass", 520, 1.1);
-          const g = gain(0.06);
-          lfo(0.047, 110, bp.frequency);
-          lfo(0.031, 0.02, g.gain);
-          const p = pan(0);
-          if (p.pan) lfo(0.023, 0.5, p.pan);
-          s.connect(bp);
-          bp.connect(g);
-          g.connect(p);
-          p.connect(out);
-          a.windG = g;
-          a.windBP = bp;
-          a.windBase = 0.06;
-          a.windF = 520;
-        }
-        {
-          const f0 = rand2(46, 52);
-          const eng = gain(0.05);
-          const lp = biq("lowpass", 260, 0);
-          eng.connect(lp);
-          lp.connect(out);
-          const j1 = osc("sine", 0.17), j2 = osc("sine", 0.43);
-          for (const [type, h, amp] of [["sine", 1, 0.55], ["sine", 2.003, 0.35], ["triangle", 3, 0.16], ["sine", 4.01, 0.08], ["sawtooth", 0.5, 0.1]]) {
-            const o = osc(type, f0 * h);
-            const jg1 = gain(0.35 * h), jg2 = gain(0.2 * h);
-            j1.connect(jg1);
-            jg1.connect(o.frequency);
-            j2.connect(jg2);
-            jg2.connect(o.frequency);
-            const g = gain(amp);
-            o.connect(g);
-            g.connect(eng);
-          }
-          lfo(f0 / 4.5, 0.012, eng.gain);
-          const s = loop("brown", 0.7);
-          const rl = biq("lowpass", 90, 0);
-          const rg = gain(0.5);
-          s.connect(rl);
-          rl.connect(rg);
-          rg.connect(eng);
-        }
-        a.nGust = now + rand2(3, 8);
-        a.nGull = now + rand2(3, 9);
-        a.nCreak = now + rand2(6, 15);
-        a.nSplash = now + rand2(2, 6);
-        a.nHorn = now + rand2(30, 70);
-        this._amb = a;
-      } catch (e) {
-        this._warn("startAmbient", e);
-      }
-    }
-    stopAmbient() {
-      if (!this._ok()) return;
-      try {
-        const a = this._amb;
-        if (!a || a.stopping) return;
-        a.stopping = true;
-        const now = this.ctx.currentTime, g = a.out.gain;
-        g.cancelScheduledValues(now);
-        g.setValueAtTime(g.value, now);
-        g.linearRampToValueAtTime(0, now + 1.5);
-        const kill = () => {
-          if (!a.stopping) return;
-          for (const s of a.srcs) {
-            try {
-              s.stop();
-            } catch (_) {
-            }
-            try {
-              s.disconnect();
-            } catch (_) {
-            }
-          }
-          for (const n of a.nodes) try {
-            n.disconnect();
-          } catch (_) {
-          }
-          a.srcs.length = 0;
-          a.nodes.length = 0;
-          if (this._amb === a) this._amb = null;
-        };
-        if (typeof setTimeout === "function") a.timer = setTimeout(kill, 1700);
-        else kill();
-      } catch (e) {
-        this._warn("stopAmbient", e);
-      }
-    }
-    update(dt) {
-      if (!this._ok()) return;
-      this._tick();
-    }
-    // =========================================================================
-    // 內部實現
-    // =========================================================================
-    _ok() {
-      return !!this.ctx && this.ctx.state !== "closed";
-    }
-    // 解碼內嵌的錄音；解碼完成前（或失敗時）各音效自動退回合成音
-    _loadSamples() {
-      this._smp = {};
-      for (const [k, u8] of Object.entries(SFX)) {
+      const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+      if (!context && !AC) return false;
+      this.ctx = context || new AC({ latencyHint: "interactive" });
+      const c = this.ctx;
+      this.master = c.createGain();
+      this.sfx = c.createGain();
+      this.world = c.createBiquadFilter();
+      this.world.type = "lowpass";
+      this.world.frequency.value = 2e4;
+      this.compressor = c.createDynamicsCompressor();
+      this.world.connect(this.sfx);
+      this.sfx.connect(this.compressor);
+      this.compressor.connect(this.master);
+      this.master.connect(c.destination);
+      this.setVolumes(this.vol);
+      this.ready = true;
+      this.loading = Promise.all(Object.entries(SFX).map(async ([name, bytes]) => {
         try {
-          const ab = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
-          const done = (buf) => {
-            const d = buf.getChannelData(0);
-            let i = 0;
-            while (i < d.length && Math.abs(d[i]) < 3e-3) i++;
-            this._smp[k] = { buf, off: Math.max(0, i - 32) / buf.sampleRate };
-          };
-          const pr = this.ctx.decodeAudioData(ab, done, () => {
-          });
-          if (pr && pr.catch) pr.catch(() => {
-          });
+          const buffer = await c.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+          let i = 0;
+          const channels = Array.from({ length: buffer.numberOfChannels }, (_, k) => buffer.getChannelData(k));
+          while (i < buffer.length && channels.every((ch) => Math.abs(ch[i]) < 3e-3)) i++;
+          this.samples[name] = { buffer, offset: Math.max(0, i - 32) / buffer.sampleRate };
         } catch (e) {
-          this._warn("decode " + k, e);
+          console.warn("\u97F3\u6548\u89E3\u78BC\u5931\u6557\uFF1A" + name, e);
         }
-      }
-    }
-    _has(name) {
-      return !!(this._smp && this._smp[name]);
-    }
-    // 從候選中隨機挑一個已載入的錄音
-    _pick(...names) {
-      const ok = names.filter((n) => this._has(n));
-      return ok.length ? ok[Math.random() * ok.length | 0] : null;
-    }
-    // 在 voice 上播放一段錄音。o: {g, rate, off, dur, to}；沒有這段錄音時回傳 false
-    _play(v, t, name, o = {}) {
-      const S = name && this._smp && this._smp[name];
-      if (!S) return false;
-      const c = this.ctx, src = c.createBufferSource();
-      src.buffer = S.buf;
-      const rate = num(o.rate, 1);
-      src.playbackRate.value = rate;
-      const g = c.createGain();
-      g.gain.value = num(o.g, 1) * (NG[name] ?? 1);
-      src.connect(g);
-      g.connect(o.to || v.input);
-      v.nodes.push(g);
-      const off = S.off + num(o.off, 0), dur = Math.max(0.01, Math.min(S.buf.duration - off, num(o.dur, 1e9)));
-      src.start(t, off, dur);
-      this._track(v, src, t + dur / rate);
+      }));
+      if (c.state === "suspended") c.resume().catch(() => {
+      });
       return true;
     }
-    _now() {
-      return this.ctx.currentTime + LOOKAHEAD;
-    }
-    _warn(where, e) {
-      if (this._warned.has(where)) return;
-      this._warned.add(where);
-      try {
-        console.warn("[audio] " + where + " \u5931\u6557:", e);
-      } catch (_) {
+    setVolumes(v) {
+      for (const k of Object.keys(this.vol)) if (Number.isFinite(v?.[k])) this.vol[k] = clamp2(v[k], 0, 1);
+      if (this.ctx) {
+        this.master.gain.value = this.vol.master;
+        this.sfx.gain.value = this.vol.sfx;
       }
     }
-    _resume() {
-      const c = this.ctx;
-      if (!c || this._offline) return;
-      if ((c.state === "suspended" || c.state === "interrupted") && c.resume) {
-        try {
-          const pr = c.resume();
-          if (pr && pr.catch) pr.catch(() => {
-          });
-        } catch (_) {
-        }
+    setListener(p, forward, up) {
+      if (p) this.listener = { x: p.x, y: p.y, z: p.z };
+      if (!this.ctx) return;
+      const l = this.ctx.listener;
+      if (l.positionX) {
+        for (const a of ["x", "y", "z"]) l["position" + a.toUpperCase()].value = this.listener[a];
+        if (forward) for (const a of ["x", "y", "z"]) l["forward" + a.toUpperCase()].value = forward[a];
+        if (up) for (const a of ["x", "y", "z"]) l["up" + a.toUpperCase()].value = up[a];
+      } else {
+        l.setPosition(this.listener.x, this.listener.y, this.listener.z);
+        if (forward && up) l.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
       }
     }
-    _build() {
-      const c = this.ctx;
-      this._bank = getBank(c);
-      this._tanh = tanhCurve();
-      const clipIn = c.createGain();
-      clipIn.gain.value = 0.5;
-      const clip = c.createWaveShaper();
-      clip.curve = softClipCurve();
-      clipIn.connect(clip);
-      clip.connect(c.destination);
-      const master = c.createGain();
-      master.connect(clipIn);
-      const comp = c.createDynamicsCompressor();
-      comp.threshold.value = -10;
-      comp.knee.value = 8;
-      comp.ratio.value = 5;
-      comp.attack.value = 2e-3;
-      comp.release.value = 0.18;
-      comp.connect(master);
-      const premix = c.createGain();
-      premix.connect(comp);
-      const sfx = c.createGain();
-      sfx.connect(premix);
-      const muf = c.createBiquadFilter();
-      muf.type = "lowpass";
-      muf.frequency.value = this._fq(2e4);
-      muf.Q.value = -3;
-      muf.connect(sfx);
-      const world = c.createGain();
-      world.connect(muf);
-      const amb = c.createGain();
-      amb.connect(premix);
-      const voice = c.createGain();
-      voice.connect(premix);
-      const conv = c.createConvolver();
-      conv.normalize = true;
-      conv.buffer = this._bank.ir;
-      const revIn = c.createGain();
-      const revOut = c.createGain();
-      revOut.gain.value = 0.6;
-      revIn.connect(conv);
-      conv.connect(revOut);
-      revOut.connect(premix);
-      const sfxSend = c.createGain();
-      sfxSend.connect(revIn);
-      const ambSend = c.createGain();
-      ambSend.connect(revIn);
-      Object.assign(this, {
-        _clipIn: clipIn,
-        _clip: clip,
-        _master: master,
-        _comp: comp,
-        _premix: premix,
-        _sfx: sfx,
-        _muf: muf,
-        _world: world,
-        _ambBus: amb,
-        _voiceBus: voice,
-        _conv: conv,
-        _revIn: revIn,
-        _revOut: revOut,
-        _sfxSend: sfxSend,
-        _ambSend: ambSend
-      });
-      this._applyVolumes(true);
-    }
-    _applyVolumes(immediate) {
-      const v = this._vol, t = this.ctx.currentTime;
-      const set = (node, val) => {
-        if (!node) return;
-        if (immediate) node.gain.value = val;
-        else {
-          node.gain.cancelScheduledValues(t);
-          node.gain.setTargetAtTime(val, t, 0.03);
-        }
-      };
-      set(this._master, v.master);
-      set(this._sfx, v.sfx);
-      set(this._sfxSend, v.sfx);
-      set(this._ambBus, v.ambient);
-      set(this._ambSend, v.ambient);
-      set(this._voiceBus, v.voice);
-    }
-    _fq(f) {
-      return clamp2(f, 10, this.ctx.sampleRate * 0.49);
-    }
-    _pos(p) {
-      if (!p || typeof p !== "object") return null;
-      const L = this._L;
-      return { x: num(p.x, L.x), y: num(p.y, L.y), z: num(p.z, L.z) };
-    }
-    _dist(p) {
-      const L = this._L;
-      return Math.hypot(p.x - L.x, p.y - L.y, p.z - L.z);
-    }
-    // 距離 → 空氣吸收低通截止頻率（保留足夠中高頻以便 HRTF 判向）
-    _airCut(d, air = 1) {
-      return this._fq(clamp2(2e4 / (1 + d * air / 14), 1600, 2e4));
-    }
-    /**
-     * 建立一個 voice：layers 接入 v.input。
-     * pos=null：非空間化直連匯流排；否則 lowpass(距離) → HRTF Panner → 匯流排。
-     * o: {g, bus:'world'|'ui'|'ambient'|'voice', dest, ref, roll, max, wet, wd, hrtf, air, dist, pool}
-     */
-    _voice(pos, o) {
-      const c = this.ctx;
-      const pool = o.pool !== false;
-      const dist = pos ? num(o.dist, this._dist(pos)) : 0;
-      if (pool) this._reserve(dist);
-      const v = { t0: c.currentTime, end: 0, dist, src: [], nodes: [], pending: 0, dead: false };
-      const input = c.createGain();
-      input.gain.value = num(o.g, 1);
-      v.input = input;
-      v.nodes.push(input);
-      const bus = o.dest || (o.bus === "ambient" ? this._ambBus : o.bus === "voice" ? this._voiceBus : o.bus === "ui" ? this._sfx : this._world);
-      const send = o.bus === "ambient" ? this._ambSend : this._sfxSend;
-      let tap = input;
+    play(name, pos, { gain = 1, rate = 1, delay = 0, duration, offset = 0, ui = false } = {}) {
+      if (!this.ctx) return;
+      const sample = this.samples[name];
+      if (!sample) return;
+      if (pos && Math.hypot(pos.x - this.listener.x, pos.y - this.listener.y, pos.z - this.listener.z) > 250) return;
+      while (this.active.length >= 48) this.active.shift().stop();
+      const c = this.ctx, source = c.createBufferSource(), g = c.createGain(), nodes = [source, g];
+      source.buffer = sample.buffer;
+      source.playbackRate.value = rate;
+      g.gain.value = gain;
+      source.connect(g);
+      let out = g;
       if (pos) {
-        const lp = c.createBiquadFilter();
-        lp.type = "lowpass";
-        lp.frequency.value = this._airCut(dist, o.air);
-        lp.Q.value = 0;
-        const pn = c.createPanner();
-        pn.panningModel = o.hrtf === false ? "equalpower" : "HRTF";
-        pn.distanceModel = "inverse";
-        pn.refDistance = num(o.ref, 2);
-        pn.rolloffFactor = num(o.roll, 1);
-        pn.maxDistance = num(o.max, 200);
-        if (pn.positionX) {
-          pn.positionX.value = pos.x;
-          pn.positionY.value = pos.y;
-          pn.positionZ.value = pos.z;
-        } else pn.setPosition(pos.x, pos.y, pos.z);
-        input.connect(lp);
-        lp.connect(pn);
-        pn.connect(bus);
-        v.nodes.push(lp, pn);
-        tap = lp;
-      } else input.connect(bus);
-      let wet = num(o.wet, 0.12);
-      if (pos) wet /= 1 + dist / num(o.wd, 40);
-      if (wet > 1e-3 && send) {
-        const sg = c.createGain();
-        sg.gain.value = wet;
-        tap.connect(sg);
-        sg.connect(send);
-        v.nodes.push(sg);
+        const pan = c.createPanner();
+        pan.panningModel = "HRTF";
+        pan.distanceModel = "inverse";
+        pan.refDistance = 4;
+        pan.rolloffFactor = 1;
+        pan.maxDistance = 250;
+        pan.setPosition(pos.x, pos.y, pos.z);
+        out.connect(pan);
+        out = pan;
+        nodes.push(pan);
       }
-      if (pool) this.voices.push(v);
-      return v;
-    }
-    // 超出上限時：優先丟棄比新聲音更遠的最遠 voice，否則丟棄最舊的
-    _reserve(d) {
-      const vs = this.voices;
-      while (vs.length >= this.maxVoices) {
-        let fi = -1, far = -1;
-        for (let i = 0; i < vs.length; i++) {
-          if (vs[i].dist > far) {
-            far = vs[i].dist;
-            fi = i;
-          }
-        }
-        this._kill(far > d ? vs[fi] : vs[0]);
-      }
-    }
-    _kill(v) {
-      const now = this.ctx.currentTime;
-      try {
-        const g = v.input.gain;
-        g.cancelScheduledValues(now);
-        g.setValueAtTime(g.value, now);
-        g.linearRampToValueAtTime(0, now + 0.02);
-      } catch (_) {
-      }
-      for (const s of v.src) {
-        try {
-          s.stop(now + 0.03);
-        } catch (_) {
-        }
-      }
-      const i = this.voices.indexOf(v);
-      if (i >= 0) this.voices.splice(i, 1);
-      if (!v.src.length) this._free(v);
-    }
-    _track(v, s, end) {
-      v.pending++;
-      v.src.push(s);
-      if (end > v.end) v.end = end;
-      s.onended = () => {
-        try {
-          s.disconnect();
-        } catch (_) {
-        }
-        if (--v.pending <= 0) this._free(v);
-      };
-    }
-    _done(v) {
-      if (v.pending <= 0) this._free(v);
-    }
-    // 斷開 voice 全部節點，便於 GC
-    _free(v) {
-      if (v.dead) return;
-      v.dead = true;
-      for (const n of v.nodes) try {
-        n.disconnect();
-      } catch (_) {
-      }
-      v.nodes.length = 0;
-      v.src.length = 0;
-      const i = this.voices.indexOf(v);
-      if (i >= 0) this.voices.splice(i, 1);
-    }
-    // 包絡：線性起音 → (保持) → 指數衰減到 -60dB
-    _env(p, t, a, d, peak, hold) {
-      peak = Math.max(peak, 1e-5);
-      a = Math.max(a, 2e-4);
-      p.setValueAtTime(0, t);
-      p.linearRampToValueAtTime(peak, t + a);
-      let e = t + a;
-      if (hold > 0) {
-        e += hold;
-        p.setValueAtTime(peak, e);
-      }
-      e += Math.max(d, 2e-3);
-      p.exponentialRampToValueAtTime(peak * 1e-3, e);
-      p.linearRampToValueAtTime(0, e + 4e-3);
-      return e + 4e-3;
-    }
-    // 濾波器：{t:type, f, q, f1, sw, path:[[dt,f],...]}
-    _flt(v, sp, t) {
-      const b = this.ctx.createBiquadFilter();
-      b.type = sp.t;
-      const fr = b.frequency;
-      fr.setValueAtTime(this._fq(sp.f), t);
-      if (sp.path) for (const [dt, f] of sp.path) fr.exponentialRampToValueAtTime(this._fq(f), t + dt);
-      else if (sp.f1) fr.exponentialRampToValueAtTime(this._fq(sp.f1), t + (sp.sw || 0.1));
-      if (sp.q != null) b.Q.value = sp.q;
-      v.nodes.push(b);
-      return b;
-    }
-    // 噪聲層：複用預生成 buffer，隨機 offset
-    _nz(v, t, o) {
-      const c = this.ctx;
-      const s = c.createBufferSource();
-      s.buffer = this._bank[o.n || "white"];
-      const rate = o.rate || 1;
-      if (rate !== 1) s.playbackRate.value = rate;
-      let last = s;
-      if (o.flt) for (const sp of o.flt) {
-        const b = this._flt(v, sp, t);
-        last.connect(b);
-        last = b;
-      }
-      const g = c.createGain();
-      const end = this._env(g.gain, t, num(o.a, 1e-3), o.dur, num(o.g, 1), o.hold || 0);
-      last.connect(g);
-      g.connect(o.to || v.input);
-      v.nodes.push(g);
-      const len = end - t + 0.015;
-      const bd = s.buffer.duration;
-      if (len * rate > bd - 0.02) s.loop = true;
-      const off = Math.random() * Math.max(0, bd - len * rate - 0.02);
-      s.start(t, off);
-      s.stop(t + len);
-      this._track(v, s, t + len);
-      return g;
-    }
-    // 振盪器層：{w, f, f1, sw, path, det, fm:[rate, depth], flt, a, dur, hold, g, to}
-    _tn(v, t, o) {
-      const c = this.ctx;
-      const osc = c.createOscillator();
-      osc.type = o.w || "sine";
-      const fr = osc.frequency;
-      fr.setValueAtTime(this._fq(o.f), t);
-      if (o.path) for (const [dt, f] of o.path) fr.exponentialRampToValueAtTime(this._fq(f), t + dt);
-      else if (o.f1) fr.exponentialRampToValueAtTime(this._fq(o.f1), t + (o.sw || o.dur));
-      if (o.det) osc.detune.value = o.det;
-      let last = osc;
-      if (o.flt) for (const sp of o.flt) {
-        const b = this._flt(v, sp, t);
-        last.connect(b);
-        last = b;
-      }
-      const g = c.createGain();
-      const end = this._env(g.gain, t, num(o.a, 2e-3), o.dur, num(o.g, 1), o.hold || 0) + 0.01;
-      last.connect(g);
-      g.connect(o.to || v.input);
-      v.nodes.push(g);
-      osc.start(t);
-      osc.stop(end);
-      this._track(v, osc, end);
-      if (o.fm) {
-        const m = c.createOscillator();
-        m.frequency.value = o.fm[0];
-        const mg = c.createGain();
-        mg.gain.value = o.fm[1];
-        m.connect(mg);
-        mg.connect(fr);
-        v.nodes.push(mg);
-        m.start(t);
-        m.stop(end);
-        this._track(v, m, end);
-      }
-      return g;
-    }
-    // 金屬非諧波泛音組：parts = [[頻率比, 相對幅度, 衰減時長], ...]
-    _metal(v, t, f, g, parts, to) {
-      for (const [ratio, amp, dec] of parts) this._tn(v, t, { f: f * ratio, a: 6e-4, dur: dec, g: g * amp, to });
-    }
-    _click(v, t, f, g, q = 2.5, dur = 0.01) {
-      this._nz(v, t, { n: "white", a: 3e-4, dur, g, flt: [{ t: "bandpass", f, q }] });
-    }
-    _whoosh(v, t, o) {
-      this._nz(v, t, { n: o.n || "pink", a: o.a, dur: o.dur, g: o.g, flt: [{ t: "bandpass", f: o.f0, q: o.q || 1.5, path: [[o.a, o.fp], [o.a + o.dur, o.f1]] }] });
-    }
-    // 槍聲飽和級：前級 amount/3 → tanh → 後級增益
-    _drive(v, amt, post) {
-      const c = this.ctx;
-      const pre = c.createGain();
-      pre.gain.value = amt / 3;
-      const ws = c.createWaveShaper();
-      ws.curve = this._tanh;
-      const pg = c.createGain();
-      pg.gain.value = post;
-      pre.connect(ws);
-      ws.connect(pg);
-      pg.connect(v.input);
-      v.nodes.push(pre, ws, pg);
-      return pre;
-    }
-    // 本地槍機金屬咔嗒（兩下：擊發 + 復位）
-    _mech(v, t, f, g) {
-      this._nz(v, t, { n: "white", a: 3e-4, dur: 0.01, g: g * 1.4, flt: [{ t: "bandpass", f: f * 1.25, q: 2.5 }] });
-      this._metal(v, t, f, g, [[1, 1, 0.045], [1.53, 0.6, 0.032], [2.41, 0.35, 0.022]]);
-      this._nz(v, t + 0.03 * jit(0.15), { n: "white", a: 3e-4, dur: 8e-3, g: g * 0.9, flt: [{ t: "bandpass", f: f * 0.85, q: 3 }] });
-    }
-    // 地面材質撞擊。g: 電平, r: 音高係數, heavy: 0..1 落地力度, br: 亮度（蹲走更悶）
-    _surf(v, t, s, g, r, heavy, br) {
-      const hd = 1 + heavy * 1.5;
-      switch (s) {
-        case "container":
-          this._tn(v, t, { f: 74 * r, f1: 62 * r, dur: 0.26 * hd, a: 4e-3, g: 0.55 * g });
-          this._tn(v, t, { f: 121 * r, f1: 110 * r, dur: 0.18 * hd, a: 3e-3, g: 0.32 * g });
-          this._tn(v, t, { w: "triangle", f: 173 * r, dur: 0.12 * hd, a: 2e-3, g: 0.14 * g });
-          this._nz(v, t, { n: "pink", a: 2e-3, dur: 0.12 * hd, g: 0.55 * g, flt: [{ t: "bandpass", f: 380 * r, q: 1.6 }] });
-          this._nz(v, t, { n: "white", a: 8e-4, dur: 0.03, g: 0.22 * g * br, flt: [{ t: "bandpass", f: 1900 * r, q: 1.2 }] });
-          this._metal(v, t, 690 * r, 0.05 * g * br, [[1, 1, 0.18 * hd], [2.2, 0.6, 0.12]]);
-          break;
-        case "wood":
-          this._tn(v, t, { f: 160 * r, f1: 95 * r, dur: 0.05 * hd, a: 2e-3, g: 0.4 * g });
-          this._nz(v, t, { n: "pink", a: 15e-4, dur: 0.055 * hd, g: 0.55 * g, flt: [{ t: "lowpass", f: 1100 * r * (0.6 + 0.4 * br), q: 0 }] });
-          this._nz(v, t, { n: "white", a: 6e-4, dur: 0.014, g: 0.12 * g * br, flt: [{ t: "bandpass", f: 2600 * r, q: 2 }] });
-          if (Math.random() < 0.15) {
-            this._tn(v, t + 0.02, { w: "sawtooth", f: rand2(28, 40), a: 0.02, dur: 0.12, g: 0.1 * g, flt: [{ t: "bandpass", f: rand2(600, 900), q: 8 }] });
-          }
-          break;
-        case "grate": {
-          this._tn(v, t, { f: 135 * r, f1: 85 * r, dur: 0.045 * hd, a: 2e-3, g: 0.3 * g });
-          this._nz(v, t, { n: "white", a: 8e-4, dur: 0.03 * hd, g: 0.35 * g * br, flt: [{ t: "bandpass", f: 2600 * r, q: 1 }] });
-          let tt = t;
-          const n = 3 + (Math.random() * 2 | 0) + Math.round(heavy * 3);
-          for (let i = 0; i < n; i++) {
-            tt += rand2(7e-3, 0.02);
-            this._click(v, tt, rand2(3e3, 5600), 0.2 * g * br * Math.pow(0.72, i), 5, 0.012);
-          }
-          this._metal(v, t, 910 * r, 0.05 * g * br, [[1, 1, 0.08 * hd], [2.6, 0.5, 0.05]]);
-          break;
-        }
-        default:
-          this._tn(v, t, { f: 115 * r, f1: 70 * r, dur: 0.055 * hd, a: 2e-3, g: 0.5 * g });
-          this._nz(v, t, { n: "pink", a: 1e-3, dur: 0.045 * hd, g: 0.45 * g, flt: [{ t: "bandpass", f: 1500 * r * (0.7 + 0.3 * br), q: 1.2 }] });
-          this._nz(v, t, { n: "white", a: 5e-4, dur: 0.012, g: 0.15 * g * br, flt: [{ t: "highpass", f: 3500, q: 0 }] });
-          this._metal(v, t, 530 * r, 0.1 * g * br, [[1, 1, 0.13 * hd], [2.31, 0.7, 0.09 * hd], [3.93, 0.45, 0.06]]);
-      }
-    }
-    // 短促悶哼：鋸齒波 + 共振峰帶通
-    _grunt(v, t, f0, f1, dur, g) {
-      const c = this.ctx;
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.setValueAtTime(f0, t);
-      o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-      const env = c.createGain();
-      const end = this._env(env.gain, t, 0.02, dur * 0.8, 1, dur * 0.2) + 0.01;
-      o.connect(env);
-      v.nodes.push(env);
-      for (const [f, q, a] of [[620, 6, 1], [1050, 8, 0.6], [2500, 10, 0.25]]) {
-        const b = c.createBiquadFilter();
-        b.type = "bandpass";
-        b.frequency.value = f;
-        b.Q.value = q;
-        const gg = c.createGain();
-        gg.gain.value = a * g * 2;
-        env.connect(b);
-        b.connect(gg);
-        gg.connect(v.input);
-        v.nodes.push(b, gg);
-      }
-      o.start(t);
-      o.stop(end);
-      this._track(v, o, end);
-      this._nz(v, t, { n: "white", a: 0.02, dur, g: g * 0.15, flt: [{ t: "bandpass", f: 1200, q: 1 }] });
-    }
-    _throwWhoosh(p) {
-      const v = this._voice(p, { g: p ? 0.8 : 0.55, ref: 2, roll: 1.2, max: 40, wet: 0.05 });
-      const t = this._now();
-      this._nz(v, t, { n: "white", a: 0.03, dur: 0.12, g: 0.1, flt: [{ t: "bandpass", f: 2200, q: 0.8 }] });
-      this._whoosh(v, t + 0.04, { a: 0.1, dur: 0.22, g: 0.45, f0: 350, fp: 1700, f1: 500, q: 1.3 });
-      this._metal(v, t + 0.12, rand2(4e3, 4600), 0.05, [[1, 1, 0.1], [1.5, 0.4, 0.06]]);
-      this._done(v);
-    }
-    // 耳鳴（走 ui 匯流排，不被 muffle 影響）
-    _ring(level, dur) {
-      const v = this._voice(null, { bus: "ui", g: 1, wet: 0, pool: false });
-      const t = this._now(), f = rand2(3700, 4300), g = 0.012 + 0.035 * level;
-      if (this._has("tinnitus")) {
-        const gg = this.ctx.createGain(), L = Math.min(dur, 4);
-        gg.connect(v.input);
-        v.nodes.push(gg);
-        this._env(gg.gain, t, 0.05, L, RING_G * (0.3 + 0.7 * level), L * 0.2);
-        this._play(v, t, "tinnitus", { to: gg, dur: L + 0.1 });
-        this._done(v);
+      out.connect(ui ? this.sfx : this.world);
+      const at2 = c.currentTime + 5e-3 + delay, off = Math.min(sample.buffer.duration, sample.offset + offset), len = Math.min(duration ?? Infinity, sample.buffer.duration - off);
+      if (len <= 0) {
+        nodes.forEach((n) => n.disconnect());
         return;
       }
-      this._tn(v, t, { f, a: 0.05, hold: dur * 0.25, dur: dur * 0.75, g });
-      this._tn(v, t, { f: f * 1.006, a: 0.08, hold: dur * 0.2, dur: dur * 0.7, g: g * 0.5 });
-      this._done(v);
+      const end = at2 + len / rate;
+      g.gain.setValueAtTime(gain, at2);
+      g.gain.setValueAtTime(gain, Math.max(at2, end - 8e-3));
+      g.gain.linearRampToValueAtTime(0, end);
+      this.active.push(source);
+      source.onended = () => {
+        this.active = this.active.filter((s) => s !== source);
+        nodes.forEach((n) => n.disconnect());
+      };
+      source.start(at2, off, len);
+      return source;
     }
-    // 世界音短暫發悶（受傷/爆炸震盪）
-    _muffle(depth, dur) {
-      const f = this._muf.frequency, now = this.ctx.currentTime, top = this._fq(2e4);
-      const lo = clamp2(top * Math.pow(0.05, clamp2(depth, 0, 1)), 600, top);
-      f.cancelScheduledValues(now);
-      f.setValueAtTime(clamp2(f.value, 10, top), now);
-      f.exponentialRampToValueAtTime(lo, now + 0.04);
-      f.setTargetAtTime(top, now + 0.04 + dur * 0.3, Math.max(0.05, dur * 0.3));
+    playShot(id, pos) {
+      this.play(id, pos, { gain: 0.85, rate: 0.98 + Math.random() * 0.04 });
     }
-    // 播報前的徽章音：短促上揚的合成器和絃（連殺越高音越高）
-    _badge(text) {
-      const s = text.toLowerCase();
-      const lvl = /multi|ultra|mega|monster/.test(s) ? 3 : /triple/.test(s) ? 2 : /double|headshot/.test(s) ? 1 : 0;
-      const v = this._voice(null, { bus: "voice", g: 1.1, wet: 0.12 });
-      const t = this._now(), base = 392 * Math.pow(2, lvl * 2 / 12);
-      for (const [h, det] of [[1, -6], [1.26, 5], [1.5, -3], [2, 4]]) {
-        const f = base * h;
-        this._tn(v, t, { w: "sawtooth", f: f * 0.84, path: [[0.09, f]], det, a: 8e-3, hold: 0.05, dur: 0.24, g: 0.07, flt: [{ t: "lowpass", f: 900, f1: 6e3, sw: 0.12, q: 3 }] });
-      }
-      this._tn(v, t, { f: 110, f1: 70, a: 2e-3, dur: 0.12, g: 0.25 });
-      this._tn(v, t + 0.06, { f: base * 8, a: 2e-3, dur: 0.18, g: 0.04 });
-      this._done(v);
+    playReload(id, stage) {
+      this.play({ magout: "magout", magin: "magin", bolt: "bolt", boltback: "boltback", boltforward: "boltfwd", shell: "magin", pump: "pump" }[stage] || "bolt", null, { gain: 0.5, duration: stage === "shell" ? 0.22 : void 0, rate: stage === "shell" ? 1.2 : 1 });
     }
-    _initSpeech() {
-      const ss = globalThis.speechSynthesis;
-      if (!ss || this._speechInit) return;
-      this._speechInit = true;
-      try {
-        const reset = () => {
-          this._sv = null;
-        };
-        if (ss.addEventListener) ss.addEventListener("voiceschanged", reset);
-        else ss.onvoiceschanged = reset;
-        ss.getVoices();
-      } catch (_) {
-      }
+    playDryFire() {
+      this.play("dry", null, { gain: 0.4 });
     }
-    // 優先英文男聲
-    _pickVoice() {
-      const ss = globalThis.speechSynthesis;
-      if (!ss || !ss.getVoices) return null;
-      if (this._sv) return this._sv;
-      const en = (ss.getVoices() || []).filter((x) => /^en([-_]|$)/i.test(x.lang || ""));
-      if (!en.length) return null;
-      const male = /\bmale\b|david|daniel|alex|fred|george|james|mark|guy|ryan|thomas|arthur|oliver|aaron|rishi|eddy|reed|ralph|bruce|christopher|eric|roger|steffan|brian|matthew|joey|justin/i;
-      const female = /female|zira|samantha|victoria|karen|moira|tessa|fiona|susan|hazel|serena|kate|veena|allison|ava|joanna|salli|kendra|kimberly|ivy|jenny|aria|libby|sonia|natasha|emma|amy|google us english$/i;
-      let best = null, bs = -1e9;
-      for (const x of en) {
-        const n = x.name || "";
-        let s = 0;
-        if (female.test(n)) s -= 3;
-        else if (male.test(n)) s += 3;
-        if (/^en[-_](us|gb)/i.test(x.lang)) s += 1;
-        if (x.localService) s += 0.5;
-        if (s > bs) {
-          bs = s;
-          best = x;
-        }
-      }
-      this._sv = best;
-      return best;
+    playFootstep(pos, surface, opts = {}) {
+      this.play(pick("step1", "step2", "step3", "step4"), pos, { gain: opts.crouch ? 0.13 : opts.run ? 0.5 : 0.32, rate: 0.95 + Math.random() * 0.1 });
     }
-    _speak(text) {
-      try {
-        const G = globalThis, ss = G.speechSynthesis, U = G.SpeechSynthesisUtterance;
-        if (!ss || !U) return;
-        const u = new U(text);
-        u.lang = "en-US";
-        u.rate = 1.05;
-        u.pitch = 0.8;
-        u.volume = clamp2(this._vol.master * this._vol.voice, 0, 1);
-        const vo = this._pickVoice();
-        if (vo) {
-          u.voice = vo;
-          u.lang = vo.lang;
-        }
-        if (ss.speaking || ss.pending) ss.cancel();
-        ss.speak(u);
-      } catch (_) {
-      }
+    playLand(pos, surface, strength = 1) {
+      this.play("land", pos, { gain: 0.25 + 0.5 * clamp2(strength, 0, 1) });
     }
-    // 排程器：心跳 / 環境隨機事件 / 兜底回收。由 update() 與內部定時器共同驅動（時間判定冪等）
-    _tick() {
-      if (!this._ok()) return;
-      try {
-        const now = this.ctx.currentTime;
-        for (let i = this.voices.length - 1; i >= 0; i--) {
-          const v = this.voices[i];
-          if (v && v.end && now > v.end + 3) this._free(v);
-        }
-        if (this._hbOn) {
-          if (this._hbNext < now) this._hbNext = now + 0.02;
-          while (this._hbNext < now + 0.3) {
-            this._beat(this._hbNext);
-            this._hbNext += 0.68 * jit(0.02);
-          }
-        }
-        const a = this._amb;
-        if (a && !a.stopping) {
-          if (now >= a.nGust) {
-            this._gust(a, now);
-            a.nGust = now + rand2(5, 14);
-          }
-          if (now >= a.nGull) {
-            this._gulls();
-            a.nGull = now + rand2(7, 22);
-          }
-          if (now >= a.nCreak) {
-            this._creak();
-            a.nCreak = now + rand2(9, 26);
-          }
-          if (now >= a.nSplash) {
-            this._splash();
-            a.nSplash = now + rand2(3, 9);
-          }
-          if (now >= a.nHorn) {
-            this._horn();
-            a.nHorn = now + rand2(80, 180);
-          }
-        }
-      } catch (e) {
-        this._warn("update", e);
+    playJump(pos) {
+      this.play("step1", pos, { gain: 0.2, duration: 0.16 });
+    }
+    playImpact(pos, mat) {
+      this.play(mat === "flesh" ? "impf" : mat === "metal" ? "impm" : pick("impc", "impc2"), pos, { gain: 0.6 });
+    }
+    playGlassBreak(pos, big = 1) {
+      this.play(pick("glass", "glass2"), pos, { gain: Math.min(big, 1.5) * 0.65 });
+    }
+    playDestroy(pos, kind, big = 1) {
+      this.play("collapse", pos, { gain: Math.min(big, 1.5) * 0.7 });
+    }
+    playRicochet(pos) {
+      this.play("impm", pos, { gain: 0.5, rate: 1.35 });
+    }
+    playBulletWhiz(pos) {
+      this.play("whiz", pos, { gain: 0.6 });
+    }
+    playHitmarker(headshot, armored) {
+      this.play(headshot ? "shell" : armored ? "impm" : "dry", null, { ui: true, gain: 0.24, rate: headshot ? 1.8 : 1.4, duration: 0.09 });
+    }
+    playArmorBreak(pos) {
+      this.play("glass2", pos, { gain: 0.35, duration: 0.3, rate: 1.3 });
+    }
+    playSlide(pos) {
+      this.play("step3", pos, { gain: 0.3, rate: 0.65 });
+    }
+    playKillConfirm(headshot) {
+      this.play("bolt", null, { ui: true, gain: 0.3, rate: headshot ? 1.4 : 1.1, duration: 0.22 });
+    }
+    playHurt(amount) {
+      this.play("impf", null, { gain: 0.15 + clamp2(amount, 0, 100) * 4e-3 });
+    }
+    playDeath(pos) {
+      this.play("land", pos, { gain: 0.6, rate: 0.8 });
+    }
+    playKnife(kind, result, pos) {
+      this.play(result === "flesh" ? "impf" : "knife", pos, { gain: 0.5, rate: kind === "heavy" ? 0.85 : 1 });
+    }
+    playGrenadePin() {
+      this.play("boltback", null, { gain: 0.35, rate: 1.3, duration: 0.18 });
+    }
+    playGrenadeThrow() {
+      this.play("knife", null, { gain: 0.22, rate: 0.8, duration: 0.25 });
+    }
+    playGrenadeBounce(pos) {
+      this.play("impm", pos, { gain: 0.35, rate: 0.8, duration: 0.22 });
+    }
+    playExplosion(pos) {
+      this.play(pick("explosion", "explosion2"), pos, { gain: 1 });
+      const d = pos ? Math.hypot(pos.x - this.listener.x, pos.y - this.listener.y, pos.z - this.listener.z) : 0;
+      if (d < 14) {
+        const k = 1 - d / 14;
+        this._muffle(k, 1.5 + 2.5 * k);
+        this.play("tinnitus", null, { ui: true, gain: 0.1 + 0.25 * k, duration: 1.5 + 2.5 * k });
       }
     }
-    // 一次心跳 "咚-噠"
-    _beat(t) {
-      const v = this._voice(null, { dest: this._hbGain, pool: false, wet: 0, g: 0.36 });
-      this._tn(v, t, { w: "triangle", f: 64, f1: 44, sw: 0.08, a: 0.01, dur: 0.14, g: 0.9, flt: [{ t: "lowpass", f: 260, q: 0 }] });
-      this._nz(v, t, { n: "brown", a: 8e-3, dur: 0.09, g: 0.35, flt: [{ t: "lowpass", f: 140, q: 0 }] });
-      const t2 = t + 0.27;
-      this._tn(v, t2, { w: "triangle", f: 56, f1: 40, sw: 0.09, a: 0.012, dur: 0.16, g: 0.7, flt: [{ t: "lowpass", f: 240, q: 0 }] });
-      this._nz(v, t2, { n: "brown", a: 0.01, dur: 0.1, g: 0.25, flt: [{ t: "lowpass", f: 120, q: 0 }] });
-      this._done(v);
+    _muffle(k, duration) {
+      if (!this.ctx) return;
+      const f = this.world.frequency, t = this.ctx.currentTime;
+      f.cancelScheduledValues(t);
+      f.setValueAtTime(Math.min(f.value, 2e4 - 19e3 * k), t);
+      f.exponentialRampToValueAtTime(2e4, t + duration);
     }
-    // 環境事件：隨機點（相對聽者）
-    _around(dMin, dMax, yMin, yMax) {
-      const L = this._L, ang = rand2(0, TAU), d = rand2(dMin, dMax);
-      return { x: L.x + Math.cos(ang) * d, y: L.y + rand2(yMin, yMax), z: L.z + Math.sin(ang) * d };
+    playWeaponSwitch() {
+      this.play("magout", null, { gain: 0.25, duration: 0.2 });
     }
-    // 陣風：風噪增益與帶通中心頻率一起上揚再回落，偶爾伴隨集裝箱縫隙的呼哨
-    _gust(a, now) {
-      const up = rand2(0.8, 2.2), hold = rand2(0.4, 2), down = rand2(1.5, 3.5);
-      const pairs = [[a.windG.gain, a.windBase * rand2(1.8, 3.2), a.windBase], [a.windBP.frequency, a.windF * rand2(1.5, 2.4), a.windF]];
-      for (const [p, hi, lo] of pairs) {
-        p.cancelScheduledValues(now);
-        p.setValueAtTime(p.value, now);
-        p.setTargetAtTime(hi, now, up / 3);
-        p.setTargetAtTime(lo, now + up + hold, down / 3);
-      }
-      if (Math.random() < 0.5) {
-        const v = this._voice(null, { bus: "ambient", g: 0.5, wet: 0.1 });
-        const f = rand2(900, 1700);
-        this._nz(v, now + 0.01, { n: "pink", a: up, hold, dur: down, g: 0.05, flt: [{ t: "bandpass", f, q: 14, path: [[up, f * 1.15], [up + hold + down, f * 0.9]] }] });
-        this._done(v);
-      }
+    playScope(zoomIn) {
+      this.play("dry", null, { gain: 0.15, rate: zoomIn ? 1.3 : 1, duration: 0.1 });
     }
-    // 海鷗：鋸齒波頻率上滑後下滑 + FM 顫音 + 共振峰帶通
-    _gulls() {
-      const v = this._voice(this._around(20, 60, 8, 25), { bus: "ambient", g: rand2(1.6, 2.6), ref: 15, roll: 1, max: 400, wet: 0.3, wd: 1e9, hrtf: false, air: 0.4 });
-      let t = this._now();
-      const n = 1 + (Math.random() * 4 | 0), base = rand2(1350, 1900);
-      for (let i = 0; i < n; i++) {
-        const d = rand2(0.18, 0.38), f = base * jit(0.04) * (i === n - 1 && n > 2 ? 0.85 : 1);
-        this._tn(v, t, { w: "sawtooth", f: f * 0.75, path: [[d * 0.2, f * 1.2], [d, f * 0.62]], fm: [rand2(26, 42), f * 0.05], a: 0.025, hold: d * 0.35, dur: d * 0.65, g: 0.22, flt: [{ t: "bandpass", f: 2100, q: 1.6 }, { t: "highpass", f: 900, q: 0 }] });
-        this._nz(v, t, { n: "white", a: 0.03, hold: d * 0.3, dur: d * 0.6, g: 0.035, flt: [{ t: "bandpass", f: 2800, q: 2.5 }] });
-        t += d + rand2(0.1, 0.3);
-      }
-      this._done(v);
+    playShellDrop(pos) {
+      this.play("shell", pos, { gain: 0.3, rate: 0.95 + Math.random() * 0.1 });
     }
-    // 金屬結構吱嘎：粘滑摩擦脈衝串激勵高 Q 共振
-    _creak() {
-      const c = this.ctx;
-      const v = this._voice(this._around(5, 22, -3, 4), { bus: "ambient", g: rand2(0.8, 1.3), ref: 5, roll: 1, max: 120, wet: 0.35, hrtf: false });
-      const t = this._now(), dur = rand2(0.7, 2);
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      let f = rand2(14, 30);
-      o.frequency.setValueAtTime(f, t);
-      for (let i = 1; i <= 6; i++) {
-        f = clamp2(f * rand2(0.75, 1.35), 8, 55);
-        o.frequency.linearRampToValueAtTime(f, t + dur * i / 6);
-      }
-      const env = c.createGain();
-      const eg = env.gain;
-      eg.setValueAtTime(0, t);
-      eg.linearRampToValueAtTime(0.5, t + dur * 0.2);
-      eg.linearRampToValueAtTime(0.35, t + dur * 0.55);
-      eg.linearRampToValueAtTime(0.5, t + dur * 0.75);
-      eg.linearRampToValueAtTime(0, t + dur);
-      o.connect(env);
-      v.nodes.push(env);
-      for (const [fr, q, amp] of [[rand2(320, 450), 22, 1], [rand2(800, 1e3), 28, 0.7], [rand2(1500, 1900), 30, 0.4], [rand2(2600, 3100), 30, 0.2]]) {
-        const b = c.createBiquadFilter();
-        b.type = "bandpass";
-        b.frequency.setValueAtTime(fr, t);
-        b.frequency.linearRampToValueAtTime(fr * rand2(0.93, 1.07), t + dur);
-        b.Q.value = q;
-        const g = c.createGain();
-        g.gain.value = amp * 3;
-        env.connect(b);
-        b.connect(g);
-        g.connect(v.input);
-        v.nodes.push(b, g);
-      }
-      o.start(t);
-      o.stop(t + dur + 0.05);
-      this._track(v, o, t + dur + 0.05);
-      this._done(v);
+    playUI(kind) {
+      this.play(kind === "start" || kind === "roundEnd" ? "boltfwd" : "dry", null, { ui: true, gain: 0.18, duration: 0.18 });
     }
-    // 浪拍船舷
-    _splash() {
-      const v = this._voice(this._around(6, 20, -5, -3), { bus: "ambient", g: rand2(0.35, 0.7), ref: 5, roll: 1, max: 100, wet: 0.2, hrtf: false });
-      const t = this._now(), a = rand2(0.25, 0.6), dur = rand2(0.8, 1.8);
-      this._nz(v, t, { n: "pink", a, dur, g: 0.6, flt: [{ t: "bandpass", f: 900, q: 0.7, path: [[a, 1300], [a + dur, 380]] }] });
-      this._nz(v, t + a * 0.8, { n: "white", a: 0.1, dur: dur * 0.7, g: 0.08, flt: [{ t: "highpass", f: 2500, q: 0 }] });
-      this._nz(v, t, { n: "brown", a: a * 1.2, dur, g: 0.4, flt: [{ t: "lowpass", f: 250, q: 0 }] });
-      this._done(v);
+    announce() {
+      this.play("bolt", null, { ui: true, gain: 0.18, duration: 0.18 });
     }
-    // 遠處汽笛：失諧鋸齒 + 五度 + 八度，低通，長混響
-    _horn() {
-      const v = this._voice(this._around(250, 420, 10, 20), { bus: "ambient", g: 0.22, ref: 150, roll: 1, max: 3e3, wet: 0.7, wd: 1e9, hrtf: false, air: 0.2 });
-      const f = rand2(78, 98), t0 = this._now();
-      const n = Math.random() < 0.35 ? 2 : 1;
-      for (let i = 0; i < n; i++) {
-        const t = t0 + i * 4.2, hold = i === 0 ? rand2(1.8, 3) : rand2(1, 1.6);
-        for (const [h, amp, det] of [[1, 0.5, -4], [1, 0.4, 5], [1.5, 0.3, 0], [2, 0.18, 3]]) {
-          this._tn(v, t, { w: "sawtooth", f: f * h * 0.97, path: [[0.35, f * h]], det, a: 0.35, hold, dur: 1.3, g: amp, flt: [{ t: "lowpass", f: 650, q: 1 }] });
-        }
+    setLowHealth(on) {
+      this.lowHealth = !!on;
+      if (!on) this.nextBeat = 0;
+    }
+    startAmbient() {
+    }
+    stopAmbient() {
+    }
+    update() {
+      if (this.ctx && this.lowHealth && this.ctx.currentTime >= this.nextBeat) {
+        this.nextBeat = this.ctx.currentTime + 0.9;
+        this.play("land", null, { ui: true, gain: 0.08, rate: 0.65, duration: 0.12 });
       }
-      this._done(v);
     }
   };
   var audio = new AudioSystem();
@@ -41649,7 +39868,7 @@ void main() {
   var _b = new Vector3();
   var wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   var yawTo = (fx, fz, tx, tz) => Math.atan2(-(tx - fx), -(tz - fz));
-  var rand3 = (a, b) => a + Math.random() * (b - a);
+  var rand2 = (a, b) => a + Math.random() * (b - a);
   var Bot = class extends Actor {
     constructor(game, o) {
       super(game, o);
@@ -41683,7 +39902,7 @@ void main() {
       this.thinkT = Math.random() * THINK_EVERY;
       this.engageT = 0;
       this.engageLimit = 3;
-      this.nadeCooldown = rand3(20, 40);
+      this.nadeCooldown = rand2(20, 40);
       this.nadeAt = null;
       this.stuck = { t: 0, n: 0, at: new Vector3() };
     }
@@ -41732,7 +39951,7 @@ void main() {
     onDamaged(att) {
       if (!att || !this.alive) return;
       this.errYaw += (Math.random() - 0.5) * 0.09;
-      this.errPitch += rand3(0.02, 0.055);
+      this.errPitch += rand2(0.02, 0.055);
       this.reactUntil = Math.max(this.reactUntil, this.game.time + 0.06);
       if (this.visible && this.target === att) return;
       this.lastSeen = att.pos.clone();
@@ -41770,8 +39989,8 @@ void main() {
     acquire(foe, dist) {
       const now = this.game.time, [r0, r1] = this.skill.reaction;
       const again = this.target === foe && now - this.lastSeenT < 1.5;
-      this.reactUntil = now + rand3(r0, r1) * (again ? 0.4 : 1);
-      const err = this.skill.aimError * (0.8 + dist / 28), dir = rand3(0, Math.PI * 2);
+      this.reactUntil = now + rand2(r0, r1) * (again ? 0.4 : 1);
+      const err = this.skill.aimError * (0.8 + dist / 28), dir = rand2(0, Math.PI * 2);
       this.errYaw = Math.cos(dir) * err * 1.3;
       this.errPitch = Math.sin(dir) * err * 0.8 - err * 0.1;
       this.aimHead = Math.random() < this.skill.headshot;
@@ -41800,7 +40019,7 @@ void main() {
     planEngage(foe, dist) {
       const w = this.weapon;
       if (w.def.type === "sniper" && !this.scoped && dist > 7 && this.game.time >= w.boltUntil) this.wantScope = true;
-      if (Math.random() < 0.12 * this.skill.strafe) this.crouchUntil = this.game.time + rand3(0.6, 1.8);
+      if (Math.random() < 0.12 * this.skill.strafe) this.crouchUntil = this.game.time + rand2(0.6, 1.8);
       if (dist < 10) {
         this.path = null;
         return;
@@ -41808,7 +40027,7 @@ void main() {
       this.engageT += THINK_EVERY;
       if (this.pathDone() || this.engageT > this.engageLimit) {
         this.engageT = 0;
-        this.engageLimit = rand3(2.5, 5);
+        this.engageLimit = rand2(2.5, 5);
         if (Math.random() < 0.5) this.routeTo(foe.pos.x, foe.pos.z, foe.pos.y);
         else this.newGoal(foe.pos);
       }
@@ -41837,7 +40056,7 @@ void main() {
         const d = this.lastSeen.distanceTo(this.pos);
         if (d > 7 && d < 24 && Math.random() < 0.35) {
           this.nadeAt = this.lastSeen.clone();
-          this.nadeCooldown = rand3(25, 50);
+          this.nadeCooldown = rand2(25, 50);
         }
       }
     }
@@ -41864,7 +40083,7 @@ void main() {
       const now = this.game.time;
       this.thinkT -= dt;
       if (this.thinkT <= 0) {
-        this.thinkT = THINK_EVERY * rand3(0.87, 1.27);
+        this.thinkT = THINK_EVERY * rand2(0.87, 1.27);
         this.think();
       }
       const act = { wishX: 0, wishZ: 0, fire: false, firePressed: false, alt: false, sw: null, crouch: now < this.crouchUntil, walk: false, yaw: this.yaw, pitch: this.pitch };
@@ -41916,7 +40135,7 @@ void main() {
       }
       this.strafeT -= dt;
       if (this.strafeT <= 0) {
-        this.strafeT = rand3(0.25, 0.95);
+        this.strafeT = rand2(0.25, 0.95);
         this.strafeDir = Math.random() < 0.2 ? 0 : Math.random() < 0.5 ? -1 : 1;
       }
       const sideK = d.type === "sniper" ? 0 : S.strafe * this.strafeDir;
@@ -41945,7 +40164,7 @@ void main() {
         default:
           if (now < this.burstRestUntil) break;
           act.fire = true;
-          if (dist > 14 && ++this.burst > rand3(3, 7)) {
+          if (dist > 14 && ++this.burst > rand2(3, 7)) {
             this.burst = 0;
             this.burstRestUntil = now + 0.18 + Math.random() * 0.3 * (dist / 30);
           }

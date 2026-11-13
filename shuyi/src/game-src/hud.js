@@ -1,14 +1,151 @@
-// HUD 與選單（DOM）
+// 樹義國小校園對戰：畫面介面（HUD）與選單
+//
+// 對外介面（new HUD(game)）
+//   opts / saveOpts()                 設定（存在 localStorage）
+//   show(name)                        menu | pause | loadout | end | loading | null（遊戲中）
+//   loading(progress, text)
+//   setIcons(icons)                   武器圖示（game 用槍枝模型渲染成圖片）
+//   update(dt, state)                 每幀更新（state 欄位見 update 開頭註解）
+//   slots(inv, cur)                   換槍時短暫顯示武器欄
+//   killFeed(killer, victim, wid, headshot, wallbang, mine)
+//   hitmarker(headshot, kill, armorBreak)   damageFrom(angle)   toast(html, sec)
+//   badge(text, sub, headshot)        擊殺印章
+//   scoreboard(show, actors, myId, score)   endScreen(win, score, actors, myId)
+//   buildRadar() drawRadar(me, actors)
+// 其他模組會找的元素：#c（畫布，在 index.html）、#loadTxt、#loadCards .card、#radarWrap .lbl、#touch
 import { WEAPONS, PRIMARIES, CAUSES } from './weapons.js';
 
-const TEAM_CN = { BL: '女生隊', GR: '男生隊' };
-const $ = (s, r = document) => r.querySelector(s);
+const TEAM_NAME = { BL: '女生隊', GR: '男生隊' };
+const OPTS_KEY = 'sy_campus_opts';
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const svgURL = (svg) => 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 
-const HS_ICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><g fill="none" stroke="#ff4030" stroke-width="3"><circle cx="20" cy="20" r="11"/><path d="M20 2v10M20 28v10M2 20h10M28 20h10"/></g><circle cx="20" cy="20" r="3.5" fill="#ff4030"/></svg>`);
-const WB_ICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect x="15" y="4" width="10" height="32" fill="#bbb"/><path d="M2 20h36" stroke="#ffd24a" stroke-width="3"/></svg>`);
-const BADGE_SVG = (color, inner) => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="bg" cx="50%" cy="45%"><stop offset="0" stop-color="${color}" stop-opacity=".95"/><stop offset="1" stop-color="#1a0a00" stop-opacity=".9"/></radialGradient></defs><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="url(#bg)" stroke="#ffd24a" stroke-width="3"/>${inner}</svg>`;
-const SKULL = `<g fill="#fff"><path d="M50 22c-14 0-24 9-24 22 0 8 4 13 9 16v9h30v-9c5-3 9-8 9-16 0-13-10-22-24-22z"/><rect x="40" y="66" width="4" height="8"/><rect x="48" y="66" width="4" height="8"/><rect x="56" y="66" width="4" height="8"/></g><circle cx="41" cy="45" r="6" fill="#3a1500"/><circle cx="59" cy="45" r="6" fill="#3a1500"/>`;
-const CROSSHAIR_B = `<g fill="none" stroke="#fff" stroke-width="4"><circle cx="50" cy="50" r="20"/><path d="M50 18v14M50 68v14M18 50h14M68 50h14"/></g><circle cx="50" cy="50" r="5" fill="#ff3020"/>`;
+// 擊殺訊息小圖示：爆頭（準心）、穿牆（被子彈穿過的磚牆）
+const ICON_HEADSHOT = svgURL('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="12" fill="none" stroke="#ff5a4a" stroke-width="3"/><path d="M20 3v9M20 28v9M3 20h9M28 20h9" stroke="#ff5a4a" stroke-width="3"/><circle cx="20" cy="20" r="4" fill="#ff5a4a"/></svg>');
+const ICON_WALLBANG = svgURL('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><g fill="#b4533d" stroke="#5b2a1f" stroke-width="1"><rect x="13" y="4" width="14" height="9"/><rect x="13" y="14" width="14" height="9"/><rect x="13" y="24" width="14" height="9"/></g><path d="M2 19h36" stroke="#ffe066" stroke-width="3" stroke-dasharray="5 3"/></svg>');
+
+// 擊殺印章：仿老師批改作業的紅色圓章，中間寫字
+const STAMP = (word, color) => `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs><filter id="ink"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.3"/><feComposite in="SourceGraphic" operator="in"/></filter></defs>
+  <g filter="url(#ink)" fill="none" stroke="${color}">
+    <circle cx="60" cy="60" r="52" stroke-width="7"/><circle cx="60" cy="60" r="42" stroke-width="2.5"/>
+    <text x="60" y="76" text-anchor="middle" font-size="44" font-weight="900" fill="${color}" stroke="none" font-family="Microsoft JhengHei,PingFang TC,Noto Sans TC,sans-serif">${word}</text>
+  </g></svg>`;
+
+// 主武器卡片的定位說明與數據條
+const ROLE = {
+  ak47: '中距離 · 傷害高、後座大', m4a1: '中距離 · 穩定好壓', awm: '遠距離 · 一槍致命、需開鏡',
+  mp5: '近距離 · 射速快、遠了沒力', m870: '貼臉 · 一發斃命、遠了沒用',
+};
+function weaponCard(id) {
+  const d = WEAPONS[id];
+  // 有效射程：傷害衰減到 60% 的距離
+  const reach = Math.min(d.range, (10 * Math.log(0.6)) / Math.log(d.falloff));
+  const stats = [['傷害', (d.dmg * (d.pellets || 1)) / 130], ['射速', d.rpm / 850], ['射程', reach / 400], ['機動', (d.speed - 0.76) / 0.26]];
+  const bars = stats.map(([k, v]) => `<span>${k}</span><i><em style="width:${Math.round(Math.max(0.06, Math.min(1, v)) * 100)}%"></em></i>`).join('');
+  return `<button class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${ROLE[id] || ''}</small><div class="st">${bars}</div></button>`;
+}
+
+const seg = (key, items, cls = '') => `<div class="seg ${cls}" data-k="${key}">${items.map(([v, label, sub]) => `<button data-v="${v}">${label}${sub ? `<small>${sub}</small>` : ''}</button>`).join('')}</div>`;
+const slider = (key, min, max, step) => `<div class="slider" data-k="${key}"><input type="range" min="${min}" max="${max}" step="${step}"><span></span></div>`;
+const field = (label, body) => `<div class="opt"><div class="lab">${label}</div>${body}</div>`;
+
+const SENS = field('滑鼠靈敏度', slider('sens', 0.2, 3, 0.05));
+const FOV = field('視野 FOV', slider('fov', 65, 100, 1));
+const VOL = field('音量', slider('vol', 0, 1, 0.05));
+const TOD = field('時間', seg('tod', [['day', '白天'], ['dusk', '黃昏']]));
+
+const TEMPLATE = `
+<div id="hud" class="hidden">
+  <div id="score">
+    <div class="team BL" id="tBL"><span class="nm">女生隊</span><b id="sBL">0</b></div>
+    <div class="clock"><div id="sTime">10:00</div><small id="sGoal"></small></div>
+    <div class="team GR" id="tGR"><b id="sGR">0</b><span class="nm">男生隊</span></div>
+  </div>
+  <div id="radarWrap"><canvas id="radar"></canvas><div class="lbl">樹義國小</div></div>
+  <div id="feed"></div>
+  <div id="vitals">
+    <div class="pill" id="hpBox"><i class="ic">✚</i><b id="hpVal">100</b></div>
+    <div class="pill" id="arBox"><i class="ic">⛨</i><b id="arVal">100</b></div>
+  </div>
+  <div id="slots"></div>
+  <div id="ammo"><div class="wname" id="wName"></div><div class="row"><img class="wicon" id="wIcon" alt=""><b id="aMag">30</b><span id="aRes">/ 90</span></div><div class="hint" id="aHint"></div></div>
+  <div id="cross"><i id="cT"></i><i id="cB"></i><i id="cL"></i><i id="cR"></i></div>
+  <div id="hit"><i></i><i></i><i></i><i></i></div>
+  <div id="dmgDirs"></div>
+  <div id="scope"><div class="lens"></div><div class="reticle"></div></div>
+  <div id="badge"><div class="ico"></div><div class="txt"></div><div class="sub"></div></div>
+  <div id="center" class="hidden"><div class="big" id="cBig"></div><div class="small" id="cSmall"></div></div>
+  <div id="toast"></div>
+  <div id="protect"></div>
+  <div id="nameTip"></div>
+  <div id="board" class="hidden tbl"><h3><span>樹義國小 · 團隊競技</span><kbd>Tab</kbd></h3><div id="boardBody"></div></div>
+  <div id="touch" class="hidden"></div>
+</div>
+
+<div id="loading" class="screen">
+  <div class="chalk-title">樹義國小</div>
+  <div class="s" id="loadTxt">載入中</div>
+  <div class="bar"><i id="loadBar"></i></div>
+  <div class="tip">WASD 移動・左鍵射擊・R 換彈・B 換主武器・Esc 暫停</div>
+</div>
+
+<div id="menu" class="screen hidden">
+  <div class="board-frame">
+    <section class="intro">
+      <div class="kicker">校園對戰・團隊競技</div>
+      <h1 class="chalk-title">樹義國小</h1>
+      <p>依官網校園配置圖、照片與 OpenStreetMap 實際尺寸，1:1 重建臺中市樹義國小。女生隊對男生隊，五層樓教室都有堂號與班級門牌；沿走廊、樓梯與中庭找路線，善用牆面掩護，先達到目標擊殺數的隊伍獲勝。</p>
+      <dl class="keys">
+        <dt><kbd>W A S D</kbd></dt><dd>移動　<kbd>Shift</kbd> 靜步　<kbd>空白</kbd> 跳　<kbd>Ctrl</kbd> 蹲／衝刺中滑鏟</dd>
+        <dt><kbd>左鍵</kbd></dt><dd>開火　<kbd>右鍵</kbd> 狙擊開鏡／刀重擊</dd>
+        <dt><kbd>1 2 3 4</kbd></dt><dd>主武器／手槍／刀／手雷　<kbd>Q</kbd> 快切　<kbd>滾輪</kbd> 切換</dd>
+        <dt><kbd>R</kbd></dt><dd>換彈　<kbd>F</kbd> 檢視武器　<kbd>B</kbd> 換主武器</dd>
+        <dt><kbd>Tab</kbd></dt><dd>計分板　<kbd>Esc</kbd> 暫停／設定</dd>
+      </dl>
+      <div class="note hidden" id="touchNote">偵測到觸控裝置：左半邊拖曳移動、右半邊拖曳轉視角。用電腦加滑鼠玩體驗最好。</div>
+    </section>
+    <section class="opts">
+      ${field('隊伍', seg('team', [['BL', '女生隊', '制服'], ['GR', '男生隊', '體育服']], 'team'))}
+      ${field('主武器', seg('primary', PRIMARIES.map((id) => [id, WEAPONS[id].name])))}
+      <div class="row2">
+        ${field('人數', seg('size', [[4, '4v4'], [6, '6v6'], [8, '8v8']]))}
+        ${field('目標擊殺', seg('goal', [[30, '30'], [50, '50'], [100, '100']]))}
+      </div>
+      ${field('電腦難度', seg('diff', [['easy', '簡單'], ['normal', '普通'], ['hard', '困難'], ['hell', '地獄']]))}
+      <div class="row2">
+        ${TOD}
+        ${field('畫質', seg('quality', [['low', '流暢'], ['medium', '均衡'], ['high', '極致']]))}
+      </div>
+      <div class="row3">${field('靈敏度', slider('sens', 0.2, 3, 0.05))}${FOV}${VOL}</div>
+      <button class="go" id="btnStart">開始上課</button>
+      <div class="note">按下開始後滑鼠會被鎖定，按 Esc 暫停。切換畫質會重新載入頁面。</div>
+      <div class="mlinks"><span>遊戲引擎改編自</span><a href="https://github.com/riba2534/claude-opus-5-5-demo" target="_blank" rel="noopener noreferrer">riba2534/claude-opus-5-5-demo</a><span>·</span><a href="https://x.com/riba2534" target="_blank" rel="noopener noreferrer">X @riba2534</a></div>
+      <div class="mlinks credits"><span>地圖資料 ©</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap 貢獻者（ODbL）</a><span>·</span><span>校園配置與堂號：</span><a href="https://tanghao.neocities.org/" target="_blank" rel="noopener noreferrer">臺中市南區樹義國民小學（CC BY-NC-SA）</a></div>
+    </section>
+  </div>
+</div>
+
+<div id="pause" class="screen hidden"><div class="panel"><h2>下課時間</h2>
+  ${SENS}${FOV}${VOL}${TOD}
+  <button class="go" id="btnResume">繼續</button>
+  <button class="go sec" id="btnQuit">回主選單</button>
+</div></div>
+
+<div id="loadout" class="screen hidden"><div class="panel wide"><h2>換主武器</h2>
+  <div class="sub">在出生點內立即換上，否則下次復活生效。手槍、軍刀、手雷固定配備。</div>
+  <div class="cards" id="loadCards">${PRIMARIES.map(weaponCard).join('')}</div>
+  <button class="go sec" id="btnLoadClose">確定（B）</button>
+</div></div>
+
+<div id="end" class="screen hidden"><div class="panel wide">
+  <div class="res" id="endRes"></div><div class="sc" id="endSc"></div>
+  <div class="mvp" id="endMvp"></div><div class="mvp me" id="endMe"></div>
+  <div id="endTable" class="tbl"></div>
+  <div class="btns"><button class="go" id="btnAgain">再來一局</button><button class="go sec" id="btnMenu">主選單</button></div>
+</div></div>
+`;
 
 export class HUD {
   constructor(game) {
@@ -20,375 +157,292 @@ export class HUD {
     this.icons = {};
     this.feedItems = [];
     this.dmgDirs = [];
-    this.hitT = 0; this.toastT = 0;
-    this.slotsT = 0;
+    this.hitT = 0; this.toastT = 0; this.slotsT = 0;
     this.radarCtx = this.el.radar.getContext('2d');
     const touch = matchMedia('(pointer:coarse)').matches;
     this.opts = { team: 'BL', primary: 'ak47', size: 4, diff: 'normal', goal: 50, tod: 'day', quality: touch ? 'low' : 'high', sens: 1.0, fov: 78, vol: 0.8 };
-    try { Object.assign(this.opts, JSON.parse(localStorage.getItem('sy_campus_opts') || '{}')); } catch (e) { /* 忽略 */ }
-    this.buildMenu();
+    try { Object.assign(this.opts, JSON.parse(localStorage.getItem(OPTS_KEY) || '{}')); } catch { /* 無痕模式等情況讀不到就用預設 */ }
+    this.wireMenu(touch);
   }
-  saveOpts() { try { localStorage.setItem('sy_campus_opts', JSON.stringify(this.opts)); } catch (e) { /* 忽略 */ } }
 
-  // ---------- 選單 ----------
-  buildMenu() {
-    const o = this.opts;
-    const segs = this.root.querySelectorAll('.seg[data-k]');
-    for (const s of segs) {
-      const k = s.dataset.k;
-      for (const b of s.querySelectorAll('button')) {
-        if (String(o[k]) === b.dataset.v) b.classList.add('on');
-        b.addEventListener('click', () => {
-          for (const x of s.querySelectorAll('button')) x.classList.remove('on');
-          b.classList.add('on');
-          o[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v;
-          this.saveOpts();
-          this.g.onOption?.(k, o[k]);
-          this.g.audio?.playUI('click');
-        });
-      }
+  saveOpts() {
+    try { localStorage.setItem(OPTS_KEY, JSON.stringify(this.opts)); } catch { /* 存不了就算了 */ }
+  }
+
+  // ───────── 選單 ─────────
+
+  setOpt(k, raw) {
+    this.opts[k] = isNaN(+raw) ? raw : +raw;
+    this.saveOpts();
+    this.g.onOption?.(k, this.opts[k]);
+  }
+
+  wireMenu(touch) {
+    for (const s of this.root.querySelectorAll('.seg[data-k]')) {
+      s.addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        this.setOpt(s.dataset.k, b.dataset.v);
+        this.syncControls();
+      });
     }
     for (const sl of this.root.querySelectorAll('.slider[data-k]')) {
-      const k = sl.dataset.k, inp = sl.querySelector('input'), sp = sl.querySelector('span');
-      inp.value = o[k]; sp.textContent = (+o[k]).toFixed(k === 'fov' ? 0 : 2);
-      inp.addEventListener('input', () => {
-        o[k] = +inp.value; sp.textContent = (+inp.value).toFixed(k === 'fov' ? 0 : 2); this.saveOpts();
-        this.g.onOption?.(k, o[k]);
-      });
+      const input = sl.querySelector('input');
+      input.addEventListener('input', () => { this.setOpt(sl.dataset.k, input.value); this.syncControls(); });
     }
-    $('#btnStart').addEventListener('click', () => this.g.startMatch());
-    $('#btnResume').addEventListener('click', () => this.g.resume());
-    $('#btnQuit').addEventListener('click', () => this.g.quitToMenu());
-    $('#btnAgain').addEventListener('click', () => this.g.startMatch());
-    $('#btnMenu').addEventListener('click', () => this.g.quitToMenu());
-    for (const c of this.root.querySelectorAll('#loadCards .card')) {
-      c.addEventListener('click', () => {
-        this.g.chooseLoadout(c.dataset.w);
-        for (const x of this.root.querySelectorAll('#loadCards .card')) x.classList.toggle('on', x === c);
-      });
-    }
-    $('#btnLoadClose').addEventListener('click', () => this.g.closeLoadout());
-    if (matchMedia('(pointer:coarse)').matches) $('#touchNote').classList.remove('hidden');
-    for (const a of this.root.querySelectorAll('.mlinks a'))
-      a.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    const on = (id, fn) => this.el[id].addEventListener('click', fn);
+    on('btnStart', () => this.g.startMatch());
+    on('btnResume', () => this.g.resume());
+    on('btnQuit', () => this.g.quitToMenu());
+    on('btnAgain', () => this.g.startMatch());
+    on('btnMenu', () => this.g.quitToMenu());
+    on('btnLoadClose', () => this.g.closeLoadout());
+    this.el.loadCards.addEventListener('click', (e) => {
+      const c = e.target.closest('.card');
+      if (!c) return;
+      this.g.chooseLoadout(c.dataset.w);
+      for (const x of this.el.loadCards.children) x.classList.toggle('on', x === c);
+    });
+    if (touch) this.el.touchNote.classList.remove('hidden');
+    // 觸控時連結要能點（不被遊戲的觸控處理吃掉）
+    for (const a of this.root.querySelectorAll('.mlinks a')) a.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    this.syncControls();
   }
-  setIcons(icons) {
-    this.icons = icons;
-    for (const c of this.root.querySelectorAll('#loadCards .card')) c.querySelector('img').src = icons[c.dataset.w] || '';
-  }
+
+  // 依目前設定更新所有選單按鈕與滑桿（主選單、暫停選單共用同一組設定）
   syncControls() {
     const o = this.opts;
-    for (const s of this.root.querySelectorAll('.seg[data-k]')) for (const b of s.querySelectorAll('button')) b.classList.toggle('on', String(o[s.dataset.k]) === b.dataset.v);
+    for (const s of this.root.querySelectorAll('.seg[data-k]')) {
+      for (const b of s.querySelectorAll('button')) b.classList.toggle('on', String(o[s.dataset.k]) === b.dataset.v);
+    }
     for (const sl of this.root.querySelectorAll('.slider[data-k]')) {
-      const k = sl.dataset.k; sl.querySelector('input').value = o[k]; sl.querySelector('span').textContent = (+o[k]).toFixed(k === 'fov' ? 0 : 2);
+      const k = sl.dataset.k;
+      sl.querySelector('input').value = o[k];
+      sl.querySelector('span').textContent = (+o[k]).toFixed(k === 'fov' ? 0 : 2);
     }
   }
+
+  setIcons(icons) {
+    this.icons = icons;
+    for (const c of this.el.loadCards.children) c.querySelector('img').src = icons[c.dataset.w] || '';
+  }
+
   show(name) {
     if (name === 'menu' || name === 'pause') this.syncControls();
     for (const n of ['menu', 'pause', 'end', 'loadout', 'loading']) this.el[n].classList.toggle('hidden', n !== name);
     this.el.hud.classList.toggle('hidden', name === 'menu' || name === 'loading' || name === 'end');
   }
-  loading(p, text) { this.el.loadBar.style.width = (p * 100).toFixed(0) + '%'; if (text) this.el.loadTxt.textContent = text; }
 
-  // ---------- 局內 ----------
+  loading(p, text) {
+    this.el.loadBar.style.width = `${Math.round(p * 100)}%`;
+    if (text) this.el.loadTxt.textContent = text;
+  }
+
+  // ───────── 遊戲中 ─────────
+  // state：score timeLeft goal myTeam hp armor alive weapon scoped spreadPx yaw respawnIn killedBy protect aimName aimTeam
+
   update(dt, s) {
     const e = this.el;
-    // 比分與時間
-    e.sBL.textContent = s.score.BL; e.sGR.textContent = s.score.GR;
-    const tl = Math.max(0, s.timeLeft), mm = (tl / 60) | 0, ss = (tl % 60) | 0;
-    e.sTime.textContent = `${mm}:${ss < 10 ? '0' : ''}${ss}`;
-    e.sGoal.textContent = `團隊競技 · 目標 ${s.goal}`;
-    e.tBL.classList.toggle('mine', s.myTeam === 'BL'); e.tGR.classList.toggle('mine', s.myTeam === 'GR');
-    // 生命護甲
+    e.sBL.textContent = s.score.BL;
+    e.sGR.textContent = s.score.GR;
+    const left = Math.max(0, s.timeLeft), m = Math.floor(left / 60), sec = Math.floor(left % 60);
+    e.sTime.textContent = `${m}:${String(sec).padStart(2, '0')}`;
+    e.sGoal.textContent = `先到 ${s.goal} 殺獲勝`;
+    e.tBL.classList.toggle('mine', s.myTeam === 'BL');
+    e.tGR.classList.toggle('mine', s.myTeam === 'GR');
+
     e.hpVal.textContent = Math.max(0, Math.ceil(s.hp));
     e.arVal.textContent = Math.max(0, Math.ceil(s.armor));
     e.hpBox.classList.toggle('low', s.hp <= 30 && s.alive);
-    // 彈藥
-    const w = s.weapon;
-    if (w) {
-      const d = w.def;
-      e.wName.textContent = d.hudName;
-      if (d.type === 'melee') { e.aMag.textContent = '∞'; e.aRes.textContent = ''; }
-      else if (d.type === 'grenade') { e.aMag.textContent = w.mag; e.aRes.textContent = ''; }
-      else { e.aMag.textContent = w.mag; e.aRes.textContent = '/ ' + w.reserve; }
-      e.aMag.classList.toggle('low', d.mag > 1 && w.mag <= Math.ceil(d.mag * 0.2));
-      if (this.icons[d.id] && e.wIcon.dataset.id !== d.id) { e.wIcon.src = this.icons[d.id]; e.wIcon.dataset.id = d.id; }
-      e.aHint.textContent = w.reloading ? '換彈中…' : (d.mag > 1 && w.mag === 0 && w.reserve === 0 ? '彈藥耗盡' : (d.mag > 1 && w.mag === 0 ? '按 R 換彈' : ''));
-    }
-    // 準星
-    const showX = s.alive && !s.scoped && w && w.def.type !== 'sniper';
-    e.cross.style.display = showX ? '' : 'none';
-    if (showX) {
-      const gap = 4 + s.spreadPx;
-      e.cT.style.top = -(gap + 9) + 'px'; e.cB.style.top = gap + 'px';
-      e.cL.style.left = -(gap + 9) + 'px'; e.cR.style.left = gap + 'px';
-    }
-    e.scope.classList.toggle('on', !!s.scoped && s.alive);
-    // 命中標記
+    e.hpBox.style.setProperty('--fill', `${Math.max(0, Math.min(100, s.hp))}%`);
+    e.arBox.style.setProperty('--fill', `${Math.max(0, Math.min(100, s.armor))}%`);
+
+    this.updateAmmo(s.weapon);
+    this.updateCrosshair(s);
+
     if (this.hitT > 0) { this.hitT -= dt; e.hit.style.opacity = Math.min(1, this.hitT * 5); } else e.hit.style.opacity = 0;
-    // 受擊方向
+
     for (const d of this.dmgDirs) {
       d.t -= dt;
-      const rel = d.ang - s.yaw;
-      d.el.style.transform = `rotate(${-rel}rad)`;
+      d.el.style.transform = `rotate(${-(d.ang - s.yaw)}rad)`;
       d.el.style.opacity = Math.max(0, Math.min(1, d.t));
       if (d.t <= 0) d.el.remove();
     }
     this.dmgDirs = this.dmgDirs.filter((d) => d.t > 0);
-    // 擊殺資訊淡出
+
     const now = performance.now();
-    this.feedItems = this.feedItems.filter((f) => { if (now - f.t > 7000) { f.el.remove(); return false; } return true; });
-    // 提示
-    if (this.toastT > 0) { this.toastT -= dt; if (this.toastT <= 0) e.toast.style.opacity = 0; }
-    // 中央資訊
-    if (!s.alive && s.respawnIn > 0) {
-      e.center.classList.remove('hidden');
+    this.feedItems = this.feedItems.filter((f) => (now - f.t > 7000 ? (f.el.remove(), false) : true));
+
+    if (this.toastT > 0 && (this.toastT -= dt) <= 0) e.toast.style.opacity = 0;
+
+    const dead = !s.alive && s.respawnIn > 0;
+    e.center.classList.toggle('hidden', !dead);
+    if (dead) {
       e.cBig.innerHTML = s.killedBy || '你陣亡了';
-      e.cSmall.textContent = `${s.respawnIn.toFixed(1)} 秒後復活 · 按 B 更換武器`;
-    } else e.center.classList.add('hidden');
-    e.protect.textContent = s.protect > 0 && s.alive ? `出生保護 ${s.protect.toFixed(1)}s（開火即解除）` : '';
-    e.nameTip.textContent = s.aimName || ''; e.nameTip.className = s.aimTeam || '';
+      e.cSmall.textContent = `${s.respawnIn.toFixed(1)} 秒後復活・按 B 換主武器`;
+    }
+    e.protect.textContent = s.protect > 0 && s.alive ? `出生保護 ${s.protect.toFixed(1)} 秒（開火即解除）` : '';
+    e.nameTip.textContent = s.aimName || '';
+    e.nameTip.className = s.aimTeam || '';
     if (this.slotsT > 0) { this.slotsT -= dt; e.slots.style.opacity = Math.min(1, this.slotsT * 2); } else e.slots.style.opacity = 0;
   }
+
+  updateAmmo(w) {
+    const e = this.el;
+    if (!w) return;
+    const d = w.def;
+    e.wName.textContent = d.hudName;
+    if (d.type === 'melee') { e.aMag.textContent = '∞'; e.aRes.textContent = ''; }
+    else { e.aMag.textContent = w.mag; e.aRes.textContent = d.type === 'grenade' ? '' : `/ ${w.reserve}`; }
+    e.aMag.classList.toggle('low', d.mag > 1 && w.mag <= Math.ceil(d.mag * 0.2));
+    if (this.icons[d.id] && e.wIcon.dataset.id !== d.id) { e.wIcon.src = this.icons[d.id]; e.wIcon.dataset.id = d.id; }
+    const empty = d.mag > 1 && w.mag === 0;
+    e.aHint.textContent = w.reloading ? '換彈中…' : empty && w.reserve === 0 ? '彈藥耗盡' : empty ? '按 R 換彈' : '';
+  }
+
+  // 準星四條線隨散佈張開；狙擊槍、開鏡時不顯示
+  updateCrosshair(s) {
+    const e = this.el, w = s.weapon;
+    const show = s.alive && !s.scoped && w && w.def.type !== 'sniper';
+    e.cross.style.display = show ? '' : 'none';
+    if (show) e.cross.style.setProperty('--gap', `${4 + s.spreadPx}px`);
+    e.scope.classList.toggle('on', !!s.scoped && s.alive);
+  }
+
   slots(inv, cur) {
-    const e = this.el.slots;
-    e.innerHTML = '';
-    ['主武器', '副武器', '近身', '投擲'].forEach((lab, i) => {
-      const w = inv[i];
-      if (!w) return;
-      const d = document.createElement('div');
-      d.className = 's' + (i === cur ? ' on' : '');
-      d.innerHTML = `<span>${w.def.name}</span><img src="${this.icons[w.id] || ''}"><b>${i + 1}</b>`;
-      e.appendChild(d);
-    });
+    const box = this.el.slots;
+    box.innerHTML = inv.map((w, i) => (w ? `<div class="s${i === cur ? ' on' : ''}"><span>${w.def.name}</span><img src="${this.icons[w.id] || ''}" alt=""><b>${i + 1}</b></div>` : '')).join('');
     this.slotsT = 2.2;
   }
-  killFeed(k, v, wid, hs, wb, mine) {
-    const d = document.createElement('div');
-    d.className = 'kf' + (mine ? ' me' : '');
-    const icon = this.icons[wid] ? `<img src="${this.icons[wid]}">` : `<span>[${WEAPONS[wid]?.name || CAUSES[wid]?.name || wid}]</span>`;
-    d.innerHTML = (k ? `<span class="k ${k.team}">${esc(k.name)}</span>` : '') + icon + (wb ? `<img class="hs" src="${WB_ICON}">` : '') + (hs ? `<img class="hs" src="${HS_ICON}">` : '') + `<span class="v ${v.team}">${esc(v.name)}</span>`;
-    this.el.feed.prepend(d);
-    this.feedItems.push({ el: d, t: performance.now() });
-    while (this.feedItems.length > 6) { const f = this.feedItems.shift(); f.el.remove(); }
+
+  killFeed(killer, victim, wid, headshot, wallbang, mine) {
+    const row = document.createElement('div');
+    row.className = 'kf' + (mine ? ' me' : '');
+    const weapon = this.icons[wid] ? `<img src="${this.icons[wid]}" alt="">` : `<span class="cause">${WEAPONS[wid]?.name || CAUSES[wid]?.name || wid}</span>`;
+    row.innerHTML = (killer ? `<span class="${killer.team}">${esc(killer.name)}</span>` : '') + weapon
+      + (wallbang ? `<img class="tag" src="${ICON_WALLBANG}" alt="穿牆">` : '')
+      + (headshot ? `<img class="tag" src="${ICON_HEADSHOT}" alt="爆頭">` : '')
+      + `<span class="${victim.team}">${esc(victim.name)}</span>`;
+    this.el.feed.prepend(row);
+    this.feedItems.push({ el: row, t: performance.now() });
+    while (this.feedItems.length > 6) this.feedItems.shift().el.remove();
   }
-  hitmarker(hs, kill, armorBreak) {
-    this.el.hit.className = kill ? 'kill' : hs ? 'hs' : armorBreak ? 'ab' : '';
+
+  hitmarker(headshot, kill, armorBreak) {
+    this.el.hit.className = kill ? 'kill' : headshot ? 'hs' : armorBreak ? 'ab' : '';
     this.hitT = kill ? 0.45 : 0.22;
   }
+
   damageFrom(ang) {
-    const d = document.createElement('div'); d.className = 'dd';
+    const d = document.createElement('div');
+    d.className = 'dd';
     this.el.dmgDirs.appendChild(d);
     this.dmgDirs.push({ el: d, ang, t: 1.4 });
   }
+
   badge(text, sub, headshot) {
     const b = this.el.badge;
-    b.classList.remove('show'); void b.offsetWidth;
-    b.querySelector('.ico').innerHTML = BADGE_SVG(headshot ? '#c0301a' : '#b8860b', headshot ? CROSSHAIR_B : SKULL);
+    b.classList.remove('show');
+    void b.offsetWidth;   // 重新觸發動畫
+    b.querySelector('.ico').innerHTML = STAMP(headshot ? '爆頭' : '擊殺', headshot ? '#d42a1e' : '#c0392b');
     b.querySelector('.txt').textContent = text;
     b.querySelector('.sub').textContent = sub || '';
     b.classList.add('show');
   }
-  toast(text, dur = 2.5) { const t = this.el.toast; t.innerHTML = text; t.style.opacity = 1; this.toastT = dur; }
+
+  toast(html, dur = 2.5) {
+    this.el.toast.innerHTML = html;
+    this.el.toast.style.opacity = 1;
+    this.toastT = dur;
+  }
+
+  teamTables(actors, myId, cols, header) {
+    const table = (team) => {
+      const rows = actors.filter((a) => a.team === team)
+        .sort((a, b) => b.stats.k - a.stats.k || a.stats.d - b.stats.d)
+        .map((a) => `<tr class="${a.id === myId ? 'me' : ''}${a.alive === false && cols.includes('ping') ? ' dead' : ''}"><td>${esc(a.name)}</td>${cols.map((c) => `<td>${c === 'ping' ? a.ping : a.stats[c]}</td>`).join('')}</tr>`).join('');
+      return `<table class="t${team}"><tr><th class="team">${header(team)}</th>${cols.map((c) => `<th>${{ k: '擊殺', d: '死亡', hs: '爆頭', ping: '延遲' }[c]}</th>`).join('')}</tr>${rows}</table>`;
+    };
+    return `<div class="cols">${table('BL')}${table('GR')}</div>`;
+  }
+
   scoreboard(show, actors, myId, score) {
     this.el.board.classList.toggle('hidden', !show);
-    if (!show) return;
-    const rows = (team) => actors.filter((a) => a.team === team).sort((a, b) => b.stats.k - a.stats.k || a.stats.d - b.stats.d)
-      .map((a) => `<tr class="${a.id === myId ? 'me' : ''} ${a.alive ? '' : 'dead'}"><td>${esc(a.name)}</td><td>${a.stats.k}</td><td>${a.stats.d}</td><td>${a.stats.hs}</td><td>${a.ping}</td></tr>`).join('');
-    const tbl = (team) => `<table class="t${team}"><tr><th class="team">${TEAM_CN[team]} · ${score[team]}</th><th>擊殺</th><th>死亡</th><th>爆頭</th><th>延遲</th></tr>${rows(team)}</table>`;
-    this.el.boardBody.innerHTML = `<div class="cols">${tbl('BL')}${tbl('GR')}</div>`;
+    if (show) this.el.boardBody.innerHTML = this.teamTables(actors, myId, ['k', 'd', 'hs', 'ping'], (t) => `${TEAM_NAME[t]}・${score[t]}`);
   }
+
   endScreen(win, score, actors, myId) {
     this.show('end');
-    const r = this.el.endRes;
-    r.textContent = win === null ? '平局' : win ? '勝利' : '失敗';
-    r.className = 'res ' + (win ? 'win' : 'lose');
-    this.el.endSc.textContent = `女生隊 ${score.BL} : ${score.GR} 男生隊`;
-    const mvp = [...actors].sort((a, b) => (b.stats.k * 2 - b.stats.d + b.stats.hs) - (a.stats.k * 2 - a.stats.d + a.stats.hs))[0];
-    this.el.endMvp.textContent = mvp ? `MVP：${mvp.name}（${mvp.stats.k} 殺 / ${mvp.stats.hs} 爆頭）` : '';
+    const e = this.el;
+    e.endRes.textContent = win === null ? '平手' : win ? '勝利' : '落敗';
+    e.endRes.className = 'res ' + (win ? 'win' : 'lose');
+    e.endSc.textContent = `女生隊 ${score.BL} : ${score.GR} 男生隊`;
+    const rating = (a) => a.stats.k * 2 - a.stats.d + a.stats.hs;
+    const mvp = [...actors].sort((a, b) => rating(b) - rating(a))[0];
+    e.endMvp.textContent = mvp ? `本局 MVP：${mvp.name}（${mvp.stats.k} 殺／${mvp.stats.hs} 爆頭）` : '';
     const me = actors.find((a) => a.id === myId);
-    const acc = me && me.stats.shots ? ((me.stats.hits / me.stats.shots) * 100).toFixed(1) : '0';
-    this.el.endMe.textContent = me ? `你的戰績：${me.stats.k} 擊殺 · ${me.stats.d} 死亡 · ${me.stats.hs} 爆頭 · 命中率 ${acc}%` : '';
-    const rows = (team) => actors.filter((a) => a.team === team).sort((a, b) => b.stats.k - a.stats.k)
-      .map((a) => `<tr class="${a.id === myId ? 'me' : ''}"><td>${esc(a.name)}</td><td>${a.stats.k}</td><td>${a.stats.d}</td><td>${a.stats.hs}</td></tr>`).join('');
-    const tbl = (team) => `<table class="t${team}"><tr><th class="team">${TEAM_CN[team]}</th><th>擊殺</th><th>死亡</th><th>爆頭</th></tr>${rows(team)}</table>`;
-    this.el.endTable.innerHTML = `<div class="cols">${tbl('BL')}${tbl('GR')}</div>`;
+    const acc = me?.stats.shots ? ((me.stats.hits / me.stats.shots) * 100).toFixed(1) : '0';
+    e.endMe.textContent = me ? `你的成績：${me.stats.k} 擊殺・${me.stats.d} 死亡・${me.stats.hs} 爆頭・命中率 ${acc}%` : '';
+    e.endTable.innerHTML = this.teamTables(actors, myId, ['k', 'd', 'hs'], (t) => TEAM_NAME[t]);
   }
-  // ---------- 小地圖 ----------
-  buildRadar(world) {
-    if(this.g.map?.radar){const r=this.g.map.radar;this.radarImg=r.image;this.radarS=r.scale;this.radarX=r.x;this.radarZ=r.z;return;}
 
-    const S = 8; // px/m
-    const W = 74 * S, H = 26 * S;
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const x = c.getContext('2d');
-    x.fillStyle = 'rgba(70,80,84,0.95)'; x.fillRect(0, 0, W, H);
-    const cols = [...world.colliders].filter((k) => k.solid && k.top > 0.3 && k.bottom < 2 && k.hx < 30 && k.tag !== 'deck').sort((a, b) => a.top - b.top);
-    for (const k of cols) {
-      if (k.bullet === 'pass' && k.mat !== 'mesh') continue;
-      x.save();
-      x.translate((k.x + 37) * S, (k.z + 13) * S);
-      x.rotate(-k.yaw);
-      const hgt = k.top;
-      x.fillStyle = k.mat === 'mesh' ? 'rgba(200,200,190,.5)' : hgt > 4 ? '#1d2327' : hgt > 2 ? '#2d353a' : hgt > 1.3 ? '#3b454b' : '#56616a';
-      x.fillRect(-k.hx * S, -k.hz * S, k.hx * 2 * S, k.hz * 2 * S);
-      x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = 1;
-      x.strokeRect(-k.hx * S, -k.hz * S, k.hx * 2 * S, k.hz * 2 * S);
-      x.restore();
-    }
-    // 管道頂棚（二樓）用虛線表示
-    x.strokeStyle = 'rgba(245,179,33,.35)'; x.setLineDash([6, 4]);
-    x.strokeRect((-29.5 + 37) * S, (9.4 + 13) * S, 36.6 * S, 2.44 * S);
-    x.strokeRect((29.5 - 36.6 + 37) * S, (-11.84 + 13) * S, 36.6 * S, 2.44 * S);
-    this.radarImg = c; this.radarS = S;
+  // ───────── 小地圖 ─────────
+  // 校園地圖提供俯視圖（radar.image）與座標換算（每公尺 scale 像素、世界原點在圖上 x/z）
+
+  buildRadar() {
+    const r = this.g.map?.radar;
+    if (!r) return;
+    this.radar = { img: r.image, s: r.scale, x: r.x, z: r.z };
   }
-  drawRadar(me, actors, t) {
+
+  drawRadar(me, actors = this.g.actors || []) {
     const ctx = this.radarCtx, cv = this.el.radar;
-    const W = cv.width = cv.clientWidth * 1.5 | 0, H = cv.height = cv.clientHeight * 1.5 | 0;
+    const W = (cv.width = Math.round(cv.clientWidth * 1.5)), H = (cv.height = Math.round(cv.clientHeight * 1.5));
     ctx.clearRect(0, 0, W, H);
-    if (!this.radarImg) return;
-    const S = this.radarS, zoom = 0.55 * (W / 294);
+    const R = this.radar;
+    if (!R) return;
+    const toMap = (p) => [(p.x + R.x) * R.s, (p.z + R.z) * R.s];
+    const zoom = 0.55 * (W / 294);
     ctx.save();
     ctx.translate(W / 2, H / 2);
-    ctx.rotate(me.yaw);
+    ctx.rotate(me.yaw);                // 地圖跟著自己的朝向轉，上方永遠是前方
     ctx.scale(zoom, zoom);
-    ctx.translate(-(me.pos.x + (this.radarX ?? 37)) * S, -(me.pos.z + (this.radarZ ?? 13)) * S);
+    const [mx, mz] = toMap(me.pos);
+    ctx.translate(-mx, -mz);
     ctx.globalAlpha = 0.95;
-    ctx.drawImage(this.radarImg, 0, 0);
+    ctx.drawImage(R.img, 0, 0);
     ctx.globalAlpha = 1;
     for (const a of actors) {
       if (a === me) continue;
-      const seen = a.team === me.team || (a.radarT > 0);
-      if (!seen) continue;
-      const px = (a.pos.x + (this.radarX ?? 37)) * S, pz = (a.pos.z + (this.radarZ ?? 13)) * S;
+      const ally = a.team === me.team;
+      if (!ally && !(a.radarT > 0)) continue;   // 敵人只在開槍後短暫出現
+      const [px, pz] = toMap(a.pos);
       if (!a.alive) {
-        if (a.team !== me.team || a.deadT > 5) continue;
-        ctx.strokeStyle = '#9aa'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px - 8, pz - 8); ctx.lineTo(px + 8, pz + 8); ctx.moveTo(px + 8, pz - 8); ctx.lineTo(px - 8, pz + 8); ctx.stroke();
+        if (!ally || a.deadT > 5) continue;
+        ctx.strokeStyle = '#a9b4b0'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px - 8, pz - 8); ctx.lineTo(px + 8, pz + 8); ctx.moveTo(px + 8, pz - 8); ctx.lineTo(px - 8, pz + 8); ctx.stroke();
         continue;
       }
-      ctx.fillStyle = a.team === me.team ? '#4fb0ff' : '#ff4a3a';
-      if (a.team === me.team) {
+      if (ally) {
+        ctx.fillStyle = '#5fb8ff';
         ctx.save(); ctx.translate(px, pz); ctx.rotate(-a.yaw);
         ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(8, 9); ctx.lineTo(0, 4); ctx.lineTo(-8, 9); ctx.closePath(); ctx.fill();
         ctx.restore();
       } else {
+        ctx.fillStyle = '#ff5a4a';
         ctx.globalAlpha = Math.min(1, a.radarT);
-        ctx.beginPath(); ctx.arc(px, pz, 9, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(px, pz, 9, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
       }
     }
     ctx.restore();
-    // 自己
-    ctx.fillStyle = '#ffd24a';
-    ctx.beginPath(); ctx.moveTo(W / 2, H / 2 - 10); ctx.lineTo(W / 2 + 7, H / 2 + 8); ctx.lineTo(W / 2, H / 2 + 4); ctx.lineTo(W / 2 - 7, H / 2 + 8); ctx.closePath(); ctx.fill();
-    // 視野扇形
-    const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.45);
-    g.addColorStop(0, 'rgba(255,255,255,.18)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(W / 2, H / 2); ctx.arc(W / 2, H / 2, W * 0.45, -Math.PI / 2 - 0.6, -Math.PI / 2 + 0.6); ctx.closePath(); ctx.fill();
+    // 視野扇形與自己的箭頭（固定在中央、朝上）
+    const cx = W / 2, cy = H / 2;
+    const fan = ctx.createRadialGradient(cx, cy, 0, cx, cy, W * 0.45);
+    fan.addColorStop(0, 'rgba(255,240,180,.22)'); fan.addColorStop(1, 'rgba(255,240,180,0)');
+    ctx.fillStyle = fan;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, W * 0.45, -Math.PI / 2 - 0.6, -Math.PI / 2 + 0.6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffe066';
+    ctx.beginPath(); ctx.moveTo(cx, cy - 10); ctx.lineTo(cx + 7, cy + 8); ctx.lineTo(cx, cy + 4); ctx.lineTo(cx - 7, cy + 8); ctx.closePath(); ctx.fill();
   }
 }
-
-function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-
-const PRIM_CARDS = PRIMARIES.map((id) => {
-  const d = WEAPONS[id];
-  const sub = { ak47: '中距離 · 傷害高、後座大', m4a1: '中距離 · 穩定好壓', awm: '遠距離 · 一槍致命、需開鏡', mp5: '近距離 · 射速快、遠了沒力', m870: '貼臉 · 一發斃命、遠了沒用' }[id];
-  // 武器定位一目了然：傷害（每發含彈丸）、射速、有效射程（傷害剩 60% 的距離）、機動
-  const eff = Math.min(d.range, 10 * Math.log(0.6) / Math.log(d.falloff));
-  const st = [['傷害', d.dmg * (d.pellets || 1) / 130], ['射速', d.rpm / 850], ['射程', eff / 400], ['機動', (d.speed - 0.76) / 0.26]];
-  const bars = st.map(([k, v]) => `<span>${k}</span><i><em style="width:${Math.round(Math.max(0.06, Math.min(1, v)) * 100)}%"></em></i>`).join('');
-  return `<div class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${sub}</small><div class="st">${bars}</div></div>`;
-}).join('');
-
-const TEMPLATE = `
-<div id="hud" class="hidden">
-  <div id="score">
-    <div class="team bl" id="tBL"><span class="nm">女生隊</span><span class="pts" id="sBL">0</span></div>
-    <div class="mid"><div class="time" id="sTime">10:00</div><div class="goal" id="sGoal"></div></div>
-    <div class="team gr" id="tGR"><span class="pts" id="sGR">0</span><span class="nm">男生隊</span></div>
-  </div>
-  <div id="radarWrap"><canvas id="radar"></canvas><div class="lbl">樹義國小</div></div>
-  <div id="feed"></div>
-  <div id="vitals">
-    <div class="vbox" id="hpBox"><div class="ic">✚</div><div class="val" id="hpVal">100</div></div>
-    <div class="vbox" id="arBox"><div class="ic">⛨</div><div class="val" id="arVal">100</div></div>
-  </div>
-  <div id="slots"></div>
-  <div id="ammo"><div class="wname" id="wName"></div><div class="row"><img class="wicon" id="wIcon" alt=""><span class="mag" id="aMag">30</span><span class="res" id="aRes">/ 90</span></div><div class="hint" id="aHint"></div></div>
-  <div id="cross"><i class="t" id="cT"></i><i class="b" id="cB"></i><i class="l" id="cL"></i><i class="r" id="cR"></i></div>
-  <div id="hit"><i></i><i></i><i></i><i></i></div>
-  <div id="dmgDirs"></div>
-  <div id="scope"><div class="ring"></div><div class="h"></div><div class="v"></div><div class="h2 l"></div><div class="h2 r"></div><div class="v2"></div><div class="dot"></div></div>
-  <div id="badge"><div class="ico"></div><div class="txt"></div><div class="sub"></div></div>
-  <div id="center" class="hidden"><div class="big" id="cBig"></div><div class="small" id="cSmall"></div></div>
-  <div id="toast"></div>
-  <div id="protect"></div>
-  <div id="nameTip"></div>
-  <div id="board" class="hidden tbl"><h3><span>樹義國小 · 團隊競技</span><span>Tab</span></h3><div id="boardBody"></div></div>
-  <div id="touch" class="hidden"></div>
-</div>
-
-<div id="loading" class="screen"><div class="t">樹 義 國 小</div><div class="s" id="loadTxt">LOADING</div><div class="bar"><i id="loadBar"></i></div><div class="tip">提示：WASD 移動，左鍵射擊，R 換彈，B 更換主武器，Esc 暫停。</div></div>
-
-<div id="menu" class="screen hidden">
-  <div class="menuBox">
-    <div class="title">
-      <div class="logo">校 園 對 戰 · 團 隊 競 技</div>
-      <h1>樹義國小</h1>
-      <div class="en">SHU YI CAMPUS</div>
-      <p>依官網校園配置圖、照片與 OpenStreetMap 實際尺寸 1:1 重建的樹義國小，男生隊對女生隊的團隊對戰。<br>五層樓教室都有堂號與班級門牌，沿走廊、樓梯與中庭尋找路線，善用牆面和建築掩護。率先達成目標擊殺的隊伍獲勝。</p>
-      <div class="keys">
-        <kbd>W A S D</kbd><span>移動　<kbd>Shift</kbd> 靜步　<kbd>空格</kbd> 跳　<kbd>Ctrl</kbd> 蹲</span>
-        <kbd>滑鼠左鍵</kbd><span>開火　<kbd>右鍵</kbd> 狙擊開鏡 / 刀重擊</span>
-        <kbd>1 2 3 4</kbd><span>主武器 / 手槍 / 刀 / 手雷　<kbd>Q</kbd> 快切　<kbd>滾輪</kbd> 切換</span>
-        <kbd>R</kbd><span>換彈　<kbd>F</kbd> 檢視武器　<kbd>B</kbd> 更換主武器</span>
-        <kbd>Tab</kbd><span>計分板　<kbd>Esc</kbd> 暫停 / 設定</span>
-      </div>
-      <div class="note hidden" id="touchNote">檢測到觸屏裝置：已啟用虛擬搖桿（左側移動、右側滑動視角）。電腦 + 滑鼠體驗最佳。</div>
-    </div>
-    <div class="opts">
-      <div class="opt"><div class="lab">陣營</div><div class="seg team" data-k="team"><button data-v="BL">女生隊<small>Girls</small></button><button data-v="GR">男生隊<small>Boys</small></button></div></div>
-      <div class="opt"><div class="lab">主武器</div><div class="seg" data-k="primary"><button data-v="ak47">AK-47</button><button data-v="m4a1">M4A1</button><button data-v="awm">AWM</button><button data-v="mp5">MP5</button><button data-v="m870">M870</button></div></div>
-      <div class="row2">
-        <div class="opt"><div class="lab">對戰規模</div><div class="seg" data-k="size"><button data-v="4">4v4</button><button data-v="6">6v6</button><button data-v="8">8v8</button></div></div>
-        <div class="opt"><div class="lab">目標擊殺</div><div class="seg" data-k="goal"><button data-v="30">30</button><button data-v="50">50</button><button data-v="100">100</button></div></div>
-      </div>
-      <div class="opt"><div class="lab">電腦難度</div><div class="seg" data-k="diff"><button data-v="easy">簡單</button><button data-v="normal">普通</button><button data-v="hard">困難</button><button data-v="hell">地獄</button></div></div>
-      <div class="row2">
-        <div class="opt"><div class="lab">時間</div><div class="seg" data-k="tod"><button data-v="day">白天</button><button data-v="dusk">黃昏</button></div></div>
-        <div class="opt"><div class="lab">畫質</div><div class="seg" data-k="quality"><button data-v="low">流暢</button><button data-v="medium">均衡</button><button data-v="high">極致</button></div></div>
-      </div>
-      <div class="row3">
-        <div class="opt"><div class="lab">靈敏度</div><div class="slider" data-k="sens"><input type="range" min="0.2" max="3" step="0.05"><span></span></div></div>
-        <div class="opt"><div class="lab">視野 FOV</div><div class="slider" data-k="fov"><input type="range" min="65" max="100" step="1"><span></span></div></div>
-        <div class="opt"><div class="lab">音量</div><div class="slider" data-k="vol"><input type="range" min="0" max="1" step="0.05"><span></span></div></div>
-      </div>
-      <button class="go" id="btnStart">開 始 遊 戲</button>
-      <div class="note">點選開始後滑鼠將被鎖定，按 Esc 暫停。畫質切換會重新載入頁面。</div>
-      <div class="mlinks"><span>遊戲引擎改編自</span><a href="https://github.com/riba2534/claude-opus-5-5-demo" target="_blank" rel="noopener noreferrer">riba2534/claude-opus-5-5-demo</a><span>·</span><a href="https://x.com/riba2534" target="_blank" rel="noopener noreferrer">X @riba2534</a></div>
-      <div class="mlinks credits"><span>地圖資料 ©</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap 貢獻者（ODbL）</a><span>·</span><span>校園配置與堂號：</span><a href="https://tanghao.neocities.org/" target="_blank" rel="noopener noreferrer">臺中市南區樹義國民小學（CC BY-NC-SA）</a></div>
-    </div>
-  </div>
-</div>
-
-<div id="pause" class="screen hidden"><div class="pauseBox"><h2>暫停</h2>
-  <div class="opt"><div class="lab">滑鼠靈敏度</div><div class="slider" data-k="sens"><input type="range" min="0.2" max="3" step="0.05"><span></span></div></div>
-  <div class="opt"><div class="lab">視野 FOV</div><div class="slider" data-k="fov"><input type="range" min="65" max="100" step="1"><span></span></div></div>
-  <div class="opt"><div class="lab">音量</div><div class="slider" data-k="vol"><input type="range" min="0" max="1" step="0.05"><span></span></div></div>
-  <div class="opt"><div class="lab">時間</div><div class="seg" data-k="tod"><button data-v="day">白天</button><button data-v="dusk">黃昏</button></div></div>
-  <button class="go" id="btnResume">繼 續</button><button class="go sec" id="btnQuit" style="margin-top:10px">退出到主選單</button>
-</div></div>
-
-<div id="loadout" class="screen hidden"><div class="loadBox"><h2>更換主武器</h2><div class="sub">復活時生效；在出生點內立即生效。副武器沙漠之鷹、軍刀、手雷自動配備。</div>
-  <div class="cards" id="loadCards">${PRIM_CARDS}</div>
-  <button class="go sec" id="btnLoadClose" style="margin-top:14px">確 定（B）</button>
-</div></div>
-
-<div id="end" class="screen hidden"><div class="endBox">
-  <div class="res" id="endRes">勝利</div><div class="sc" id="endSc"></div><div class="mvp" id="endMvp"></div><div class="mvp" id="endMe" style="color:#dfe4e8"></div>
-  <div id="endTable" class="tbl"></div>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="go" id="btnAgain">再 來 一 局</button><button class="go sec" id="btnMenu">主選單</button></div>
-</div></div>
-`;
-
-
