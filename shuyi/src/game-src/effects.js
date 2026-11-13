@@ -396,7 +396,7 @@ export class Effects {
   }
   // 拋出彈殼：落地彈跳、躺平，停留一段時間
   casing(p, v, type) {
-    const S = { pistol: [0.0055, 0.024], smg: [0.0048, 0.021], rifle: [0.005, 0.046], sniper: [0.0068, 0.072] }[type] || [0.005, 0.04];
+    const S = { pistol: [0.0055, 0.024], smg: [0.0048, 0.021], rifle: [0.005, 0.046], sniper: [0.0068, 0.072], shotgun: [0.0105, 0.062] }[type] || [0.005, 0.04];
     if (this.cases.length >= this.caseMax) this.cases.shift();
     this.cases.push({ p: p.clone(), v: v.clone(), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)), w: new THREE.Vector3((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30), r: S[0], len: S[1], life: 0, max: 25 + Math.random() * 10, floor: -50, rest: false, chk: 0 });
   }

@@ -7,11 +7,12 @@ const HIP = {
   m4a1: { p: [0.16, -0.18, -0.54], r: [0.045, 0.165, 0.02] },
   awm: { p: [0.17, -0.185, -0.6], r: [0.04, 0.15, 0.02] },
   mp5: { p: [0.155, -0.165, -0.5], r: [0.05, 0.17, 0.02] },
+  m870: { p: [0.16, -0.18, -0.56], r: [0.045, 0.16, 0.02] },
   deagle: { p: [0.085, -0.115, -0.4], r: [0.05, 0.1, 0] },
   knife: { p: [0.17, -0.15, -0.34], r: [0.35, -0.25, 0.55] },
   he: { p: [0.13, -0.12, -0.3], r: [0.1, -0.2, 0.2] },
 };
-const KICK = { ak47: [0.04, 0.07], m4a1: [0.032, 0.05], awm: [0.09, 0.2], mp5: [0.024, 0.035], deagle: [0.05, 0.22] };
+const KICK = { m870: [0.085, 0.22], ak47: [0.04, 0.07], m4a1: [0.032, 0.05], awm: [0.09, 0.2], mp5: [0.024, 0.035], deagle: [0.05, 0.22] };
 
 const ease = (t) => t * t * (3 - 2 * t);
 const seg = (f, a, b) => Math.min(1, Math.max(0, (f - a) / (b - a)));
@@ -109,7 +110,7 @@ export class ViewModel {
     this.parts = {};
     this.cur.traverse((o) => { if (o.name) this.parts[o.name] = o; });
     this.partRest = {};
-    for (const k of ['mag', 'bolt', 'slide', 'pin', 'lever']) if (this.parts[k]) this.partRest[k] = { p: this.parts[k].position.clone(), r: this.parts[k].rotation.clone() };
+    for (const k of ['mag', 'bolt', 'slide', 'pin', 'lever', 'pump']) if (this.parts[k]) this.partRest[k] = { p: this.parts[k].position.clone(), r: this.parts[k].rotation.clone() };
     const mz = this.parts.muzzle;
     if (mz) { mz.add(this.flash); }
     this.drawT = 0; this.drawDur = drawTime || 0.5;
@@ -123,10 +124,11 @@ export class ViewModel {
     this.flash.visible = true;
     this.flashFront.material.map = this.flashTex[(Math.random() * 3) | 0];
     this.flashFront.rotation.z = Math.random() * Math.PI;
-    const sc = this.id === 'awm' ? 1.6 : this.id === 'deagle' ? 1.2 : this.id === 'mp5' ? 0.8 : 1;
+    const sc = this.id === 'm870' ? 1.55 : this.id === 'awm' ? 1.6 : this.id === 'deagle' ? 1.2 : this.id === 'mp5' ? 0.8 : 1;
     this.flash.scale.setScalar(sc * (0.8 + Math.random() * 0.45));
-    if (this.id !== 'awm') this.ejectShell();
-    else this.anim = { type: 'bolt', t: 0, dur: 1.3 };
+    if (this.id === 'awm') this.anim = { type: 'bolt', t: 0, dur: 1.3 };
+    else if (this.id === 'm870') this.anim = { type: 'pump', t: 0, dur: 0.66 };
+    else this.ejectShell();
     if (this.id === 'deagle' && this.parts.slide) this.slideT = 0.09;
   }
   ejectShell() {
@@ -143,7 +145,7 @@ export class ViewModel {
   melee(heavy) { this.anim = { type: heavy ? 'stab' : 'slash', t: 0, dur: heavy ? 0.85 : 0.38, dir: Math.random() > 0.5 ? 1 : -1 }; }
   throwNade() { this.anim = { type: 'throw', t: 0, dur: 0.75 }; }
   inspect() { if (!this.anim) this.anim = { type: 'inspect', t: 0, dur: 2.6 }; }
-  cancelAnim() { if (this.anim && this.anim.type !== 'bolt') this.anim = null; this.resetParts(); }
+  cancelAnim() { if (this.anim && this.anim.type !== 'bolt' && this.anim.type !== 'pump') this.anim = null; this.resetParts(); }
   resetParts() {
     for (const k in this.partRest) { this.parts[k].position.copy(this.partRest[k].p); this.parts[k].rotation.copy(this.partRest[k].r); this.parts[k].visible = true; }
   }
@@ -207,6 +209,13 @@ export class ViewModel {
           rz -= pull * 0.1;
         } else if (P.bolt && R.bolt) P.bolt.position.z = R.bolt.p.z;
         if (id === 'deagle' && P.slide && a.empty && f > 0.8 && f < 0.9) P.slide.position.z = R.slide.p.z + 0.03;
+        // 霰彈槍：左手一發一發把彈殼從下方塞進管狀彈倉
+        if (id === 'm870' && P.magwell && f > 0.12 && f < 0.85) {
+          const k = Math.sin((((f - 0.12) / 0.73 * 4) % 1) * Math.PI);
+          const mw = new THREE.Vector3(); P.magwell.getWorldPosition(mw); mw.y -= 0.05 + (1 - k) * 0.06;
+          handL = mw;
+        }
+        if (id === 'm870' && a.empty && P.pump && f > 0.86 && f < 0.98) P.pump.position.z = R.pump.p.z + Math.sin(seg(f, 0.86, 0.98) * Math.PI) * 0.085;
       } else if (a.type === 'bolt' && P.bolt) {
         const f2 = seg(f, 0.15, 0.85);
         const up = ease(seg(f2, 0, 0.2)) * (1 - ease(seg(f2, 0.8, 1)));
@@ -216,6 +225,12 @@ export class ViewModel {
         const bw = new THREE.Vector3(); P.bolt.children[1]?.getWorldPosition(bw);
         if (f2 > 0 && f2 < 1) handROverride = bw;
         if (backK > 0.5 && !a.ejected) { a.ejected = true; this.ejectShell(); }
+      } else if (a.type === 'pump' && P.pump) {
+        // 泵動上膛：護木往後拉、拋殼、推回
+        const f2 = seg(f, 0.2, 0.95), back = Math.sin(f2 * Math.PI);
+        P.pump.position.z = R.pump.p.z + back * 0.085;
+        rz += back * 0.07; rx += back * 0.025; py -= back * 0.01;
+        if (f2 > 0.45 && !a.ejected) { a.ejected = true; this.ejectShell(); }
       } else if (a.type === 'slash') {
         const s = Math.sin(f * Math.PI), dir = a.dir;
         ry += dir * (f - 0.5) * -2.2; rz += dir * s * -0.6; px += dir * (0.5 - f) * 0.12; pz -= s * 0.08; rx += s * 0.3;

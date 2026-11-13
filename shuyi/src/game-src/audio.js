@@ -69,6 +69,17 @@ const GUNS = {
     mech: { f: 3800, g: 0.08, delay: 0.03 },
     echo: null,
   },
+  m870: {
+    gain: 1.1, drive: 3.2, wet: 0.24,
+    crack: { hp: 1600, dur: 0.003, g: 0.6 },
+    body: { f0: 3200, f1: 380, dur: 0.26, g: 1.1 },
+    mid: { f: 650, q: 0.8, dur: 0.14, g: 0.6 },
+    punch: { f0: 120, f1: 30, sw: 0.1, dur: 0.3, g: 1.1 },
+    sub: { f0: 65, f1: 26, dur: 0.35, g: 0.45 },
+    tail: { f: 750, dur: 1.0, g: 0.38 },
+    mech: { f: 2000, g: 0.05, delay: 0.05 },
+    echo: [[0.18, 0.2], [0.42, 0.1]],
+  },
   deagle: {
     gain: 1.05, drive: 2.9, wet: 0.2,
     crack: { hp: 2600, dur: 0.003, g: 0.7 },
@@ -82,7 +93,7 @@ const GUNS = {
 };
 
 // 換彈/切槍的"重量感"：數值越小音高越低越沉
-const WEIGHT = { ak47: 0.85, m4a1: 1, awm: 0.8, mp5: 1.12, deagle: 1.05, knife: 1.2, grenade: 1.1 };
+const WEIGHT = { m870: 0.78, ak47: 0.85, m4a1: 1, awm: 0.8, mp5: 1.12, deagle: 1.05, knife: 1.2, grenade: 1.1 };
 
 // ---------------------------------------------------------------------------
 // 預生成快取（按取樣率）：白/粉/褐噪聲 + 混響 IR
@@ -387,6 +398,13 @@ export class AudioSystem {
           this._click(v, tc + 0.012, 3600 * fm, 0.3); // 鎖定
           break;
         }
+        case 'shell': {
+          // 霰彈：塞一發進管狀彈倉
+          this._nz(v, t, { n: 'white', a: 0.01, dur: 0.05, g: 0.12, flt: [{ t: 'bandpass', f: 1800 * fm, f1: 1200 * fm, sw: 0.05, q: 1.5 }] });
+          this._click(v, t + 0.06, 2300 * fm, 0.5, 1.4, 0.02);
+          this._tn(v, t + 0.06, { f: 260 * fm, f1: 150, a: 0.0015, dur: 0.04, g: 0.25 });
+          break;
+        }
         case 'bolt': {
           // 拉機柄 → 釋放撞回
           this._click(v, t, 2600 * fm, 0.35);
@@ -617,7 +635,7 @@ export class AudioSystem {
     }
   }
 
-  playHitmarker(headshot) {
+  playHitmarker(headshot, armored) {
     if (!this._ok()) return;
     try {
       const v = this._voice(null, { bus: 'ui', g: 1.5, wet: 0 });
@@ -631,11 +649,45 @@ export class AudioSystem {
       } else {
         this._click(v, t, 2400 * jit(0.03), 1.0, 1.5, 0.016);
         this._tn(v, t, { f: 1500, f1: 1100, sw: 0.03, a: 0.0005, dur: 0.03, g: 0.4 });
+        if (armored) this._metal(v, t, 1300 * jit(0.03), 0.14, [[1, 1, 0.05], [2.1, 0.4, 0.03]]); // 打在防彈板上的悶響
         this._nz(v, t, { n: 'white', a: 0.0002, dur: 0.003, g: 0.35, flt: [{ t: 'highpass', f: 6000, q: 0 }] });
       }
       this._done(v);
     } catch (e) {
       this._warn('playHitmarker', e);
+    }
+  }
+
+  // 防彈衣被打穿：陶瓷板碎裂聲
+  playArmorBreak(pos) {
+    if (!this._ok()) return;
+    try {
+      const p = this._pos(pos), local = !p;
+      const v = this._voice(p, { g: local ? 0.9 : 1.6, ref: 3, roll: 1.1, max: 50, wet: 0.08 });
+      const t = this._now();
+      this._nz(v, t, { n: 'white', a: 0.0005, dur: 0.09, g: 0.55, flt: [{ t: 'bandpass', f: 3800, f1: 1600, sw: 0.08, q: 1.2 }] });
+      for (let i = 0; i < 4; i++) this._click(v, t + 0.01 + i * rand(0.012, 0.03), rand(2500, 5200), 0.35, 2, 0.012);
+      this._metal(v, t, 1650 * jit(0.04), 0.2, [[1, 1, 0.18], [1.48, 0.6, 0.12], [2.7, 0.35, 0.08]]);
+      this._tn(v, t, { f: 210, f1: 90, sw: 0.06, a: 0.001, dur: 0.09, g: 0.4 });
+      this._done(v);
+    } catch (e) {
+      this._warn('playArmorBreak', e);
+    }
+  }
+
+  // 滑鏟：衣物與地面摩擦
+  playSlide(pos, surface) {
+    if (!this._ok()) return;
+    try {
+      const p = this._pos(pos), local = !p;
+      const v = this._voice(p, { g: local ? 0.55 : 1.5, ref: 2.5, roll: 1.2, max: 50, wet: 0.06 });
+      const t = this._now();
+      this._nz(v, t, { n: 'pink', a: 0.03, dur: 0.6, g: 0.4, flt: [{ t: 'bandpass', f: 1400, f1: 500, sw: 0.6, q: 0.7 }] });
+      this._nz(v, t, { n: 'white', a: 0.02, dur: 0.45, g: 0.1, flt: [{ t: 'highpass', f: 3000, q: 0 }] });
+      this._surf(v, t, surface, 0.7, 1, 0.3, 1);
+      this._done(v);
+    } catch (e) {
+      this._warn('playSlide', e);
     }
   }
 

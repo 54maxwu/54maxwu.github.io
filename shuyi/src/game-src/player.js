@@ -51,7 +51,7 @@ export class Player extends Actor {
     let dx = this.mouse.dx, dy = this.mouse.dy;
     this.mouse.dx = this.mouse.dy = 0;
     if (this.touchLook) { dx += this.touchLook.x; dy += this.touchLook.y; this.touchLook.x = this.touchLook.y = 0; }
-    this.lookDX = dx; this.lookDY = dy;
+    this.lookDX += dx; this.lookDY += dy;   // 每幀由 game.loop 歸零（一幀可能分成多個模擬步）
     const fovK = this.scoped ? g.renderer.camera.fov / g.opts.fov : 1;
     if (this.alive) {
       this.yaw -= dx * sens * fovK;
@@ -121,7 +121,7 @@ export class Player extends Actor {
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     cam.position.x += cy * bx + (Math.random() - 0.5) * shake;
     cam.position.z += -sy * bx;
-    this.camRoll += ((this.keys.has('KeyA') ? 0.008 : 0) - (this.keys.has('KeyD') ? 0.008 : 0) - this.camRoll) * Math.min(1, dt * 6);
+    this.camRoll += ((this.keys.has('KeyA') ? 0.008 : 0) - (this.keys.has('KeyD') ? 0.008 : 0) + (this.slideT > 0 ? 0.05 : 0) - this.camRoll) * Math.min(1, dt * 6);
     cam.rotation.order = 'YXZ';
     cam.rotation.set(this.pitch + this.punchP * 0.75 + this.aimPunch, this.yaw + this.punchY * 0.75, this.camRoll);
     // FOV：狙擊鏡

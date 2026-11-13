@@ -88,6 +88,7 @@ body.lk #clinks{opacity:.22}
 #hit i:nth-child(3){transform:rotate(225deg) translateX(-12px)} #hit i:nth-child(4){transform:rotate(315deg) translateX(-12px)}
 #hit.hs i{background:#ff3b2f}
 #hit.kill i{background:#ff3b2f;width:16px}
+#hit.ab i{background:#7fd4ff;width:14px}
 
 #dmgDirs{position:absolute;left:50%;top:50%}
 .dd{position:absolute;left:-60px;top:-160px;width:120px;height:40px;transform-origin:60px 160px;opacity:0}
@@ -178,7 +179,10 @@ body.lk #clinks{opacity:.22}
 .loadBox{width:min(760px,94vw);padding:22px;background:var(--panel2);border:1px solid rgba(255,255,255,.12)}
 .loadBox h2{margin:0 0 4px;letter-spacing:4px}
 .loadBox .sub{color:var(--hudDim);font-size:13px;margin-bottom:14px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.card .st{display:grid;grid-template-columns:auto 1fr;gap:3px 6px;margin-top:7px;font-size:10px;text-align:left;color:var(--hudDim);align-items:center}
+.card .st i{display:block;height:4px;background:rgba(255,255,255,.12)}
+.card .st em{display:block;height:100%;background:var(--accent)}
 .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);padding:10px;cursor:pointer;text-align:center;transition:all .12s}
 .card:hover{background:rgba(255,255,255,.1)}
 .card.on{border-color:var(--accent);background:rgba(245,179,33,.14)}
@@ -203,5 +207,5 @@ body.lk #clinks{opacity:.22}
 <canvas id="c"></canvas>
 <div id="ui"></div>
 <script></script>
-<script src="game-app.js?v=08e5255aec87"></script></body>
+<script src="game-app.js?v=cb2c7fa7555b"></script></body>
 </html>

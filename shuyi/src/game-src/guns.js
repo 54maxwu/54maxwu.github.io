@@ -196,6 +196,31 @@ const builders = {
     anchor(g, 'magwell', 0, -0.02, -0.13);
     return g;
   },
+  m870(m) {
+    const g = new THREE.Group();
+    part(g, RB(0.046, 0.066, 0.22, 0.01), m.black, 0, 0.036, -0.05);        // 機匣
+    part(g, CZ(0.0115, 0.46), m.metal, 0, 0.062, -0.39);                      // 槍管
+    part(g, CZ(0.0135, 0.36), m.black, 0, 0.03, -0.34);                       // 管狀彈倉
+    part(g, CZ(0.015, 0.02), m.metal, 0, 0.03, -0.52);
+    part(g, BX(0.012, 0.016, 0.03), m.metal, 0, 0.046, -0.5);
+    part(g, CY(0.004, 0.008), m.brass, 0, 0.075, -0.6);                       // 準星珠
+    const pump = new THREE.Group(); pump.name = 'pump'; pump.position.set(0, 0.03, -0.3); g.add(pump);
+    part(pump, RB(0.05, 0.044, 0.14, 0.012), m.wood, 0, 0, 0);               // 泵動護木
+    for (let i = 0; i < 5; i++) part(pump, BX(0.052, 0.004, 0.006), m.black, 0, -0.012, -0.05 + i * 0.025);
+    anchor(pump, 'fore', 0, -0.02, 0);
+    part(g, BX(0.008, 0.012, 0.06), m.metal, 0, 0.022, -0.17);
+    part(g, RB(0.012, 0.03, 0.05, 0.004), m.black, 0, -0.008, -0.01);
+    part(g, BX(0.004, 0.022, 0.006), m.metal, 0, -0.005, -0.015);
+    part(g, RB(0.036, 0.075, 0.08, 0.01), m.wood, 0, -0.02, 0.07, 0.35);    // 握把
+    part(g, RB(0.04, 0.085, 0.22, 0.012), m.wood, 0, 0.0, 0.2, 0.08);       // 槍托
+    part(g, RB(0.042, 0.09, 0.02, 0.006), m.rubber, 0, -0.006, 0.315, 0.08);
+    part(g, BX(0.006, 0.022, 0.05), m.metal, 0.022, 0.045, -0.06);            // 拋殼口
+    anchor(g, 'grip', 0, -0.035, 0.03);
+    anchor(g, 'muzzle', 0, 0.062, -0.625);
+    anchor(g, 'eject', 0.026, 0.05, -0.06);
+    anchor(g, 'magwell', 0, 0.0, -0.1);
+    return g;
+  },
   deagle(m) {
     const g = new THREE.Group();
     const slide = new THREE.Group(); slide.name = 'slide'; g.add(slide);

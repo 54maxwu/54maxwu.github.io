@@ -73,6 +73,9 @@ export class Bot extends Actor {
   }
   onDamaged(att) {
     if (!att || !this.alive) return;
+    // 中彈硬直：準心被打偏，要重新拉回來
+    this.errY += (Math.random() - 0.5) * 0.09; this.errP += 0.02 + Math.random() * 0.035;
+    this.reactUntil = Math.max(this.reactUntil, this.game.time + 0.06);
     if (!this.visible || this.target !== att) {
       this.lastSeen = att.pos.clone(); this.lastSeenT = this.game.time;
       if (!this.visible) {
@@ -216,6 +219,7 @@ export class Bot extends Actor {
       if (now >= this.reactUntil && aimErr < tol && now >= this.readyAt && !this.nadePlan) {
         if (d.type === 'sniper') { if (this.scoped && this.scopeReady && aimErr < tol * 0.6) firePressed = true; }
         else if (d.type === 'pistol') { firePressed = Math.random() < dt * 5; }
+        else if (d.type === 'shotgun') { firePressed = hd < 24 && Math.random() < dt * 6; }
         else if (now >= this.burstPauseUntil) {
           fire = true;
           if (hd > 14) {

@@ -224,6 +224,13 @@ export class Soldier {
     this.root = new THREE.Group();
     const geo = buildGeometry(team);
     this.material = new THREE.MeshStandardMaterial({ vertexColors: true, map: atlas(), roughness: 0.82, metalness: 0.05 });
+    // 輪廓光：讓敵人在暗處或雜亂背景前也看得出輪廓
+    this.rimU = { value: new THREE.Vector4(0, 0, 0, 0) };
+    this.material.onBeforeCompile = (sh) => {
+      sh.uniforms.uRim = this.rimU;
+      sh.fragmentShader = 'uniform vec4 uRim;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uRim.rgb * uRim.a * pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.2);');
+    };
+    this.flinchK = 0; this.flinchSide = 0; this.flinchH = 0;
     this.mesh = new THREE.SkinnedMesh(geo, this.material);
     this.mesh.castShadow = true; this.mesh.receiveShadow = true;
     this.mesh.frustumCulled = false;
@@ -323,6 +330,12 @@ export class Soldier {
     B.chest.rotation.set(pitch * 0.45 - this.recoilK * 0.08, -0.12, 0);
     B.neck.rotation.set(pitch * 0.2, 0.3, 0);
     B.head.rotation.set(0, 0.05, 0);
+    if (this.flinchK > 0.01) {   // 中彈硬直：上身被打得往後一仰
+      B.spine.rotation.x -= this.flinchK * 0.12;
+      B.chest.rotation.x -= this.flinchK * 0.2; B.chest.rotation.y += this.flinchSide * this.flinchK * 0.35;
+      B.head.rotation.x -= this.flinchH * this.flinchK * 0.55;
+    }
+    this.flinchK *= Math.exp(-dt * 9);
     this.recoilK *= Math.exp(-dt * 12);
     // 槍相對胸骨
     if (this.gun) {
@@ -349,6 +362,12 @@ export class Soldier {
     B.handR.rotation.set(0, 0, 0); B.handL.rotation.set(0, 0, 0);
   }
   kick() { this.recoilK = 1; }
+  flinch(part) { this.flinchK = Math.min(1.3, this.flinchK + 0.8); this.flinchSide = Math.random() - 0.5; this.flinchH = part === 'head' ? 1 : 0.2; }
+  // 0 = 無、1 = 隊友（淡藍）、2 = 敵人（暖紅）
+  setRim(kind) {
+    const v = this.rimU.value;
+    if (kind === 2) v.set(1.0, 0.5, 0.38, 0.5); else if (kind === 1) v.set(0.45, 0.72, 1.0, 0.22); else v.set(0, 0, 0, 0);
+  }
   die(dirX, dirZ, headshot, world, velocity, dirY = 0) {
     this.deadT = 0;
     this.root.updateWorldMatrix(true, true);

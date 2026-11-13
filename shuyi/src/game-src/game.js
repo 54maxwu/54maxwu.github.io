@@ -20,7 +20,7 @@ const MULTI = ['', '', 'DOUBLE KILL', 'TRIPLE KILL', 'MULTI KILL', 'ULTRA KILL',
 const MULTI_CN = ['', '', '雙殺', '三殺', '四殺', '五殺', '六殺！', '無人能擋', '超神'];
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _d = new THREE.Vector3();
 
-const CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1 };
+const CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1, shotgun: 1 };
 
 export class Game {
   constructor() {
@@ -152,6 +152,7 @@ export class Game {
     const N = o.size;
     const prim = (team, i) => {
       if (i === 1 && N >= 4) return 'awm';
+      if (i === 2 && N >= 4) return 'm870';
       if (i === 3 && N >= 6) return 'mp5';
       if (i === 5) return team === 'BL' ? 'm4a1' : 'ak47';
       return team === 'BL' ? 'ak47' : 'm4a1';
@@ -166,6 +167,7 @@ export class Game {
       }
     }
     for (const a of this.actors) this.spawnActor(a, true);
+    for (const a of this.actors) a.soldier.setRim(a.isPlayer ? 0 : a.team === my ? 1 : 2);
     this.vm.setTeam(my); this.vm.equip(this.player.weapon.id, 0.6);
     this.hud.slots(this.player.inv, 0);
     this.playing = true; this.paused = false; this.ended = false;
@@ -301,7 +303,16 @@ export class Game {
       this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === 'sniper' ? 10 : 5, 0.06);
       audio.playShot(d.sound, null);
       if (Math.random() < 0.5) audio.playShellDrop(null);
-      if (CASED[d.type]) {
+      if (d.pump) {
+        const id = d.id, t = this.time;
+        this.timers.push({ t: t + 0.2, fn: () => { if (a.alive && a.weapon.def === d) audio.playReload(id, 'boltback'); } });
+        this.timers.push({ t: t + 0.42, fn: () => { if (a.alive && a.weapon.def === d) audio.playReload(id, 'boltforward'); } });
+        this.timers.push({ t: t + 0.32, fn: () => {
+          if (!a.alive || a.weapon.def !== d) return;
+          const c = this.renderer.camera, r = new THREE.Vector3(1, 0, 0).applyQuaternion(c.quaternion), u = new THREE.Vector3(0, 1, 0).applyQuaternion(c.quaternion), f = a.forward(new THREE.Vector3());
+          this.fx.casing(c.position.clone().addScaledVector(f, 0.38).addScaledVector(r, 0.15).addScaledVector(u, -0.08), r.multiplyScalar(2.2).addScaledVector(u, 1.4), d.type);
+        } });
+      } else if (CASED[d.type]) {
         const cp = cam.position.clone().addScaledVector(dir, 0.42).addScaledVector(right, 0.17).addScaledVector(up, -0.07);
         const cv = right.clone().multiplyScalar(1.8 + Math.random() * 1.2).addScaledVector(up, 1.1 + Math.random() * 0.9).addScaledVector(dir, -0.4 + Math.random() * 0.4);
         if (a.vel) cv.add(a.vel);
@@ -321,8 +332,15 @@ export class Game {
     a.radarT = 1.6;
     // 讓附近的機器人聽到
     for (const b of this.actors) if (b !== a && b.hear && b.team !== a.team && b.pos.distanceTo(a.pos) < 45) b.hear(a.pos, true);
-    const end = this.traceBullet(a, eye, dir, d);
-    if (!a.isPlayer || Math.random() < 0.35 || d.type === 'sniper') this.fx.tracer(muzzle, end);
+    const n = d.pellets || 1;
+    let end;
+    for (let k = 0; k < n; k++) {
+      const pd = n > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
+      this._quiet = k > 0;
+      end = this.traceBullet(a, eye, pd, d);
+      if ((!a.isPlayer && k < 3) || (a.isPlayer && Math.random() < (n > 1 ? 0.25 : 0.35)) || d.type === 'sniper') this.fx.tracer(muzzle, end);
+    }
+    this._quiet = false;
     // 子彈掠過玩家
     const p = this.player;
     if (p && p.alive && a !== p && a.team !== p.team) {
@@ -356,7 +374,7 @@ export class Game {
         const dmg = d.dmg * mul * Math.pow(d.falloff, dist / 10) * partMul;
         this.fx.impact(pt, _v.copy(dir).negate(), 'flesh', dir);
         if (part === 'head') this.fx.impact(pt, _v.copy(dir).negate(), 'flesh', dir);
-        audio.playImpact(pt, 'flesh');
+        if (!this._quiet) audio.playImpact(pt, 'flesh');
         this.damage(best, shooter, dmg, part, d.id, dir, wall);
         return pt;
       }
@@ -373,7 +391,7 @@ export class Game {
         mul *= 0.9; from = h.exit; continue;
       }
       this.fx.impact(pt, n, mat, dir);
-      if (pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === 'wood' ? 'wood' : mat === 'concrete' ? 'concrete' : 'metal');
+      if (!this._quiet && pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === 'wood' ? 'wood' : mat === 'concrete' ? 'concrete' : 'metal');
       // 可破壞物：累積傷害，打爛後子彈繼續穿過
       const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
       if (wreck) {
@@ -563,6 +581,7 @@ export class Game {
     if (!v.alive || v.protectT > 0) return;
     if (att && att !== v && att.team === v.team) return;
     const def = WEAPONS[wid];
+    const armBefore = v.armor;
     let hpD = amt;
     if (v.armor > 0 && part !== 'leg') {
       const ap = def?.armorPen ?? 0.75;
@@ -572,17 +591,25 @@ export class Game {
     v.hp -= hpD;
     v.lastAttacker = att; v.lastHurt = this.time;
     const killed = v.hp <= 0;
+    const armored = armBefore > 0 && part !== 'leg', broke = armBefore > 0 && v.armor <= 0;
     if (att && att !== v) att.stats.hits++;
+    if (!killed) {
+      v.tagT = Math.max(v.tagT || 0, melee ? 0.5 : 0.3);
+      if (v.onGround && !(v.slideT > 0)) { v.vel.x *= 0.6; v.vel.z *= 0.6; }
+      if (!v.isPlayer) v.soldier.flinch(part);
+    }
     if (v.isPlayer) {
       if (att && att !== v) this.hud.damageFrom(Math.atan2(-(att.pos.x - v.pos.x), -(att.pos.z - v.pos.z)));
       v.aimPunch += Math.min(0.05, hpD * 0.0012);
       audio.playHurt(Math.min(100, hpD));
+      if (broke) audio.playArmorBreak(null);
       this.dmgFlash = Math.min(1.2, (this.dmgFlash || 0) + hpD / 45);
       if (v.hp <= 30 && !killed) audio.setLowHealth(true);
     } else if (v.onDamaged) v.onDamaged(att);
     if (att && att.isPlayer && att !== v) {
-      this.hud.hitmarker(part === 'head', killed);
-      audio.playHitmarker(part === 'head');
+      this.hud.hitmarker(part === 'head', killed, broke);
+      if (killed || this.time - (this._hmT ?? -1) > 0.03) { audio.playHitmarker(part === 'head', armored && part !== 'head'); this._hmT = this.time; }
+      if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new THREE.Vector3()));
     }
     if (killed) this.kill(v, att, wid, part === 'head' && !melee, wall, dir);
   }
@@ -624,6 +651,12 @@ export class Game {
 
   // ================= 事件音效 =================
   onJump(a) { audio.playJump(a.isPlayer ? null : a.pos.clone()); }
+  onSlide(a) { if (a.isPlayer || a.pos.distanceTo(this.renderer.camera.position) < 30) audio.playSlide(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || 'metal'); }
+  onMantle(a, rise) {
+    if (!a.isPlayer) return;
+    audio.playJump(null);
+    if (!a.weapon.reloading) this.vm.equip(a.weapon.id, 0.3 + rise * 0.2);   // 翻越時武器放低再舉起
+  }
   onLand(a, sp) { audio.playLand(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || 'metal', Math.min(1, sp / 10)); }
   onFootstep(a) {
     if (!a.isPlayer && a.pos.distanceTo(this.renderer.camera.position) > 30) return;
@@ -640,6 +673,11 @@ export class Game {
     if (!a.isPlayer) return;
     const d = a.weapon.def, t = this.time, id = d.id;
     this.vm.reload(d.reload, empty);
+    if (d.pump) {
+      for (let i = 0; i < 4; i++) this.timers.push({ t: t + d.reload * (0.2 + i * 0.18), fn: () => audio.playReload(id, 'shell') });
+      if (empty) { this.timers.push({ t: t + d.reload * 0.87, fn: () => audio.playReload(id, 'boltback') }); this.timers.push({ t: t + d.reload * 0.93, fn: () => audio.playReload(id, 'boltforward') }); }
+      return;
+    }
     this.timers.push({ t: t + d.reload * 0.2, fn: () => audio.playReload(id, 'magout') });
     this.timers.push({ t: t + d.reload * 0.6, fn: () => audio.playReload(id, 'magin') });
     if (empty) this.timers.push({ t: t + d.reload * 0.82, fn: () => audio.playReload(id, id === 'awm' ? 'bolt' : 'boltback') });
@@ -659,7 +697,11 @@ export class Game {
     const R = this.renderer, cam = R.camera;
     this.realTime = (this.realTime || 0) + dt;
     const active = this.playing && !this.paused;
-    if (active) this.simulate(dt);
+    if (active) {
+      if (this.player) this.player.lookDX = this.player.lookDY = 0;
+      const n = Math.min(4, Math.ceil(dt * 100 - 1e-6)), h = dt / n;
+      for (let i = 0; i < n; i++) this.simulate(h, i === n - 1 ? dt : 0);
+    }
     else if (!this.playing) {
       // 選單：環繞樹義國小
       const t = this.realTime * 0.045;
@@ -674,7 +716,7 @@ export class Game {
     for (let t = 0; t < seconds && this.playing; t += step) this.simulate(step);
     return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => a.name + ':' + a.stats.k + '/' + a.stats.d).join(' ') };
   }
-  simulate(dt) {
+  simulate(dt, vis = dt) {
     const cam = this.renderer.camera;
     {
       this.time += dt;
@@ -693,12 +735,12 @@ export class Game {
           s.root.position.copy(a.pos);
           s.root.rotation.y = a.yaw;
           const fwd = (a.vel.x * -Math.sin(a.yaw) + a.vel.z * -Math.cos(a.yaw)) / Math.max(0.01, a.speed || 0);
-          s.update(dt, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
+          if (vis) s.update(vis, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
           // 出生保護閃爍
           if (!a.isPlayer) s.mesh.visible = !(a.protectT > 0 && Math.sin(this.time * 30) > 0.3);
         } else {
           a.deadT += dt;
-          a.soldier.update(dt, {});
+          if (vis) a.soldier.update(vis, {});
           a.respawnT -= dt;
           if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
         }
@@ -782,7 +824,7 @@ export class Game {
     const p = this.player, cam = this.renderer.camera, w = p.weapon;
     let spreadPx = 0;
     if (w && w.def.spread) {
-      const sp = Math.min(0.12, w.spreadAcc + w.def.spread.base * 2 + (p.speed > 0.6 ? w.def.spread.move * Math.min(1, p.speed / 5.7) : 0) + (p.onGround ? 0 : w.def.spread.air * 0.5)) * (p.crouch ? 0.7 : 1);
+      const sp = Math.min(0.12, w.spreadAcc + w.def.spread.base * 2 + w.def.spread.move * Math.min(1, Math.max(0, ((p.speed || 0) - 1.6) / 3.4)) + (w.def.pelletSpread || 0) + (p.onGround ? 0 : w.def.spread.air * 0.5)) * (p.crouch ? 0.7 : 1);
       spreadPx = Math.tan(sp) / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * window.innerHeight / 2;
     }
     // 準星下的角色名

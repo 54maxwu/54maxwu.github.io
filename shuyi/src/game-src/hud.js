@@ -172,8 +172,8 @@ export class HUD {
     this.feedItems.push({ el: d, t: performance.now() });
     while (this.feedItems.length > 6) { const f = this.feedItems.shift(); f.el.remove(); }
   }
-  hitmarker(hs, kill) {
-    this.el.hit.className = kill ? 'kill' : hs ? 'hs' : '';
+  hitmarker(hs, kill, armorBreak) {
+    this.el.hit.className = kill ? 'kill' : hs ? 'hs' : armorBreak ? 'ab' : '';
     this.hitT = kill ? 0.45 : 0.22;
   }
   damageFrom(ang) {
@@ -292,8 +292,12 @@ function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 const PRIM_CARDS = PRIMARIES.map((id) => {
   const d = WEAPONS[id];
-  const sub = { ak47: '女生隊經典 · 傷害高', m4a1: '男生隊經典 · 穩定', awm: '一槍致命 · 需開鏡', mp5: '射速快 · 移動靈活' }[id];
-  return `<div class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${sub}</small></div>`;
+  const sub = { ak47: '中距離 · 傷害高、後座大', m4a1: '中距離 · 穩定好壓', awm: '遠距離 · 一槍致命、需開鏡', mp5: '近距離 · 射速快、遠了沒力', m870: '貼臉 · 一發斃命、遠了沒用' }[id];
+  // 武器定位一目了然：傷害（每發含彈丸）、射速、有效射程（傷害剩 60% 的距離）、機動
+  const eff = Math.min(d.range, 10 * Math.log(0.6) / Math.log(d.falloff));
+  const st = [['傷害', d.dmg * (d.pellets || 1) / 130], ['射速', d.rpm / 850], ['射程', eff / 400], ['機動', (d.speed - 0.76) / 0.26]];
+  const bars = st.map(([k, v]) => `<span>${k}</span><i><em style="width:${Math.round(Math.max(0.06, Math.min(1, v)) * 100)}%"></em></i>`).join('');
+  return `<div class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${sub}</small><div class="st">${bars}</div></div>`;
 }).join('');
 
 const TEMPLATE = `
@@ -345,7 +349,7 @@ const TEMPLATE = `
     </div>
     <div class="opts">
       <div class="opt"><div class="lab">陣營</div><div class="seg team" data-k="team"><button data-v="BL">女生隊<small>Girls</small></button><button data-v="GR">男生隊<small>Boys</small></button></div></div>
-      <div class="opt"><div class="lab">主武器</div><div class="seg" data-k="primary"><button data-v="ak47">AK-47</button><button data-v="m4a1">M4A1</button><button data-v="awm">AWM</button><button data-v="mp5">MP5</button></div></div>
+      <div class="opt"><div class="lab">主武器</div><div class="seg" data-k="primary"><button data-v="ak47">AK-47</button><button data-v="m4a1">M4A1</button><button data-v="awm">AWM</button><button data-v="mp5">MP5</button><button data-v="m870">M870</button></div></div>
       <div class="row2">
         <div class="opt"><div class="lab">對戰規模</div><div class="seg" data-k="size"><button data-v="4">4v4</button><button data-v="6">6v6</button><button data-v="8">8v8</button></div></div>
         <div class="opt"><div class="lab">目標擊殺</div><div class="seg" data-k="goal"><button data-v="30">30</button><button data-v="50">50</button><button data-v="100">100</button></div></div>

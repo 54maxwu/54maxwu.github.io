@@ -37656,7 +37656,7 @@ void main() {
     }
     // 拋出彈殼：落地彈跳、躺平，停留一段時間
     casing(p, v, type) {
-      const S = { pistol: [55e-4, 0.024], smg: [48e-4, 0.021], rifle: [5e-3, 0.046], sniper: [68e-4, 0.072] }[type] || [5e-3, 0.04];
+      const S = { pistol: [55e-4, 0.024], smg: [48e-4, 0.021], rifle: [5e-3, 0.046], sniper: [68e-4, 0.072], shotgun: [0.0105, 0.062] }[type] || [5e-3, 0.04];
       if (this.cases.length >= this.caseMax) this.cases.shift();
       this.cases.push({ p: p.clone(), v: v.clone(), q: new Quaternion().setFromEuler(new Euler(0, 0, Math.PI / 2)), w: new Vector3((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30), r: S[0], len: S[1], life: 0, max: 25 + Math.random() * 10, floor: -50, rest: false, chk: 0 });
     }
@@ -38211,6 +38211,34 @@ void main() {
       anchor(g, "magwell", 0, -0.02, -0.13);
       return g;
     },
+    m870(m) {
+      const g = new Group();
+      part(g, RB(0.046, 0.066, 0.22, 0.01), m.black, 0, 0.036, -0.05);
+      part(g, CZ(0.0115, 0.46), m.metal, 0, 0.062, -0.39);
+      part(g, CZ(0.0135, 0.36), m.black, 0, 0.03, -0.34);
+      part(g, CZ(0.015, 0.02), m.metal, 0, 0.03, -0.52);
+      part(g, BX(0.012, 0.016, 0.03), m.metal, 0, 0.046, -0.5);
+      part(g, CY(4e-3, 8e-3), m.brass, 0, 0.075, -0.6);
+      const pump = new Group();
+      pump.name = "pump";
+      pump.position.set(0, 0.03, -0.3);
+      g.add(pump);
+      part(pump, RB(0.05, 0.044, 0.14, 0.012), m.wood, 0, 0, 0);
+      for (let i = 0; i < 5; i++) part(pump, BX(0.052, 4e-3, 6e-3), m.black, 0, -0.012, -0.05 + i * 0.025);
+      anchor(pump, "fore", 0, -0.02, 0);
+      part(g, BX(8e-3, 0.012, 0.06), m.metal, 0, 0.022, -0.17);
+      part(g, RB(0.012, 0.03, 0.05, 4e-3), m.black, 0, -8e-3, -0.01);
+      part(g, BX(4e-3, 0.022, 6e-3), m.metal, 0, -5e-3, -0.015);
+      part(g, RB(0.036, 0.075, 0.08, 0.01), m.wood, 0, -0.02, 0.07, 0.35);
+      part(g, RB(0.04, 0.085, 0.22, 0.012), m.wood, 0, 0, 0.2, 0.08);
+      part(g, RB(0.042, 0.09, 0.02, 6e-3), m.rubber, 0, -6e-3, 0.315, 0.08);
+      part(g, BX(6e-3, 0.022, 0.05), m.metal, 0.022, 0.045, -0.06);
+      anchor(g, "grip", 0, -0.035, 0.03);
+      anchor(g, "muzzle", 0, 0.062, -0.625);
+      anchor(g, "eject", 0.026, 0.05, -0.06);
+      anchor(g, "magwell", 0, 0, -0.1);
+      return g;
+    },
     deagle(m) {
       const g = new Group();
       const slide = new Group();
@@ -38331,11 +38359,12 @@ void main() {
     m4a1: { p: [0.16, -0.18, -0.54], r: [0.045, 0.165, 0.02] },
     awm: { p: [0.17, -0.185, -0.6], r: [0.04, 0.15, 0.02] },
     mp5: { p: [0.155, -0.165, -0.5], r: [0.05, 0.17, 0.02] },
+    m870: { p: [0.16, -0.18, -0.56], r: [0.045, 0.16, 0.02] },
     deagle: { p: [0.085, -0.115, -0.4], r: [0.05, 0.1, 0] },
     knife: { p: [0.17, -0.15, -0.34], r: [0.35, -0.25, 0.55] },
     he: { p: [0.13, -0.12, -0.3], r: [0.1, -0.2, 0.2] }
   };
-  var KICK = { ak47: [0.04, 0.07], m4a1: [0.032, 0.05], awm: [0.09, 0.2], mp5: [0.024, 0.035], deagle: [0.05, 0.22] };
+  var KICK = { m870: [0.085, 0.22], ak47: [0.04, 0.07], m4a1: [0.032, 0.05], awm: [0.09, 0.2], mp5: [0.024, 0.035], deagle: [0.05, 0.22] };
   var ease = (t) => t * t * (3 - 2 * t);
   var seg = (f, a, b) => Math.min(1, Math.max(0, (f - a) / (b - a)));
   var ViewModel = class {
@@ -38443,7 +38472,7 @@ void main() {
         if (o.name) this.parts[o.name] = o;
       });
       this.partRest = {};
-      for (const k of ["mag", "bolt", "slide", "pin", "lever"]) if (this.parts[k]) this.partRest[k] = { p: this.parts[k].position.clone(), r: this.parts[k].rotation.clone() };
+      for (const k of ["mag", "bolt", "slide", "pin", "lever", "pump"]) if (this.parts[k]) this.partRest[k] = { p: this.parts[k].position.clone(), r: this.parts[k].rotation.clone() };
       const mz = this.parts.muzzle;
       if (mz) {
         mz.add(this.flash);
@@ -38461,10 +38490,11 @@ void main() {
       this.flash.visible = true;
       this.flashFront.material.map = this.flashTex[Math.random() * 3 | 0];
       this.flashFront.rotation.z = Math.random() * Math.PI;
-      const sc = this.id === "awm" ? 1.6 : this.id === "deagle" ? 1.2 : this.id === "mp5" ? 0.8 : 1;
+      const sc = this.id === "m870" ? 1.55 : this.id === "awm" ? 1.6 : this.id === "deagle" ? 1.2 : this.id === "mp5" ? 0.8 : 1;
       this.flash.scale.setScalar(sc * (0.8 + Math.random() * 0.45));
-      if (this.id !== "awm") this.ejectShell();
-      else this.anim = { type: "bolt", t: 0, dur: 1.3 };
+      if (this.id === "awm") this.anim = { type: "bolt", t: 0, dur: 1.3 };
+      else if (this.id === "m870") this.anim = { type: "pump", t: 0, dur: 0.66 };
+      else this.ejectShell();
       if (this.id === "deagle" && this.parts.slide) this.slideT = 0.09;
     }
     ejectShell() {
@@ -38491,7 +38521,7 @@ void main() {
       if (!this.anim) this.anim = { type: "inspect", t: 0, dur: 2.6 };
     }
     cancelAnim() {
-      if (this.anim && this.anim.type !== "bolt") this.anim = null;
+      if (this.anim && this.anim.type !== "bolt" && this.anim.type !== "pump") this.anim = null;
       this.resetParts();
     }
     resetParts() {
@@ -38578,6 +38608,14 @@ void main() {
             rz -= pull * 0.1;
           } else if (P.bolt && R.bolt) P.bolt.position.z = R.bolt.p.z;
           if (id === "deagle" && P.slide && a.empty && f > 0.8 && f < 0.9) P.slide.position.z = R.slide.p.z + 0.03;
+          if (id === "m870" && P.magwell && f > 0.12 && f < 0.85) {
+            const k = Math.sin((f - 0.12) / 0.73 * 4 % 1 * Math.PI);
+            const mw = new Vector3();
+            P.magwell.getWorldPosition(mw);
+            mw.y -= 0.05 + (1 - k) * 0.06;
+            handL = mw;
+          }
+          if (id === "m870" && a.empty && P.pump && f > 0.86 && f < 0.98) P.pump.position.z = R.pump.p.z + Math.sin(seg(f, 0.86, 0.98) * Math.PI) * 0.085;
         } else if (a.type === "bolt" && P.bolt) {
           const f2 = seg(f, 0.15, 0.85);
           const up = ease(seg(f2, 0, 0.2)) * (1 - ease(seg(f2, 0.8, 1)));
@@ -38591,6 +38629,16 @@ void main() {
           P.bolt.children[1]?.getWorldPosition(bw);
           if (f2 > 0 && f2 < 1) handROverride = bw;
           if (backK > 0.5 && !a.ejected) {
+            a.ejected = true;
+            this.ejectShell();
+          }
+        } else if (a.type === "pump" && P.pump) {
+          const f2 = seg(f, 0.2, 0.95), back = Math.sin(f2 * Math.PI);
+          P.pump.position.z = R.pump.p.z + back * 0.085;
+          rz += back * 0.07;
+          rx += back * 0.025;
+          py2 -= back * 0.01;
+          if (f2 > 0.45 && !a.ejected) {
             a.ejected = true;
             this.ejectShell();
           }
@@ -38708,7 +38756,7 @@ void main() {
       pen: 1.2,
       armorPen: 0.78,
       spread: { base: 28e-4, move: 0.045, air: 0.16, crouch: 0.6, perShot: 55e-4, max: 0.05, recover: 7 },
-      recoil: { up: 0.0105, upMax: 0.11, side: 62e-4, sideStart: 5, recover: 6.5 },
+      recoil: { up: 0.0105, upMax: 0.11, side: 62e-4, sideStart: 5, recover: 6.5, freq: 0.42, phase: 0 },
       sound: "ak47",
       hudName: "AK-47"
     },
@@ -38732,7 +38780,7 @@ void main() {
       pen: 1,
       armorPen: 0.72,
       spread: { base: 24e-4, move: 0.04, air: 0.15, crouch: 0.6, perShot: 44e-4, max: 0.042, recover: 8 },
-      recoil: { up: 82e-4, upMax: 0.085, side: 48e-4, sideStart: 6, recover: 7 },
+      recoil: { up: 82e-4, upMax: 0.085, side: 48e-4, sideStart: 6, recover: 7, freq: 0.5, phase: Math.PI },
       sound: "m4a1",
       hudName: "M4A1"
     },
@@ -38778,13 +38826,42 @@ void main() {
       draw: 0.6,
       speed: 1,
       range: 120,
-      falloff: 0.97,
+      falloff: 0.945,
       pen: 0.6,
       armorPen: 0.6,
       spread: { base: 4e-3, move: 0.022, air: 0.12, crouch: 0.7, perShot: 35e-4, max: 0.04, recover: 9 },
-      recoil: { up: 58e-4, upMax: 0.06, side: 4e-3, sideStart: 5, recover: 8 },
+      recoil: { up: 58e-4, upMax: 0.06, side: 4e-3, sideStart: 5, recover: 8, freq: 0.75, phase: 0.6 },
       sound: "mp5",
       hudName: "MP5"
+    },
+    // 霰彈槍：近距離一槍斃命，距離一拉開彈丸散開、傷害急遽衰減
+    m870: {
+      id: "m870",
+      name: "M870",
+      slot: 0,
+      type: "shotgun",
+      auto: false,
+      dmg: 22,
+      pellets: 9,
+      pelletSpread: 0.052,
+      headMul: 2,
+      limbMul: 0.8,
+      rpm: 75,
+      mag: 7,
+      reserve: 28,
+      reload: 3.1,
+      draw: 0.9,
+      speed: 0.93,
+      range: 70,
+      falloff: 0.62,
+      pen: 0.45,
+      armorPen: 0.7,
+      bolt: 0.72,
+      pump: true,
+      spread: { base: 8e-3, move: 0.03, air: 0.1, crouch: 0.85, perShot: 0, max: 0.01, recover: 5 },
+      recoil: { up: 0.05, upMax: 0.07, side: 0.012, sideStart: 0, recover: 5 },
+      sound: "m870",
+      hudName: "M870"
     },
     deagle: {
       id: "deagle",
@@ -38806,7 +38883,7 @@ void main() {
       pen: 1,
       armorPen: 0.8,
       spread: { base: 4e-3, move: 0.05, air: 0.18, crouch: 0.7, perShot: 0.028, max: 0.07, recover: 5 },
-      recoil: { up: 0.03, upMax: 0.09, side: 8e-3, sideStart: 1, recover: 5 },
+      recoil: { up: 0.03, upMax: 0.09, side: 8e-3, sideStart: 1, recover: 5, freq: 1.1, phase: 1 },
       sound: "deagle",
       hudName: "DESERT EAGLE"
     },
@@ -38847,7 +38924,7 @@ void main() {
       reserve: 0
     }
   };
-  var PRIMARIES = ["ak47", "m4a1", "awm", "mp5"];
+  var PRIMARIES = ["ak47", "m4a1", "awm", "mp5", "m870"];
   var WeaponState = class {
     constructor(id) {
       this.def = WEAPONS[id];
@@ -38887,7 +38964,7 @@ void main() {
     let v = s.base;
     if (ws.def.type === "sniper") v = st.scoped && st.scopeReady ? s.scoped : s.base;
     const sp = st.speed || 0;
-    v += s.move * Math.min(1, Math.max(0, (sp - 0.6) / 5.5));
+    v += s.move * Math.min(1, Math.max(0, (sp - 1.6) / 3.4));
     if (!st.onGround) v += s.air;
     v += ws.spreadAcc;
     if (st.crouch && st.onGround) v *= s.crouch;
@@ -38896,12 +38973,10 @@ void main() {
   function recoilKick(ws, rnd2) {
     const r = ws.def.recoil;
     const n = ws.shotsFired;
-    let up = r.up * (n < 3 ? 1.25 : 1) * (0.85 + rnd2() * 0.3);
-    let side = 0;
-    if (n >= r.sideStart) {
-      const phase = Math.sin(n * 0.55 + (ws.patternSeed || 0));
-      side = r.side * (phase * 1.3 + (rnd2() - 0.5) * 0.9);
-    } else side = (rnd2() - 0.5) * r.side * 0.4;
+    const up = r.up * (n < 3 ? 1.25 : 1) * (0.96 + rnd2() * 0.08);
+    let side;
+    if (n >= r.sideStart) side = r.side * (Math.sin((n - r.sideStart) * (r.freq || 0.5) + (r.phase || 0)) * 1.3 + (rnd2() - 0.5) * 0.2);
+    else side = n ? r.side * 0.15 * (n & 1 ? 1 : -1) : 0;
     return [up, side];
   }
   function jitterDir(dir, spread, rnd2) {
@@ -39130,8 +39205,8 @@ void main() {
         f.el.remove();
       }
     }
-    hitmarker(hs, kill) {
-      this.el.hit.className = kill ? "kill" : hs ? "hs" : "";
+    hitmarker(hs, kill, armorBreak) {
+      this.el.hit.className = kill ? "kill" : hs ? "hs" : armorBreak ? "ab" : "";
       this.hitT = kill ? 0.45 : 0.22;
     }
     damageFrom(ang) {
@@ -39293,8 +39368,11 @@ void main() {
   }
   var PRIM_CARDS = PRIMARIES.map((id) => {
     const d = WEAPONS[id];
-    const sub = { ak47: "\u5973\u751F\u968A\u7D93\u5178 \xB7 \u50B7\u5BB3\u9AD8", m4a1: "\u7537\u751F\u968A\u7D93\u5178 \xB7 \u7A69\u5B9A", awm: "\u4E00\u69CD\u81F4\u547D \xB7 \u9700\u958B\u93E1", mp5: "\u5C04\u901F\u5FEB \xB7 \u79FB\u52D5\u9748\u6D3B" }[id];
-    return `<div class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${sub}</small></div>`;
+    const sub = { ak47: "\u4E2D\u8DDD\u96E2 \xB7 \u50B7\u5BB3\u9AD8\u3001\u5F8C\u5EA7\u5927", m4a1: "\u4E2D\u8DDD\u96E2 \xB7 \u7A69\u5B9A\u597D\u58D3", awm: "\u9060\u8DDD\u96E2 \xB7 \u4E00\u69CD\u81F4\u547D\u3001\u9700\u958B\u93E1", mp5: "\u8FD1\u8DDD\u96E2 \xB7 \u5C04\u901F\u5FEB\u3001\u9060\u4E86\u6C92\u529B", m870: "\u8CBC\u81C9 \xB7 \u4E00\u767C\u6583\u547D\u3001\u9060\u4E86\u6C92\u7528" }[id];
+    const eff = Math.min(d.range, 10 * Math.log(0.6) / Math.log(d.falloff));
+    const st = [["\u50B7\u5BB3", d.dmg * (d.pellets || 1) / 130], ["\u5C04\u901F", d.rpm / 850], ["\u5C04\u7A0B", eff / 400], ["\u6A5F\u52D5", (d.speed - 0.76) / 0.26]];
+    const bars = st.map(([k, v]) => `<span>${k}</span><i><em style="width:${Math.round(Math.max(0.06, Math.min(1, v)) * 100)}%"></em></i>`).join("");
+    return `<div class="card" data-w="${id}"><img alt=""><b>${d.name}</b><small>${sub}</small><div class="st">${bars}</div></div>`;
   }).join("");
   var TEMPLATE = `
 <div id="hud" class="hidden">
@@ -39345,7 +39423,7 @@ void main() {
     </div>
     <div class="opts">
       <div class="opt"><div class="lab">\u9663\u71DF</div><div class="seg team" data-k="team"><button data-v="BL">\u5973\u751F\u968A<small>Girls</small></button><button data-v="GR">\u7537\u751F\u968A<small>Boys</small></button></div></div>
-      <div class="opt"><div class="lab">\u4E3B\u6B66\u5668</div><div class="seg" data-k="primary"><button data-v="ak47">AK-47</button><button data-v="m4a1">M4A1</button><button data-v="awm">AWM</button><button data-v="mp5">MP5</button></div></div>
+      <div class="opt"><div class="lab">\u4E3B\u6B66\u5668</div><div class="seg" data-k="primary"><button data-v="ak47">AK-47</button><button data-v="m4a1">M4A1</button><button data-v="awm">AWM</button><button data-v="mp5">MP5</button><button data-v="m870">M870</button></div></div>
       <div class="row2">
         <div class="opt"><div class="lab">\u5C0D\u6230\u898F\u6A21</div><div class="seg" data-k="size"><button data-v="4">4v4</button><button data-v="6">6v6</button><button data-v="8">8v8</button></div></div>
         <div class="opt"><div class="lab">\u76EE\u6A19\u64CA\u6BBA</div><div class="seg" data-k="goal"><button data-v="30">30</button><button data-v="50">50</button><button data-v="100">100</button></div></div>
@@ -39448,6 +39526,19 @@ void main() {
       mech: { f: 3800, g: 0.08, delay: 0.03 },
       echo: null
     },
+    m870: {
+      gain: 1.1,
+      drive: 3.2,
+      wet: 0.24,
+      crack: { hp: 1600, dur: 3e-3, g: 0.6 },
+      body: { f0: 3200, f1: 380, dur: 0.26, g: 1.1 },
+      mid: { f: 650, q: 0.8, dur: 0.14, g: 0.6 },
+      punch: { f0: 120, f1: 30, sw: 0.1, dur: 0.3, g: 1.1 },
+      sub: { f0: 65, f1: 26, dur: 0.35, g: 0.45 },
+      tail: { f: 750, dur: 1, g: 0.38 },
+      mech: { f: 2e3, g: 0.05, delay: 0.05 },
+      echo: [[0.18, 0.2], [0.42, 0.1]]
+    },
     deagle: {
       gain: 1.05,
       drive: 2.9,
@@ -39461,7 +39552,7 @@ void main() {
       echo: [[0.17, 0.16], [0.4, 0.07]]
     }
   };
-  var WEIGHT = { ak47: 0.85, m4a1: 1, awm: 0.8, mp5: 1.12, deagle: 1.05, knife: 1.2, grenade: 1.1 };
+  var WEIGHT = { m870: 0.78, ak47: 0.85, m4a1: 1, awm: 0.8, mp5: 1.12, deagle: 1.05, knife: 1.2, grenade: 1.1 };
   var BANKS = /* @__PURE__ */ new Map();
   function makeNoise(ctx, kind) {
     const sr = ctx.sampleRate;
@@ -39751,6 +39842,12 @@ void main() {
             this._click(v, tc + 0.012, 3600 * fm, 0.3);
             break;
           }
+          case "shell": {
+            this._nz(v, t, { n: "white", a: 0.01, dur: 0.05, g: 0.12, flt: [{ t: "bandpass", f: 1800 * fm, f1: 1200 * fm, sw: 0.05, q: 1.5 }] });
+            this._click(v, t + 0.06, 2300 * fm, 0.5, 1.4, 0.02);
+            this._tn(v, t + 0.06, { f: 260 * fm, f1: 150, a: 15e-4, dur: 0.04, g: 0.25 });
+            break;
+          }
           case "bolt": {
             this._click(v, t, 2600 * fm, 0.35);
             this._nz(v, t + 0.01, { n: "white", a: 0.01, dur: 0.07, g: 0.18, flt: [{ t: "bandpass", f: 1500 * fm, f1: 3e3 * fm, sw: 0.07, q: 2 }] });
@@ -39968,7 +40065,7 @@ void main() {
         this._warn("playBulletWhiz", e);
       }
     }
-    playHitmarker(headshot) {
+    playHitmarker(headshot, armored) {
       if (!this._ok()) return;
       try {
         const v = this._voice(null, { bus: "ui", g: 1.5, wet: 0 });
@@ -39981,11 +40078,43 @@ void main() {
         } else {
           this._click(v, t, 2400 * jit(0.03), 1, 1.5, 0.016);
           this._tn(v, t, { f: 1500, f1: 1100, sw: 0.03, a: 5e-4, dur: 0.03, g: 0.4 });
+          if (armored) this._metal(v, t, 1300 * jit(0.03), 0.14, [[1, 1, 0.05], [2.1, 0.4, 0.03]]);
           this._nz(v, t, { n: "white", a: 2e-4, dur: 3e-3, g: 0.35, flt: [{ t: "highpass", f: 6e3, q: 0 }] });
         }
         this._done(v);
       } catch (e) {
         this._warn("playHitmarker", e);
+      }
+    }
+    // 防彈衣被打穿：陶瓷板碎裂聲
+    playArmorBreak(pos) {
+      if (!this._ok()) return;
+      try {
+        const p = this._pos(pos), local = !p;
+        const v = this._voice(p, { g: local ? 0.9 : 1.6, ref: 3, roll: 1.1, max: 50, wet: 0.08 });
+        const t = this._now();
+        this._nz(v, t, { n: "white", a: 5e-4, dur: 0.09, g: 0.55, flt: [{ t: "bandpass", f: 3800, f1: 1600, sw: 0.08, q: 1.2 }] });
+        for (let i = 0; i < 4; i++) this._click(v, t + 0.01 + i * rand(0.012, 0.03), rand(2500, 5200), 0.35, 2, 0.012);
+        this._metal(v, t, 1650 * jit(0.04), 0.2, [[1, 1, 0.18], [1.48, 0.6, 0.12], [2.7, 0.35, 0.08]]);
+        this._tn(v, t, { f: 210, f1: 90, sw: 0.06, a: 1e-3, dur: 0.09, g: 0.4 });
+        this._done(v);
+      } catch (e) {
+        this._warn("playArmorBreak", e);
+      }
+    }
+    // 滑鏟：衣物與地面摩擦
+    playSlide(pos, surface) {
+      if (!this._ok()) return;
+      try {
+        const p = this._pos(pos), local = !p;
+        const v = this._voice(p, { g: local ? 0.55 : 1.5, ref: 2.5, roll: 1.2, max: 50, wet: 0.06 });
+        const t = this._now();
+        this._nz(v, t, { n: "pink", a: 0.03, dur: 0.6, g: 0.4, flt: [{ t: "bandpass", f: 1400, f1: 500, sw: 0.6, q: 0.7 }] });
+        this._nz(v, t, { n: "white", a: 0.02, dur: 0.45, g: 0.1, flt: [{ t: "highpass", f: 3e3, q: 0 }] });
+        this._surf(v, t, surface, 0.7, 1, 0.3, 1);
+        this._done(v);
+      } catch (e) {
+        this._warn("playSlide", e);
       }
     }
     playKillConfirm(headshot) {
@@ -41553,6 +41682,14 @@ void main() {
       this.root = new Group();
       const geo = buildGeometry(team);
       this.material = new MeshStandardMaterial({ vertexColors: true, map: atlas(), roughness: 0.82, metalness: 0.05 });
+      this.rimU = { value: new Vector4(0, 0, 0, 0) };
+      this.material.onBeforeCompile = (sh) => {
+        sh.uniforms.uRim = this.rimU;
+        sh.fragmentShader = "uniform vec4 uRim;\n" + sh.fragmentShader.replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n  totalEmissiveRadiance += uRim.rgb * uRim.a * pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.2);");
+      };
+      this.flinchK = 0;
+      this.flinchSide = 0;
+      this.flinchH = 0;
       this.mesh = new SkinnedMesh(geo, this.material);
       this.mesh.castShadow = true;
       this.mesh.receiveShadow = true;
@@ -41667,6 +41804,13 @@ void main() {
       B.chest.rotation.set(pitch * 0.45 - this.recoilK * 0.08, -0.12, 0);
       B.neck.rotation.set(pitch * 0.2, 0.3, 0);
       B.head.rotation.set(0, 0.05, 0);
+      if (this.flinchK > 0.01) {
+        B.spine.rotation.x -= this.flinchK * 0.12;
+        B.chest.rotation.x -= this.flinchK * 0.2;
+        B.chest.rotation.y += this.flinchSide * this.flinchK * 0.35;
+        B.head.rotation.x -= this.flinchH * this.flinchK * 0.55;
+      }
+      this.flinchK *= Math.exp(-dt * 9);
       this.recoilK *= Math.exp(-dt * 12);
       if (this.gun) {
         const sniper = this.gunType === "awm", pistol = this.gunType === "deagle", knife = this.gunType === "knife" || this.gunType === "he";
@@ -41698,6 +41842,18 @@ void main() {
     }
     kick() {
       this.recoilK = 1;
+    }
+    flinch(part2) {
+      this.flinchK = Math.min(1.3, this.flinchK + 0.8);
+      this.flinchSide = Math.random() - 0.5;
+      this.flinchH = part2 === "head" ? 1 : 0.2;
+    }
+    // 0 = 無、1 = 隊友（淡藍）、2 = 敵人（暖紅）
+    setRim(kind) {
+      const v = this.rimU.value;
+      if (kind === 2) v.set(1, 0.5, 0.38, 0.5);
+      else if (kind === 1) v.set(0.45, 0.72, 1, 0.22);
+      else v.set(0, 0, 0, 0);
     }
     die(dirX, dirZ, headshot, world, velocity, dirY = 0) {
       this.deadT = 0;
@@ -41874,12 +42030,37 @@ void main() {
       this.scoped = 0;
       this.scopeReady = false;
       this.streak = 0;
+      this.mantleS = null;
+      this.slideT = 0;
+      this.tagT = 0;
     }
     // wish: 世界座標系下的期望移動方向（長度 0..1）
     move(dt, wishX, wishZ, jump, crouch, walk) {
       const g = this.game;
       const w = this.weapon;
       const spMul = w ? w.def.speed : 1;
+      if (this.mantleS) {
+        const m = this.mantleS;
+        m.t += dt;
+        const f = Math.min(1, m.t / m.dur);
+        const fy = 1 - (1 - Math.min(1, f / 0.7)) ** 2, fx = Math.max(0, (f - 0.35) / 0.65), ex = fx * fx * (3 - 2 * fx);
+        this.pos.set(m.from.x + (m.to.x - m.from.x) * ex, m.from.y + (m.to.y - m.from.y) * fy, m.from.z + (m.to.z - m.from.z) * ex);
+        this.vel.set(0, 0, 0);
+        this.onGround = false;
+        this.speed = 0;
+        this.landed = false;
+        this.eyeH += ((this.crouch ? EYE_CROUCH : EYE_STAND) - this.eyeH) * Math.min(1, dt * 14);
+        if (f >= 1) {
+          this.mantleS = null;
+          this.onGround = true;
+          this.jumpCD = 0.3;
+          this.mantleCD = 0.3;
+          this.vel.set(m.dx * 2.4, 0, m.dz * 2.4);
+          g.onLand(this, 3.6);
+        }
+        return;
+      }
+      const startCrouch = crouch && !this.crouch;
       if (crouch && !this.crouch) {
         this.crouch = true;
         this.height = CROUCH_H;
@@ -41900,21 +42081,40 @@ void main() {
         }
       }
       this.eyeH += ((this.crouch ? EYE_CROUCH : EYE_STAND) - this.eyeH) * Math.min(1, dt * 14);
-      const max = RUN * spMul * (this.crouch ? 0.42 : walk ? 0.5 : 1) * (this.scoped ? 0.55 : 1);
+      this.tagT = Math.max(0, (this.tagT || 0) - dt);
+      const max = RUN * spMul * (this.crouch ? 0.42 : walk ? 0.5 : 1) * (this.scoped ? 0.55 : 1) * (this.tagT > 0 ? 0.6 : 1);
       const wl = Math.hypot(wishX, wishZ);
       const wx = wl > 0 ? wishX / wl : 0, wz = wl > 0 ? wishZ / wl : 0;
       const wishSpeed = max * Math.min(1, wl);
       const v = this.vel;
+      this.mantleCD = (this.mantleCD || 0) - dt;
+      if (this.isPlayer && jump && wl > 0.3 && this.mantleCD <= 0 && (this.onGround || v.y < 2.5) && this.tryMantle(wx, wz)) return;
+      this.slideCD = (this.slideCD || 0) - dt;
+      if (this.isPlayer && startCrouch && this.onGround && !walk && this.slideCD <= 0) {
+        const sp = Math.hypot(v.x, v.z);
+        if (sp > RUN * 0.78) {
+          const k = Math.max(sp * 1.22, 6.8) / sp;
+          v.x *= k;
+          v.z *= k;
+          this.slideT = 0.85;
+          this.slideCD = 1.2;
+          g.onSlide(this);
+        }
+      }
+      if (this.slideT > 0) {
+        this.slideT -= dt;
+        if (!this.crouch || !this.onGround || Math.hypot(v.x, v.z) < 2.4) this.slideT = 0;
+      }
       if (this.onGround) {
         const sp = Math.hypot(v.x, v.z);
         if (sp > 0) {
-          const drop = Math.max(sp, 1.5) * 9 * dt;
+          const drop = this.slideT > 0 ? sp * 1.4 * dt : Math.max(sp, 1.5) * 9 * dt;
           const ns = Math.max(0, sp - drop) / sp;
           v.x *= ns;
           v.z *= ns;
         }
         const cur = v.x * wx + v.z * wz, add = wishSpeed - cur;
-        if (add > 0) {
+        if (add > 0 && !(this.slideT > 0)) {
           const acc = Math.min(11 * dt * wishSpeed, add);
           v.x += acc * wx;
           v.z += acc * wz;
@@ -41923,6 +42123,7 @@ void main() {
           v.y = JUMP_V;
           this.onGround = false;
           this.jumpCD = 0.35;
+          this.slideT = 0;
           g.onJump(this);
         }
       } else {
@@ -41964,6 +42165,37 @@ void main() {
       if (this.pos.y < -3) {
         this.game.spawnActor(this);
       }
+    }
+    // 攀爬判定：前方有可站上去的平面、身體翻越的路徑上沒有東西擋住
+    tryMantle(wx, wz) {
+      const W = this.game.world, p = this.pos, r = this.radius;
+      if (wx * -Math.sin(this.yaw) + wz * -Math.cos(this.yaw) < 0.5) return false;
+      const reach = r + 0.42, px2 = p.x + wx * reach, pz2 = p.z + wz * reach;
+      const sup = W.support(px2, pz2, r * 0.7, p.y + 1.5);
+      if (!sup) return false;
+      const rise = sup.y - p.y;
+      if (rise <= this.stepHeight + 0.05 || rise > 1.5) return false;
+      if (!W.blocked(p.x + wx * (r + 0.12), p.y + this.stepHeight + 0.02, p.z + wz * (r + 0.12), r * 0.8, Math.max(0.05, rise - this.stepHeight - 0.04))) return false;
+      if (W.blocked(p.x, p.y + 0.05, p.z, r * 0.9, rise + CROUCH_H)) return false;
+      const mx = p.x + wx * reach * 0.5, mz = p.z + wz * reach * 0.5;
+      if (W.blocked(mx, sup.y + 0.02, mz, r * 0.85, CROUCH_H - 0.05)) return false;
+      let low = false;
+      if (W.blocked(px2, sup.y + 0.02, pz2, r * 0.95, STAND_H - 0.04)) {
+        if (W.blocked(px2, sup.y + 0.02, pz2, r * 0.95, CROUCH_H - 0.04)) return false;
+        low = true;
+      }
+      if (low) {
+        this.crouch = true;
+        this.height = CROUCH_H;
+      }
+      const dur = 0.24 + rise * 0.2;
+      this.mantleS = { t: 0, dur, from: p.clone(), to: new Vector3(px2, sup.y + 0.01, pz2), dx: wx, dz: wz };
+      this.slideT = 0;
+      this.scoped = 0;
+      this.scopeReady = false;
+      this.readyAt = Math.max(this.readyAt, this.game.time + dur + 0.08);
+      this.game.onMantle(this, rise);
+      return true;
     }
     // 武器邏輯。inp: {fire, firePressed, alt, altPressed, reload, sw}
     weaponUpdate(dt, inp) {
@@ -42059,7 +42291,7 @@ void main() {
       }
       w.mag--;
       w.lastShot = now;
-      w.nextFire = now + 60 / d.rpm;
+      w.nextFire = (now - w.nextFire < 0.05 ? w.nextFire : now) + 60 / d.rpm;
       this.stats.shots++;
       const spread = currentSpread(w, { speed: this.speed || 0, onGround: this.onGround, crouch: this.crouch, scoped: this.scoped > 0, scopeReady: this.scopeReady });
       g.fireWeapon(this, w, spread);
@@ -42070,8 +42302,8 @@ void main() {
       w.shotsFired++;
       if (d.spread) w.spreadAcc = Math.min(d.spread.max, w.spreadAcc + d.spread.perShot);
       this.protectT = 0;
+      if (d.bolt) w.boltUntil = now + d.bolt;
       if (d.type === "sniper") {
-        w.boltUntil = now + d.bolt;
         if (this.scoped) {
           this.reScope = this.scoped;
           this.scoped = 0;
@@ -42182,8 +42414,8 @@ void main() {
         dy += this.touchLook.y;
         this.touchLook.x = this.touchLook.y = 0;
       }
-      this.lookDX = dx;
-      this.lookDY = dy;
+      this.lookDX += dx;
+      this.lookDY += dy;
       const fovK = this.scoped ? g.renderer.camera.fov / g.opts.fov : 1;
       if (this.alive) {
         this.yaw -= dx * sens * fovK;
@@ -42260,7 +42492,7 @@ void main() {
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
       cam.position.x += cy * bx + (Math.random() - 0.5) * shake;
       cam.position.z += -sy * bx;
-      this.camRoll += ((this.keys.has("KeyA") ? 8e-3 : 0) - (this.keys.has("KeyD") ? 8e-3 : 0) - this.camRoll) * Math.min(1, dt * 6);
+      this.camRoll += ((this.keys.has("KeyA") ? 8e-3 : 0) - (this.keys.has("KeyD") ? 8e-3 : 0) + (this.slideT > 0 ? 0.05 : 0) - this.camRoll) * Math.min(1, dt * 6);
       cam.rotation.order = "YXZ";
       cam.rotation.set(this.pitch + this.punchP * 0.75 + this.aimPunch, this.yaw + this.punchY * 0.75, this.camRoll);
       const w = this.weapon;
@@ -42388,6 +42620,9 @@ void main() {
     }
     onDamaged(att) {
       if (!att || !this.alive) return;
+      this.errY += (Math.random() - 0.5) * 0.09;
+      this.errP += 0.02 + Math.random() * 0.035;
+      this.reactUntil = Math.max(this.reactUntil, this.game.time + 0.06);
       if (!this.visible || this.target !== att) {
         this.lastSeen = att.pos.clone();
         this.lastSeenT = this.game.time;
@@ -42559,6 +42794,8 @@ void main() {
             if (this.scoped && this.scopeReady && aimErr < tol * 0.6) firePressed = true;
           } else if (d.type === "pistol") {
             firePressed = Math.random() < dt * 5;
+          } else if (d.type === "shotgun") {
+            firePressed = hd < 24 && Math.random() < dt * 6;
           } else if (now >= this.burstPauseUntil) {
             fire = true;
             if (hd > 14) {
@@ -42789,7 +43026,7 @@ void main() {
   var _v4 = new Vector3();
   var _v23 = new Vector3();
   var _d = new Vector3();
-  var CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1 };
+  var CASED = { rifle: 1, smg: 1, pistol: 1, sniper: 1, shotgun: 1 };
   var Game = class {
     constructor() {
       this.time = 0;
@@ -42949,6 +43186,7 @@ void main() {
       const N = o.size;
       const prim = (team, i) => {
         if (i === 1 && N >= 4) return "awm";
+        if (i === 2 && N >= 4) return "m870";
         if (i === 3 && N >= 6) return "mp5";
         if (i === 5) return team === "BL" ? "m4a1" : "ak47";
         return team === "BL" ? "ak47" : "m4a1";
@@ -42963,6 +43201,7 @@ void main() {
         }
       }
       for (const a of this.actors) this.spawnActor(a, true);
+      for (const a of this.actors) a.soldier.setRim(a.isPlayer ? 0 : a.team === my ? 1 : 2);
       this.vm.setTeam(my);
       this.vm.equip(this.player.weapon.id, 0.6);
       this.hud.slots(this.player.inv, 0);
@@ -43152,7 +43391,20 @@ void main() {
         this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === "sniper" ? 10 : 5, 0.06);
         audio.playShot(d.sound, null);
         if (Math.random() < 0.5) audio.playShellDrop(null);
-        if (CASED[d.type]) {
+        if (d.pump) {
+          const id = d.id, t = this.time;
+          this.timers.push({ t: t + 0.2, fn: () => {
+            if (a.alive && a.weapon.def === d) audio.playReload(id, "boltback");
+          } });
+          this.timers.push({ t: t + 0.42, fn: () => {
+            if (a.alive && a.weapon.def === d) audio.playReload(id, "boltforward");
+          } });
+          this.timers.push({ t: t + 0.32, fn: () => {
+            if (!a.alive || a.weapon.def !== d) return;
+            const c = this.renderer.camera, r = new Vector3(1, 0, 0).applyQuaternion(c.quaternion), u = new Vector3(0, 1, 0).applyQuaternion(c.quaternion), f = a.forward(new Vector3());
+            this.fx.casing(c.position.clone().addScaledVector(f, 0.38).addScaledVector(r, 0.15).addScaledVector(u, -0.08), r.multiplyScalar(2.2).addScaledVector(u, 1.4), d.type);
+          } });
+        } else if (CASED[d.type]) {
           const cp = cam.position.clone().addScaledVector(dir, 0.42).addScaledVector(right, 0.17).addScaledVector(up, -0.07);
           const cv = right.clone().multiplyScalar(1.8 + Math.random() * 1.2).addScaledVector(up, 1.1 + Math.random() * 0.9).addScaledVector(dir, -0.4 + Math.random() * 0.4);
           if (a.vel) cv.add(a.vel);
@@ -43171,8 +43423,15 @@ void main() {
       }
       a.radarT = 1.6;
       for (const b of this.actors) if (b !== a && b.hear && b.team !== a.team && b.pos.distanceTo(a.pos) < 45) b.hear(a.pos, true);
-      const end = this.traceBullet(a, eye, dir, d);
-      if (!a.isPlayer || Math.random() < 0.35 || d.type === "sniper") this.fx.tracer(muzzle, end);
+      const n = d.pellets || 1;
+      let end;
+      for (let k = 0; k < n; k++) {
+        const pd = n > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
+        this._quiet = k > 0;
+        end = this.traceBullet(a, eye, pd, d);
+        if (!a.isPlayer && k < 3 || a.isPlayer && Math.random() < (n > 1 ? 0.25 : 0.35) || d.type === "sniper") this.fx.tracer(muzzle, end);
+      }
+      this._quiet = false;
       const p = this.player;
       if (p && p.alive && a !== p && a.team !== p.team) {
         const hp = p.eye(_v4);
@@ -43208,7 +43467,7 @@ void main() {
           const dmg = d.dmg * mul * Math.pow(d.falloff, dist / 10) * partMul;
           this.fx.impact(pt2, _v4.copy(dir).negate(), "flesh", dir);
           if (part2 === "head") this.fx.impact(pt2, _v4.copy(dir).negate(), "flesh", dir);
-          audio.playImpact(pt2, "flesh");
+          if (!this._quiet) audio.playImpact(pt2, "flesh");
           this.damage(best, shooter, dmg, part2, d.id, dir, wall);
           return pt2;
         }
@@ -43231,7 +43490,7 @@ void main() {
           continue;
         }
         this.fx.impact(pt, n, mat, dir);
-        if (pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === "wood" ? "wood" : mat === "concrete" ? "concrete" : "metal");
+        if (!this._quiet && pt.distanceTo(this.renderer.camera.position) < 40) audio.playImpact(pt, mat === "wood" ? "wood" : mat === "concrete" ? "concrete" : "metal");
         const wreck = this.map.damageAt ? this.map.damageAt(h.collider, d.dmg * mul, dir) : null;
         if (wreck) {
           this.fx.debris(wreck, dir);
@@ -43456,6 +43715,7 @@ void main() {
       if (!v.alive || v.protectT > 0) return;
       if (att && att !== v && att.team === v.team) return;
       const def = WEAPONS[wid];
+      const armBefore = v.armor;
       let hpD = amt;
       if (v.armor > 0 && part2 !== "leg") {
         const ap = def?.armorPen ?? 0.75;
@@ -43466,17 +43726,31 @@ void main() {
       v.lastAttacker = att;
       v.lastHurt = this.time;
       const killed = v.hp <= 0;
+      const armored = armBefore > 0 && part2 !== "leg", broke = armBefore > 0 && v.armor <= 0;
       if (att && att !== v) att.stats.hits++;
+      if (!killed) {
+        v.tagT = Math.max(v.tagT || 0, melee ? 0.5 : 0.3);
+        if (v.onGround && !(v.slideT > 0)) {
+          v.vel.x *= 0.6;
+          v.vel.z *= 0.6;
+        }
+        if (!v.isPlayer) v.soldier.flinch(part2);
+      }
       if (v.isPlayer) {
         if (att && att !== v) this.hud.damageFrom(Math.atan2(-(att.pos.x - v.pos.x), -(att.pos.z - v.pos.z)));
         v.aimPunch += Math.min(0.05, hpD * 12e-4);
         audio.playHurt(Math.min(100, hpD));
+        if (broke) audio.playArmorBreak(null);
         this.dmgFlash = Math.min(1.2, (this.dmgFlash || 0) + hpD / 45);
         if (v.hp <= 30 && !killed) audio.setLowHealth(true);
       } else if (v.onDamaged) v.onDamaged(att);
       if (att && att.isPlayer && att !== v) {
-        this.hud.hitmarker(part2 === "head", killed);
-        audio.playHitmarker(part2 === "head");
+        this.hud.hitmarker(part2 === "head", killed, broke);
+        if (killed || this.time - (this._hmT ?? -1) > 0.03) {
+          audio.playHitmarker(part2 === "head", armored && part2 !== "head");
+          this._hmT = this.time;
+        }
+        if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new Vector3()));
       }
       if (killed) this.kill(v, att, wid, part2 === "head" && !melee, wall, dir);
     }
@@ -43541,6 +43815,14 @@ void main() {
     onJump(a) {
       audio.playJump(a.isPlayer ? null : a.pos.clone());
     }
+    onSlide(a) {
+      if (a.isPlayer || a.pos.distanceTo(this.renderer.camera.position) < 30) audio.playSlide(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || "metal");
+    }
+    onMantle(a, rise) {
+      if (!a.isPlayer) return;
+      audio.playJump(null);
+      if (!a.weapon.reloading) this.vm.equip(a.weapon.id, 0.3 + rise * 0.2);
+    }
     onLand(a, sp) {
       audio.playLand(a.isPlayer ? null : a.pos.clone(), a.ground?.surface || "metal", Math.min(1, sp / 10));
     }
@@ -43561,6 +43843,14 @@ void main() {
       if (!a.isPlayer) return;
       const d = a.weapon.def, t = this.time, id = d.id;
       this.vm.reload(d.reload, empty);
+      if (d.pump) {
+        for (let i = 0; i < 4; i++) this.timers.push({ t: t + d.reload * (0.2 + i * 0.18), fn: () => audio.playReload(id, "shell") });
+        if (empty) {
+          this.timers.push({ t: t + d.reload * 0.87, fn: () => audio.playReload(id, "boltback") });
+          this.timers.push({ t: t + d.reload * 0.93, fn: () => audio.playReload(id, "boltforward") });
+        }
+        return;
+      }
       this.timers.push({ t: t + d.reload * 0.2, fn: () => audio.playReload(id, "magout") });
       this.timers.push({ t: t + d.reload * 0.6, fn: () => audio.playReload(id, "magin") });
       if (empty) this.timers.push({ t: t + d.reload * 0.82, fn: () => audio.playReload(id, id === "awm" ? "bolt" : "boltback") });
@@ -43590,8 +43880,11 @@ void main() {
       const R = this.renderer, cam = R.camera;
       this.realTime = (this.realTime || 0) + dt;
       const active = this.playing && !this.paused;
-      if (active) this.simulate(dt);
-      else if (!this.playing) {
+      if (active) {
+        if (this.player) this.player.lookDX = this.player.lookDY = 0;
+        const n = Math.min(4, Math.ceil(dt * 100 - 1e-6)), h = dt / n;
+        for (let i = 0; i < n; i++) this.simulate(h, i === n - 1 ? dt : 0);
+      } else if (!this.playing) {
         const t = this.realTime * 0.045;
         const mc = this.map && this.map.menuCam;
         if (mc) {
@@ -43611,7 +43904,7 @@ void main() {
       for (let t = 0; t < seconds && this.playing; t += step) this.simulate(step);
       return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => a.name + ":" + a.stats.k + "/" + a.stats.d).join(" ") };
     }
-    simulate(dt) {
+    simulate(dt, vis = dt) {
       const cam = this.renderer.camera;
       {
         this.time += dt;
@@ -43634,11 +43927,11 @@ void main() {
             s.root.position.copy(a.pos);
             s.root.rotation.y = a.yaw;
             const fwd = (a.vel.x * -Math.sin(a.yaw) + a.vel.z * -Math.cos(a.yaw)) / Math.max(0.01, a.speed || 0);
-            s.update(dt, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
+            if (vis) s.update(vis, { speed: a.speed || 0, fwd, crouch: a.crouch, pitch: a.pitch + a.punchP, onGround: a.onGround, reloading: a.weapon?.reloading });
             if (!a.isPlayer) s.mesh.visible = !(a.protectT > 0 && Math.sin(this.time * 30) > 0.3);
           } else {
             a.deadT += dt;
-            a.soldier.update(dt, {});
+            if (vis) a.soldier.update(vis, {});
             a.respawnT -= dt;
             if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
           }
@@ -43722,7 +44015,7 @@ void main() {
       const p = this.player, cam = this.renderer.camera, w = p.weapon;
       let spreadPx = 0;
       if (w && w.def.spread) {
-        const sp = Math.min(0.12, w.spreadAcc + w.def.spread.base * 2 + (p.speed > 0.6 ? w.def.spread.move * Math.min(1, p.speed / 5.7) : 0) + (p.onGround ? 0 : w.def.spread.air * 0.5)) * (p.crouch ? 0.7 : 1);
+        const sp = Math.min(0.12, w.spreadAcc + w.def.spread.base * 2 + w.def.spread.move * Math.min(1, Math.max(0, ((p.speed || 0) - 1.6) / 3.4)) + (w.def.pelletSpread || 0) + (p.onGround ? 0 : w.def.spread.air * 0.5)) * (p.crouch ? 0.7 : 1);
         spreadPx = Math.tan(sp) / Math.tan(MathUtils.degToRad(cam.fov / 2)) * window.innerHeight / 2;
       }
       let aimName = "", aimTeam = "";

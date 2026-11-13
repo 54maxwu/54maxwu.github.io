@@ -52,12 +52,29 @@ export class Actor {
     this.soldier.root.visible = !this.isPlayer;
     this.scoped = 0; this.scopeReady = false;
     this.streak = 0;
+    this.mantleS = null; this.slideT = 0; this.tagT = 0;
   }
   // wish: 世界座標系下的期望移動方向（長度 0..1）
   move(dt, wishX, wishZ, jump, crouch, walk) {
     const g = this.game;
     const w = this.weapon;
     const spMul = w ? w.def.speed : 1;
+    // 攀爬中：先把身體撐高再往前帶上平臺，期間不受一般物理影響
+    if (this.mantleS) {
+      const m = this.mantleS; m.t += dt;
+      const f = Math.min(1, m.t / m.dur);
+      const fy = 1 - (1 - Math.min(1, f / 0.7)) ** 2, fx = Math.max(0, (f - 0.35) / 0.65), ex = fx * fx * (3 - 2 * fx);
+      this.pos.set(m.from.x + (m.to.x - m.from.x) * ex, m.from.y + (m.to.y - m.from.y) * fy, m.from.z + (m.to.z - m.from.z) * ex);
+      this.vel.set(0, 0, 0); this.onGround = false; this.speed = 0; this.landed = false;
+      this.eyeH += ((this.crouch ? EYE_CROUCH : EYE_STAND) - this.eyeH) * Math.min(1, dt * 14);
+      if (f >= 1) {
+        this.mantleS = null; this.onGround = true; this.jumpCD = 0.3; this.mantleCD = 0.3;
+        this.vel.set(m.dx * 2.4, 0, m.dz * 2.4);
+        g.onLand(this, 3.6);
+      }
+      return;
+    }
+    const startCrouch = crouch && !this.crouch;
     // 下蹲 / 起身
     if (crouch && !this.crouch) {
       this.crouch = true; this.height = CROUCH_H;
@@ -71,22 +88,42 @@ export class Actor {
       }
     }
     this.eyeH += ((this.crouch ? EYE_CROUCH : EYE_STAND) - this.eyeH) * Math.min(1, dt * 14);
-    const max = RUN * spMul * (this.crouch ? 0.42 : walk ? 0.5 : 1) * (this.scoped ? 0.55 : 1);
+    // 中彈減速（被打中的瞬間腳步會頓一下）
+    this.tagT = Math.max(0, (this.tagT || 0) - dt);
+    const max = RUN * spMul * (this.crouch ? 0.42 : walk ? 0.5 : 1) * (this.scoped ? 0.55 : 1) * (this.tagT > 0 ? 0.6 : 1);
     const wl = Math.hypot(wishX, wishZ);
     const wx = wl > 0 ? wishX / wl : 0, wz = wl > 0 ? wishZ / wl : 0;
     const wishSpeed = max * Math.min(1, wl);
     const v = this.vel;
+    // 攀爬：面前 0.6～1.5 公尺高的矮牆、窗臺、桌子，按住跳躍往前推就會翻上去
+    this.mantleCD = (this.mantleCD || 0) - dt;
+    if (this.isPlayer && jump && wl > 0.3 && this.mantleCD <= 0 && (this.onGround || v.y < 2.5) && this.tryMantle(wx, wz)) return;
+    // 滑鏟：全速奔跑時按下蹲
+    this.slideCD = (this.slideCD || 0) - dt;
+    if (this.isPlayer && startCrouch && this.onGround && !walk && this.slideCD <= 0) {
+      const sp = Math.hypot(v.x, v.z);
+      if (sp > RUN * 0.78) {
+        const k = Math.max(sp * 1.22, 6.8) / sp;
+        v.x *= k; v.z *= k;
+        this.slideT = 0.85; this.slideCD = 1.2;
+        g.onSlide(this);
+      }
+    }
+    if (this.slideT > 0) {
+      this.slideT -= dt;
+      if (!this.crouch || !this.onGround || Math.hypot(v.x, v.z) < 2.4) this.slideT = 0;
+    }
     if (this.onGround) {
       const sp = Math.hypot(v.x, v.z);
       if (sp > 0) {
-        const drop = Math.max(sp, 1.5) * 9 * dt;
+        const drop = this.slideT > 0 ? sp * 1.4 * dt : Math.max(sp, 1.5) * 9 * dt;
         const ns = Math.max(0, sp - drop) / sp;
         v.x *= ns; v.z *= ns;
       }
       const cur = v.x * wx + v.z * wz, add = wishSpeed - cur;
-      if (add > 0) { const acc = Math.min(11 * dt * wishSpeed, add); v.x += acc * wx; v.z += acc * wz; }
+      if (add > 0 && !(this.slideT > 0)) { const acc = Math.min(11 * dt * wishSpeed, add); v.x += acc * wx; v.z += acc * wz; }
       if (jump && this.jumpCD <= 0) {
-        v.y = JUMP_V; this.onGround = false; this.jumpCD = 0.35;
+        v.y = JUMP_V; this.onGround = false; this.jumpCD = 0.35; this.slideT = 0;
         g.onJump(this);
       }
     } else {
@@ -121,6 +158,34 @@ export class Actor {
     void wasGround;
     // 防卡死：掉出世界
     if (this.pos.y < -3) { this.game.spawnActor(this); }
+  }
+  // 攀爬判定：前方有可站上去的平面、身體翻越的路徑上沒有東西擋住
+  tryMantle(wx, wz) {
+    const W = this.game.world, p = this.pos, r = this.radius;
+    if (wx * -Math.sin(this.yaw) + wz * -Math.cos(this.yaw) < 0.5) return false;   // 只在往前推時
+    const reach = r + 0.42, px = p.x + wx * reach, pz = p.z + wz * reach;
+    const sup = W.support(px, pz, r * 0.7, p.y + 1.5);
+    if (!sup) return false;
+    const rise = sup.y - p.y;
+    if (rise <= this.stepHeight + 0.05 || rise > 1.5) return false;
+    // 面前確實有東西擋著（不是下坡或空地）
+    if (!W.blocked(p.x + wx * (r + 0.12), p.y + this.stepHeight + 0.02, p.z + wz * (r + 0.12), r * 0.8, Math.max(0.05, rise - this.stepHeight - 0.04))) return false;
+    // 撐起時頭頂、翻越途中、落點都要有空間（蹲姿也行）
+    if (W.blocked(p.x, p.y + 0.05, p.z, r * 0.9, rise + CROUCH_H)) return false;
+    const mx = p.x + wx * reach * 0.5, mz = p.z + wz * reach * 0.5;
+    if (W.blocked(mx, sup.y + 0.02, mz, r * 0.85, CROUCH_H - 0.05)) return false;
+    let low = false;
+    if (W.blocked(px, sup.y + 0.02, pz, r * 0.95, STAND_H - 0.04)) {
+      if (W.blocked(px, sup.y + 0.02, pz, r * 0.95, CROUCH_H - 0.04)) return false;
+      low = true;
+    }
+    if (low) { this.crouch = true; this.height = CROUCH_H; }
+    const dur = 0.24 + rise * 0.2;
+    this.mantleS = { t: 0, dur, from: p.clone(), to: new THREE.Vector3(px, sup.y + 0.01, pz), dx: wx, dz: wz };
+    this.slideT = 0; this.scoped = 0; this.scopeReady = false;
+    this.readyAt = Math.max(this.readyAt, this.game.time + dur + 0.08);
+    this.game.onMantle(this, rise);
+    return true;
   }
   // 武器邏輯。inp: {fire, firePressed, alt, altPressed, reload, sw}
   weaponUpdate(dt, inp) {
@@ -199,7 +264,7 @@ export class Actor {
       if (w.canReload()) this.startReload();
       return;
     }
-    w.mag--; w.lastShot = now; w.nextFire = now + 60 / d.rpm;
+    w.mag--; w.lastShot = now; w.nextFire = (now - w.nextFire < 0.05 ? w.nextFire : now) + 60 / d.rpm;
     this.stats.shots++;
     const spread = currentSpread(w, { speed: this.speed || 0, onGround: this.onGround, crouch: this.crouch, scoped: this.scoped > 0, scopeReady: this.scopeReady });
     g.fireWeapon(this, w, spread);
@@ -211,8 +276,8 @@ export class Actor {
     w.shotsFired++;
     if (d.spread) w.spreadAcc = Math.min(d.spread.max, w.spreadAcc + d.spread.perShot);
     this.protectT = 0;
+    if (d.bolt) w.boltUntil = now + d.bolt;
     if (d.type === 'sniper') {
-      w.boltUntil = now + d.bolt;
       if (this.scoped) { this.reScope = this.scoped; this.scoped = 0; this.scopeReady = false; }
     }
     if (w.mag === 0 && w.canReload() && !this.isPlayer) this.startReload();
