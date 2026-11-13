@@ -1,4 +1,4 @@
-// 武器資料（參考穿越火線手感：步槍首發精準，連射上跳後左右擺動；狙擊槍開鏡才準）
+// 武器資料（步槍首發精準，連射上跳後左右擺動；狙擊槍開鏡才準）
 export const WEAPONS = {
   ak47: {
     id: 'ak47', name: 'AK-47', slot: 0, type: 'rifle', auto: true,

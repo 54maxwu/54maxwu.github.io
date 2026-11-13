@@ -30,11 +30,6 @@ button{font-family:inherit}
 #radarWrap .lbl{position:absolute;left:6px;bottom:4px;font-size:11px;color:var(--hudDim);letter-spacing:1px}
 
 #feed{position:absolute;top:60px;right:12px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;width:420px}
-#clinks{position:absolute;top:12px;right:12px;display:flex;gap:6px;transition:opacity .2s}
-#clinks a{pointer-events:auto;width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--hud);opacity:.55;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.18);transition:opacity .15s}
-#clinks a:hover{opacity:1}
-#clinks svg{width:17px;height:17px;fill:currentColor}
-body.lk #clinks{opacity:.22}
 .mlinks{margin-top:12px;font-size:12px;color:var(--hudDim);letter-spacing:1px;display:flex;gap:8px;justify-content:center}
 .mlinks a{color:var(--hudDim);text-decoration:none}
 .mlinks a:hover{color:var(--hud)}

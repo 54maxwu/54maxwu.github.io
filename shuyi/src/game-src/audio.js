@@ -641,7 +641,7 @@ export class AudioSystem {
       const v = this._voice(null, { bus: 'ui', g: 1.5, wet: 0 });
       const t = this._now();
       if (headshot) {
-        // 穿越火線式清脆金屬"叮"：金屬板非諧波泛音 + 輕微拍頻
+        // 清脆金屬"叮"：金屬板非諧波泛音 + 輕微拍頻
         const f = 2450 * jit(0.015);
         this._nz(v, t, { n: 'white', a: 0.0002, dur: 0.004, g: 0.35, flt: [{ t: 'highpass', f: 5000, q: 0 }] });
         this._metal(v, t, f, 0.3, [[1, 1, 0.5], [1.004, 0.5, 0.45], [2.76, 0.45, 0.28], [5.4, 0.22, 0.14]]);
