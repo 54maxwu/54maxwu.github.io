@@ -588,6 +588,36 @@ export class Game {
     }
     this.afterWreck(ev[0].att);
   }
+  // 掉落的碎塊、碎玻璃砸到人：依重量與落速受傷（每塊只算一次，砸到後速度大減）
+  debrisHits() {
+    const fx = this.fx, dn = new THREE.Vector3();
+    const test = (list, glass) => {
+      for (const c of list) {
+        if (c.rest || c.hit || c.v.y > -3) continue;            // 只算正在往下掉、夠快的
+        const sx = glass ? c.s : c.s.x, sy = glass ? c.s : c.s.y, sz = glass ? c.s : c.s.z;
+        if (!glass && sy < 0.25 * sx) continue;                  // 樹葉片不算
+        for (const a of this.actors) {
+          if (!a.alive) continue;
+          const r = a.radius + Math.max(sx, sz) / 2;
+          if (Math.abs(c.p.x - a.pos.x) > r || Math.abs(c.p.z - a.pos.z) > r || c.p.y < a.pos.y || c.p.y > a.pos.y + a.height + 0.15) continue;
+          c.hit = true;
+          if (glass) { if (this.time - (a._glassT ?? -9) < 0.3) break; a._glassT = this.time; }   // 一陣碎玻璃最多每 0.3 秒算一次
+          const sp = c.v.length();
+          // 石材約 2400 kg/m³；傷害 ≈ 質量 × 速度 × 0.6，單塊上限 70。玻璃碎片小傷
+          let dmg = glass ? 3 + sx * 40 : Math.min(70, sx * sy * sz * 2400 * sp * 0.6);
+          if (dmg >= 2) {
+            const head = c.p.y > a.pos.y + a.height - 0.35;
+            if (head) dmg *= 1.6;
+            this.damage(a, null, dmg, head ? 'head' : 'chest', glass ? 'glass' : 'debris', dn.copy(c.v).normalize().clone(), false);
+          }
+          c.v.multiplyScalar(0.3);
+          break;
+        }
+      }
+    };
+    test(fx.chunks, false);
+    test(fx.shards, true);
+  }
   damage(v, att, amt, part, wid, dir, wall, melee) {
     if (!v.alive || v.protectT > 0) return;
     if (att && att !== v && att.team === v.team) return;
@@ -782,6 +812,7 @@ export class Game {
     this.env.update(dt, this.realTime, cam.position);
     this.map.update(dt, this.realTime);
     this.updateLanded();
+    if (this.playing) this.debrisHits();
     // 幀率統計與畫質建議
     this.fpsAcc = (this.fpsAcc || 0) + dt; this.fpsN = (this.fpsN || 0) + 1;
     if (this.fpsAcc > 1) {
