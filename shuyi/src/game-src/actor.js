@@ -76,6 +76,7 @@ export class Actor {
   }
 
   spawn(sp) {
+    this.stepped = 0; this.stepOffset = 0;
     this.pos.set(sp.x, (sp.y ?? 0) + 0.02, sp.z);
     this.vel.set(0, 0, 0);
     this.yaw = sp.yaw; this.pitch = 0; this.punchP = this.punchY = 0;

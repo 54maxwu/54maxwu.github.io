@@ -1,6 +1,7 @@
 // 霞雲庭的景觀細節。沿用原有草坪、花台與荷塘位置；造景為示意，非實景測繪。
 // 所有零件交給 Builder 合併，不為每片葉子增加獨立 draw call。
 import * as THREE from 'three';
+import {foliageCluster} from './campus-vegetation.js';
 
 export function gardenDetails(B, lawn) {
   // 草坪曲線石緣：低於跨步高度，不改變原本的通行路線。
@@ -19,11 +20,9 @@ export function gardenDetails(B, lawn) {
     soil.translate(x, .605, -n); B.geo('soil', soil);
     const rim = new THREE.TorusGeometry(1.51, .09, 5, 32);
     rim.rotateX(Math.PI / 2); rim.translate(x, .58, -n); B.geo('stone', rim);
+    foliageCluster((k,g)=>B.geo(k,g),x,1.0,-n,1.28,{density:B.quality==='low'?12:35,flatten:.55});
     for (let i = 0; i < 14; i++) {
       const a = i * 2.39996, r = .35 + .85 * Math.sqrt(i / 14);
-      const g = new THREE.IcosahedronGeometry(.25 + (i % 3) * .045, 1);
-      g.scale(1, .65, 1); g.translate(x + Math.cos(a)*r, .84 + (i%3)*.06, -n + Math.sin(a)*r);
-      B.geo(i % 3 ? 'leaf' : 'leafLight', g);
       if (i % 4 === 0) {
         const flower = new THREE.IcosahedronGeometry(.085, 1);
         flower.translate(x + Math.cos(a)*r, 1.03 + (i%3)*.06, -n + Math.sin(a)*r);
@@ -32,17 +31,33 @@ export function gardenDetails(B, lawn) {
     }
   }
 
-  // 座椅放在南北花台旁，避開東側棕櫚步道及西側舞臺階梯。
-  for (const [x, n, facing] of [[-7,-13.3,1],[-5,-38.3,-1]]) {
-    const start = B.parts.length;
-    for (const dx of [-1.05, 1.05]) B.box('granite',x+dx-.12,x+dx+.12,.04,.48,n-.26,n+.26);
-    for (let i=0;i<4;i++) B.box('wood',x-1.45,x+1.45,.48,.56,n-.28+i*.15,n-.16+i*.15);
-    const back = n - facing*.26;
-    for (const dx of [-1.05,1.05]) B.box('metal',x+dx-.035,x+dx+.035,.5,1.12,back-.035,back+.035);
-    for (let i=0;i<3;i++) B.box('wood',x-1.45,x+1.45,.72+i*.15,.83+i*.15,back-.055,back+.055);
-    // 座板等部件相連，破壞後不留下懸空椅背。
-    const parts = B.parts.slice(start);
-    for (const p of parts) p.links = parts.filter(q=>q!==p);
+  // 照片可見的弧形、無靠背石座椅；維持南北緣的主要通道。
+  for (const [cx,cn,sign] of [[-7,-17.4,1],[-5,-34.1,-1]]) {
+    for(let i=0;i<23;i++){
+      const a=.7+i/22*1.74,r=4.25,x=cx+Math.cos(a)*r,n=cn+sign*Math.sin(a)*r,yaw=sign*(Math.PI/2+a);
+      const g=new THREE.BoxGeometry(.29,.13,.64);g.rotateY(yaw);g.translate(x,.53,-n);B.geo('stone',g);
+      B.world.add({x,y:.53,z:-n,sx:.29,sy:.13,sz:.64,yaw,mat:'concrete',surface:'concrete'});
+      if(i%5===1){const leg=new THREE.BoxGeometry(.18,.44,.45);leg.rotateY(yaw);leg.translate(x,.26,-n);B.geo('granite',leg)}
+    }
+  }
+
+  // 中庭四季燈柱：石質錐柱與環形黑色燈架，造型依照片估計。
+  for(const [x,n]of [[-17,-16.2],[9,-15.4],[-17,-34.8],[9,-35.2]]){
+    const column=new THREE.CylinderGeometry(.13,.36,2.5,12);column.translate(x,1.29,-n);B.geo('stone',column);
+    B.collide(x-.25,x+.25,.04,2.55,n-.25,n+.25);
+    const hoop=new THREE.TorusGeometry(.29,.026,5,20);hoop.translate(x,2.9,-n);B.geo('shade',hoop);
+    const cap=new THREE.ConeGeometry(.2,.19,12);cap.translate(x,2.85,-n);B.geo('shade',cap);
+    const lamp=new THREE.SphereGeometry(.12,8,6);lamp.scale(1,1.45,1);lamp.translate(x,2.68,-n);B.geo('white',lamp);
+    const stem=new THREE.CylinderGeometry(.035,.035,.35,6);stem.translate(x,2.62,-n);B.geo('shade',stem);
+    for(let i=0;i<3;i++){
+      const arc=new THREE.TorusGeometry(.22,.025,4,14,Math.PI*1.2);arc.translate(x, .75+i*.55,-n+.25-i*.02);B.geo('blue',arc);
+    }
+  }
+
+  // 草地的低矮樹叢與景石，不在主要石板小徑上放置障礙。
+  for(const [x,n]of [[-15,-30],[-1,-33],[2,-18]]){
+    foliageCluster((k,g)=>B.geo(k,g),x,.3,-n,.85,{density:B.quality==='low'?8:20,flatten:.35});
+    const rock=new THREE.DodecahedronGeometry(.4,0);rock.scale(1,.7,.8);rock.rotateY(x);rock.translate(x+.7,.25,-n);B.geo('granite',rock);
   }
 
   // 荷塘石材壓頂、睡蓮與磨石旁的靜態漣漪。

@@ -12,6 +12,10 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {CampusNav} from './campus-physics.js';
 import {buildLabels} from './campus-labels.js';
 import {gardenDetails} from './campus-garden.js';
+import {brickMaps,foliageTexture,lawnTexture,herringboneTexture,latticeTexture} from './campus-surfaces.js';
+import {treeCrown} from './campus-vegetation.js';
+import {buildNeighborhood} from './campus-neighborhood.js';
+import {decorateParapet} from './campus-facade.js';
 
 const FB=[0,4,7.6,11.2,14.8],FH=[4,3.6,3.6,3.6,3.6],ROOF=18.4,SLAB=0.25;   // floor bases / heights
 const SITE={x0:-70,x1:71,n0:-70,n1:77};
@@ -30,26 +34,40 @@ const TEX={
   concrete:()=>canvasTex(256,256,(g,w,h)=>noise(g,w,h,'#bdb8ae',.12,3000,3)),
   roof:()=>canvasTex(256,256,(g)=>{g.fillStyle='#7a2a1e';g.fillRect(0,0,256,256);for(let r=0;r<8;r++)for(let c=0;c<8;c++){const k=rnd();g.fillStyle=`rgb(${168+k*30|0},${62+k*14|0},${44+k*10|0})`;g.fillRect(c*32+1,r*32+3,30,27);g.fillStyle='rgba(0,0,0,.18)';g.fillRect(c*32+1,r*32+24,30,6)}}),
   grass:()=>canvasTex(256,256,(g,w,h)=>{noise(g,w,h,'#5f8240',.22,9000,2)}),
-  lawn:()=>canvasTex(256,256,(g,w,h)=>{noise(g,w,h,'#5e8a3c',.28,12000,2)}),
+  lawn:lawnTexture,
+  herringbone:herringboneTexture,
+  lattice:latticeTexture,
   asphalt:()=>canvasTex(256,256,(g,w,h)=>noise(g,w,h,'#55534f',.2,7000,2)),
   pave:()=>canvasTex(256,256,(g)=>{g.fillStyle='#9d968a';g.fillRect(0,0,256,256);for(let r=0;r<8;r++)for(let c=0;c<4;c++){const k=rnd();g.fillStyle=`rgb(${176+k*20|0},${170+k*18|0},${158+k*16|0})`;g.fillRect(c*64+(r%2?32:0)+1,r*32+1,62,30)}}),
   wood:()=>canvasTex(256,256,(g,w,h)=>{noise(g,w,h,'#a77a4b',.15,3000,2);for(let i=0;i<40;i++){g.fillStyle='rgba(70,40,20,.15)';g.fillRect(0,rnd()*h,w,1)}}),
   board:()=>canvasTex(128,128,(g,w,h)=>noise(g,w,h,'#2d4a3b',.1,800,2)),
-  leaf:()=>canvasTex(128,128,(g,w,h)=>noise(g,w,h,'#3f6e2f',.35,4000,3)),
+  leaf:()=>canvasTex(128,128,(g,w,h)=>noise(g,w,h,'#577e3d',.085,1600,2)),
   bark:()=>canvasTex(128,128,(g,w,h)=>noise(g,w,h,'#5b4a3a',.3,2000,2)),
   pebble:()=>canvasTex(256,256,(g)=>{g.fillStyle='#8c8577';g.fillRect(0,0,256,256);for(let i=0;i<500;i++){const k=rnd();g.fillStyle=`rgb(${150+k*80|0},${145+k*75|0},${135+k*70|0})`;g.beginPath();g.ellipse(rnd()*256,rnd()*256,4+rnd()*5,3+rnd()*4,rnd()*3,0,7);g.fill()}}),
 };
 function makeMaterials(){
-  const std=(tex,rough=.85,o={})=>{const map=tex?TEX[tex]():null;return new THREE.MeshStandardMaterial({map,roughness:rough,metalness:0,...(tex==='brick'?{bumpMap:map,bumpScale:.025}:{}),...o})};
+  const std=(tex,rough=.85,o={})=>{const maps=tex==='brick'?brickMaps():{map:tex?TEX[tex]():null};return new THREE.MeshStandardMaterial({...maps,roughness:rough,metalness:0,...o})};
   return {
-    brick:{m:std('brick',.9),s:1,col:'concrete'}, stone:{m:std('stone',.8),s:1.5,col:'concrete'}, granite:{m:std('granite',.7),s:1.5,col:'concrete'},
+    brick:{m:std('brick',.94),s:2,col:'concrete'}, stone:{m:std('stone',.9),s:1.5,col:'concrete'}, granite:{m:std('granite',.85),s:1.5,col:'concrete'},
     terrazzo:{m:std('terrazzo',.55),s:2,col:'concrete'}, quarry:{m:std('quarry',.75),s:1.2,col:'concrete'}, plaster:{m:std('plaster',.95),s:2,col:'concrete'},
     concrete:{m:std('concrete',.9),s:3,col:'concrete'}, roof:{m:std('roof',.7),s:1.6,col:'concrete'}, grass:{m:std('grass',1),s:4,col:'concrete'},
     lawn:{m:std('lawn',1),s:3,col:'concrete'}, asphalt:{m:std('asphalt',.95),s:5,col:'concrete'}, pave:{m:std('pave',.85),s:2,col:'concrete'},
     wood:{m:std('wood',.7),s:1.5,col:'wood'}, board:{m:std('board',.6),s:2,col:'wood'}, leaf:{m:std('leaf',1,{side:THREE.DoubleSide}),s:2,col:null},
     bark:{m:std('bark',1),s:1,col:'wood'}, pebble:{m:std('pebble',1),s:1.5,col:'concrete'},
     soil:{m:std(null,1,{color:'#493e2b'}),s:1,col:null},
-    leafLight:{m:std('leaf',.95,{color:'#b7cb88',side:THREE.DoubleSide}),s:2,col:null},
+    leafLight:{m:std('leaf',1,{color:'#c1c99a',side:THREE.DoubleSide}),s:2,col:null},
+    leafDark:{m:std('leaf',1,{color:'#a5b88c',side:THREE.DoubleSide}),s:2,col:null},
+    foliage:{m:new THREE.MeshStandardMaterial({map:foliageTexture(),alphaTest:.45,roughness:1,side:THREE.DoubleSide}),s:1,col:null},
+    herringbone:{m:std('herringbone',.95),s:3.2,col:'concrete'},
+    soffit:{m:std('plaster',1,{color:'#aaa897'}),s:2,col:null},
+    shade:{m:std(null,1,{color:'#484c43'}),s:1,col:null},
+    lattice:{m:std('lattice',1),s:.19,col:null},
+    drain:{m:std(null,.8,{color:'#93978b',metalness:.15}),s:1,col:null},
+    palmBark:{m:std('stone',1,{color:'#afa48b'}),s:1,col:'wood'},
+    cityWarm:{m:std(null,1,{color:'#c0b4a3'}),s:1,col:null},
+    cityCool:{m:std(null,1,{color:'#aeb6b6'}),s:1,col:null},
+    cityTrim:{m:std(null,.95,{color:'#c9c6bb'}),s:1,col:null},
+    cityWindow:{m:std(null,.45,{color:'#5d747c',metalness:.15}),s:1,col:null},
     flower:{m:std(null,.9,{color:'#e7c285'}),s:1,col:null},
     waterRipple:{m:std(null,.3,{color:'#91bdba',transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide}),s:1,col:null},
     green:{m:std(null,.5,{color:'#2f6b4f'}),s:1,col:'metal'}, white:{m:std(null,.8,{color:'#eeeae2'}),s:1,col:'concrete'},
@@ -247,7 +265,7 @@ class Builder{
       for(const {g,part} of this.extra[k]||[]){for(const a of Object.keys(g.attributes))if(!['position','normal','uv'].includes(a))g.deleteAttribute(a);if(!g.attributes.uv)g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));parts.push(g);
         if(part)part.ranges.push({k,start:off,count:g.attributes.position.count});off+=g.attributes.position.count}
       const geo=parts.length>1?mergeGeometries(parts):parts[0];const mesh=new THREE.Mesh(geo,this.M[k].m);this.meshByKey[k]=mesh;
-      mesh.castShadow=shadows&&!['glass','water','grass','lawn','asphalt','pave','quarry','terrazzo'].includes(k);mesh.receiveShadow=shadows&&k!=='glass';
+      mesh.castShadow=shadows&&!['glass','water','grass','lawn','asphalt','pave','quarry','herringbone','terrazzo','soil','waterRipple'].includes(k);mesh.receiveShadow=shadows&&k!=='glass';
       mesh.name='real:'+k;scene.add(mesh);meshes.push(mesh);faces+=geo.attributes.position.count/3;
     }
     // glass panes: one InstancedMesh; a broken pane is scaled to zero
@@ -297,8 +315,10 @@ function bar(B,o){
           plaque(B.scene,base,{x:p[0],y:yb+2.62,n:p[1],w:1.5,h:.46,face:o.corFace,bg:C.bg,fg:C.fg,sub:s.cls||(paren||'').replace(/[）)]/g,''),subSize:.34,mainSize:.42,font:'"Microsoft JhengHei",sans-serif'})}}
       // floor
       if(f===0){if(!pass)lb(s.type==='open'?'quarry':'terrazzo',a0,a1,0,.05,0,D)}
-      else if(!voidAbove){if(stair){lb('concrete',a0,a1,yb-SLAB,yb,0,4.6);lb('concrete',a0,a1,yb-SLAB,yb,9.8,D);lb('terrazzo',a0,a1,yb,yb+.02,0,4.6,false)}
+      else if(voidAbove&&s.corridor){lb('concrete',a0,a1,yb-SLAB,yb,0,COR);lb('terrazzo',a0,a1,yb,yb+.02,0,COR,false)}
+      else if(!voidAbove){if(stair){lb('concrete',a0,a1,yb-SLAB,yb,0,4.6);lb('concrete',a0,a1,yb-SLAB,yb,10.2,D);lb('terrazzo',a0,a1,yb,yb+.02,0,4.6,false)}
         else{lb('concrete',a0,a1,yb-SLAB,yb,0,D);lb('terrazzo',a0,a1,yb,yb+.02,0,D,false)}}
+      if(!pass&&!voidAbove)lb('soffit',a0,a1,ceil-.025,ceil,.5,COR,false);
       // corridor-side room wall (w=3)
       if(!stair&&!pass&&s.type!=='open'&&s.type!=='void'){
         const L=a1-a0,DW=1.7,doors=L>5?[a0+.4,a1-.4-DW]:[a0+(L-DW)/2];let cuts=[];for(const d of doors)cuts.push([d,d+DW,0,2.3]);
@@ -331,25 +351,39 @@ function bar(B,o){
     const P=[...new Set(piers.map(p=>+p.toFixed(3)))].sort((a,b)=>a-b);
     for(let i=0;i<P.length;i++){
       const p=P[i];if(isOpen(p)){
+        const before=B.parts.length;
         lb('brick',p-.28,p+.28,yb,ceil,0,.5);
+        const anchor=B.parts[before],oldAttach=B._attach;B._attach=anchor;
+        lb('stone',p-.28,p-.19,yb,ceil,-.035,0,false);
+        lb('stone',p+.19,p+.28,yb,ceil,-.035,0,false);
+        if(i%6===0){
+          lb('drain',p+.29,p+.37,yb,yt,-.055,.035,false);
+          for(let y=yb+.7;y<ceil;y+=1.2)lb('metal',p+.27,p+.39,y,y+.035,-.075,.055,false);
+        }
         if(f===0){
           lb('granite',p-.32,p+.32,.05,.28,-.04,.54,false);
           lb('stone',p-.34,p+.34,2.4,2.53,-.06,.56,false);
         }
+        B._attach=oldAttach;
       }
       if(i===P.length-1)break;const a=P[i]+.28,b=P[i+1]-.28;if(b<=a)continue;
       if(!isOpen((a+b)/2)){const j=(o.junction||[]).find(([j0,j1])=>a<j1&&b>j0);wallU(lb,'brick',a-.28,b+.28,yb,ceil,0,.3,j?[[Math.max(a,j[0]),Math.min(b,j[1]),0,2.6]]:[],false);continue}
       if(f===0){const top=ceil,spring=2.5,rise=Math.min(.9,(b-a)/2);lb('brick',a,b,spring+rise,top,0,.5);
-        B.geo('brick',placedExtrude(archShape(a,b,spring,rise,spring+rise+.01),.5,{plane:o.plane,at:o.faceAt}))}
+        B.geo('brick',placedExtrude(archShape(a,b,spring,rise,spring+rise+.01),.5,{plane:o.plane,at:o.faceAt}));
+        const rim=new THREE.Shape(),cx=(a+b)/2,rx=(b-a)/2;
+        rim.moveTo(a-.075,spring);rim.absellipse(cx,spring,rx+.075,rise+.075,Math.PI,0,true);rim.lineTo(b,spring);rim.absellipse(cx,spring,rx,rise,0,Math.PI,false);rim.closePath();
+        const at=o.faceAt+({s:-.055,n:.5,w:-.055,e:.5}[o.corFace]||0);
+        B.geo('stone',placedExtrude(rim,.055,{plane:o.plane,at}));
+      }
       else if((o.bridges||[]).some(([j0,j1])=>a<j1&&b>j0)){lb('brick',a,b,ceil-.45,ceil,0,.3)}
-      else{lb('brick',a,b,yb,yb+.95,0,.3);lb('stone',a-.02,b+.02,yb+.95,yb+1.05,-.06,.36,false);lb('green',a,b,yb+1.05,yb+1.1,.12,.18,false);for(let x=a+.6;x<b;x+=1.2)lb('green',x-.03,x+.03,yb+1.05,yb+1.1,.12,.18,false);lb('brick',a,b,ceil-.45,ceil,0,.3)}
+      else{decorateParapet(B,lb,a,b,yb);lb('brick',a,b,ceil-.45,ceil,0,.3)}
     }
     // grey stone bands at every slab (both faces)
     if(f>=1){lb('stone',u0,u1,yb-SLAB-.05,yb+.12,D,D+.08,false);lb('stone',u0,u1,yb-SLAB-.05,yb+.12,-.08,0,false)}
   }
   // roof slab, parapets, stair penthouses
   const S=segs(4);
-  for(const s of S){if(s.type==='stair'){lb('concrete',s.a0,s.a1,ROOF-SLAB,ROOF,0,4.6);lb('concrete',s.a0,s.a1,ROOF-SLAB,ROOF,9.8,D);penthouse(B,lb,s.a0,s.a1,toW)}else lb('concrete',s.a0,s.a1,ROOF-SLAB,ROOF,0,D)}
+  for(const s of S){if(s.type==='stair'){lb('concrete',s.a0,s.a1,ROOF-SLAB,ROOF,0,4.6);lb('concrete',s.a0,s.a1,ROOF-SLAB,ROOF,10.2,D);penthouse(B,lb,s.a0,s.a1,toW)}else lb('concrete',s.a0,s.a1,ROOF-SLAB,ROOF,0,D)}
   lb('stone',u0,u1,ROOF-SLAB-.05,ROOF+.12,D,D+.08,false);lb('stone',u0,u1,ROOF-SLAB-.05,ROOF+.12,-.08,0,false);
   lb('brick',u0,u1,ROOF,ROOF+1.0,D-.3,D);lb('brick',u0,u1,ROOF,ROOF+1.0,0,.3);lb('stone',u0,u1,ROOF+1.0,ROOF+1.1,D-.35,D+.05,false);lb('stone',u0,u1,ROOF+1.0,ROOF+1.1,-.05,.35,false);
   // end walls
@@ -374,19 +408,23 @@ function wallW(lb,k,u0,u1,yb,yt,w0,w1,cuts,glass){ // wall at constant u range, 
     let y=yb;for(const [h0,h1] of holes){if(h0>y)lb(k,u0,u1,y,h0,a,b);y=Math.max(y,h1)}if(yt>y)lb(k,u0,u1,y,yt,a,b)}
   if(glass)for(const c of cuts)if(c[2]>0.5)lb('glass',(u0+u1)/2-.02,(u0+u1)/2+.02,yb+c[2],yb+c[3],c[0],c[1]);
 }
-// Dog-leg stair inside a stair segment: flight A (first half of u) w 4.6->8.2, mid landing w 8.2..9.8, flight B back to w 4.6.
 function stairs(lb,a0,a1,yb,yt,f){lb.B.noBreak=true;try{stairsInner(lb,a0,a1,yb,yt,f)}finally{lb.B.noBreak=false}}
 function stairsInner(lb,a0,a1,yb,yt,f){
   const h=yt-yb,mid=(a0+a1)/2,steps=12,rise=h/2/steps,run=3.6/steps;
   for(let i=0;i<steps;i++){const t=yb+(i+1)*rise;lb('terrazzo',a0+.15,mid-.08,t-.35,t,4.6+i*run,4.6+(i+1)*run);
     const t2=yb+h/2+(i+1)*rise;lb('terrazzo',mid+.08,a1-.15,t2-.35,t2,8.2-(i+1)*run,8.2-i*run)}
-  lb('concrete',a0+.1,a1-.1,yb+h/2-SLAB,yb+h/2,8.2,9.8);
-  lb('plaster',mid-.08,mid+.08,yb,yt-SLAB,4.9,8.2);                     // wall between flights
+  lb('concrete',a0+.1,a1-.1,yb+h/2-SLAB,yb+h/2,8.2,10.2);
+  lb('plaster',mid-.05,mid+.05,yb,yt-SLAB,4.9,8.2);                     // 10 cm 分隔牆，窄樓梯保留可通行寬度
   lb('green',mid-.04,mid+.04,yt-SLAB+.9,yt-SLAB+.95,3.4,4.6,false);       // rail at landing
-  lb('plaster',a0,a1,yb,yt-SLAB,9.8,10);                                  // storage wall
+  lb('plaster',a0,a1,yb,yt-SLAB,10.2,10.4);                               // 轉身平台後的儲藏室牆
 }
-function penthouse(B,lb,a0,a1,toW){const y0=ROOF,y1=ROOF+3;lb('brick',a0,a0+.25,y0,y1,3,9.8);lb('brick',a1-.25,a1,y0,y1,3,9.8);lb('brick',a0,a1,y0,y1,9.6,9.8);wallU(lb,'brick',a0,a1,y0,y1,3,3.25,[[a0+(a1-a0)/2-.9,a0+(a1-a0)/2+.9,0,2.3]],false);lb('concrete',a0-.3,a1+.3,y1,y1+.2,2.7,10.1);
-  const p=toW(a0-.4,2.6),q=toW(a1+.4,10.2);hipRoof(B,Math.min(p[0],q[0]),Math.max(p[0],q[0]),y1+.2,Math.min(p[1],q[1]),Math.max(p[1],q[1]),1.6)}
+function penthouse(B,lb,a0,a1,toW){
+  const y0=ROOF,y1=ROOF+3;
+  // 後牆坐落於 w>=10.4 的屋頂樓板，為下方半層轉身平台保留完整頭部淨空。
+  lb('brick',a0,a0+.25,y0,y1,3,10.65);lb('brick',a1-.25,a1,y0,y1,3,10.65);lb('brick',a0,a1,y0,y1,10.4,10.65);
+  wallU(lb,'brick',a0,a1,y0,y1,3,3.25,[[a0+(a1-a0)/2-.9,a0+(a1-a0)/2+.9,0,2.3]],false);lb('concrete',a0-.3,a1+.3,y1,y1+.2,2.7,10.95);
+  const p=toW(a0-.4,2.6),q=toW(a1+.4,11.05);hipRoof(B,Math.min(p[0],q[0]),Math.max(p[0],q[0]),y1+.2,Math.min(p[1],q[1]),Math.max(p[1],q[1]),1.6);
+}
 // Hip / gable roofs as smooth geometry (red tile). Ridge along the longer side.
 function hipRoof(B,x0,x1,y,n0,n1,rise,{gable=false,upturn=0}={}){
   const z0=-n1,z1=-n0,cx=(x0+x1)/2,cz=(z0+z1)/2,alongX=(x1-x0)>=(z1-z0),hw=alongX?(z1-z0)/2:(x1-x0)/2,top=y+rise;
@@ -403,11 +441,12 @@ function hipRoof(B,x0,x1,y,n0,n1,rise,{gable=false,upturn=0}={}){
 function tree(B,x,n,{h=7,r=3,kind='round'}={}){
   const z=-n,c=B.collide(x-.25,x+.25,0,h*.5,n-.25,n+.25,'wood'),part={ranges:[],c,hp:320,max:320,kind:'tree',box:{x0:x-r*.6,x1:x+r*.6,y0:0,y1:h,n0:n-r*.6,n1:n+r*.6},cb:c.bullet,cs:c.sight};c.part=part;B.parts.push(part);
   const geo=B.geo.bind(B),Bp={geo:(k,g)=>geo(k,g,part)};
-  const trunk=new THREE.CylinderGeometry(.18*h/7,.28*h/7,h*.55,7);trunk.translate(x,h*.275,z);Bp.geo('bark',trunk);
+  if(kind!=='palm'){const trunk=new THREE.CylinderGeometry(.18*h/7,.28*h/7,h*.55,9);trunk.translate(x,h*.275,z);Bp.geo('bark',trunk)}
   if(kind==='palm'){
     // 羽狀葉沿弧線伸展，再向下垂；取代原本像尖刺的七個圓錐。
     const crown=h*.78;
-    const stem=new THREE.CylinderGeometry(.14,.19,crown-h*.5,8);stem.translate(x,(crown+h*.5)/2,z);Bp.geo('bark',stem);
+    const profile=[[.24,0],[.42,.12],[.51,.3],[.46,.46],[.28,.64],[.17,.78]].map(([r,t])=>new THREE.Vector2(r,h*t));
+    const trunk=new THREE.LatheGeometry(profile,12);trunk.translate(x,0,z);Bp.geo('palmBark',trunk);
     for(let i=0;i<10;i++){
       const a=i*Math.PI*2/10,ca=Math.cos(a),sa=Math.sin(a),length=2.1+(i%3)*.22;
       const points=[];
@@ -422,7 +461,7 @@ function tree(B,x,n,{h=7,r=3,kind='round'}={}){
     return;
   }
   if(kind==='cone'){const cg=new THREE.ConeGeometry(r*.6,h*.75,9);cg.translate(x,h*.6,z);Bp.geo('leaf',cg);return}
-  for(let i=0;i<5;i++){const s=new THREE.IcosahedronGeometry(r*(.55+rnd()*.25),1);s.translate(x+(rnd()-.5)*r*.9,h*.62+(rnd()-.3)*r*.6,z+(rnd()-.5)*r*.9);Bp.geo('leaf',s)}
+  treeCrown(Bp.geo,x,z,h,r,B.quality==='low');
 }
 
 // Room categories as in the 115學年度 allocation map legend: 班級教室 / 行政辦公室 / 專科教室 / 教學服務空間.
@@ -443,7 +482,7 @@ function groundTexture(){const S=6,W=(SITE.x1-SITE.x0)*S,H=(SITE.n1-SITE.n0)*S;c
 
 // ---------- campus ----------
 export async function buildRealCampus(scene,world,renderer,progress,{quality='medium'}={}){
-  const B=new Builder(world,scene),shadows=quality!=='low';const tick=async m=>{progress.textContent=m;await new Promise(requestAnimationFrame)};
+  const B=new Builder(world,scene),shadows=quality!=='low';B.quality=quality;const tick=async m=>{progress.textContent=m;await new Promise(requestAnimationFrame)};
   await tick('建立實景校園：地面與操場');
   // ground (single collider) + field texture plane
   B.collide(SITE.x0-40,SITE.x1+40,-2,0,SITE.n0-40,SITE.n1+40,'concrete');
@@ -452,7 +491,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
   B.box('pave',SITE.x0-4,SITE.x1+4,-.02,.06,SITE.n1,SITE.n1+4,false);B.box('pave',SITE.x0-4,SITE.x1+4,-.02,.06,SITE.n0-4,SITE.n0,false);B.box('pave',SITE.x0-4,SITE.x0,-.02,.06,SITE.n0,SITE.n1,false);B.box('pave',SITE.x1,SITE.x1+4,-.02,.06,SITE.n0,SITE.n1,false);
   B.box('asphalt',SITE.x0-14,SITE.x1+14,-.03,.01,SITE.n1+4,SITE.n1+12,false);B.box('asphalt',SITE.x0-14,SITE.x1+14,-.03,.01,SITE.n0-12,SITE.n0-4,false);B.box('asphalt',SITE.x1+4,SITE.x1+14,-.03,.01,SITE.n0-12,SITE.n1+12,false);B.box('asphalt',SITE.x0-14,SITE.x0-4,-.03,.01,SITE.n0-12,SITE.n1+12,false);
   // neighbourhood blocks (context only; outside the play area)
-  for(const [x0,x1,n0,n1,h] of [[-120,-86,-110,-20,22],[-120,-86,-10,60,30],[-120,-86,70,140,18],[-60,40,92,130,26],[50,110,92,130,34],[87,120,-60,-5,24],[87,120,5,70,40],[-40,70,-125,-84,20],[-120,-50,-125,-84,16]])B.box('concrete',x0,x1,0,h,n0,n1,false);
+  buildNeighborhood(B);
   // perimeter brick base + green railing, with gates
   const gates={e:[-29.5,-22.5],s:[-13,-9],n:[-13.5,-10]};
   const fence=(x0,x1,n0,n1,gap,alongX)=>{const segs=gap?[[alongX?x0:n0,gap[0]],[gap[1],alongX?x1:n1]]:[[alongX?x0:n0,alongX?x1:n1]];for(const [a,b] of segs){if(alongX){B.box('brick',a,b,0,.6,n0,n1);B.box('stone',a,b,.6,.7,n0-.05,n1+.05,false);B.box('green',a,b,.7,2.2,(n0+n1)/2-.03,(n0+n1)/2+.03,false);B.collide(a,b,.7,2.4,n0,n1,'metal');for(let p=a;p<=b;p+=3)B.box('brick',p-.25,p+.25,0,2.4,n0-.1,n1+.1)}else{B.box('brick',x0,x1,0,.6,a,b);B.box('stone',x0-.05,x1+.05,.6,.7,a,b,false);B.box('green',(x0+x1)/2-.03,(x0+x1)/2+.03,.7,2.2,a,b,false);B.collide(x0,x1,.7,2.4,a,b,'metal');for(let p=a;p<=b;p+=3)B.box('brick',x0-.1,x1+.1,0,2.4,p-.25,p+.25)}}};
@@ -508,7 +547,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
       if(f===1)return[s(-34.6,-27.2,'office','閱讀教室'),s(-27.2,-19.8,'office','香韻書齋'),st];
       if(f===2)return[s(-34.6,-29.7,'office','自然教室三'),s(-29.7,-24.7,'office','四五六年級圖書室'),s(-24.7,-19.8,'office','教具室'),st];
       if(f===3)return[s(-34.6,-19.8,'office','視聽教室'),st];
-      return[s(-34.6,-19.8,'void','視聽教室（挑高）',{void:true}),st]};
+      return[s(-34.6,-19.8,'void','視聽教室（挑高）',{void:true,corridor:true}),st]};
     allRooms('明哲樓',bar(B,{u0:-34.6,u1:-16,D,toW,segs,open:[[-34.6,-16]],plane:'n',faceAt:-31.5,corFace:'e',ends:{u0:'corridor',u1:'corridor'}}),toW,D);
     // upper-floor bridges across the gaps to the north / south blocks (W corridor x -34..-31)
     for(let f=1;f<5;f++){const yb=FB[f];for(const [n0,n1] of [[-16,-11.4],[-40.2,-34.6]]){B.box('concrete',-34,-31,yb-SLAB,yb,n0,n1);B.box('terrazzo',-34,-31,yb,yb+.02,n0,n1,false);B.box('brick',-31.3,-31,yb,yb+1,n0,n1);B.box('brick',-34,-33.7,yb,yb+1,n0,n1);B.box('stone',-34,-31,yb-SLAB-.05,yb+.1,n0,n1,false)}}
@@ -516,7 +555,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
   }
   await tick('建立實景校園：霞雲庭（中庭）');
   // Courtyard 霞雲庭: x -31..20.7, n -40.2..-11.4
-  { B.box('quarry',-31,20.7,0,.04,-40.2,-11.4,false);
+  { B.box('herringbone',-31,20.7,0,.04,-40.2,-11.4,false);
     // lawn (rounded) + stepping-stone path 四季花徑
     const lawn=new THREE.Shape();lawn.moveTo(-20,-36);lawn.bezierCurveTo(-8,-38,6,-37,13,-33);lawn.bezierCurveTo(17,-28,16,-18,12,-15);lawn.bezierCurveTo(2,-13,-12,-13.5,-19,-16);lawn.bezierCurveTo(-23,-20,-24,-31,-20,-36);
     const lg=new THREE.ShapeGeometry(lawn,24);lg.rotateX(-Math.PI/2);lg.translate(0,.06,0);const uv=lg.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/3,uv.getY(i)/3);
@@ -525,7 +564,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
     gardenDetails(B,lawn);
     for(let i=0;i<=40;i++){const t=i/40,x=-20+t*33,n=-25.5+5*Math.sin(t*Math.PI*2.1);B.box('stone',x-.35,x+.35,.06,.1,n-.55,n+.55,false)}
     // round planters + palms 時間廊 + pond 荷塘 with stone-mill spring + 霞雲庭 stone
-    for(const [x,n] of [[-14,-14.5],[4,-14.2],[-12,-37.4],[6,-37.5],[15,-26]]){const c=new THREE.CylinderGeometry(1.6,1.6,.55,20);c.translate(x,.28,-n);B.geo('stone',c);B.collide(x-1.4,x+1.4,0,.55,n-1.4,n+1.4);const s=new THREE.CylinderGeometry(1.45,1.45,.06,20);s.translate(x,.56,-n);B.geo('lawn',s);for(let k=0;k<3;k++){const b=new THREE.IcosahedronGeometry(.55,1);b.translate(x+(k-1)*.7,.9,-n+(k%2)*.4);B.geo('leaf',b)}}
+    for(const [x,n] of [[-14,-14.5],[4,-14.2],[-12,-37.4],[6,-37.5],[15,-26]]){const c=new THREE.CylinderGeometry(1.6,1.6,.55,20);c.translate(x,.28,-n);B.geo('stone',c);B.collide(x-1.4,x+1.4,0,.55,n-1.4,n+1.4)}
     for(let n=-38;n<=-13;n+=4.2)tree(B,18.6,n,{h:7.5,kind:'palm'});
     { const x0=6,x1=12,n0=-22,n1=-17.5;B.box('granite',x0-.4,x1+.4,0,.45,n0-.4,n0);B.box('granite',x0-.4,x1+.4,0,.45,n1,n1+.4);B.box('granite',x0-.4,x0,0,.45,n0,n1);B.box('granite',x1,x1+.4,0,.45,n0,n1);B.box('water',x0,x1,.05,.3,n0,n1,false);const mill=new THREE.CylinderGeometry(.6,.6,.35,16);mill.translate(9,.45,19.75);B.geo('granite',mill)}
     B.box('stone',-24,-22.6,0,1.1,-14,-13.2);                                            // 霞雲庭 inscription stone

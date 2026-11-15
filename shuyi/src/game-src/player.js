@@ -205,6 +205,11 @@ export class Player extends Actor {
     const shake = g.fx.shake * 0.06;
     const jitter = () => (Math.random() - 0.5) * shake;
     this.eye(cam.position);
+    // 身體仍立刻踩上碰撞面，鏡頭以短暫偏移吸收階差，避免每一階都突然跳高。
+    this.stepOffset = Math.min(.35, (this.stepOffset || 0) + (this.stepped || 0));
+    this.stepped = 0;
+    this.stepOffset *= Math.exp(-dt * 16);
+    cam.position.y -= this.stepOffset;
     const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
     cam.position.x += c * bobX + jitter();
     cam.position.y += bobY - this.land + jitter();

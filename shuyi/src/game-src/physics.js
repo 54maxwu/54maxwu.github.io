@@ -234,6 +234,8 @@ export class World {
       for (const c of this.query(p.x - r, p.z - r, p.x + r, p.z + r)) {
         if (!c.solid || c.top <= p.y + 0.001 || c.bottom >= p.y + ent.height - 0.001) continue;
         if (!World.circleOBB(c, p.x, p.z, r, _circle)) continue;
+        // blocked() 也會使用共用 _circle；先保存本次接觸法線，避免低矮障礙旁有牆時推錯方向。
+        const { nx, nz, pen } = _circle;
         touched = true;
         const rise = c.top - p.y;
         if (ent.onGround && rise > 0 && rise <= ent.stepHeight && !this.blocked(p.x, c.top, p.z, r * 0.95, ent.height)) {
@@ -241,7 +243,6 @@ export class World {
           ent.stepped = (ent.stepped || 0) + rise;
           continue;
         }
-        const { nx, nz, pen } = _circle;
         p.x += nx * (pen + 0.0005);
         p.z += nz * (pen + 0.0005);
         const into = ent.vel.x * nx + ent.vel.z * nz;

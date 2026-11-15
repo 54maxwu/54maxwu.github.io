@@ -23,6 +23,9 @@ npm run build    # 輸出 ../index.html 與 ../game-app.js（JS 連結附內容�
 | `campus-map.js` | 場景選擇、導航網格、出生點、小地圖、所在位置標籤、AI 目標點 |
 | `campus-physics.js` | 碰撞射線加速與多樓層導航（`clearY` 讓實際比例樓梯可通行） |
 | `campus-env.js`、`campus-lighting.js` | 光照、陰影與天空 |
+| `campus-sky.js`、`campus-neighborhood.js` | 程序天空與薄雲、校界外街區示意 |
+| `campus-surfaces.js`、`campus-facade.js` | 紅磚色彩／高度／粗糙度貼圖、人字鋪面與格柵、校舍框帶 |
+| `campus-vegetation.js`、`campus-garden.js` | 樹冠與葉叢、弧形石座椅、燈柱及庭園細節 |
 | `campus-labels.js` | 景點浮動名稱 |
 | `campus-visuals.js` | 舊 Minecraft 方塊場景載入器（`?world=voxel` 用；網頁版未附地圖資料，正式場景不使用） |
 | `game-src/` | 遊戲本體：角色與服裝（`character.js`）、隊伍與 AI（`bots.js`）、介面（`hud.js`）、槍械、音效、渲染 |
@@ -35,6 +38,8 @@ npm run build    # 輸出 ../index.html 與 ../game-app.js（JS 連結附內容�
 - 服裝：`game-src/character.js` 的 `OUTFIT`（顏色）與 `buildGeometry`（形狀）。BL 女生隊穿制服，GR 男生隊穿體育服。
 
 ## 資料來源與授權
+
+導航回歸測試：在 repo 根目錄執行 `node --test shuyi/src/tests/campus-navigation.test.mjs`，檢查連續小階梯可通行，課桌、女兒牆及淨空不足的路段不可被當成樓梯。
 
 - 尺寸與位置：© OpenStreetMap 貢獻者（ODbL）。
 - 校園配置、堂號、景點：臺中市南區樹義國民小學 https://tanghao.neocities.org/ （CC BY-NC-SA），以及學校公告的教室分配位置圖。
