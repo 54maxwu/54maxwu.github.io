@@ -120,7 +120,8 @@ class Builder{
     for(const q of p.links||[])if(!q.dead)this.destroyPart(q,dir);   // 牆的另一層（磚面＋粉刷面）一起破
     return this.info(p)}
   damage(c,dmg,dir){const p=c&&c.part;if(!p||p.dead)return null;p.hp-=dmg;return p.hp<=0?this.destroyPart(p,dir):null}
-  blast(pos,r,power){const out=[],pn=-pos.z;for(const p of this.parts){if(p.dead)continue;const b=p.box,dx=Math.max(b.x0-pos.x,0,pos.x-b.x1),dy=Math.max(b.y0-pos.y,0,pos.y-b.y1),dn=Math.max(b.n0-pn,0,pn-b.n1),d=Math.hypot(dx,dy,dn);
+  nearbyParts(x0,z0,x1,z1){if(!this.partGrid)return this.parts;const found=new Set();for(let x=Math.floor(x0/4);x<=Math.floor(x1/4);x++)for(let z=Math.floor(z0/4);z<=Math.floor(z1/4);z++)for(const p of this.partGrid.get(`${x},${z}`)||[])found.add(p);for(const p of this.movable)found.add(p);return found;}
+  blast(pos,r,power){const out=[],pn=-pos.z;for(const p of this.nearbyParts(pos.x-r,pos.z-r,pos.x+r,pos.z+r)){if(p.dead)continue;const b=p.box,dx=Math.max(b.x0-pos.x,0,pos.x-b.x1),dy=Math.max(b.y0-pos.y,0,pos.y-b.y1),dn=Math.max(b.n0-pn,0,pn-b.n1),d=Math.hypot(dx,dy,dn);
     if(d<r){p.hp-=power*(1-d/r);if(p.hp<=0)out.push(this.destroyPart(p,{x:(b.x0+b.x1)/2-pos.x,z:-(b.n0+b.n1)/2-pos.z}))}}return out}
   // 樹木整根斷掉：把樹的幾何複製成獨立群組，以樹基為支點往受力方向倒下，留下樹樁；倒地後的樹幹可當掩體
   fellTree(p,dir){
@@ -179,8 +180,8 @@ class Builder{
   collapse(wrecked,att){this.prepare();
     const R=wrecked.map(w=>({x0:w.x-w.sx/2-2.5,x1:w.x+w.sx/2+2.5,z0:w.z-w.sz/2-2.5,z1:w.z+w.sz/2+2.5,y0:w.y-w.sy/2-0.1,y1:w.y+w.sy/2+4}));
     const set=new Set();
-    for(const p of this.parts){if(p.dead||p.free||p.kind==='tree'||!p.c||p.movable)continue;const b=p.box,x0=b.x0,x1=b.x1,z0=-b.n1,z1=-b.n0;
-      for(const r of R)if(x1>r.x0&&x0<r.x1&&z1>r.z0&&z0<r.z1&&b.y1>r.y0&&b.y0<r.y1){set.add(p);break}}
+    for(const r of R)for(const c of this.world.query(r.x0,r.z0,r.x1,r.z1)){const p=c.part;if(!p||p.dead||p.free||p.kind==='tree'||p.movable||set.has(p))continue;const b=p.box;
+      if(b.x1>r.x0&&b.x0<r.x1&&-b.n0>r.z0&&-b.n1<r.z1&&b.y1>r.y0&&b.y0<r.y1)set.add(p)}
     if(!set.size)return 0;
     const S=this.supportCalc(set),fall=[...set].filter(p=>!S.get(p));
     if(fall.length)this.startFalls(fall,att);return fall.length}
@@ -192,7 +193,7 @@ class Builder{
       if(!this.glassHeld(c))out.push(c)}return out}
   // 塌落：把部件幾何複製成獨立方塊往下掉，落地時才碎成碎塊
   startFalls(list,att){const made=[];
-    for(const p of list){if(p.dead)continue;const b=p.box,ctr=new THREE.Vector3((b.x0+b.x1)/2,(b.y0+b.y1)/2,-(b.n0+b.n1)/2),g=new THREE.Group();
+    for(const p of list){if(p.dead)continue;if(this.blocks.length+made.length>=48){this.destroyPart(p,null);continue}const b=p.box,ctr=new THREE.Vector3((b.x0+b.x1)/2,(b.y0+b.y1)/2,-(b.n0+b.n1)/2),g=new THREE.Group();
       for(const r of p.ranges){const src=this.meshByKey[r.k].geometry,geo=new THREE.BufferGeometry();
         for(const nm of ['position','normal','uv']){const a=src.attributes[nm];geo.setAttribute(nm,new THREE.BufferAttribute(a.array.slice(r.start*a.itemSize,(r.start+r.count)*a.itemSize),a.itemSize))}
         geo.translate(-ctr.x,-ctr.y,-ctr.z);const m=new THREE.Mesh(geo,this.M[r.k].m);m.castShadow=true;g.add(m)}
@@ -315,7 +316,9 @@ class Builder{
         const key=thinN?'n|'+[r2(b.x0),r2(b.x1),r2(b.y0),r2(b.y1)].join(','):'x|'+[r2(b.n0),r2(b.n1),r2(b.y0),r2(b.y1)].join(',');
         for(const q of idx.get(key)||[]){const a=q.box,gap=thinN?Math.max(a.n0-b.n1,b.n0-a.n1):Math.max(a.x0-b.x1,b.x0-a.x1);if(gap<=0.02){(p.links||(p.links=[])).push(q);(q.links||(q.links=[])).push(p)}}
         (idx.get(key)||idx.set(key,[]).get(key)).push(p)} }
-    for(const k of new Set(this.parts.flatMap(p=>p.ranges.map(r=>r.k)))){const g=this.meshByKey[k].geometry;this.origPos[k]=g.attributes.position.array.slice();this.origNrm[k]=g.attributes.normal.array.slice()}
+    for(const k of new Set(this.parts.flatMap(p=>p.ranges.map(r=>r.k)))){const g=this.meshByKey[k].geometry;g.attributes.position.setUsage(THREE.DynamicDrawUsage);g.attributes.normal.setUsage(THREE.DynamicDrawUsage);this.origPos[k]=g.attributes.position.array.slice();this.origNrm[k]=g.attributes.normal.array.slice()}
+    this.partGrid=new Map();
+    for(const p of this.parts){const b=p.box;for(let x=Math.floor(b.x0/4);x<=Math.floor(b.x1/4);x++)for(let z=Math.floor(-b.n1/4);z<=Math.floor(-b.n0/4);z++){const key=`${x},${z}`;if(!this.partGrid.has(key))this.partGrid.set(key,[]);this.partGrid.get(key).push(p)}}
     return {meshes,facesCount:faces};
   }
 }

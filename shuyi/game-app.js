@@ -33068,11 +33068,13 @@ void main() {
       this.quality = quality;
       this.cfg = QUALITY[quality] || QUALITY.high;
       const r = this.renderer = new WebGLRenderer({ canvas: canvas2, antialias: false, stencil: false, powerPreference: "high-performance" });
-      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.cfg.dpr));
+      this.baseDpr = Math.min(window.devicePixelRatio || 1, this.cfg.dpr);
+      this.resolutionScale = 1;
+      r.setPixelRatio(this.baseDpr);
       r.outputColorSpace = SRGBColorSpace;
       r.toneMapping = ACESFilmicToneMapping;
       r.toneMappingExposure = 0.75;
-      r.shadowMap.enabled = true;
+      r.shadowMap.enabled = quality !== "low";
       r.shadowMap.type = PCFShadowMap;
       this.scene = new Scene();
       this.camera = new PerspectiveCamera(78, 16 / 9, 0.05, 6e4);
@@ -33116,6 +33118,23 @@ void main() {
       this.fx = { uniforms: this.screenMat.uniforms };
       this.resize();
       window.addEventListener("resize", () => this.resize());
+    }
+    samplePerformance(dt) {
+      if (document.hidden || dt <= 0 || dt > 0.25) return;
+      this.perfSeconds = (this.perfSeconds || 0) + dt;
+      this.perfFrames = (this.perfFrames || 0) + 1;
+      this.perfCooldown = Math.max(0, (this.perfCooldown || 0) - dt);
+      if (this.perfSeconds < 2) return;
+      const fps = this.perfFrames / this.perfSeconds;
+      this.perfSeconds = this.perfFrames = 0;
+      if (this.perfCooldown > 0) return;
+      const old = this.resolutionScale;
+      if (fps < 45) this.resolutionScale = Math.max(0.6, old - 0.15);
+      else if (fps > 57) this.resolutionScale = Math.min(1, old + 0.05);
+      if (Math.abs(old - this.resolutionScale) < 1e-3) return;
+      this.perfCooldown = fps < 45 ? 3 : 8;
+      this.renderer.setPixelRatio(this.baseDpr * this.resolutionScale);
+      this.resize();
     }
     resize() {
       const w = window.innerWidth, h = window.innerHeight;
@@ -33962,7 +33981,8 @@ void main() {
     nodeSupported(n) {
       const revision = this.world.structuralRevision || 0;
       if (n.supportRevision !== revision) {
-        const s = this.world.support(n.x, n.z, 0.3, n.y + 0.03);
+        const c = n.supportCollider;
+        const s = c?.solid && !c.part?.movable && Math.abs(c.top - (n.y - 0.025)) < 0.08 ? { y: c.top } : this.world.support(n.x, n.z, 0.3, n.y + 0.03);
         n.supported = !!s && Math.abs(s.y - (n.y - 0.025)) < 0.08;
         n.supportRevision = revision;
       }
@@ -34005,7 +34025,7 @@ void main() {
             const support = world.support(x, z, 0.3, y + 0.01);
             if (!support || Math.abs(support.y - y) > 0.03 || world.blocked(x, y + this.clearY, z, 0.34, 1.82 - this.clearY)) continue;
             const id = this.nodes.length;
-            this.nodes.push({ id, x, y: y + 0.025, z, ix, iz, edges: [], component: -1 });
+            this.nodes.push({ id, x, y: y + 0.025, z, ix, iz, edges: [], component: -1, supportCollider: support.collider, supportRevision: 0, supported: true });
             let k = iz * this.w + ix;
             if (!this.columns.has(k)) this.columns.set(k, []);
             this.columns.get(k).push(id);
@@ -34950,9 +34970,16 @@ void main() {
       p.hp -= dmg;
       return p.hp <= 0 ? this.destroyPart(p, dir) : null;
     }
+    nearbyParts(x0, z0, x1, z1) {
+      if (!this.partGrid) return this.parts;
+      const found = /* @__PURE__ */ new Set();
+      for (let x = Math.floor(x0 / 4); x <= Math.floor(x1 / 4); x++) for (let z = Math.floor(z0 / 4); z <= Math.floor(z1 / 4); z++) for (const p of this.partGrid.get(`${x},${z}`) || []) found.add(p);
+      for (const p of this.movable) found.add(p);
+      return found;
+    }
     blast(pos, r, power) {
       const out = [], pn = -pos.z;
-      for (const p of this.parts) {
+      for (const p of this.nearbyParts(pos.x - r, pos.z - r, pos.x + r, pos.z + r)) {
         if (p.dead) continue;
         const b = p.box, dx = Math.max(b.x0 - pos.x, 0, pos.x - b.x1), dy = Math.max(b.y0 - pos.y, 0, pos.y - b.y1), dn = Math.max(b.n0 - pn, 0, pn - b.n1), d = Math.hypot(dx, dy, dn);
         if (d < r) {
@@ -35128,13 +35155,11 @@ void main() {
       this.prepare();
       const R = wrecked.map((w) => ({ x0: w.x - w.sx / 2 - 2.5, x1: w.x + w.sx / 2 + 2.5, z0: w.z - w.sz / 2 - 2.5, z1: w.z + w.sz / 2 + 2.5, y0: w.y - w.sy / 2 - 0.1, y1: w.y + w.sy / 2 + 4 }));
       const set = /* @__PURE__ */ new Set();
-      for (const p of this.parts) {
-        if (p.dead || p.free || p.kind === "tree" || !p.c || p.movable) continue;
-        const b = p.box, x0 = b.x0, x1 = b.x1, z0 = -b.n1, z1 = -b.n0;
-        for (const r of R) if (x1 > r.x0 && x0 < r.x1 && z1 > r.z0 && z0 < r.z1 && b.y1 > r.y0 && b.y0 < r.y1) {
-          set.add(p);
-          break;
-        }
+      for (const r of R) for (const c of this.world.query(r.x0, r.z0, r.x1, r.z1)) {
+        const p = c.part;
+        if (!p || p.dead || p.free || p.kind === "tree" || p.movable || set.has(p)) continue;
+        const b = p.box;
+        if (b.x1 > r.x0 && b.x0 < r.x1 && -b.n0 > r.z0 && -b.n1 < r.z1 && b.y1 > r.y0 && b.y0 < r.y1) set.add(p);
       }
       if (!set.size) return 0;
       const S = this.supportCalc(set), fall = [...set].filter((p) => !S.get(p));
@@ -35164,6 +35189,10 @@ void main() {
       const made = [];
       for (const p of list) {
         if (p.dead) continue;
+        if (this.blocks.length + made.length >= 48) {
+          this.destroyPart(p, null);
+          continue;
+        }
         const b = p.box, ctr = new Vector3((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, -(b.n0 + b.n1) / 2), g = new Group();
         for (const r of p.ranges) {
           const src = this.meshByKey[r.k].geometry, geo = new BufferGeometry();
@@ -35542,8 +35571,19 @@ void main() {
       }
       for (const k of new Set(this.parts.flatMap((p) => p.ranges.map((r) => r.k)))) {
         const g = this.meshByKey[k].geometry;
+        g.attributes.position.setUsage(DynamicDrawUsage);
+        g.attributes.normal.setUsage(DynamicDrawUsage);
         this.origPos[k] = g.attributes.position.array.slice();
         this.origNrm[k] = g.attributes.normal.array.slice();
+      }
+      this.partGrid = /* @__PURE__ */ new Map();
+      for (const p of this.parts) {
+        const b = p.box;
+        for (let x = Math.floor(b.x0 / 4); x <= Math.floor(b.x1 / 4); x++) for (let z = Math.floor(-b.n1 / 4); z <= Math.floor(-b.n0 / 4); z++) {
+          const key = `${x},${z}`;
+          if (!this.partGrid.has(key)) this.partGrid.set(key, []);
+          this.partGrid.get(key).push(p);
+        }
       }
       return { meshes, facesCount: faces };
     }
@@ -36774,7 +36814,7 @@ void main() {
 
   // campus-env.js
   var CampusEnvironment = class {
-    constructor(renderer, scene) {
+    constructor(renderer, scene, quality = "high") {
       this.renderer = renderer;
       this.scene = scene;
       this.shipSpeed = 0;
@@ -36790,8 +36830,9 @@ void main() {
         hemi.intensity = 1.15;
         sun.intensity = 3.2;
         sun.position.set(-70, 120, 55);
-        sun.castShadow = true;
-        sun.shadow.mapSize.set(4096, 4096);
+        sun.castShadow = quality !== "low";
+        const shadowSize = quality === "high" ? 2048 : 1024;
+        sun.shadow.mapSize.set(shadowSize, shadowSize);
         const c = sun.shadow.camera;
         c.left = -115;
         c.right = 115;
@@ -42697,6 +42738,7 @@ void main() {
       let dt = (now - this.last) / 1e3;
       this.last = now;
       if (dt <= 0) return;
+      if (this.playing && !this.paused && this.time > 3) this.renderer.samplePerformance(dt);
       dt = Math.min(dt, 0.1);
       this.realTime += dt;
       if (this.playing && !this.paused) {

@@ -103,11 +103,13 @@ export class Renderer {
 
     // 多重取樣在離屏畫布上做，螢幕畫布本身不需要反鋸齒
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, stencil: false, powerPreference: 'high-performance' });
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.cfg.dpr));
+    this.baseDpr = Math.min(window.devicePixelRatio || 1, this.cfg.dpr);
+    this.resolutionScale = 1;
+    r.setPixelRatio(this.baseDpr);
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 0.75;
-    r.shadowMap.enabled = true;
+    r.shadowMap.enabled = quality !== 'low';
     r.shadowMap.type = THREE.PCFShadowMap;
 
     this.scene = new THREE.Scene();
@@ -149,6 +151,24 @@ export class Renderer {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
+  }
+
+  samplePerformance(dt) {
+    if (document.hidden || dt <= 0 || dt > 0.25) return;
+    this.perfSeconds = (this.perfSeconds || 0) + dt;
+    this.perfFrames = (this.perfFrames || 0) + 1;
+    this.perfCooldown = Math.max(0, (this.perfCooldown || 0) - dt);
+    if (this.perfSeconds < 2) return;
+    const fps = this.perfFrames / this.perfSeconds;
+    this.perfSeconds = this.perfFrames = 0;
+    if (this.perfCooldown > 0) return;
+    const old = this.resolutionScale;
+    if (fps < 45) this.resolutionScale = Math.max(0.6, old - 0.15);
+    else if (fps > 57) this.resolutionScale = Math.min(1, old + 0.05);
+    if (Math.abs(old - this.resolutionScale) < 0.001) return;
+    this.perfCooldown = fps < 45 ? 3 : 8;
+    this.renderer.setPixelRatio(this.baseDpr * this.resolutionScale);
+    this.resize();
   }
 
   resize() {

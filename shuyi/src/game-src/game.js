@@ -320,6 +320,7 @@ export class Game {
     let dt = (now - this.last) / 1000;
     this.last = now;
     if (dt <= 0) return;
+    if (this.playing && !this.paused && this.time > 3) this.renderer.samplePerformance(dt);
     dt = Math.min(dt, 0.1);   // 切回分頁時不要一次跳太多
     this.realTime += dt;
     if (this.playing && !this.paused) {
