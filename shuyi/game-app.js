@@ -33194,10 +33194,11 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`
     `
 uniform sampler2D tScene;
 uniform vec2 uTexel;
-uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uUnderRoof, uConc;
+uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uUnderRoof, uConc, uCine;
 varying vec2 vUv;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 
 // \u5FC3\u8DF3\uFF1A\u4E00\u9577\u4E00\u77ED\u5169\u4E0B\uFF0C\u6BD4\u55AE\u7D14\u6B63\u5F26\u66F4\u50CF\u771F\u7684\u5FC3\u8DF3
 float heartbeat(float t) {
@@ -33217,7 +33218,7 @@ void main() {
   uv += drift;
 
   vec3 col;
-  float split = (uDamage * 0.001 + uDeath * 0.002) * rad;
+  float split = (uDamage * 0.001 + uDeath * 0.002 + uCine * 0.0016) * rad * rad;
   if (split > 0.00005) {
     vec2 dir = normalize(fromC + 1e-5) * split;
     col = vec3(texture2D(tScene, uv + dir).r, texture2D(tScene, uv).g, texture2D(tScene, uv - dir).b);
@@ -33247,6 +33248,19 @@ void main() {
 
   // \u6697\u89D2\uFF08\u958B\u93E1\u6642\u52A0\u91CD\uFF09
   col *= 1.0 - smoothstep(0.55, 1.2, rad) * clamp(uVignette + uScope * 0.5 + k * 0.4, 0.0, 1.0);
+
+  // \u96FB\u5F71\u611F\u8ABF\u8272\uFF08\u64CA\u6BBA\u56DE\u653E\uFF09\uFF1A\u9670\u5F71\u504F\u9752\u3001\u4EAE\u90E8\u504F\u6696\u3001\u5C0D\u6BD4 S \u66F2\u7DDA\u3001\u7565\u964D\u98FD\u548C\u3001\u81A0\u7247\u9846\u7C92\u3001\u91CD\u6697\u89D2
+  if (uCine > 0.001) {
+    vec3 c = col;
+    float l = luma(c);
+    vec3 graded = mix(c * vec3(0.86, 1.0, 1.08), c * vec3(1.12, 1.0, 0.84), smoothstep(0.05, 0.6, l));
+    graded = mix(vec3(luma(graded)), graded, 0.82);
+    graded = pow(max(graded, 0.0), vec3(1.12)) * 1.1;   // \u52A0\u4E00\u9EDE\u5C0D\u6BD4\uFF08\u7DDA\u6027 HDR \u7A7A\u9593\uFF0C\u4E4B\u5F8C\u624D\u505A ACES\uFF09
+    graded *= 1.0 - smoothstep(0.35, 1.15, rad) * 0.55;
+    float grain = hash12(gl_FragCoord.xy + fract(uTime * 24.0) * 917.0) - 0.5;
+    graded += grain * 0.045 * (0.35 + 0.65 * (1.0 - l));
+    col = mix(col, graded, uCine);
+  }
 
   // \u9583\u5149\u5F48\uFF0F\u7206\u70B8\u9583\u767D
   col += vec3(uFlash);
@@ -33295,7 +33309,8 @@ void main() {
           uScope: u(0),
           uProtect: u(0),
           uUnderRoof: u(0),
-          uConc: u(0)
+          uConc: u(0),
+          uCine: u(0)
         },
         vertexShader: SCREEN_VS,
         fragmentShader: SCREEN_FS,
@@ -34047,24 +34062,39 @@ void main() {
   var audio = new AudioSystem();
 
   // game-src/replay-timing.js
-  var REPLAY_DURATION = 9.5;
-  function replayTime(elapsed) {
-    return elapsed < 2.5 ? -0.8 + Math.max(0, elapsed) * 0.2 : elapsed < 6.5 ? -0.3 + (elapsed - 2.5) * 0.075 : 0;
+  var SHOT = { bullet: 2.2, impact: 4.4, fall: 4.8, fade: 8.9 };
+  var REPLAY_DURATION = 9.4;
+  var REPLAY_AFTER = 2.7;
+  function replayTime(e) {
+    if (e < SHOT.bullet) return -0.8 + Math.max(0, e) * 0.2;
+    if (e < SHOT.impact) return -0.36 + (e - SHOT.bullet) * (0.36 / (SHOT.impact - SHOT.bullet));
+    if (e < SHOT.fall) return 0;
+    const u = e - SHOT.fall;
+    return Math.min(REPLAY_AFTER - 0.05, 0.2 * u + 0.075 * u * u);
+  }
+  function replaySpeed(e) {
+    if (e < SHOT.bullet) return 0.2;
+    if (e < SHOT.impact) return 0.36 / (SHOT.impact - SHOT.bullet);
+    if (e < SHOT.fall) return 0;
+    return 0.2 + 0.15 * (e - SHOT.fall);
   }
 
   // game-src/kill-replay.js
+  var UP = new Vector3(0, 1, 0);
+  var _v = new Vector3();
+  var _w = new Vector3();
   function pose(actor) {
     const root = actor.soldier.root;
     return { pos: root.position.toArray(), q: root.quaternion.toArray(), bones: Object.fromEntries(actor.soldier.bones.map((b) => [b.name, [...b.position.toArray(), ...b.quaternion.toArray()]])) };
   }
   function apply(root, frame, next, t) {
-    root.position.fromArray(frame.pos).lerp(new Vector3().fromArray(next.pos), t);
+    root.position.fromArray(frame.pos).lerp(_v.fromArray(next.pos), t);
     root.quaternion.fromArray(frame.q).slerp(new Quaternion().fromArray(next.q), t);
     root.traverse((b) => {
       if (!b.isBone) return;
       const a = frame.bones[b.name], c = next.bones[b.name];
       if (!a || !c) return;
-      b.position.fromArray(a).lerp(new Vector3().fromArray(c), t);
+      b.position.fromArray(a).lerp(_v.fromArray(c), t);
       b.quaternion.fromArray(a, 3).slerp(new Quaternion().fromArray(c, 3), t);
     });
   }
@@ -34074,6 +34104,8 @@ void main() {
       this.frames = [];
       this.nextSample = 0;
       this.active = false;
+      this.cine = 0;
+      this.flash = 0;
       this.overlay = document.createElement("div");
       this.overlay.className = "killReplay";
       this.overlay.hidden = true;
@@ -34094,14 +34126,15 @@ void main() {
         }
       });
     }
+    // 30Hz 取樣；慢動作時兩格之間用插值補
     record() {
       const g = this.game;
       if (g.time < this.nextSample) return;
-      this.nextSample = g.time + 1 / 20;
+      this.nextSample = g.time + 1 / 30;
       const frame = { time: g.time, actors: new Map(g.actors.map((a) => [a.id, pose(a)])) };
       this.frames.push(frame);
-      while (this.frames.length > 65) this.frames.shift();
-      if (this.active && g.time <= this.deathTime + 0.6) this.clip.push(frame);
+      while (this.frames.length > 100) this.frames.shift();
+      if (this.active && g.time <= this.deathTime + REPLAY_AFTER) this.clip.push(frame);
     }
     reset() {
       this.stop();
@@ -34118,11 +34151,11 @@ void main() {
       this.victim = victim.id;
       this.attacker = attacker?.id;
       this.impact = hitInfo.point?.clone() || (headshot ? victim.soldier.headWorld(new Vector3()) : victim.soldier.chestWorld(new Vector3())).clone();
-      this.partName = { head: "\u982D\u90E8", chest: "\u8EC0\u5E79", arm: "\u624B\u81C2", leg: "\u817F\u90E8" }[hitInfo.part] || (headshot ? "\u982D\u90E8" : "\u8EC0\u5E79");
+      this.partName = { head: "\u982D\u90E8", chest: "\u8EC0\u5E79", stomach: "\u8179\u90E8", arm: "\u624B\u81C2", leg: "\u817F\u90E8" }[hitInfo.part] || (headshot ? "\u982D\u90E8" : "\u8EC0\u5E79");
       this.damageText = hitInfo.damage ? ` \xB7 \u6700\u5F8C\u4E00\u64CA ${hitInfo.damage} \u50B7\u5BB3` : "";
       victim.respawnT = 0.2;
-      this.lookFocus = null;
-      this.origin = attacker && attacker !== victim ? attacker.soldier.muzzleWorld(new Vector3()) : this.impact.clone().add(new Vector3(1, 3, 1));
+      this.byOther = !!attacker && attacker !== victim;
+      this.origin = this.byOther ? attacker.soldier.muzzleWorld(new Vector3()) : this.impact.clone().add(new Vector3(1, 3, 1));
       this.scene = new Scene();
       this.scene.background = g.renderer.scene.background;
       this.scene.environment = g.renderer.scene.environment;
@@ -34130,10 +34163,13 @@ void main() {
       this.scene.fog = g.renderer.scene.fog;
       for (const mesh of g.map.meshes || []) this.scene.add(mesh.clone());
       for (const mesh of g.renderer.scene.children) if (mesh.isMesh && !mesh.isInstancedMesh && mesh.geometry?.type === "PlaneGeometry" && !(g.map.meshes || []).includes(mesh)) this.scene.add(mesh.clone());
-      this.scene.add(new HemisphereLight(14280959, 6444102, 1.6));
-      const light = new DirectionalLight(16768957, 2.5);
-      light.position.set(-40, 80, 30);
-      this.scene.add(light);
+      this.scene.add(new HemisphereLight(13623551, 4865588, 1.25));
+      const key = new DirectionalLight(16766632, 2.8);
+      key.position.set(-40, 80, 30);
+      this.scene.add(key);
+      this.rimLight = new DirectionalLight(10274047, 1.6);
+      this.scene.add(this.rimLight);
+      this.scene.add(this.rimLight.target);
       this.clones = /* @__PURE__ */ new Map();
       for (const a of g.actors) if (a === victim || a === attacker) {
         const root = clone(a.soldier.root);
@@ -34144,16 +34180,33 @@ void main() {
         this.clones.set(a.id, root);
         this.scene.add(root);
       }
-      this.camera = new PerspectiveCamera(52, g.renderer.camera.aspect, 0.05, 500);
+      const vRoot = this.clones.get(victim.id), aRoot = this.byOther ? this.clones.get(attacker.id) : null;
+      this.vHips = vRoot?.getObjectByName("hips");
+      this.aHead = aRoot?.getObjectByName("head");
+      this.vGun = null;
+      vRoot?.traverse((o) => {
+        if (o.userData?.thirdPersonGun) this.vGun = o;
+      });
+      this.camera = new PerspectiveCamera(42, g.renderer.camera.aspect, 0.03, 500);
       const delta = this.impact.clone().sub(this.origin), distance = delta.length();
       this.direction = delta.normalize();
-      this.trace = new Line(new BufferGeometry().setFromPoints([this.origin, this.impact]), new LineBasicMaterial({ color: 16764791, transparent: true, opacity: 0.5, depthTest: true }));
+      this.distance = distance;
+      this.side = new Vector3().crossVectors(this.direction, UP);
+      if (this.side.lengthSq() < 0.01) this.side.set(1, 0, 0);
+      this.side.normalize();
+      this.sideSign = this.freeDist(this.impact, this.side, 3) >= this.freeDist(this.impact, _w.copy(this.side).negate(), 3) ? 1 : -1;
+      const traceGeo = new BufferGeometry();
+      traceGeo.setAttribute("position", new Float32BufferAttribute([...this.origin.toArray(), ...this.origin.toArray()], 3));
+      this.trace = new Line(traceGeo, new LineBasicMaterial({ color: 16767124, transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
       this.trace.visible = false;
       this.scene.add(this.trace);
-      this.distance = distance;
-      this.bullet = new Mesh(new SphereGeometry(0.045, 8, 6), new MeshBasicMaterial({ color: 16772266, toneMapped: false }));
+      this.bullet = new Mesh(new CapsuleGeometry(0.012, 0.09, 3, 8), new MeshBasicMaterial({ color: 16773312, toneMapped: false }));
+      this.bullet.quaternion.setFromUnitVectors(UP, this.direction);
       this.scene.add(this.bullet);
-      this.marker = new Mesh(new TorusGeometry(0.075, 9e-3, 6, 32), new MeshBasicMaterial({ color: 16756072, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+      this.bulletGlow = new Sprite(new SpriteMaterial({ map: g.T.glow, color: 16760944, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
+      this.bulletGlow.scale.setScalar(0.22);
+      this.scene.add(this.bulletGlow);
+      this.marker = new Mesh(new TorusGeometry(0.075, 9e-3, 6, 32), new MeshBasicMaterial({ color: 16756072, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, toneMapped: false }));
       this.marker.position.copy(this.impact);
       this.marker.renderOrder = 10;
       this.scene.add(this.marker);
@@ -34161,25 +34214,52 @@ void main() {
       this.impactFlash = new Sprite(new SpriteMaterial({ map: g.T.glow, color: this.explosive ? 16747317 : 16771004, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
       this.impactFlash.position.copy(this.impact);
       this.scene.add(this.impactFlash);
-      this.showTrace = !!attacker && attacker !== victim && ["rifle", "smg", "sniper", "pistol", "shotgun", "launcher"].includes(WEAPONS[cause]?.type);
-      this.explanation = `${attacker && attacker !== victim ? attacker.name : "\u74B0\u5883\uFF0F\u81EA\u8EAB"} \u4F7F\u7528 ${WEAPONS[cause]?.name || CAUSES[cause]?.name || "\u50B7\u5BB3"} \u2192 \u547D\u4E2D\u4F60\u7684${this.partName}${headshot ? "\uFF08\u7206\u982D\uFF09" : ""}${wallbang ? " \xB7 \u7A7F\u900F\u63A9\u9AD4" : ""}${this.damageText}`;
+      this.showTrace = this.byOther && ["rifle", "smg", "sniper", "pistol", "shotgun", "launcher"].includes(WEAPONS[cause]?.type);
+      this.killerName = this.byOther ? attacker.name : "\u74B0\u5883\uFF0F\u81EA\u8EAB";
+      this.weaponName = WEAPONS[cause]?.name || CAUSES[cause]?.name || "\u50B7\u5BB3";
+      this.explanation = `${this.killerName} \u4F7F\u7528 ${this.weaponName} \u2192 \u547D\u4E2D\u4F60\u7684${this.partName}${headshot ? "\uFF08\u7206\u982D\uFF09" : ""}${wallbang ? " \xB7 \u7A7F\u900F\u63A9\u9AD4" : ""}${this.damageText}`;
       this.detail.textContent = this.explanation;
       this.overlay.hidden = false;
+      this.overlay.classList.remove("cut");
       g.touch?.releaseAll();
       this.record();
-      this.impactSound = false;
-      audio.play("whiz", null, { ui: true, gain: 0.3, rate: 0.55, duration: 0.5 });
+      this.shot = -1;
+      this.camPos = new Vector3();
+      this.lookFocus = new Vector3();
+      this.cine = 0;
+      this.flash = 0;
+      this.sounds = {};
+      audio.play("whiz", null, { ui: true, gain: 0.25, rate: 0.5, duration: 0.6 });
+    }
+    freeDist(from, dir, max) {
+      const h = this.game.world.raycast(from.x, from.y, from.z, dir.x, dir.y, dir.z, max, "move");
+      return h ? h.t : max;
+    }
+    // 鏡頭不穿牆：從注視點往鏡頭位置打射線，被擋就拉近
+    safe(focus, desired) {
+      const d = _w.copy(desired).sub(focus), L = d.length();
+      if (L < 1e-4) return desired;
+      d.divideScalar(L);
+      const t = this.freeDist(focus, d, L);
+      return t < L ? focus.clone().addScaledVector(d, Math.max(0.12, t - 0.18)) : desired;
+    }
+    once(key, fn) {
+      if (!this.sounds[key]) {
+        this.sounds[key] = true;
+        fn();
+      }
     }
     update(dt) {
       if (!this.active) return false;
       const g = this.game;
       if (g.paused) return true;
       this.elapsed += dt;
-      if (this.elapsed >= REPLAY_DURATION || g.player.alive || !g.playing) {
+      const e = this.elapsed;
+      if (e >= REPLAY_DURATION || g.player.alive || !g.playing) {
         this.stop();
         return false;
       }
-      const offset = replayTime(this.elapsed), time = this.deathTime + offset;
+      const offset = replayTime(e), time = this.deathTime + offset;
       let a = this.clip[0], b = a;
       for (const f of this.clip) {
         if (f.time <= time) a = f;
@@ -34194,47 +34274,111 @@ void main() {
         const p = a.actors.get(id), q = b.actors.get(id);
         if (p && q) apply(root, p, q, t);
       }
-      const side = new Vector3().crossVectors(this.direction, new Vector3(0, 1, 0));
-      if (side.lengthSq() < 0.01) side.set(1, 0, 0);
-      side.normalize();
-      const phase = MathUtils.smoothstep(this.elapsed, 2.5, 6.5), close = MathUtils.smoothstep(this.elapsed, 6.5, 7.5);
-      const focus = this.origin.clone().lerp(this.impact, phase);
-      const desired = focus.clone().addScaledVector(side, MathUtils.lerp(2.8, 0.75, close)).add(new Vector3(0, MathUtils.lerp(0.5, 0.12, close), 0)).addScaledVector(this.direction, -MathUtils.lerp(3, 1, close));
-      const delta = desired.clone().sub(focus), length = delta.length();
-      delta.normalize();
-      const hit = g.world.raycast(focus.x, focus.y, focus.z, delta.x, delta.y, delta.z, length, "move");
-      const safe = focus.clone().addScaledVector(delta, hit ? Math.max(0.15, hit.t - 0.2) : length);
-      if (!this.lookFocus) {
-        this.camera.position.copy(safe);
-        this.lookFocus = focus.clone();
+      for (const root of this.clones.values()) root.updateMatrixWorld(true);
+      const shot = e < SHOT.bullet ? 0 : e < SHOT.impact ? 1 : e < SHOT.fall ? 2 : 3, cut = shot !== this.shot;
+      this.shot = shot;
+      const D2 = this.direction, S = _v.copy(this.side).multiplyScalar(this.sideSign).clone();
+      let pos, look, fov2, shake = 0;
+      const bulletS = MathUtils.clamp((offset + 0.3) / 0.3, 0, 1), bp = this.origin.clone().lerp(this.impact, bulletS);
+      if (shot === 0) {
+        const k = e / SHOT.bullet;
+        if (this.aHead) {
+          const head = this.aHead.getWorldPosition(new Vector3()).addScaledVector(UP, 0.08);
+          const tgt = this.vHips ? this.vHips.getWorldPosition(new Vector3()) : this.impact, dA = tgt.clone().sub(head);
+          const dist = dA.length();
+          dA.normalize();
+          const sA = new Vector3().crossVectors(dA, UP);
+          if (sA.lengthSq() < 0.01) sA.copy(S);
+          sA.normalize().multiplyScalar(this.sideSign);
+          pos = head.clone().addScaledVector(dA, -1.9 + 0.5 * k).addScaledVector(sA, 0.85).addScaledVector(UP, 0.22);
+          look = head.clone().addScaledVector(dA, Math.min(6, dist * 0.6)).addScaledVector(sA, -0.25);
+          fov2 = 42 - 4 * k;
+        } else {
+          pos = this.impact.clone().addScaledVector(S, 3.6 - 0.8 * k).addScaledVector(UP, 1.5).addScaledVector(D2, -2);
+          look = this.impact.clone();
+          fov2 = 46;
+        }
+        pos = this.safe(look, pos);
+      } else if (shot === 1) {
+        if (this.showTrace) {
+          const out = MathUtils.smoothstep(bulletS, 0.55, 1);
+          pos = bp.clone().addScaledVector(D2, -0.6 - 1.1 * out).addScaledVector(S, 0.24 + 0.75 * out).addScaledVector(UP, 0.07 + 0.18 * out);
+          look = bp.clone().addScaledVector(D2, 2.5).lerp(this.impact, MathUtils.smoothstep(bulletS, 0.6, 1));
+          fov2 = 36;
+          pos = this.safe(bp, pos);
+        } else {
+          const k = (e - SHOT.bullet) / (SHOT.impact - SHOT.bullet);
+          pos = this.impact.clone().addScaledVector(S, 2.4 - 1.1 * k).addScaledVector(UP, 0.5).addScaledVector(D2, -1.4);
+          look = this.impact.clone();
+          fov2 = 38;
+          pos = this.safe(look, pos);
+        }
+      } else if (shot === 2) {
+        const k = e - SHOT.impact;
+        pos = this.safe(this.impact, this.impact.clone().addScaledVector(S, 1.9).addScaledVector(UP, 0.2).addScaledVector(D2, -0.7));
+        look = this.impact.clone();
+        shake = 0.035 * Math.exp(-k * 9);
+        fov2 = 32 + 5 * (1 - Math.exp(-k * 12));
       } else {
-        this.camera.position.lerp(safe, 1 - Math.exp(-dt * 6));
-        this.lookFocus.lerp(focus, 1 - Math.exp(-dt * 8));
+        const k = MathUtils.clamp((e - SHOT.fall) / (REPLAY_DURATION - SHOT.fall), 0, 1), ease = k * k * (3 - 2 * k);
+        const hips = this.vHips ? this.vHips.getWorldPosition(new Vector3()) : this.impact.clone();
+        const ang = MathUtils.lerp(0.45, -0.4, ease) * this.sideSign, orbit = S.clone().applyAxisAngle(UP, ang);
+        look = hips.clone().addScaledVector(UP, 0.12);
+        pos = this.safe(look, hips.clone().addScaledVector(orbit, MathUtils.lerp(3, 2.25, ease)).addScaledVector(D2, -0.5).setY(Math.max(hips.y, this.impact.y - 1.1) + 0.32));
+        fov2 = 34 - 4 * ease;
       }
+      if (cut) {
+        this.camPos.copy(pos);
+        this.lookFocus.copy(look);
+      } else {
+        this.camPos.lerp(pos, 1 - Math.exp(-dt * (shot === 1 ? 30 : 8)));
+        this.lookFocus.lerp(look, 1 - Math.exp(-dt * (shot === 1 ? 30 : 6)));
+      }
+      this.camera.position.copy(this.camPos);
+      if (shake > 0) this.camera.position.add(_w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(shake));
       this.camera.lookAt(this.lookFocus);
       this.camera.aspect = g.renderer.camera.aspect;
-      this.camera.fov = 52 - close * 22;
+      this.camera.fov = fov2;
       this.camera.updateProjectionMatrix();
-      this.trace.visible = this.showTrace && offset >= -0.3;
-      this.bullet.visible = this.showTrace && offset >= -0.3 && offset < 0;
-      this.bullet.position.copy(this.origin).lerp(this.impact, MathUtils.clamp((offset + 0.3) / 0.3, 0, 1));
-      this.marker.visible = this.elapsed >= 6.5;
-      this.marker.quaternion.copy(this.camera.quaternion);
-      this.overlay.style.backgroundColor = `rgba(0,0,0,${Math.max(0, 1 - this.elapsed / 0.35)})`;
-      this.impactFlash.visible = offset >= 0 && offset < 0.35;
-      this.impactFlash.scale.setScalar((this.explosive ? 5 : 0.6) * (1 + Math.max(0, offset) * 3));
-      this.impactFlash.material.opacity = Math.max(0, 1 - offset / 0.35);
-      if (offset >= 0 && !this.impactSound) {
-        this.impactSound = true;
-        audio.play("impf", null, { ui: true, gain: 0.45, rate: 0.55, duration: 0.35 });
+      this.rimLight.position.copy(this.lookFocus).addScaledVector(_w.copy(this.lookFocus).sub(this.camPos).normalize(), 20).addScaledVector(UP, 8);
+      this.rimLight.target.position.copy(this.lookFocus);
+      if (this.vGun) this.vGun.visible = offset < 0.25;
+      const flying = this.showTrace && offset >= -0.3 && offset < 0;
+      this.trace.visible = this.showTrace && offset >= -0.3 && e < SHOT.fall + 1.2;
+      if (this.trace.visible) {
+        const arr = this.trace.geometry.attributes.position;
+        arr.setXYZ(1, bp.x, bp.y, bp.z);
+        arr.needsUpdate = true;
+        this.trace.material.opacity = e < SHOT.fall ? 0.55 : 0.55 * (1 - (e - SHOT.fall) / 1.2);
       }
-      this.title.textContent = this.elapsed < 2.5 ? "\u8AB0\u64CA\u6BBA\u4E86\u4F60" : this.elapsed < 6.5 ? "\u6700\u5F8C\u4E00\u64CA \xB7 \u6162\u52D5\u4F5C" : `\u81F4\u547D\u547D\u4E2D \xB7 ${this.partName}\u7279\u5BEB`;
-      this.speed.textContent = this.elapsed < 2.5 ? "\u653B\u64CA\u8005\u8207\u4F7F\u7528\u6B66\u5668" : this.elapsed < 6.5 ? "SLOW \xB7 0.075\xD7 \xB7 \u81F4\u547D\u8DEF\u5F91\u793A\u610F" : "\u547D\u4E2D\u9EDE\u6A19\u8A18 \xB7 \u5B9A\u683C\u6AA2\u8996 \xB7 \u53EF\u96A8\u6642\u8DF3\u904E";
+      this.bullet.visible = this.bulletGlow.visible = flying;
+      this.bullet.position.copy(bp);
+      this.bulletGlow.position.copy(bp);
+      const sinceHit = offset >= 0 ? e - SHOT.impact : -1;
+      this.impactFlash.visible = sinceHit >= 0 && sinceHit < 0.6;
+      this.impactFlash.scale.setScalar((this.explosive ? 5 : 0.7) * (1 + Math.max(0, sinceHit) * 2.5));
+      this.impactFlash.material.opacity = Math.max(0, 1 - sinceHit / 0.6);
+      this.flash = sinceHit >= 0 ? (this.explosive ? 0.9 : 0.45) * Math.exp(-sinceHit * 14) : 0;
+      this.marker.visible = shot === 2 || shot === 3 && e < SHOT.fall + 0.8;
+      this.marker.material.opacity = shot === 2 ? 0.9 : 0.9 * (1 - (e - SHOT.fall) / 0.8);
+      this.marker.quaternion.copy(this.camera.quaternion);
+      if (sinceHit >= 0) this.once("hit", () => audio.play("impf", null, { ui: true, gain: 0.55, rate: 0.5, duration: 0.4 }));
+      if (shot === 1 && this.showTrace) this.once("whiz2", () => audio.play("whiz", null, { ui: true, gain: 0.35, rate: 0.4, duration: 1.2 }));
+      this.cine = Math.min(1, e / 0.4);
+      const fadeOut = MathUtils.clamp((e - SHOT.fade) / (REPLAY_DURATION - SHOT.fade), 0, 1);
+      this.overlay.style.backgroundColor = `rgba(0,0,0,${Math.max(0, 1 - e / 0.35, fadeOut)})`;
+      this.overlay.classList.toggle("cut", shot > 0);
+      const sp = replaySpeed(e);
+      this.title.textContent = shot === 0 ? `\u64CA\u6BBA\u8005 \xB7 ${this.killerName}` : shot === 1 ? this.showTrace ? "\u5B50\u5F48\u6642\u9593" : "\u6700\u5F8C\u4E00\u64CA" : shot === 2 ? `\u81F4\u547D\u4E00\u64CA \xB7 ${this.partName}` : "\u5012\u4E0B";
+      this.speed.textContent = shot === 2 ? "FREEZE" : `SLOW \xB7 ${sp.toFixed(2)}\xD7`;
+      this.detail.textContent = shot === 0 ? `${this.weaponName}` : this.explanation;
       return true;
     }
     stop() {
       this.active = false;
       this.overlay.hidden = true;
+      this.cine = 0;
+      this.flash = 0;
       for (const root of this.clones?.values() || []) root.traverse((o) => {
         if (o.isSkinnedMesh) o.skeleton.dispose();
       });
@@ -34243,7 +34387,8 @@ void main() {
         o?.material.dispose();
       }
       this.impactFlash?.material.dispose();
-      this.impactFlash = null;
+      this.bulletGlow?.material.dispose();
+      this.impactFlash = this.bulletGlow = null;
       this.trace = this.bullet = this.marker = null;
       this.scene = null;
       this.clones = null;
@@ -39742,7 +39887,7 @@ void main() {
       this.x = this.v = 0;
     }
   };
-  var UP = new Vector3(0, 1, 0);
+  var UP2 = new Vector3(0, 1, 0);
   var Arm = class _Arm {
     constructor(parent, side, skinMat, sleeveMat) {
       this.side = side;
@@ -39772,7 +39917,7 @@ void main() {
     static bone(mesh, a, b, inset = 0) {
       const d = new Vector3().subVectors(b, a), L = d.length();
       mesh.position.copy(a).addScaledVector(d, 0.5);
-      mesh.quaternion.setFromUnitVectors(UP, d.divideScalar(L || 1));
+      mesh.quaternion.setFromUnitVectors(UP2, d.divideScalar(L || 1));
       mesh.scale.set(1, Math.max(0.01, L - inset), 1);
     }
     // 兩段式 IK：給定手腕位置與手掌朝向，算出手肘
@@ -40571,43 +40716,162 @@ void main() {
   };
 
   // game-src/ragdoll.js
+  var STEP = 1 / 120;
+  var _a = new Vector3();
+  var _b = new Vector3();
+  var _c = new Vector3();
+  var _d2 = new Vector3();
+  var _q = new Quaternion();
+  var _q2 = new Quaternion();
+  var _m2 = new Matrix4();
+  function frameQuat(up, side, out) {
+    const u = _a.copy(up).normalize();
+    const s = _b.copy(side).addScaledVector(u, -side.dot(u)).normalize();
+    const f = _c.crossVectors(s, u);
+    return out.setFromRotationMatrix(_m2.makeBasis(s, u, f));
+  }
   var Ragdoll = class {
-    constructor(bones, world, direction, velocity, headshot) {
+    // opts：{ point, force, explosive, rng }
+    constructor(bones, world, direction, velocity, headshot, opts = {}) {
       this.bones = bones;
       this.world = world;
       this.acc = 0;
-      this.nodes = bones.map((b) => ({ p: b.getWorldPosition(new Vector3()), prev: new Vector3(), q: b.getWorldQuaternion(new Quaternion()), radius: /head/.test(b.name) ? 0.14 : /hips|chest/.test(b.name) ? 0.16 : 0.065 }));
-      const dir = direction.clone();
-      if (dir.lengthSq() > 0) dir.normalize();
-      this.nodes.forEach((n, i) => {
-        const k = /head|chest|neck/.test(bones[i].name) ? headshot ? 3.2 : 2.4 : 0.65;
-        n.prev.copy(n.p).addScaledVector(velocity, -1 / 120).addScaledVector(dir, -k / 120);
-      });
-      this.links = [];
+      this.t = 0;
+      this.still = 0;
+      this.asleep = false;
+      this.calm = false;
+      const rng2 = opts.rng || Math.random;
+      const idx = (n2) => bones.findIndex((b) => b.name === n2);
+      this.I = Object.fromEntries(bones.map((b, i) => [b.name, i]));
+      const root = bones[0].parent;
+      root.updateWorldMatrix(true, true);
+      this.rootQ = root.getWorldQuaternion(new Quaternion());
+      const mass = (n2) => /hips|spine|chest/.test(n2) ? 3 : /head|thigh/.test(n2) ? 1.6 : 1;
+      const radius = (n2) => /head/.test(n2) ? 0.12 : /hips|chest|spine/.test(n2) ? 0.15 : /thigh|shin/.test(n2) ? 0.075 : 0.06;
+      this.nodes = bones.map((b) => ({
+        p: b.getWorldPosition(new Vector3()),
+        prev: new Vector3(),
+        q0: b.getWorldQuaternion(new Quaternion()),
+        r: radius(b.name),
+        w: 1 / mass(b.name),
+        cn: new Vector3(),
+        hit: false
+      }));
       this.children = bones.map(() => []);
-      const add2 = (a, b) => {
-        if (a >= 0 && b >= 0) this.links.push({ a, b, len: this.nodes[a].p.distanceTo(this.nodes[b].p) });
-      };
       bones.forEach((b, i) => {
         const p = bones.indexOf(b.parent);
-        if (p >= 0) {
-          add2(p, i);
-          this.children[p].push(i);
-        }
+        if (p >= 0) this.children[p].push(i);
       });
-      for (const [a, b] of [["hips", "chest"], ["hips", "shoulderR"], ["hips", "shoulderL"], ["shoulderR", "shoulderL"], ["chest", "head"], ["thighR", "thighL"]]) add2(bones.findIndex((x) => x.name === a), bones.findIndex((x) => x.name === b));
-      this.axes = this.children.map((ch, i) => ch.length ? this.nodes[ch[0]].p.clone().sub(this.nodes[i].p).normalize() : null);
+      const tip = (bone, local, r2) => {
+        const i = this.I[bone];
+        if (i === void 0) return;
+        const p = bones[i].localToWorld(new Vector3(...local));
+        this.nodes.push({ p, prev: new Vector3(), q0: null, r: r2, w: 1, cn: new Vector3(), hit: false });
+        this.children[i].push(this.nodes.length - 1);
+      };
+      tip("head", [0, 0.2, 0.01], 0.11);
+      tip("handR", [0, -0.12, 0], 0.05);
+      tip("handL", [0, -0.12, 0], 0.05);
+      tip("footR", [0, -0.06, -0.16], 0.05);
+      tip("footL", [0, -0.06, -0.16], 0.05);
+      const N = this.nodes.length;
+      const nodeOf = (name) => name.endsWith("Tip") ? this.children[this.I[name.slice(0, -3)]].find((c) => c >= bones.length) : this.I[name];
+      this.links = [];
+      const link = (a, b, k = 1, lo = 1, hi = 1) => {
+        if (a === void 0 || b === void 0 || a < 0 || b < 0) return;
+        const L = this.nodes[a].p.distanceTo(this.nodes[b].p);
+        this.links.push({ a, b, min: L * lo, max: L * hi, k });
+      };
+      this.children.forEach((ch, p) => ch.forEach((c) => link(p, c)));
+      const n = nodeOf;
+      for (const [a, b] of [["hips", "chest"], ["hips", "shoulderR"], ["hips", "shoulderL"], ["shoulderR", "shoulderL"], ["thighR", "thighL"], ["spine", "shoulderR"], ["spine", "shoulderL"]]) link(n(a), n(b), 1, 0.96, 1.02);
+      link(n("hips"), n("thighR"));
+      link(n("hips"), n("thighL"));
+      link(n("thighR"), n("spine"), 1, 0.92, 1.04);
+      link(n("thighL"), n("spine"), 1, 0.92, 1.04);
+      link(n("chest"), n("headTip"), 0.8, 0.86, 1);
+      link(n("shoulderR"), n("headTip"), 0.6, 0.82, 1.06);
+      link(n("shoulderL"), n("headTip"), 0.6, 0.82, 1.06);
+      link(n("chest"), n("head"), 1, 0.92, 1);
+      link(n("shinR"), n("footRTip"), 0.7, 0.85, 1.05);
+      link(n("shinL"), n("footLTip"), 0.7, 0.85, 1.05);
+      link(n("forearmR"), n("handRTip"), 0.5, 0.8, 1);
+      link(n("forearmL"), n("handLTip"), 0.5, 0.8, 1);
+      link(n("chest"), n("forearmR"), 0.5, 0.55, 1.6);
+      link(n("chest"), n("forearmL"), 0.5, 0.55, 1.6);
+      link(n("hips"), n("forearmR"), 0.4, 0.45, 2);
+      link(n("hips"), n("forearmL"), 0.4, 0.45, 2);
+      link(n("chest"), n("shinR"), 0.5, 0.78, 1.25);
+      link(n("chest"), n("shinL"), 0.5, 0.78, 1.25);
+      this.apart = [];
+      const apart = (a, b, d) => this.apart.push({ a: n(a), b: n(b), d });
+      apart("shinR", "shinL", 0.13);
+      apart("footR", "footL", 0.12);
+      apart("footRTip", "footLTip", 0.1);
+      apart("thighR", "shinL", 0.12);
+      apart("thighL", "shinR", 0.12);
+      for (const s of ["R", "L"]) {
+        apart("hand" + s, "chest", 0.15);
+        apart("hand" + s, "hips", 0.13);
+        apart("hand" + s, "spine", 0.15);
+        apart("upperArm" + s, "hand" + s, 0.13);
+        apart("thigh" + s, "foot" + s, 0.24);
+        apart("hand" + s + "Tip", "head", 0.14);
+      }
+      this.hinges = [];
+      for (const s of ["R", "L"]) {
+        this.hinges.push({ a: n("thigh" + s), b: n("shin" + s), c: n("foot" + s), sign: 1, leg: true });
+        this.hinges.push({ a: n("upperArm" + s), b: n("forearm" + s), c: n("hand" + s), sign: -1, leg: false });
+      }
+      const P = (name) => this.nodes[n(name)].p;
+      this.hipsRest = frameQuat(_d2.copy(P("spine")).sub(P("hips")), new Vector3().copy(P("thighR")).sub(P("thighL")), new Quaternion());
+      this.chestRest = frameQuat(_d2.copy(P("neck")).sub(P("chest")), new Vector3().copy(P("shoulderR")).sub(P("shoulderL")), new Quaternion());
+      this.axes = this.children.slice(0, bones.length).map((ch, i) => ch.length ? this.nodes[ch[0]].p.clone().sub(this.nodes[i].p).normalize() : null);
+      this.delta = bones.map(() => new Quaternion());
+      const dir = direction.clone();
+      if (dir.lengthSq() > 0) dir.normalize();
+      const explosive = !!opts.explosive;
+      const force = opts.force ?? (headshot ? 2.2 : 1.5);
+      const hitP = opts.point || (headshot ? P("head") : P("chest"));
+      const kick = dir.clone();
+      if (explosive) kick.y = Math.max(kick.y, 0) + 0.55;
+      for (let i = 0; i < N; i++) {
+        const nd = this.nodes[i];
+        const fall = Math.exp(-nd.p.distanceTo(hitP) / 0.28);
+        const k = force * (0.22 + 0.78 * fall) * (explosive ? 1 : nd.w * 1.4);
+        nd.prev.copy(nd.p).addScaledVector(velocity, -STEP * 0.85).addScaledVector(kick, -k * STEP);
+      }
+      this.tone = explosive ? 0 : headshot ? 0.1 + rng2() * 0.08 : 0.45 + rng2() * 0.35;
+      this.tone0 = this.tone;
+      const fwd = new Vector3(0, 0, -1).applyQuaternion(this.rootQ);
+      fwd.y = 0;
+      fwd.normalize();
+      this.fwd = fwd;
+      const flat = dir.clone();
+      flat.y = 0;
+      if (flat.lengthSq() < 1e-4) flat.copy(fwd).negate();
+      flat.normalize();
+      const side = new Vector3(-flat.z, 0, flat.x);
+      const r = rng2();
+      this.fallDir = r < 0.55 ? flat.clone() : r < 0.8 ? flat.clone().addScaledVector(side, rng2() < 0.5 ? 0.9 : -0.9).normalize() : fwd.clone();
+      this.buckle = 0.6 + rng2() * 0.6;
+      const hips = P("hips");
+      this.rel = this.nodes.map((nd) => nd.p.clone().sub(hips));
+      this.upper = new Set(["spine", "chest", "neck", "head", "shoulderR", "shoulderL", "upperArmR", "upperArmL", "forearmR", "forearmL"].map(n));
+      this.upper.add(n("headTip"));
+      this.shins = [n("shinR"), n("shinL")];
+      this.hipsI = n("hips");
     }
-    collide(n) {
-      const p = n.p, r = n.radius;
+    collide(nd) {
+      const p = nd.p, r = nd.r;
       const cs = this.world.query(p.x - r, p.z - r, p.x + r, p.z + r);
       for (const c of cs) {
         if (!c.solid || p.y + r < c.bottom || p.y - r > c.top) continue;
         const [x, z] = c.toLocal(p.x, p.z), y = p.y - c.y;
         const qx = Math.max(-c.hx, Math.min(c.hx, x)), qy = Math.max(-c.hy, Math.min(c.hy, y)), qz = Math.max(-c.hz, Math.min(c.hz, z));
-        let dx = x - qx, dy = y - qy, dz = z - qz, dist = Math.hypot(dx, dy, dz);
+        let dx = x - qx, dy = y - qy, dz = z - qz, push;
+        const dist = Math.hypot(dx, dy, dz);
         if (dist >= r) continue;
-        let push;
         if (dist > 1e-8) {
           push = r - dist;
           dx /= dist;
@@ -40625,45 +40889,133 @@ void main() {
         p.x += wx * push;
         p.y += dy * push;
         p.z += wz * push;
-        const v = p.clone().sub(n.prev), normal = new Vector3(wx, dy, wz), vn = v.dot(normal);
-        v.addScaledVector(normal, -Math.min(0, vn)).multiplyScalar(0.72);
-        n.prev.copy(p).sub(v);
+        nd.cn.set(wx, dy, wz);
+        nd.hit = true;
       }
     }
+    // 接觸反應每步只做一次：法向吸收、切向摩擦
+    contact(nd) {
+      if (!nd.hit) return;
+      const v = _a.copy(nd.p).sub(nd.prev), vn = v.dot(nd.cn);
+      const vt = _b.copy(v).addScaledVector(nd.cn, -vn);
+      const sp = vt.length();
+      const drop = 9e-4 + 0.25 * Math.abs(vn);
+      vt.multiplyScalar(sp > drop ? (sp - drop) / sp * 0.9 : 0);
+      v.copy(vt).addScaledVector(nd.cn, vn < 0 ? -vn * 0.06 : vn * 0.3);
+      nd.prev.copy(nd.p).sub(v);
+    }
+    solveLinks() {
+      const nodes = this.nodes;
+      for (const l of this.links) {
+        const A = nodes[l.a], B = nodes[l.b];
+        const d = _a.copy(B.p).sub(A.p), L = d.length();
+        if (L < 1e-8) continue;
+        const target = L < l.min ? l.min : L > l.max ? l.max : L;
+        if (target === L) continue;
+        const ws = A.w + B.w, f = (L - target) / L * l.k / ws;
+        A.p.addScaledVector(d, f * A.w);
+        B.p.addScaledVector(d, -f * B.w);
+      }
+      for (const s of this.apart) {
+        const A = nodes[s.a], B = nodes[s.b];
+        const d = _a.copy(B.p).sub(A.p), L = d.length();
+        if (L >= s.d || L < 1e-8) continue;
+        const ws = A.w + B.w, f = (L - s.d) / L / ws;
+        A.p.addScaledVector(d, f * A.w);
+        B.p.addScaledVector(d, -f * B.w);
+      }
+    }
+    solveHinges() {
+      const nodes = this.nodes, I = this.I;
+      const sideLeg = _c.copy(nodes[I.thighR].p).sub(nodes[I.thighL].p).normalize();
+      const sideArm = _d2.copy(nodes[I.shoulderR].p).sub(nodes[I.shoulderL].p).normalize();
+      for (const h of this.hinges) {
+        const A = nodes[h.a].p, B = nodes[h.b].p, C = nodes[h.c].p;
+        const ac = _a.copy(C).sub(A);
+        const f = _b.crossVectors(h.leg ? sideLeg : sideArm, ac);
+        if (f.lengthSq() < 1e-10) continue;
+        f.normalize();
+        const off = (B.x - A.x) * f.x + (B.y - A.y) * f.y + (B.z - A.z) * f.z;
+        const want = 0.012;
+        const bad = h.sign > 0 ? want - off : off + want;
+        if (bad <= 0) continue;
+        B.addScaledVector(f, h.sign * bad * 0.7);
+        A.addScaledVector(f, -h.sign * bad * 0.15);
+        C.addScaledVector(f, -h.sign * bad * 0.15);
+      }
+    }
+    // 殘餘肌肉：上半身維持形狀並慢慢往倒下方向傾，膝蓋往前下方軟掉
+    muscles() {
+      const k = MathUtils.clamp(1 - this.t / this.tone0, 0, 1);
+      if (k <= 0) return;
+      const nodes = this.nodes, hips = nodes[this.hipsI].p;
+      const s = 0.16 * k * k;
+      const tilt = (1 - k) * 0.9;
+      const axis = _c.set(this.fallDir.z, 0, -this.fallDir.x);
+      _q.setFromAxisAngle(axis, tilt);
+      for (const i of this.upper) {
+        const target = _a.copy(this.rel[i]).applyQuaternion(_q).add(hips);
+        nodes[i].p.lerp(target, s);
+      }
+      const g = STEP * STEP;
+      for (const i of this.shins) nodes[i].p.addScaledVector(this.fwd, 7 * this.buckle * k * g).y -= 3 * this.buckle * k * g;
+      nodes[this.hipsI].p.y -= 5 * this.buckle * k * g;
+    }
     update(dt) {
+      if (this.asleep) return;
       this.acc = Math.min(this.acc + dt, 0.1);
-      while (this.acc >= 1 / 120) {
-        this.acc -= 1 / 120;
-        for (const n of this.nodes) {
-          const v = n.p.clone().sub(n.prev).multiplyScalar(0.997);
-          n.prev.copy(n.p);
-          n.p.add(v);
-          n.p.y -= 9.8 / 14400;
+      const nodes = this.nodes;
+      while (this.acc >= STEP) {
+        this.acc -= STEP;
+        this.t += STEP;
+        let vmax = 0;
+        for (const nd of nodes) {
+          const v = _a.copy(nd.p).sub(nd.prev).multiplyScalar(this.calm ? 0.9 : nd.hit ? 0.985 : 0.998);
+          vmax = Math.max(vmax, v.lengthSq());
+          nd.prev.copy(nd.p);
+          nd.p.add(v);
+          nd.p.y -= 9.8 * STEP * STEP;
+          nd.hit = false;
         }
-        for (let it = 0; it < 10; it++) {
-          for (const l of this.links) {
-            const a = this.nodes[l.a].p, b = this.nodes[l.b].p, d = b.clone().sub(a), L = d.length();
-            if (L > 1e-8) {
-              d.multiplyScalar((L - l.len) / L * 0.5);
-              a.add(d);
-              b.sub(d);
-            }
-          }
-          for (const n of this.nodes) this.collide(n);
+        this.muscles();
+        for (let it = 0; it < 8; it++) {
+          this.solveLinks();
+          this.solveHinges();
+          for (const nd of nodes) this.collide(nd);
+        }
+        for (const nd of nodes) this.contact(nd);
+        this.calm = this.t > 1.2 && vmax < (0.3 * STEP) ** 2;
+        this.still = vmax < (0.06 * STEP) ** 2 && this.t > 1.5 ? this.still + STEP : 0;
+        if (this.still > 0.4) {
+          this.asleep = true;
+          break;
         }
       }
-      const parentQ = new Quaternion(), desired = new Quaternion();
-      this.bones.forEach((b, i) => {
-        b.parent.updateWorldMatrix(true, false);
-        b.position.copy(b.parent.worldToLocal(this.nodes[i].p.clone()));
-        const ch = this.children[i];
-        desired.copy(this.nodes[i].q);
-        if (ch.length) {
-          const d = this.nodes[ch[0]].p.clone().sub(this.nodes[i].p);
-          if (d.lengthSq() > 1e-10) desired.premultiply(new Quaternion().setFromUnitVectors(this.axes[i], d.normalize()));
+      this.pose();
+    }
+    pose() {
+      const nodes = this.nodes, bones = this.bones, I = this.I;
+      bones[0].parent.updateWorldMatrix(true, false);
+      const P = (i) => nodes[i].p;
+      frameQuat(_d2.copy(P(I.spine)).sub(P(I.hips)), _b.clone().copy(P(I.thighR)).sub(P(I.thighL)), this.delta[I.hips]).multiply(_q2.copy(this.hipsRest).invert());
+      frameQuat(_d2.copy(P(I.neck)).sub(P(I.chest)), _b.clone().copy(P(I.shoulderR)).sub(P(I.shoulderL)), this.delta[I.chest]).multiply(_q2.copy(this.chestRest).invert());
+      bones.forEach((b, i) => {
+        const parent = bones.indexOf(b.parent);
+        if (i !== I.hips && i !== I.chest) {
+          const D2 = this.delta[i].copy(parent >= 0 ? this.delta[parent] : this.delta[I.hips]);
+          const ch = this.children[i];
+          if (ch.length) {
+            const now = _a.copy(P(ch[0])).sub(P(i));
+            if (now.lengthSq() > 1e-10) {
+              const was = _b.copy(this.axes[i]).applyQuaternion(D2);
+              D2.premultiply(_q.setFromUnitVectors(was, now.normalize()));
+            }
+          }
         }
-        b.parent.getWorldQuaternion(parentQ);
-        b.quaternion.copy(parentQ.invert().multiply(desired));
+        const desired = _q.copy(this.delta[i]).multiply(nodes[i].q0);
+        b.position.copy(b.parent.worldToLocal(_c.copy(P(i))));
+        b.parent.getWorldQuaternion(_q2);
+        b.quaternion.copy(_q2.invert().multiply(desired));
         b.updateWorldMatrix(false, false);
       });
     }
@@ -40911,12 +41263,12 @@ void main() {
     }
     return lo;
   }
-  var _v = new Vector3();
-  var _w = new Vector3();
+  var _v2 = new Vector3();
+  var _w2 = new Vector3();
   var _lo = new Vector3();
   var _ld = new Vector3();
-  var _q = new Quaternion();
-  var _q2 = new Quaternion();
+  var _q3 = new Quaternion();
+  var _q22 = new Quaternion();
   var DOWN = new Vector3(0, -1, 0);
   var Soldier = class {
     constructor(team) {
@@ -40964,26 +41316,27 @@ void main() {
       if (this.gun) this.B.chest.remove(this.gun);
       this.gunId = id;
       this.gun = buildGunMerged(id);
+      this.gun.userData.thirdPersonGun = true;
       this.B.chest.add(this.gun);
     }
     // 兩段式 IK：讓手到達目標；pole 決定手肘往哪邊彎
     solveArm(side, target, pole) {
       const upper = this.B["upperArm" + side], fore = this.B["forearm" + side];
       const S = upper.getWorldPosition(new Vector3());
-      const toT = _v.copy(target).sub(S);
+      const toT = _v2.copy(target).sub(S);
       const dist = Math.min(toT.length(), UPPER_ARM + FOREARM - 1e-3);
       const dir = toT.normalize();
       const cos = (UPPER_ARM ** 2 + dist ** 2 - FOREARM ** 2) / (2 * UPPER_ARM * dist);
       const ang = Math.acos(MathUtils.clamp(cos, -1, 1));
-      const bend = _w.copy(pole).sub(S);
+      const bend = _w2.copy(pole).sub(S);
       bend.addScaledVector(dir, -bend.dot(dir)).normalize();
       const elbowDir = dir.clone().multiplyScalar(Math.cos(ang)).addScaledVector(bend, Math.sin(ang)).normalize();
       const elbow = S.clone().addScaledVector(elbowDir, UPPER_ARM);
-      upper.quaternion.copy(upper.parent.getWorldQuaternion(_q).invert().multiply(_q2.setFromUnitVectors(DOWN, elbowDir)));
+      upper.quaternion.copy(upper.parent.getWorldQuaternion(_q3).invert().multiply(_q22.setFromUnitVectors(DOWN, elbowDir)));
       upper.updateMatrixWorld(true);
       const wrist = S.clone().addScaledVector(dir, dist);
       const foreDir = wrist.sub(elbow).normalize();
-      fore.quaternion.copy(upper.getWorldQuaternion(_q).invert().multiply(_q2.setFromUnitVectors(DOWN, foreDir)));
+      fore.quaternion.copy(upper.getWorldQuaternion(_q3).invert().multiply(_q22.setFromUnitVectors(DOWN, foreDir)));
     }
     update(dt, st) {
       if (this.deadT >= 0) {
@@ -41057,7 +41410,7 @@ void main() {
       }
       this.mesh.updateMatrixWorld(true);
       const an = gun2.userData.anchors;
-      const grip = gun2.localToWorld(new Vector3().copy(an.grip || _v.set(0, 0, 0)));
+      const grip = gun2.localToWorld(new Vector3().copy(an.grip || _v2.set(0, 0, 0)));
       this.solveArm("R", grip, this.B.chest.localToWorld(new Vector3(0.6, -0.5, 0.1)));
       if (an.fore && !melee) {
         const fore = gun2.localToWorld(new Vector3().copy(an.fore));
@@ -41081,10 +41434,11 @@ void main() {
       else if (kind === 1) v.set(0.45, 0.72, 1, 0.22);
       else v.set(0, 0, 0, 0);
     }
-    die(dirX, dirZ, headshot, world, velocity, dirY = 0) {
+    // opts：{ point 命中點, force 衝量 m/s, explosive }，交給布娃娃決定怎麼倒
+    die(dirX, dirZ, headshot, world, velocity, dirY = 0, opts = {}) {
       this.deadT = 0;
       this.root.updateWorldMatrix(true, true);
-      this.ragdoll = new Ragdoll(this.bones, world, new Vector3(dirX, dirY, dirZ), velocity, headshot);
+      this.ragdoll = new Ragdoll(this.bones, world, new Vector3(dirX, dirY, dirZ), velocity, headshot, opts);
       this.material.transparent = false;
       this.material.opacity = 1;
       this.opacity = 1;
@@ -41109,7 +41463,7 @@ void main() {
     }
     // 子彈命中：先用一顆包住全身的球粗篩，再逐一測各骨頭的命中盒（同一幀只算一次反矩陣）
     hitTest(o, d, maxT, frame) {
-      const hip = this.B.hips.getWorldPosition(_v);
+      const hip = this.B.hips.getWorldPosition(_v2);
       const wx = hip.x - o.x, wy = hip.y + 0.3 - o.y, wz = hip.z - o.z;
       const along = wx * d.x + wy * d.y + wz * d.z;
       if (along < -1.5 || along > maxT + 1.5) return null;
@@ -41135,7 +41489,7 @@ void main() {
     }
     muzzleWorld(out) {
       if (!this.gun) return this.B.head.getWorldPosition(out);
-      return this.gun.localToWorld(out.copy(this.gun.userData.anchors.muzzle || _v.set(0, 0, -0.5)));
+      return this.gun.localToWorld(out.copy(this.gun.userData.anchors.muzzle || _v2.set(0, 0, -0.5)));
     }
     headWorld(out) {
       return this.B.head.localToWorld(out.set(0, 0.1, 0));
@@ -41900,8 +42254,8 @@ void main() {
   var TEAM_PREFIX = { BL: "\u5973\u540C\u5B78", GR: "\u7537\u540C\u5B78" };
   var THINK_EVERY = 0.15;
   var _eye = new Vector3();
-  var _a = new Vector3();
-  var _b = new Vector3();
+  var _a2 = new Vector3();
+  var _b2 = new Vector3();
   var wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   var yawTo = (fx, fz, tx, tz) => Math.atan2(-(tx - fx), -(tz - fz));
   var rand3 = (a, b) => a + Math.random() * (b - a);
@@ -42052,7 +42406,7 @@ void main() {
       if (dist > this.skill.sight) return false;
       const off = Math.abs(wrapAngle(yawTo(this.pos.x, this.pos.z, t.pos.x, t.pos.z) - this.yaw));
       if (off > this.skill.fov / 2) return false;
-      for (const pt of [t.soldier.headWorld(_a), t.soldier.chestWorld(_b)]) {
+      for (const pt of [t.soldier.headWorld(_a2), t.soldier.chestWorld(_b2)]) {
         const dx = pt.x - e.x, dy = pt.y - e.y, dz = pt.z - e.z, L = Math.hypot(dx, dy, dz);
         if (L < 1e-3) continue;
         if (Math.abs(Math.atan2(dy, Math.hypot(dx, dz)) - this.pitch) > Math.PI / 4) continue;
@@ -42096,7 +42450,7 @@ void main() {
         this.visible = true;
         this.lastSeen = seen.foe.pos.clone();
         this.lastSeenT = now;
-        this.observedAim = (this.aimHead ? seen.foe.soldier.headWorld(_a) : seen.foe.soldier.chestWorld(_a)).clone();
+        this.observedAim = (this.aimHead ? seen.foe.soldier.headWorld(_a2) : seen.foe.soldier.chestWorld(_a2)).clone();
         this.observedVelocity.copy(seen.foe.vel);
         this.state = "engage";
         this.searchProbe = 0;
@@ -42241,7 +42595,7 @@ void main() {
       const S = this.skill, tgt = this.target, w = this.weapon, d = w.def;
       const e = this.eye(_eye);
       if (!this.observedAim) return;
-      const aim = _a.copy(this.observedAim).addScaledVector(this.observedVelocity, Math.min(0.08, Math.max(0, now - this.lastSeenT)));
+      const aim = _a2.copy(this.observedAim).addScaledVector(this.observedVelocity, Math.min(0.08, Math.max(0, now - this.lastSeenT)));
       const dx = aim.x - e.x, dy = aim.y - e.y, dz = aim.z - e.z, flat = Math.hypot(dx, dz);
       const trueYaw = Math.atan2(-dx, -dz), truePitch = Math.atan2(dy, flat);
       const settle = Math.exp(-S.settle * dt);
@@ -42621,9 +42975,9 @@ void main() {
   var EJECTS_CASINGS = /* @__PURE__ */ new Set(["rifle", "smg", "pistol", "sniper", "shotgun"]);
   var TEAM_TEXT = { BL: "#ff9b70", GR: "#8cc8ff" };
   var titleCase = (s) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-  var _v2 = new Vector3();
-  var _w2 = new Vector3();
-  var _d2 = new Vector3();
+  var _v3 = new Vector3();
+  var _w3 = new Vector3();
+  var _d3 = new Vector3();
   var combat = {
     ...rocketCombat,
     // ───────── 開槍 ─────────
@@ -42695,8 +43049,8 @@ void main() {
     nearMiss(a, eye, dir, end) {
       const p = this.player;
       if (!p?.alive || a === p || a.team === p.team) return;
-      const head = p.eye(_v2);
-      const along = _d2.copy(head).sub(eye).dot(dir);
+      const head = p.eye(_v3);
+      const along = _d3.copy(head).sub(eye).dot(dir);
       if (along <= 2 || along >= eye.distanceTo(end)) return;
       const closest = eye.clone().addScaledVector(dir, along);
       const miss = closest.distanceTo(head);
@@ -42721,7 +43075,7 @@ void main() {
           const pt2 = o.clone().addScaledVector(dir, t);
           const partMul = part === "head" ? d.headMul : part === "arm" || part === "leg" ? d.limbMul : 1;
           const dmg = d.dmg * keep * Math.pow(d.falloff, t / 10) * partMul;
-          const back = _v2.copy(dir).negate();
+          const back = _v3.copy(dir).negate();
           this.fx.impact(pt2, back, "flesh", dir);
           if (part === "head") this.fx.impact(pt2, back, "flesh", dir);
           if (!this._quiet) audio.playImpact(pt2, "flesh");
@@ -42806,7 +43160,7 @@ void main() {
         if (!a.alive) return;
         if (hit?.actor.alive) {
           const facing = hit.actor.forward(new Vector3()).setY(0).normalize();
-          const behind = facing.dot(_v2.copy(hit.dir).setY(0).normalize()) > 0.5;
+          const behind = facing.dot(_v3.copy(hit.dir).setY(0).normalize()) > 0.5;
           let dmg = heavy ? d.dmgHeavy : d.dmgLight;
           if (behind) dmg *= heavy ? 2 : 1.6;
           if (hit.part === "head") dmg *= 1.3;
@@ -42863,7 +43217,7 @@ void main() {
           n.vel.y -= 14 * h;
           const sp = n.vel.length();
           if (sp < 1e-4) continue;
-          const d = _w2.copy(n.vel).divideScalar(sp);
+          const d = _w3.copy(n.vel).divideScalar(sp);
           const hit = this.world.raycast(n.pos.x, n.pos.y, n.pos.z, d.x, d.y, d.z, sp * h + 0.07, "move");
           if (!hit) {
             n.pos.addScaledVector(n.vel, h);
@@ -42926,7 +43280,7 @@ void main() {
     // 玩家在 14 m 內：視線被擋只算 45%；震盪時間與閃白依距離
     concussPlayer(p) {
       const pl = this.player;
-      const cam = this.renderer.camera.position, dv = _v2.copy(cam).sub(p), L = dv.length();
+      const cam = this.renderer.camera.position, dv = _v3.copy(cam).sub(p), L = dv.length();
       if (!pl?.alive || L >= 14) return;
       let k = 1 - L / 14;
       if (L > 0.5 && this.world.raycast(p.x, p.y + 0.1, p.z, dv.x / L, dv.y / L, dv.z / L, L - 0.3, "sight")) k *= 0.45;
@@ -43078,7 +43432,9 @@ void main() {
       v.respawnT = 4;
       v.stats.d++;
       v.scoped = 0;
-      v.soldier.die(dir.x, dir.z, headshot, this.world, v.vel, dir.y || 0);
+      const wtype = WEAPONS[cause]?.type, explosive = ["he", "rpg"].includes(cause);
+      const force = explosive ? 7 : { sniper: 3, shotgun: 3.4, rifle: 1.7, smg: 1.3, pistol: 1.2, melee: 2.2 }[wtype] ?? 1.5;
+      v.soldier.die(dir.x, dir.z, headshot, this.world, v.vel, dir.y || 0, { point: hitInfo.point || impact, force, explosive });
       audio.playDeath(v.soldier.chestWorld(new Vector3()));
       const p = this.player, byOther = att && att !== v;
       if (byOther) {
@@ -43210,9 +43566,9 @@ void main() {
   // game-src/game.js
   var nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
   var MAX_STEP = 1 / 100;
-  var _v3 = new Vector3();
+  var _v4 = new Vector3();
   var _u = new Vector3();
-  var _d3 = new Vector3();
+  var _d4 = new Vector3();
   function botPrimary(team, slot, teamSize) {
     if (slot === 1 && teamSize >= 4) return "awm";
     if (slot === 2 && teamSize >= 4) return "m870";
@@ -43651,18 +44007,25 @@ void main() {
       this.updateLanded();
       if (this.playing) this.debrisHits();
       this.updateRadarLabel(dt);
-      audio.setListener(cam.position, _v3.set(0, 0, -1).applyQuaternion(cam.quaternion), _u.set(0, 1, 0).applyQuaternion(cam.quaternion));
+      audio.setListener(cam.position, _v4.set(0, 0, -1).applyQuaternion(cam.quaternion), _u.set(0, 1, 0).applyQuaternion(cam.quaternion));
       audio.update(dt);
       if (p && (this.playing || this.ended)) this.updateHUD(dt);
       this.updateScreenFx(dt);
       if (this.killReplay?.update(dt)) {
         this.vm.setVisible(false);
-        const u = R.fx.uniforms;
+        const u = R.fx.uniforms, kr = this.killReplay;
         u.uDeath.value = 0;
         u.uDamage.value = 0;
-        u.uVignette.value = 0.3;
-        R.render(this.killReplay.scene, this.killReplay.camera);
-      } else R.render();
+        u.uLowHP.value = 0;
+        u.uConc.value = 0;
+        u.uVignette.value = 0.15;
+        u.uCine.value = kr.cine;
+        u.uFlash.value = kr.flash;
+        R.render(kr.scene, kr.camera);
+      } else {
+        R.fx.uniforms.uCine.value = 0;
+        R.render();
+      }
     }
     updateViewModel(dt, p) {
       const R = this.renderer, cam = R.camera;
@@ -43675,7 +44038,7 @@ void main() {
     }
     // 手上的槍要跟環境一樣亮：太陽被擋住就變暗，頭頂有遮蔽算室內
     probeLight() {
-      const e = this.player.eye(_v3), s = this.env.sunDir;
+      const e = this.player.eye(_v4), s = this.env.sunDir;
       const shade = this.world.raycast(e.x, e.y, e.z, s.x, s.y, s.z, 80, "sight") ? 0.22 : 1;
       const roof = this.world.raycast(e.x, e.y, e.z, 0, 1, 0, 5, "sight") ? 1 : 0;
       this.lightK = this.lightK === void 0 ? shade : this.lightK + (shade - this.lightK) * 0.35;
@@ -43732,7 +44095,7 @@ void main() {
         spreadPx = Math.tan(cone) / Math.tan(MathUtils.degToRad(cam.fov / 2)) * (window.innerHeight / 2);
       }
       if (p.alive && this.frame % 4 === 0) {
-        const o = cam.position, d = _d3.set(0, 0, -1).applyQuaternion(cam.quaternion);
+        const o = cam.position, d = _d4.set(0, 0, -1).applyQuaternion(cam.quaternion);
         const wall = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, "sight");
         let best = null, bestT = wall ? wall.t : 80;
         this.frame++;

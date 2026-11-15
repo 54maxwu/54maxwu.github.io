@@ -24,7 +24,7 @@ function frameQuat(up, side, out) {
 export class Ragdoll {
   // opts：{ point, force, explosive, rng }
   constructor(bones, world, direction, velocity, headshot, opts = {}) {
-    this.bones = bones; this.world = world; this.acc = 0; this.t = 0; this.still = 0; this.asleep = false;
+    this.bones = bones; this.world = world; this.acc = 0; this.t = 0; this.still = 0; this.asleep = false; this.calm = false;
     const rng = opts.rng || Math.random;
     const idx = (n) => bones.findIndex((b) => b.name === n);
     this.I = Object.fromEntries(bones.map((b, i) => [b.name, i]));
@@ -244,7 +244,8 @@ export class Ragdoll {
       this.acc -= STEP; this.t += STEP;
       let vmax = 0;
       for (const nd of nodes) {
-        const v = _a.copy(nd.p).sub(nd.prev).multiplyScalar(nd.hit ? 0.985 : 0.998);
+        // 快停下來時加重阻尼，避免約束互相拉扯造成倒地後還在蠕動
+        const v = _a.copy(nd.p).sub(nd.prev).multiplyScalar(this.calm ? 0.9 : nd.hit ? 0.985 : 0.998);
         vmax = Math.max(vmax, v.lengthSq());
         nd.prev.copy(nd.p); nd.p.add(v); nd.p.y -= 9.8 * STEP * STEP;
         nd.hit = false;
@@ -257,8 +258,9 @@ export class Ragdoll {
       }
       for (const nd of nodes) this.contact(nd);
       // 靜止 0.6 秒後休眠，省下運算
-      this.still = vmax < (0.02 * STEP) ** 2 && this.t > 1.5 ? this.still + STEP : 0;
-      if (this.still > 0.6) { this.asleep = true; break; }
+      this.calm = this.t > 1.2 && vmax < (0.3 * STEP) ** 2;
+      this.still = vmax < (0.06 * STEP) ** 2 && this.t > 1.5 ? this.still + STEP : 0;
+      if (this.still > 0.4) { this.asleep = true; break; }
     }
     this.pose();
   }

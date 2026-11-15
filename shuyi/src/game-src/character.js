@@ -304,6 +304,7 @@ export class Soldier {
     if (this.gun) this.B.chest.remove(this.gun);
     this.gunId = id;
     this.gun = buildGunMerged(id);
+    this.gun.userData.thirdPersonGun = true;   // 擊殺回放用來找到受害者手上的槍
     this.B.chest.add(this.gun);   // 掛在胸骨上，瞄準方向跟著上身
   }
 
