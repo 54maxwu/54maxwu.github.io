@@ -95,32 +95,32 @@ export const WEAPONS = {
   m870: gun({
     id: 'm870', name: 'M870', slot: 0, type: 'shotgun',
     dmg: 21, pellets: 9, pelletSpread: 0.05, headMul: 2.0, limbMul: 0.8, rpm: 72, mag: 7, reserve: 28, reload: 3.1, draw: 0.9,
-    speed: 0.93, range: 70, falloff: 0.62, pen: 0.45, armorPen: 0.7, bolt: 0.72, pump: true,
+    speed: 0.88, range: 70, falloff: 0.62, pen: 0.45, armorPen: 0.7, bolt: 0.72, pump: true,
     spread: { base: 0.008, move: 0.03, air: 0.1, crouch: 0.85, perShot: 0, max: 0.01, recover: 5 },
     recoil: { pattern: path([[0, 2.9, 0.4]]), upMax: 0.07, recover: 5 },
   }),
   deagle: gun({
     id: 'deagle', name: '沙漠之鷹', slot: 1, type: 'pistol', hudName: 'DESERT EAGLE',
     dmg: 54, headMul: 3.8, limbMul: 0.75, rpm: 250, mag: 7, reserve: 35, reload: 2.0, draw: 0.55,
-    speed: 1.0, range: 150, falloff: 0.98, pen: 1.0, armorPen: 0.8,
+    speed: 1.06, range: 150, falloff: 0.98, pen: 1.0, armorPen: 0.8,
     spread: { base: 0.0036, move: 0.05, air: 0.18, crouch: 0.7, perShot: 0.028, max: 0.07, recover: 5 },
     recoil: { pattern: path([[0, 1.75, 0.1], [1, 1.75, -0.35], [3, 1.6, 0.45]]), upMax: 0.09, recover: 5 },
   }),
   rpg: gun({
     id: 'rpg', name: '火箭筒', hudName: 'ROCKET LAUNCHER', slot: 0, type: 'launcher', sound: 'rocket',
     dmg: 190, radius: 6.5, armorPen: 0.9, rpm: 35, mag: 1, reserve: 3, reload: 3.6, draw: 1.0,
-    speed: 0.8, range: 160, falloff: 0.99, projectileSpeed: 40,
+    speed: 0.76, range: 160, falloff: 0.99, projectileSpeed: 40,
     spread: { base: 0.002, move: 0.018, air: 0.06, crouch: 0.7, perShot: 0, max: 0.02, recover: 4 },
     recoil: { pattern: path([[0, 3, 0]]), upMax: 0.12, recover: 4 },
   }),
   knife: {
     id: 'knife', name: '軍刀', slot: 2, type: 'melee', auto: true, sound: 'knife', hudName: 'KNIFE',
     dmgLight: 50, dmgHeavy: 100, rangeLight: 1.9, rangeHeavy: 1.6, rateLight: 0.42, rateHeavy: 1.05,
-    draw: 0.4, speed: 1.08, mag: 0, reserve: 0,
+    draw: 0.4, speed: 1.15, mag: 0, reserve: 0,
   },
   he: {
     id: 'he', name: '手雷', slot: 3, type: 'grenade', sound: 'grenade', hudName: 'HE GRENADE',
-    dmg: 170, armorPen: 0.9, radius: 7.5, fuse: 2.6, count: 1, draw: 0.5, speed: 1.0, mag: 1, reserve: 0,
+    dmg: 170, armorPen: 0.9, radius: 7.5, fuse: 2.6, count: 1, draw: 0.5, speed: 1.06, mag: 1, reserve: 0,
   },
 };
 

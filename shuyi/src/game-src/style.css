@@ -294,3 +294,13 @@ kbd{font-family:var(--num);font-size:12px;padding:1px 7px;border-radius:4px;bord
  #menu .go{grid-column:1/-1;padding:7px;font-size:16px}
  #menu .opts>.note{display:none}
 }
+/* Death replay: UI stays sharp while the reconstructed shot plays in slow motion. */
+.killReplay{position:fixed;inset:0;z-index:45;pointer-events:none;border-top:7vh solid #080b10;border-bottom:7vh solid #080b10;box-shadow:inset 0 0 140px #0007;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif}
+.killReplay[hidden]{display:none}
+.killReplay strong{position:absolute;top:2vh;left:4vw;letter-spacing:.18em;font-size:clamp(17px,2vw,28px);text-shadow:0 2px 12px #000}
+.killReplay span{position:absolute;bottom:2vh;left:4vw;font-size:clamp(13px,1.5vw,20px);text-shadow:0 2px 6px #000}
+.killReplay small{position:absolute;top:7vh;left:4vw;color:#ffcf86;letter-spacing:.12em}
+.killReplay button{position:absolute;right:3vw;bottom:2vh;pointer-events:auto;padding:12px 18px;background:#101722dd;border:1px solid #ffffff66;border-radius:5px;color:white;cursor:pointer;touch-action:manipulation}
+body:has(.killReplay:not([hidden])) #touch{display:none!important}
+body:has(.killReplay:not([hidden])) #center,body:has(.killReplay:not([hidden])) #cross{display:none!important}
+body:has(.killReplay:not([hidden])) #hud{opacity:0;pointer-events:none}

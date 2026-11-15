@@ -4,6 +4,7 @@
 // 除錯：window.__game 指向目前的 Game；網址參數 ?q=low|medium|high 指定畫質、?nolock 不鎖滑鼠、?autostart 直接開局
 import * as THREE from 'three';
 import { Renderer } from './render.js';
+import { KillReplay } from './kill-replay.js';
 import { DistanceDetails } from '../distance-details.js';
 import { buildTextures } from './textures.js';
 import { buildCampus } from '../campus-map.js';
@@ -81,6 +82,7 @@ export class Game {
 
     await step(0.8, '計算尋路網格');
     this.nav = this.map.nav;
+    this.killReplay=new KillReplay(this);
     this.hud.buildRadar(this.world);
 
     await step(0.88, '武器圖示／預編譯著色器');
@@ -151,6 +153,7 @@ export class Game {
     for (const n of this.nades) this.renderer.scene.remove(n.mesh);
     this.nades = []; this.timers = [];
     this.clearRockets();
+    this.killReplay?.reset();
     this.nav.clearRequests?.();
     this.wreckQueue=[];
     this.score = { BL: 0, GR: 0 };
@@ -360,6 +363,7 @@ export class Game {
     for (const a of this.actors) if (!a.isPlayer) a.update(dt);
     if(vis>0){this.nav.updatePaths?.();this.processWreckQueue();}
     for (const a of this.actors) this.updateBody(a, dt, vis);
+    if(vis>0)this.killReplay?.record();
     this.updateNades(dt);
     this.updateRockets(dt);
     if (this.timeLeft <= 0 && !this.ended) this.endMatch();
@@ -408,7 +412,11 @@ export class Game {
     audio.update(dt);
     if (p && (this.playing || this.ended)) this.updateHUD(dt);
     this.updateScreenFx(dt);
-    R.render();
+    if(this.killReplay?.update(dt)){
+      this.vm.setVisible(false);
+      const u=R.fx.uniforms;u.uDeath.value=0;u.uDamage.value=0;u.uVignette.value=.3;
+      R.render(this.killReplay.scene,this.killReplay.camera);
+    }else R.render();
   }
 
   updateViewModel(dt, p) {

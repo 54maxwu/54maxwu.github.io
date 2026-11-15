@@ -465,6 +465,7 @@ export const combat = {
     if (att === p && v !== p) this.celebrate(att, v, cause, headshot, wallbang);
     if (v === p) {
       p.startDeathCam(att);
+      this.killReplay?.start(v,att,cause,headshot,wallbang);
       this.vm.setVisible(false);
       audio.setLowHealth(false);
       const weapon = WEAPONS[cause]?.name || cause;

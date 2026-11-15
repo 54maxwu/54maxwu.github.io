@@ -180,14 +180,14 @@ export class Renderer {
     for (const cam of [this.camera, this.vmCamera]) { cam.aspect = w / h; cam.updateProjectionMatrix(); }
   }
 
-  render() {
+  render(scene=this.scene,camera=this.camera) {
     const r = this.renderer;
     const autoClear = r.autoClear;
 
     // 1. 世界
     r.setRenderTarget(this.target);
     r.autoClear = true;
-    r.render(this.scene, this.camera);
+    r.render(scene, camera);
 
     // 2. 手與槍：保留世界的顏色，只清深度，所以永遠畫在最前面
     r.autoClear = false;
