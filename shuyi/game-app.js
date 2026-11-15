@@ -14645,6 +14645,69 @@
       return new _CapsuleGeometry(data.radius, data.height, data.capSegments, data.radialSegments, data.heightSegments);
     }
   };
+  var CircleGeometry = class _CircleGeometry extends BufferGeometry {
+    /**
+     * Constructs a new circle geometry.
+     *
+     * @param {number} [radius=1] - Radius of the circle.
+     * @param {number} [segments=32] - Number of segments (triangles), minimum = `3`.
+     * @param {number} [thetaStart=0] - Start angle for first segment in radians.
+     * @param {number} [thetaLength=Math.PI*2] - The central angle, often called theta,
+     * of the circular sector in radians. The default value results in a complete circle.
+     */
+    constructor(radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "CircleGeometry";
+      this.parameters = {
+        radius,
+        segments,
+        thetaStart,
+        thetaLength
+      };
+      segments = Math.max(3, segments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      vertices.push(0, 0, 0);
+      normals.push(0, 0, 1);
+      uvs.push(0.5, 0.5);
+      for (let s = 0, i = 3; s <= segments; s++, i += 3) {
+        const segment = thetaStart + s / segments * thetaLength;
+        vertex2.x = radius * Math.cos(segment);
+        vertex2.y = radius * Math.sin(segment);
+        vertices.push(vertex2.x, vertex2.y, vertex2.z);
+        normals.push(0, 0, 1);
+        uv.x = (vertices[i] / radius + 1) / 2;
+        uv.y = (vertices[i + 1] / radius + 1) / 2;
+        uvs.push(uv.x, uv.y);
+      }
+      for (let i = 1; i <= segments; i++) {
+        indices.push(i, i + 1, 0);
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {CircleGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
+    }
+  };
   var CylinderGeometry = class _CylinderGeometry extends BufferGeometry {
     /**
      * Constructs a new cylinder geometry.
@@ -17704,6 +17767,84 @@
       return new _PlaneGeometry(data.width, data.height, data.widthSegments, data.heightSegments);
     }
   };
+  var RingGeometry = class _RingGeometry extends BufferGeometry {
+    /**
+     * Constructs a new ring geometry.
+     *
+     * @param {number} [innerRadius=0.5] - The inner radius of the ring.
+     * @param {number} [outerRadius=1] - The outer radius of the ring.
+     * @param {number} [thetaSegments=32] - Number of segments. A higher number means the ring will be more round. Minimum is `3`.
+     * @param {number} [phiSegments=1] - Number of segments per ring segment. Minimum is `1`.
+     * @param {number} [thetaStart=0] - Starting angle in radians.
+     * @param {number} [thetaLength=Math.PI*2] - Central angle in radians.
+     */
+    constructor(innerRadius = 0.5, outerRadius = 1, thetaSegments = 32, phiSegments = 1, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "RingGeometry";
+      this.parameters = {
+        innerRadius,
+        outerRadius,
+        thetaSegments,
+        phiSegments,
+        thetaStart,
+        thetaLength
+      };
+      thetaSegments = Math.max(3, thetaSegments);
+      phiSegments = Math.max(1, phiSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let radius = innerRadius;
+      const radiusStep = (outerRadius - innerRadius) / phiSegments;
+      const vertex2 = new Vector3();
+      const uv = new Vector2();
+      for (let j = 0; j <= phiSegments; j++) {
+        for (let i = 0; i <= thetaSegments; i++) {
+          const segment = thetaStart + i / thetaSegments * thetaLength;
+          vertex2.x = radius * Math.cos(segment);
+          vertex2.y = radius * Math.sin(segment);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          normals.push(0, 0, 1);
+          uv.x = (vertex2.x / outerRadius + 1) / 2;
+          uv.y = (vertex2.y / outerRadius + 1) / 2;
+          uvs.push(uv.x, uv.y);
+        }
+        radius += radiusStep;
+      }
+      for (let j = 0; j < phiSegments; j++) {
+        const thetaSegmentLevel = j * (thetaSegments + 1);
+        for (let i = 0; i < thetaSegments; i++) {
+          const segment = i + thetaSegmentLevel;
+          const a = segment;
+          const b = segment + thetaSegments + 1;
+          const c = segment + thetaSegments + 2;
+          const d = segment + 1;
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {RingGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _RingGeometry(data.innerRadius, data.outerRadius, data.thetaSegments, data.phiSegments, data.thetaStart, data.thetaLength);
+    }
+  };
   var ShapeGeometry = class _ShapeGeometry extends BufferGeometry {
     /**
      * Constructs a new shape geometry.
@@ -17982,6 +18123,119 @@
      */
     static fromJSON(data) {
       return new _TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc, data.thetaStart, data.thetaLength);
+    }
+  };
+  var TubeGeometry = class _TubeGeometry extends BufferGeometry {
+    /**
+     * Constructs a new tube geometry.
+     *
+     * @param {Curve} [path=QuadraticBezierCurve3] - A 3D curve defining the path of the tube.
+     * @param {number} [tubularSegments=64] - The number of segments that make up the tube.
+     * @param {number} [radius=1] -The radius of the tube.
+     * @param {number} [radialSegments=8] - The number of segments that make up the cross-section.
+     * @param {boolean} [closed=false] - Whether the tube is closed or not.
+     */
+    constructor(path2 = new QuadraticBezierCurve3(new Vector3(-1, -1, 0), new Vector3(-1, 1, 0), new Vector3(1, 1, 0)), tubularSegments = 64, radius = 1, radialSegments = 8, closed = false) {
+      super();
+      this.type = "TubeGeometry";
+      this.parameters = {
+        path: path2,
+        tubularSegments,
+        radius,
+        radialSegments,
+        closed
+      };
+      const frames = path2.computeFrenetFrames(tubularSegments, closed);
+      this.tangents = frames.tangents;
+      this.normals = frames.normals;
+      this.binormals = frames.binormals;
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      const uv = new Vector2();
+      let P = new Vector3();
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const indices = [];
+      generateBufferData();
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function generateBufferData() {
+        for (let i = 0; i < tubularSegments; i++) {
+          generateSegment(i);
+        }
+        generateSegment(closed === false ? tubularSegments : 0);
+        generateUVs();
+        generateIndices();
+      }
+      function generateSegment(i) {
+        P = path2.getPointAt(i / tubularSegments, P);
+        const N = frames.normals[i];
+        const B = frames.binormals[i];
+        for (let j = 0; j <= radialSegments; j++) {
+          const v = j / radialSegments * Math.PI * 2;
+          const sin = Math.sin(v);
+          const cos = -Math.cos(v);
+          normal.x = cos * N.x + sin * B.x;
+          normal.y = cos * N.y + sin * B.y;
+          normal.z = cos * N.z + sin * B.z;
+          normal.normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          vertex2.x = P.x + radius * normal.x;
+          vertex2.y = P.y + radius * normal.y;
+          vertex2.z = P.z + radius * normal.z;
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+        }
+      }
+      function generateIndices() {
+        for (let j = 1; j <= tubularSegments; j++) {
+          for (let i = 1; i <= radialSegments; i++) {
+            const a = (radialSegments + 1) * (j - 1) + (i - 1);
+            const b = (radialSegments + 1) * j + (i - 1);
+            const c = (radialSegments + 1) * j + i;
+            const d = (radialSegments + 1) * (j - 1) + i;
+            indices.push(a, b, d);
+            indices.push(b, c, d);
+          }
+        }
+      }
+      function generateUVs() {
+        for (let i = 0; i <= tubularSegments; i++) {
+          for (let j = 0; j <= radialSegments; j++) {
+            uv.x = i / tubularSegments;
+            uv.y = j / radialSegments;
+            uvs.push(uv.x, uv.y);
+          }
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.path = this.parameters.path.toJSON();
+      return data;
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {TubeGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _TubeGeometry(
+        new Curves[data.path.type]().fromJSON(data.path),
+        data.tubularSegments,
+        data.radius,
+        data.radialSegments,
+        data.closed
+      );
     }
   };
   function cloneUniforms(src) {
@@ -33841,6 +34095,63 @@ void main() {
     return result;
   }
 
+  // campus-garden.js
+  function gardenDetails(B, lawn) {
+    const edge = lawn.getSpacedPoints(150);
+    for (let i = 1; i < edge.length; i++) {
+      const a = edge[i - 1], b = edge[i], d = a.distanceTo(b);
+      const stone = new BoxGeometry(d + 0.025, 0.12, 0.16);
+      stone.rotateY(Math.atan2(b.y - a.y, b.x - a.x));
+      stone.translate((a.x + b.x) / 2, 0.09, -(a.y + b.y) / 2);
+      B.geo("stone", stone);
+    }
+    for (const [x, n] of [[-14, -14.5], [4, -14.2], [-12, -37.4], [6, -37.5], [15, -26]]) {
+      const soil = new CylinderGeometry(1.42, 1.42, 0.035, 24);
+      soil.translate(x, 0.605, -n);
+      B.geo("soil", soil);
+      const rim = new TorusGeometry(1.51, 0.09, 5, 32);
+      rim.rotateX(Math.PI / 2);
+      rim.translate(x, 0.58, -n);
+      B.geo("stone", rim);
+      for (let i = 0; i < 14; i++) {
+        const a = i * 2.39996, r = 0.35 + 0.85 * Math.sqrt(i / 14);
+        const g = new IcosahedronGeometry(0.25 + i % 3 * 0.045, 1);
+        g.scale(1, 0.65, 1);
+        g.translate(x + Math.cos(a) * r, 0.84 + i % 3 * 0.06, -n + Math.sin(a) * r);
+        B.geo(i % 3 ? "leaf" : "leafLight", g);
+        if (i % 4 === 0) {
+          const flower = new IcosahedronGeometry(0.085, 1);
+          flower.translate(x + Math.cos(a) * r, 1.03 + i % 3 * 0.06, -n + Math.sin(a) * r);
+          B.geo("flower", flower);
+        }
+      }
+    }
+    for (const [x, n, facing] of [[-7, -13.3, 1], [-5, -38.3, -1]]) {
+      const start = B.parts.length;
+      for (const dx of [-1.05, 1.05]) B.box("granite", x + dx - 0.12, x + dx + 0.12, 0.04, 0.48, n - 0.26, n + 0.26);
+      for (let i = 0; i < 4; i++) B.box("wood", x - 1.45, x + 1.45, 0.48, 0.56, n - 0.28 + i * 0.15, n - 0.16 + i * 0.15);
+      const back = n - facing * 0.26;
+      for (const dx of [-1.05, 1.05]) B.box("metal", x + dx - 0.035, x + dx + 0.035, 0.5, 1.12, back - 0.035, back + 0.035);
+      for (let i = 0; i < 3; i++) B.box("wood", x - 1.45, x + 1.45, 0.72 + i * 0.15, 0.83 + i * 0.15, back - 0.055, back + 0.055);
+      const parts = B.parts.slice(start);
+      for (const p of parts) p.links = parts.filter((q) => q !== p);
+    }
+    for (const n of [-22.2, -17.3]) B.box("stone", 5.55, 12.45, 0.45, 0.52, n - 0.23, n + 0.23, false);
+    for (const x of [5.8, 12.2]) B.box("stone", x - 0.23, x + 0.23, 0.45, 0.52, -22, -17.5, false);
+    for (const [x, n, r] of [[7, -18.5, 0.36], [7.7, -18.8, 0.29], [10.8, -21, 0.42], [11.3, -20.3, 0.26]]) {
+      const pad = new CircleGeometry(r, 18, 0.15, Math.PI * 1.87);
+      pad.rotateX(-Math.PI / 2);
+      pad.translate(x, 0.315, -n);
+      B.geo("leafLight", pad);
+    }
+    for (const r of [0.78, 1.05, 1.35]) {
+      const ripple = new RingGeometry(r, r + 0.018, 40);
+      ripple.rotateX(-Math.PI / 2);
+      ripple.translate(9, 0.312, 19.75);
+      B.geo("waterRipple", ripple);
+    }
+  }
+
   // campus-real.js
   var FB = [0, 4, 7.6, 11.2, 14.8];
   var FH = [4, 3.6, 3.6, 3.6, 3.6];
@@ -33956,7 +34267,10 @@ void main() {
     })
   };
   function makeMaterials() {
-    const std = (tex, rough = 0.85, o = {}) => new MeshStandardMaterial({ map: tex ? TEX[tex]() : null, roughness: rough, metalness: 0, ...o });
+    const std = (tex, rough = 0.85, o = {}) => {
+      const map = tex ? TEX[tex]() : null;
+      return new MeshStandardMaterial({ map, roughness: rough, metalness: 0, ...tex === "brick" ? { bumpMap: map, bumpScale: 0.025 } : {}, ...o });
+    };
     return {
       brick: { m: std("brick", 0.9), s: 1, col: "concrete" },
       stone: { m: std("stone", 0.8), s: 1.5, col: "concrete" },
@@ -33975,6 +34289,10 @@ void main() {
       leaf: { m: std("leaf", 1, { side: DoubleSide }), s: 2, col: null },
       bark: { m: std("bark", 1), s: 1, col: "wood" },
       pebble: { m: std("pebble", 1), s: 1.5, col: "concrete" },
+      soil: { m: std(null, 1, { color: "#493e2b" }), s: 1, col: null },
+      leafLight: { m: std("leaf", 0.95, { color: "#b7cb88", side: DoubleSide }), s: 2, col: null },
+      flower: { m: std(null, 0.9, { color: "#e7c285" }), s: 1, col: null },
+      waterRipple: { m: std(null, 0.3, { color: "#91bdba", transparent: true, opacity: 0.32, depthWrite: false, side: DoubleSide }), s: 1, col: null },
       green: { m: std(null, 0.5, { color: "#2f6b4f" }), s: 1, col: "metal" },
       white: { m: std(null, 0.8, { color: "#eeeae2" }), s: 1, col: "concrete" },
       beige: { m: std("plaster", 0.9, { color: "#e9d9b6" }), s: 2, col: "concrete" },
@@ -34769,7 +35087,13 @@ void main() {
       const P = [...new Set(piers.map((p) => +p.toFixed(3)))].sort((a, b) => a - b);
       for (let i = 0; i < P.length; i++) {
         const p = P[i];
-        if (isOpen(p)) lb("brick", p - 0.28, p + 0.28, yb, ceil, 0, 0.5);
+        if (isOpen(p)) {
+          lb("brick", p - 0.28, p + 0.28, yb, ceil, 0, 0.5);
+          if (f === 0) {
+            lb("granite", p - 0.32, p + 0.32, 0.05, 0.28, -0.04, 0.54, false);
+            lb("stone", p - 0.34, p + 0.34, 2.4, 2.53, -0.06, 0.56, false);
+          }
+        }
         if (i === P.length - 1) break;
         const a = P[i] + 0.28, b = P[i + 1] - 0.28;
         if (b <= a) continue;
@@ -34846,6 +35170,8 @@ void main() {
         lb("green", c[0], c[1], yb + c[2] - 0.05, yb + c[2], w0 - 0.02, w1 + 0.02, false);
         lb("green", c[0], c[1], yb + c[3], yb + c[3] + 0.05, w0 - 0.02, w1 + 0.02, false);
         lb("green", (c[0] + c[1]) / 2 - 0.03, (c[0] + c[1]) / 2 + 0.03, yb + c[2], yb + c[3], (w0 + w1) / 2 - 0.05, (w0 + w1) / 2 + 0.05, false);
+        for (const u of [c[0], c[1]]) lb("green", u - 0.035, u + 0.035, yb + c[2], yb + c[3], w0 - 0.025, w1 + 0.025, false);
+        lb("stone", c[0] - 0.09, c[1] + 0.09, yb + c[2] - 0.12, yb + c[2] - 0.055, w0 - 0.13, w1 + 0.13, false);
       }
     }
   }
@@ -34939,12 +35265,26 @@ void main() {
     trunk.translate(x, h * 0.275, z);
     Bp.geo("bark", trunk);
     if (kind === "palm") {
-      for (let i = 0; i < 7; i++) {
-        const leaf = new ConeGeometry(0.35, 2.6, 4);
-        leaf.rotateZ(Math.PI / 2.4);
-        leaf.rotateY(i / 7 * Math.PI * 2);
-        leaf.translate(x, h * 0.55 + 0.3, z);
-        Bp.geo("leaf", leaf);
+      const crown = h * 0.78;
+      const stem = new CylinderGeometry(0.14, 0.19, crown - h * 0.5, 8);
+      stem.translate(x, (crown + h * 0.5) / 2, z);
+      Bp.geo("bark", stem);
+      for (let i = 0; i < 10; i++) {
+        const a = i * Math.PI * 2 / 10, ca = Math.cos(a), sa = Math.sin(a), length = 2.1 + i % 3 * 0.22;
+        const points = [];
+        for (let j = 0; j <= 10; j++) {
+          const t = j / 10;
+          points.push(new Vector3(x + ca * length * t, crown + 0.65 * Math.sin(t * Math.PI) - 0.95 * t * t, z + sa * length * t));
+        }
+        Bp.geo("leafLight", new TubeGeometry(new CatmullRomCurve3(points), 10, 0.025, 3, false));
+        for (let j = 1; j < 10; j++) for (const side of [-1, 1]) {
+          const t = j / 10, p = points[j], width = 0.52 * Math.sin(Math.PI * t) ** 0.65;
+          const tip = p.clone().add(new Vector3(-sa * width * side + ca * 0.22, -0.16, ca * width * side + sa * 0.22));
+          const g = new BufferGeometry();
+          g.setAttribute("position", new Float32BufferAttribute([p.x - ca * 0.1, p.y, p.z - sa * 0.1, tip.x, tip.y, tip.z, p.x + ca * 0.14, p.y, p.z + sa * 0.14], 3));
+          g.computeVertexNormals();
+          Bp.geo(i % 3 ? "leaf" : "leafLight", g);
+        }
       }
       return;
     }
@@ -35225,6 +35565,7 @@ void main() {
       const uv = lg.attributes.uv;
       for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3);
       B.geo("lawn", lg);
+      gardenDetails(B, lawn);
       for (let i = 0; i <= 40; i++) {
         const t = i / 40, x = -20 + t * 33, n = -25.5 + 5 * Math.sin(t * Math.PI * 2.1);
         B.box("stone", x - 0.35, x + 0.35, 0.06, 0.1, n - 0.55, n + 0.55, false);
@@ -35830,7 +36171,18 @@ void main() {
       this.renderer.toneMappingExposure = this.real ? 1.05 : 1;
       this.scene.background.set(dusk ? "#cbb9ac" : "#b9d4df");
       this.scene.fog.color.copy(this.scene.background);
-      this.lights.sun.color.set(dusk ? "#ffd5ab" : "#ffeed6");
+      const { sun, hemi } = this.lights;
+      sun.color.set(dusk ? "#ffd5ab" : "#fff0dc");
+      if (this.real) {
+        hemi.color.set(dusk ? "#c8c7e4" : "#d8ecff");
+        hemi.groundColor.set("#82715d");
+        hemi.intensity = dusk ? 0.85 : 1.05;
+        sun.intensity = dusk ? 1.9 : 2.55;
+        sun.position.set(-70, dusk ? 55 : 100, 55);
+        sun.shadow.radius = 2;
+        this.scene.environmentIntensity = dusk ? 0.28 : 0.32;
+        this.sunDir.copy(sun.position).normalize();
+      }
     }
     update() {
     }

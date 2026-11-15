@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {CampusNav} from './campus-physics.js';
 import {buildLabels} from './campus-labels.js';
+import {gardenDetails} from './campus-garden.js';
 
 const FB=[0,4,7.6,11.2,14.8],FH=[4,3.6,3.6,3.6,3.6],ROOF=18.4,SLAB=0.25;   // floor bases / heights
 const SITE={x0:-70,x1:71,n0:-70,n1:77};
@@ -39,7 +40,7 @@ const TEX={
   pebble:()=>canvasTex(256,256,(g)=>{g.fillStyle='#8c8577';g.fillRect(0,0,256,256);for(let i=0;i<500;i++){const k=rnd();g.fillStyle=`rgb(${150+k*80|0},${145+k*75|0},${135+k*70|0})`;g.beginPath();g.ellipse(rnd()*256,rnd()*256,4+rnd()*5,3+rnd()*4,rnd()*3,0,7);g.fill()}}),
 };
 function makeMaterials(){
-  const std=(tex,rough=.85,o={})=>new THREE.MeshStandardMaterial({map:tex?TEX[tex]():null,roughness:rough,metalness:0,...o});
+  const std=(tex,rough=.85,o={})=>{const map=tex?TEX[tex]():null;return new THREE.MeshStandardMaterial({map,roughness:rough,metalness:0,...(tex==='brick'?{bumpMap:map,bumpScale:.025}:{}),...o})};
   return {
     brick:{m:std('brick',.9),s:1,col:'concrete'}, stone:{m:std('stone',.8),s:1.5,col:'concrete'}, granite:{m:std('granite',.7),s:1.5,col:'concrete'},
     terrazzo:{m:std('terrazzo',.55),s:2,col:'concrete'}, quarry:{m:std('quarry',.75),s:1.2,col:'concrete'}, plaster:{m:std('plaster',.95),s:2,col:'concrete'},
@@ -47,6 +48,10 @@ function makeMaterials(){
     lawn:{m:std('lawn',1),s:3,col:'concrete'}, asphalt:{m:std('asphalt',.95),s:5,col:'concrete'}, pave:{m:std('pave',.85),s:2,col:'concrete'},
     wood:{m:std('wood',.7),s:1.5,col:'wood'}, board:{m:std('board',.6),s:2,col:'wood'}, leaf:{m:std('leaf',1,{side:THREE.DoubleSide}),s:2,col:null},
     bark:{m:std('bark',1),s:1,col:'wood'}, pebble:{m:std('pebble',1),s:1.5,col:'concrete'},
+    soil:{m:std(null,1,{color:'#493e2b'}),s:1,col:null},
+    leafLight:{m:std('leaf',.95,{color:'#b7cb88',side:THREE.DoubleSide}),s:2,col:null},
+    flower:{m:std(null,.9,{color:'#e7c285'}),s:1,col:null},
+    waterRipple:{m:std(null,.3,{color:'#91bdba',transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide}),s:1,col:null},
     green:{m:std(null,.5,{color:'#2f6b4f'}),s:1,col:'metal'}, white:{m:std(null,.8,{color:'#eeeae2'}),s:1,col:'concrete'},
     beige:{m:std('plaster',.9,{color:'#e9d9b6'}),s:2,col:'concrete'}, metal:{m:std(null,.4,{color:'#8a9095',metalness:.6}),s:1,col:'metal'},
     glass:{m:new THREE.MeshStandardMaterial({color:'#8fb6bd',roughness:.08,metalness:.2,transparent:true,opacity:.38,depthWrite:false}),s:1,col:'glass'},
@@ -325,7 +330,13 @@ function bar(B,o){
     for(let i=0;i<cuts.length-1;i++){const a=cuts[i],b=cuts[i+1],n=Math.max(1,Math.round((b-a)/3.6));for(let k=0;k<=n;k++)piers.push(a+(b-a)*k/n)}
     const P=[...new Set(piers.map(p=>+p.toFixed(3)))].sort((a,b)=>a-b);
     for(let i=0;i<P.length;i++){
-      const p=P[i];if(isOpen(p))lb('brick',p-.28,p+.28,yb,ceil,0,.5);
+      const p=P[i];if(isOpen(p)){
+        lb('brick',p-.28,p+.28,yb,ceil,0,.5);
+        if(f===0){
+          lb('granite',p-.32,p+.32,.05,.28,-.04,.54,false);
+          lb('stone',p-.34,p+.34,2.4,2.53,-.06,.56,false);
+        }
+      }
       if(i===P.length-1)break;const a=P[i]+.28,b=P[i+1]-.28;if(b<=a)continue;
       if(!isOpen((a+b)/2)){const j=(o.junction||[]).find(([j0,j1])=>a<j1&&b>j0);wallU(lb,'brick',a-.28,b+.28,yb,ceil,0,.3,j?[[Math.max(a,j[0]),Math.min(b,j[1]),0,2.6]]:[],false);continue}
       if(f===0){const top=ceil,spring=2.5,rise=Math.min(.9,(b-a)/2);lb('brick',a,b,spring+rise,top,0,.5);
@@ -352,7 +363,10 @@ function wallU(lb,k,u0,u1,yb,yt,w0,w1,cuts,glass){
   const xs=[u0,u1];for(const c of cuts){xs.push(Math.max(u0,c[0]),Math.min(u1,c[1]))}const X=[...new Set(xs)].sort((a,b)=>a-b);
   for(let i=0;i<X.length-1;i++){const a=X[i],b=X[i+1];if(b-a<1e-3)continue;const holes=cuts.filter(c=>c[0]<=a+1e-6&&c[1]>=b-1e-6).map(c=>[yb+c[2],yb+c[3]]).sort((p,q)=>p[0]-q[0]);
     let y=yb;for(const [h0,h1] of holes){if(h0>y)lb(k,a,b,y,h0,w0,w1);y=Math.max(y,h1)}if(yt>y)lb(k,a,b,y,yt,w0,w1)}
-  if(glass)for(const c of cuts)if(c[2]>0.5){lb('glass',c[0],c[1],yb+c[2],yb+c[3],(w0+w1)/2-.02,(w0+w1)/2+.02);lb('green',c[0],c[1],yb+c[2]-.05,yb+c[2],w0-.02,w1+.02,false);lb('green',c[0],c[1],yb+c[3],yb+c[3]+.05,w0-.02,w1+.02,false);lb('green',(c[0]+c[1])/2-.03,(c[0]+c[1])/2+.03,yb+c[2],yb+c[3],(w0+w1)/2-.05,(w0+w1)/2+.05,false)}
+  if(glass)for(const c of cuts)if(c[2]>0.5){lb('glass',c[0],c[1],yb+c[2],yb+c[3],(w0+w1)/2-.02,(w0+w1)/2+.02);lb('green',c[0],c[1],yb+c[2]-.05,yb+c[2],w0-.02,w1+.02,false);lb('green',c[0],c[1],yb+c[3],yb+c[3]+.05,w0-.02,w1+.02,false);lb('green',(c[0]+c[1])/2-.03,(c[0]+c[1])/2+.03,yb+c[2],yb+c[3],(w0+w1)/2-.05,(w0+w1)/2+.05,false);
+    for(const u of [c[0],c[1]])lb('green',u-.035,u+.035,yb+c[2],yb+c[3],w0-.025,w1+.025,false);
+    lb('stone',c[0]-.09,c[1]+.09,yb+c[2]-.12,yb+c[2]-.055,w0-.13,w1+.13,false);
+  }
 }
 function wallW(lb,k,u0,u1,yb,yt,w0,w1,cuts,glass){ // wall at constant u range, cuts along w
   const ws=[w0,w1];for(const c of cuts)ws.push(Math.max(w0,c[0]),Math.min(w1,c[1]));const X=[...new Set(ws)].sort((a,b)=>a-b);
@@ -390,7 +404,23 @@ function tree(B,x,n,{h=7,r=3,kind='round'}={}){
   const z=-n,c=B.collide(x-.25,x+.25,0,h*.5,n-.25,n+.25,'wood'),part={ranges:[],c,hp:320,max:320,kind:'tree',box:{x0:x-r*.6,x1:x+r*.6,y0:0,y1:h,n0:n-r*.6,n1:n+r*.6},cb:c.bullet,cs:c.sight};c.part=part;B.parts.push(part);
   const geo=B.geo.bind(B),Bp={geo:(k,g)=>geo(k,g,part)};
   const trunk=new THREE.CylinderGeometry(.18*h/7,.28*h/7,h*.55,7);trunk.translate(x,h*.275,z);Bp.geo('bark',trunk);
-  if(kind==='palm'){for(let i=0;i<7;i++){const leaf=new THREE.ConeGeometry(.35,2.6,4);leaf.rotateZ(Math.PI/2.4);leaf.rotateY(i/7*Math.PI*2);leaf.translate(x,h*.55+.3,z);Bp.geo('leaf',leaf)}return}
+  if(kind==='palm'){
+    // 羽狀葉沿弧線伸展，再向下垂；取代原本像尖刺的七個圓錐。
+    const crown=h*.78;
+    const stem=new THREE.CylinderGeometry(.14,.19,crown-h*.5,8);stem.translate(x,(crown+h*.5)/2,z);Bp.geo('bark',stem);
+    for(let i=0;i<10;i++){
+      const a=i*Math.PI*2/10,ca=Math.cos(a),sa=Math.sin(a),length=2.1+(i%3)*.22;
+      const points=[];
+      for(let j=0;j<=10;j++){const t=j/10;points.push(new THREE.Vector3(x+ca*length*t,crown+.65*Math.sin(t*Math.PI)-.95*t*t,z+sa*length*t))}
+      Bp.geo('leafLight',new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),10,.025,3,false));
+      for(let j=1;j<10;j++)for(const side of [-1,1]){
+        const t=j/10,p=points[j],width=.52*Math.sin(Math.PI*t)**.65;
+        const tip=p.clone().add(new THREE.Vector3(-sa*width*side+ca*.22,-.16,ca*width*side+sa*.22));
+        const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute([p.x-ca*.1,p.y,p.z-sa*.1,tip.x,tip.y,tip.z,p.x+ca*.14,p.y,p.z+sa*.14],3));g.computeVertexNormals();Bp.geo(i%3?'leaf':'leafLight',g);
+      }
+    }
+    return;
+  }
   if(kind==='cone'){const cg=new THREE.ConeGeometry(r*.6,h*.75,9);cg.translate(x,h*.6,z);Bp.geo('leaf',cg);return}
   for(let i=0;i<5;i++){const s=new THREE.IcosahedronGeometry(r*(.55+rnd()*.25),1);s.translate(x+(rnd()-.5)*r*.9,h*.62+(rnd()-.3)*r*.6,z+(rnd()-.5)*r*.9);Bp.geo('leaf',s)}
 }
@@ -492,6 +522,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
     const lg=new THREE.ShapeGeometry(lawn,24);lg.rotateX(-Math.PI/2);lg.translate(0,.06,0);const uv=lg.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/3,uv.getY(i)/3);
     // ShapeGeometry is in (x, y=n) -> after rotateX(-90°) y becomes -z = n. Good.
     B.geo('lawn',lg);
+    gardenDetails(B,lawn);
     for(let i=0;i<=40;i++){const t=i/40,x=-20+t*33,n=-25.5+5*Math.sin(t*Math.PI*2.1);B.box('stone',x-.35,x+.35,.06,.1,n-.55,n+.55,false)}
     // round planters + palms 時間廊 + pond 荷塘 with stone-mill spring + 霞雲庭 stone
     for(const [x,n] of [[-14,-14.5],[4,-14.2],[-12,-37.4],[6,-37.5],[15,-26]]){const c=new THREE.CylinderGeometry(1.6,1.6,.55,20);c.translate(x,.28,-n);B.geo('stone',c);B.collide(x-1.4,x+1.4,0,.55,n-1.4,n+1.4);const s=new THREE.CylinderGeometry(1.45,1.45,.06,20);s.translate(x,.56,-n);B.geo('lawn',s);for(let k=0;k<3;k++){const b=new THREE.IcosahedronGeometry(.55,1);b.translate(x+(k-1)*.7,.9,-n+(k%2)*.4);B.geo('leaf',b)}}

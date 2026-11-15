@@ -7,5 +7,5 @@ const out=path.join(__dirname,'..');
   html=html.replace('/*__CSS__*/',()=>fs.readFileSync(path.join(__dirname,'game-src/style.css'),'utf8')).replace('/*__JS__*/','');
   const v=crypto.createHash('sha256').update(fs.readFileSync(path.join(out,'game-app.js'))).digest('hex').slice(0,12);
   html=html.replace('</body>','<script src="game-app.js?v='+v+'"></script></body>');
-  fs.writeFileSync(path.join(out,'index.html'),html);console.log('built ../index.html, ../game-app.js?v='+v);
+  fs.writeFileSync(path.join(out,'index.html'),html.replace(/\r\n/g,'\n'));console.log('built ../index.html, ../game-app.js?v='+v);
 })().catch(e=>{console.error(e);process.exit(1)});
