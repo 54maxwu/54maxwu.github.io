@@ -345,6 +345,21 @@ const BUILD = {
     return g;
   },
 
+  rpg(m) {
+    const g = new THREE.Group();
+    add(g, tube(0.055, 0.95), m.olive, [0, 0.075, -0.1]);
+    add(g, tube(0.073, 0.16, 'z', 16, 0.055), m.metal, [0, 0.075, 0.43]);
+    add(g, tube(0.058, 0.04), m.black, [0, 0.075, -0.59]);
+    add(g, tube(0.052, 0.2, 'z', 16, 0.001), m.olive, [0, 0.075, -0.7], [0, Math.PI, 0], 'mag');
+    add(g, box(0.045, 0.15, 0.065, 0.008), m.rubber, [0, -0.035, 0]);
+    add(g, box(0.04, 0.12, 0.05, 0.006), m.wood, [0, -0.015, -0.3]);
+    add(g, box(0.025, 0.13, 0.035, 0.003), m.metal, [0, 0.18, -0.35]);
+    add(g, box(0.07, 0.025, 0.025, 0.003), m.black, [0, 0.25, -0.35]);
+    marker(g, 'grip', 0, -0.035, 0);
+    marker(g, 'fore', 0, -0.02, -0.3);
+    marker(g, 'muzzle', 0, 0.075, -0.8);
+    return g;
+  },
   he(m) {
     const g = new THREE.Group();
     // 蛋形彈體：旋轉體

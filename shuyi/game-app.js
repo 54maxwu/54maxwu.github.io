@@ -37969,6 +37969,21 @@ void main() {
       marker(g, "muzzle", 0, 0, -0.24);
       return g;
     },
+    rpg(m) {
+      const g = new Group();
+      add(g, tube(0.055, 0.95), m.olive, [0, 0.075, -0.1]);
+      add(g, tube(0.073, 0.16, "z", 16, 0.055), m.metal, [0, 0.075, 0.43]);
+      add(g, tube(0.058, 0.04), m.black, [0, 0.075, -0.59]);
+      add(g, tube(0.052, 0.2, "z", 16, 1e-3), m.olive, [0, 0.075, -0.7], [0, Math.PI, 0], "mag");
+      add(g, box(0.045, 0.15, 0.065, 8e-3), m.rubber, [0, -0.035, 0]);
+      add(g, box(0.04, 0.12, 0.05, 6e-3), m.wood, [0, -0.015, -0.3]);
+      add(g, box(0.025, 0.13, 0.035, 3e-3), m.metal, [0, 0.18, -0.35]);
+      add(g, box(0.07, 0.025, 0.025, 3e-3), m.black, [0, 0.25, -0.35]);
+      marker(g, "grip", 0, -0.035, 0);
+      marker(g, "fore", 0, -0.02, -0.3);
+      marker(g, "muzzle", 0, 0.075, -0.8);
+      return g;
+    },
     he(m) {
       const g = new Group();
       const pts = [];
@@ -38027,6 +38042,7 @@ void main() {
 
   // game-src/viewmodel.js
   var HOLD = {
+    rpg: { p: [0.22, -0.23, -0.38], r: [0.025, 0.12, 0.02], kick: [0.07, 0.12], flash: 1.5 },
     ak47: { p: [0.165, -0.172, -0.55], r: [0.045, 0.165, 0.02], kick: [0.04, 0.07], flash: 1 },
     m4a1: { p: [0.16, -0.178, -0.54], r: [0.045, 0.165, 0.02], kick: [0.032, 0.05], flash: 1 },
     awm: { p: [0.17, -0.185, -0.6], r: [0.04, 0.15, 0.02], kick: [0.09, 0.2], flash: 1.6 },
@@ -38292,7 +38308,14 @@ void main() {
         return v;
       };
       if (a.type === "reload") {
-        if (P.mag && id !== "m870") {
+        if (id === "rpg" && P.mag) {
+          const m = P.mag, r = R.mag.p;
+          const seat = smooth2(span(f, 0.4, 0.78));
+          m.visible = f > 0.25;
+          m.position.set(r.x, r.y - (1 - seat) * 0.18, r.z - (1 - seat) * 0.45);
+          if (f > 0.25 && f < 0.85) hands.L = world(m, -0.04);
+        }
+        if (P.mag && id !== "m870" && id !== "rpg") {
           const m = P.mag, r = R.mag.p;
           if (f < 0.3) {
             const k = smooth2(span(f, 0.15, 0.3));
@@ -38624,6 +38647,28 @@ void main() {
       spread: { base: 36e-4, move: 0.05, air: 0.18, crouch: 0.7, perShot: 0.028, max: 0.07, recover: 5 },
       recoil: { pattern: path([[0, 1.75, 0.1], [1, 1.75, -0.35], [3, 1.6, 0.45]]), upMax: 0.09, recover: 5 }
     }),
+    rpg: gun({
+      id: "rpg",
+      name: "\u706B\u7BAD\u7B52",
+      hudName: "ROCKET LAUNCHER",
+      slot: 0,
+      type: "launcher",
+      sound: "rocket",
+      dmg: 190,
+      radius: 6.5,
+      armorPen: 0.9,
+      rpm: 35,
+      mag: 1,
+      reserve: 3,
+      reload: 3.6,
+      draw: 1,
+      speed: 0.8,
+      range: 160,
+      falloff: 0.99,
+      projectileSpeed: 40,
+      spread: { base: 2e-3, move: 0.018, air: 0.06, crouch: 0.7, perShot: 0, max: 0.02, recover: 4 },
+      recoil: { pattern: path([[0, 3, 0]]), upMax: 0.12, recover: 4 }
+    }),
     knife: {
       id: "knife",
       name: "\u8ECD\u5200",
@@ -38750,6 +38795,7 @@ void main() {
     <text x="60" y="76" text-anchor="middle" font-size="44" font-weight="900" fill="${color}" stroke="none" font-family="Microsoft JhengHei,PingFang TC,Noto Sans TC,sans-serif">${word}</text>
   </g></svg>`;
   var ROLE = {
+    rpg: "\u7BC4\u570D\u7206\u70B8 \xB7 \u55AE\u767C\u88DD\u586B\u3001\u8FD1\u8DDD\u96E2\u6703\u81EA\u50B7",
     ak47: "\u4E2D\u8DDD\u96E2 \xB7 \u50B7\u5BB3\u9AD8\u3001\u5F8C\u5EA7\u5927",
     m4a1: "\u4E2D\u8DDD\u96E2 \xB7 \u7A69\u5B9A\u597D\u58D3",
     awm: "\u9060\u8DDD\u96E2 \xB7 \u4E00\u69CD\u81F4\u547D\u3001\u9700\u958B\u93E1",
@@ -39407,6 +39453,11 @@ void main() {
       return source;
     }
     playShot(id, pos) {
+      if (id === "rocket") {
+        this.play("whiz", pos, { gain: 0.9, rate: 0.65 });
+        this.play("explosion", pos, { gain: 0.35, rate: 1.3, duration: 0.22 });
+        return;
+      }
       this.play(id, pos, { gain: 0.85, rate: 0.98 + Math.random() * 0.04 });
     }
     playReload(id, stage) {
@@ -41373,6 +41424,53 @@ void main() {
     return e;
   }
 
+  // game-src/rockets.js
+  var bodyGeometry2;
+  var bodyMaterial;
+  var flameGeometry;
+  var flameMaterial;
+  function rocketMesh() {
+    bodyGeometry2 || (bodyGeometry2 = new ConeGeometry(0.055, 0.42, 8).rotateX(-Math.PI / 2));
+    bodyMaterial || (bodyMaterial = new MeshStandardMaterial({ color: 6845504, metalness: 0.5, roughness: 0.5 }));
+    flameGeometry || (flameGeometry = new ConeGeometry(0.065, 0.3, 8).rotateX(Math.PI / 2).translate(0, 0, 0.3));
+    flameMaterial || (flameMaterial = new MeshBasicMaterial({ color: 16755768 }));
+    const mesh = new Mesh(bodyGeometry2, bodyMaterial);
+    mesh.add(new Mesh(flameGeometry, flameMaterial));
+    return mesh;
+  }
+  var rocketCombat = {
+    launchRocket(owner, eye, dir, def) {
+      const mesh = rocketMesh();
+      mesh.position.copy(eye);
+      mesh.quaternion.setFromUnitVectors(new Vector3(0, 0, -1), dir);
+      this.renderer.scene.add(mesh);
+      this.rockets.push({ mesh, owner, dir: dir.clone(), def, distance: 0 });
+    },
+    updateRockets(dt) {
+      this.rockets = this.rockets.filter((r) => {
+        const p = r.mesh.position, d = r.dir;
+        const length = Math.min(r.def.projectileSpeed * dt, r.def.range - r.distance);
+        const wall = this.world.raycast(p.x, p.y, p.z, d.x, d.y, d.z, length, "move");
+        const actor = this.firstActorHit(r.owner, p, d, 0, wall ? wall.t : length);
+        const hit = actor || wall;
+        const old = p.clone();
+        p.addScaledVector(d, hit ? Math.max(0, hit.t - 0.08) : length);
+        r.distance += length;
+        this.fx.tracer(old, p.clone());
+        if (hit) this.explode(p.clone(), r.owner, r.def.id);
+        if (hit || r.distance >= r.def.range) {
+          this.renderer.scene.remove(r.mesh);
+          return false;
+        }
+        return true;
+      });
+    },
+    clearRockets() {
+      for (const r of this.rockets) this.renderer.scene.remove(r.mesh);
+      this.rockets = [];
+    }
+  };
+
   // game-src/combat.js
   var STREAK = [null, null, ["DOUBLE KILL", "\u96D9\u6BBA"], ["TRIPLE KILL", "\u4E09\u6BBA"], ["MULTI KILL", "\u56DB\u6BBA"], ["ULTRA KILL", "\u4E94\u6BBA"], ["RAMPAGE", "\u516D\u6BBA\uFF01"], ["UNSTOPPABLE", "\u7121\u4EBA\u80FD\u64CB"], ["GODLIKE", "\u8D85\u795E"]];
   var EJECTS_CASINGS = /* @__PURE__ */ new Set(["rifle", "smg", "pistol", "sniper", "shotgun"]);
@@ -41382,6 +41480,7 @@ void main() {
   var _w2 = new Vector3();
   var _d2 = new Vector3();
   var combat = {
+    ...rocketCombat,
     // ───────── 開槍 ─────────
     fireWeapon(a, ws, spread2) {
       const d = ws.def;
@@ -41390,6 +41489,10 @@ void main() {
       const muzzle = a.isPlayer ? this.playerShotFx(a, d, dir) : this.botShotFx(a, d, dir);
       a.radarT = 1.6;
       this.alertBots(a.pos, a.team, 45, true);
+      if (d.type === "launcher") {
+        this.launchRocket(a, eye, dir, d);
+        return;
+      }
       const pellets = d.pellets || 1;
       let end = null;
       for (let i = 0; i < pellets; i++) {
@@ -41410,7 +41513,7 @@ void main() {
       this.vm.fire();
       this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === "sniper" ? 10 : 5, 0.06);
       audio.playShot(d.sound, null);
-      if (Math.random() < 0.5) audio.playShellDrop(null);
+      if (EJECTS_CASINGS.has(d.type) && Math.random() < 0.5) audio.playShellDrop(null);
       if (d.pump) {
         const t = this.time, same = () => a.alive && a.weapon.def === d;
         this.after(t + 0.2, () => same() && audio.playReload(d.id, "boltback"));
@@ -41641,8 +41744,8 @@ void main() {
         return false;
       });
     },
-    explode(p, owner) {
-      const he = WEAPONS.he;
+    explode(p, owner, weaponId = "he") {
+      const he = WEAPONS[weaponId];
       this.fx.explosion(p);
       const panes = this.map.breakGlassNear?.(p, 7) || [];
       for (const q of panes) this.fx.shatter(q, null, p);
@@ -41669,7 +41772,7 @@ void main() {
         }
         if (dist > he.radius) continue;
         const dmg = he.dmg * Math.pow(1 - dist / he.radius, 1.1) * (exposed ? 1 : 0.3);
-        if (dmg > 1) this.damage(a, owner, dmg, "chest", "he", dir, false);
+        if (dmg > 1) this.damage(a, owner, dmg, "chest", weaponId, dir, false);
       }
       this.alertBots(p, null, 40, true);
     },
@@ -41898,6 +42001,11 @@ void main() {
       const d = a.weapon.def, t = this.time, id = d.id, dur = d.reload;
       this.vm.reload(dur, empty);
       const at2 = (k, part) => this.after(t + dur * k, () => audio.playReload(id, part));
+      if (d.type === "launcher") {
+        at2(0.4, "shell");
+        at2(0.78, "magin");
+        return;
+      }
       if (d.pump) {
         for (let i = 0; i < 4; i++) at2(0.2 + i * 0.18, "shell");
         if (empty) {
@@ -41956,6 +42064,7 @@ void main() {
       this.inLoadout = false;
       this.actors = [];
       this.nades = [];
+      this.rockets = [];
       this.timers = [];
       this.tags = [];
       this.score = { BL: 0, GR: 0 };
@@ -42076,6 +42185,7 @@ void main() {
       for (const n of this.nades) this.renderer.scene.remove(n.mesh);
       this.nades = [];
       this.timers = [];
+      this.clearRockets();
       this.score = { BL: 0, GR: 0 };
       this.goal = o.goal;
       this.timeLeft = 600;
@@ -42320,6 +42430,7 @@ void main() {
       for (const a of this.actors) if (!a.isPlayer) a.update(dt);
       for (const a of this.actors) this.updateBody(a, dt, vis);
       this.updateNades(dt);
+      this.updateRockets(dt);
       if (this.timeLeft <= 0 && !this.ended) this.endMatch();
       const cam = this.renderer.camera;
       for (const t of this.tags) {

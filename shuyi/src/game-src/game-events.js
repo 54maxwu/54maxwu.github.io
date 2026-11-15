@@ -42,6 +42,7 @@ export const events = {
     const d = a.weapon.def, t = this.time, id = d.id, dur = d.reload;
     this.vm.reload(dur, empty);
     const at = (k, part) => this.after(t + dur * k, () => audio.playReload(id, part));
+    if (d.type === 'launcher') { at(0.4, 'shell'); at(0.78, 'magin'); return; }
     if (d.pump) {
       for (let i = 0; i < 4; i++) at(0.2 + i * 0.18, 'shell');
       if (empty) { at(0.87, 'boltback'); at(0.93, 'boltforward'); }

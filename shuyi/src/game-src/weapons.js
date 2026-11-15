@@ -106,6 +106,13 @@ export const WEAPONS = {
     spread: { base: 0.0036, move: 0.05, air: 0.18, crouch: 0.7, perShot: 0.028, max: 0.07, recover: 5 },
     recoil: { pattern: path([[0, 1.75, 0.1], [1, 1.75, -0.35], [3, 1.6, 0.45]]), upMax: 0.09, recover: 5 },
   }),
+  rpg: gun({
+    id: 'rpg', name: '火箭筒', hudName: 'ROCKET LAUNCHER', slot: 0, type: 'launcher', sound: 'rocket',
+    dmg: 190, radius: 6.5, armorPen: 0.9, rpm: 35, mag: 1, reserve: 3, reload: 3.6, draw: 1.0,
+    speed: 0.8, range: 160, falloff: 0.99, projectileSpeed: 40,
+    spread: { base: 0.002, move: 0.018, air: 0.06, crouch: 0.7, perShot: 0, max: 0.02, recover: 4 },
+    recoil: { pattern: path([[0, 3, 0]]), upMax: 0.12, recover: 4 },
+  }),
   knife: {
     id: 'knife', name: '軍刀', slot: 2, type: 'melee', auto: true, sound: 'knife', hudName: 'KNIFE',
     dmgLight: 50, dmgHeavy: 100, rangeLight: 1.9, rangeHeavy: 1.6, rateLight: 0.42, rateHeavy: 1.05,

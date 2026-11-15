@@ -37,7 +37,7 @@ export class Game {
   constructor() {
     this.time = 0; this.realTime = 0; this.frame = 0;
     this.playing = false; this.paused = false; this.ended = false; this.locked = false; this.inLoadout = false;
-    this.actors = []; this.nades = []; this.timers = []; this.tags = [];
+    this.actors = []; this.nades = []; this.rockets = []; this.timers = []; this.tags = [];
     this.score = { BL: 0, GR: 0 };
     this.audio = audio;
     this.qs = new URLSearchParams(location.search);
@@ -149,6 +149,7 @@ export class Game {
     this.clearActors();
     for (const n of this.nades) this.renderer.scene.remove(n.mesh);
     this.nades = []; this.timers = [];
+    this.clearRockets();
     this.score = { BL: 0, GR: 0 };
     this.goal = o.goal; this.timeLeft = 600;
     this.env.apply(o.tod);
@@ -355,6 +356,7 @@ export class Game {
     for (const a of this.actors) if (!a.isPlayer) a.update(dt);
     for (const a of this.actors) this.updateBody(a, dt, vis);
     this.updateNades(dt);
+    this.updateRockets(dt);
     if (this.timeLeft <= 0 && !this.ended) this.endMatch();
     const cam = this.renderer.camera;
     for (const t of this.tags) {

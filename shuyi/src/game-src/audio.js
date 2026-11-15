@@ -73,7 +73,7 @@ export class AudioSystem {
     this.active.push(source);source.onended=()=>{this.active=this.active.filter(s=>s!==source);nodes.forEach(n=>n.disconnect());};
     source.start(at,off,len);return source;
   }
-  playShot(id,pos){this.play(id,pos,{gain:0.85,rate:0.98+Math.random()*0.04});}
+  playShot(id,pos){if(id==='rocket'){this.play('whiz',pos,{gain:0.9,rate:0.65});this.play('explosion',pos,{gain:0.35,rate:1.3,duration:0.22});return;}this.play(id,pos,{gain:0.85,rate:0.98+Math.random()*0.04});}
   playReload(id,stage){this.play(({magout:'magout',magin:'magin',bolt:'bolt',boltback:'boltback',boltforward:'boltfwd',shell:'magin',pump:'pump'})[stage]||'bolt',null,{gain:0.5,duration:stage==='shell'?0.22:undefined,rate:stage==='shell'?1.2:1});}
   playDryFire(){this.play('dry',null,{gain:0.4});}
   playFootstep(pos,surface,opts={}){this.play(pick('step1','step2','step3','step4'),pos,{gain:opts.crouch?0.13:opts.run?0.5:0.32,rate:0.95+Math.random()*0.1});}

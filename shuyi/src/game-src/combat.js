@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { audio } from './audio.js';
 import { WEAPONS, CAUSES, jitterDir } from './weapons.js';
 import { buildGunMerged } from './guns.js';
+import { rocketCombat } from './rockets.js';
 
 // 連殺稱號：[英文播報, 中文]
 const STREAK = [null, null, ['DOUBLE KILL', '雙殺'], ['TRIPLE KILL', '三殺'], ['MULTI KILL', '四殺'], ['ULTRA KILL', '五殺'], ['RAMPAGE', '六殺！'], ['UNSTOPPABLE', '無人能擋'], ['GODLIKE', '超神']];
@@ -21,6 +22,7 @@ const titleCase = (s) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _d = new THREE.Vector3();
 
 export const combat = {
+  ...rocketCombat,
   // ───────── 開槍 ─────────
 
   fireWeapon(a, ws, spread) {
@@ -31,6 +33,7 @@ export const combat = {
 
     a.radarT = 1.6;   // 開槍會在敵方小地圖上短暫現形
     this.alertBots(a.pos, a.team, 45, true);
+    if (d.type === 'launcher') { this.launchRocket(a, eye, dir, d); return; }
 
     // 霰彈：每顆彈丸各自偏移；後面的彈丸不重複播命中音效
     const pellets = d.pellets || 1;
@@ -55,7 +58,7 @@ export const combat = {
     this.vm.fire();
     this.fx.light(cam.position.clone().addScaledVector(dir, 1.2), d.type === 'sniper' ? 10 : 5, 0.06);
     audio.playShot(d.sound, null);
-    if (Math.random() < 0.5) audio.playShellDrop(null);
+    if (EJECTS_CASINGS.has(d.type) && Math.random() < 0.5) audio.playShellDrop(null);
 
     if (d.pump) {
       const t = this.time, same = () => a.alive && a.weapon.def === d;
@@ -276,8 +279,8 @@ export const combat = {
     });
   },
 
-  explode(p, owner) {
-    const he = WEAPONS.he;
+  explode(p, owner, weaponId = 'he') {
+    const he = WEAPONS[weaponId];
     this.fx.explosion(p);
     // 震碎附近玻璃、炸毀牆柱桌椅樹木、把課桌椅推翻
     const panes = this.map.breakGlassNear?.(p, 7) || [];
@@ -304,7 +307,7 @@ export const combat = {
       }
       if (dist > he.radius) continue;
       const dmg = he.dmg * Math.pow(1 - dist / he.radius, 1.1) * (exposed ? 1 : 0.3);   // 隔著掩體只吃部分衝擊
-      if (dmg > 1) this.damage(a, owner, dmg, 'chest', 'he', dir, false);
+      if (dmg > 1) this.damage(a, owner, dmg, 'chest', weaponId, dir, false);
     }
     this.alertBots(p, null, 40, true);
   },

@@ -17,6 +17,7 @@ import { buildGun } from './guns.js';
 
 // 持槍基準姿勢（相機空間）：位置 [右, 上, 前(負)]、旋轉 [俯仰, 偏擺, 側傾]
 const HOLD = {
+  rpg: { p: [0.22, -0.23, -0.38], r: [0.025, 0.12, 0.02], kick: [0.07, 0.12], flash: 1.5 },
   ak47: { p: [0.165, -0.172, -0.55], r: [0.045, 0.165, 0.02], kick: [0.04, 0.07], flash: 1 },
   m4a1: { p: [0.16, -0.178, -0.54], r: [0.045, 0.165, 0.02], kick: [0.032, 0.05], flash: 1 },
   awm: { p: [0.17, -0.185, -0.6], r: [0.04, 0.15, 0.02], kick: [0.09, 0.2], flash: 1.6 },
@@ -270,7 +271,14 @@ export class ViewModel {
     const world = (o, dy = 0) => { const v = o.getWorldPosition(new THREE.Vector3()); v.y += dy; return v; };
 
     if (a.type === 'reload') {
-      if (P.mag && id !== 'm870') {
+      if (id === 'rpg' && P.mag) {
+        const m = P.mag, r = R.mag.p;
+        const seat = smooth(span(f, 0.4, 0.78));
+        m.visible = f > 0.25;
+        m.position.set(r.x, r.y - (1 - seat) * 0.18, r.z - (1 - seat) * 0.45);
+        if (f > 0.25 && f < 0.85) hands.L = world(m, -0.04);
+      }
+      if (P.mag && id !== 'm870' && id !== 'rpg') {
         const m = P.mag, r = R.mag.p;
         if (f < 0.3) {                                   // 拔出
           const k = smooth(span(f, 0.15, 0.3));
