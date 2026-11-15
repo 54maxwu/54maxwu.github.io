@@ -262,6 +262,7 @@ export class Game {
   resume(fromLock) { this.paused = false; this.hud.show(null); if (!fromLock) this.lock(); }
 
   quitToMenu() {
+    this.killReplay?.stop();
     this.playing = false; this.paused = false; this.ended = true;
     audio.stopAmbient(); audio.setLowHealth(false);
     this.clearActors();
@@ -408,7 +409,7 @@ export class Game {
   renderFrame(dt) {
     const R = this.renderer, cam = R.camera, p = this.player;
     (this.distanceDetails??=new DistanceDetails(this.map.meshes||[])).update(dt,cam);
-    if (p && this.playing) this.updateViewModel(dt, p);
+    if (p && this.playing) this.updateViewModel(this.paused?0:dt, p);
     this.fx.update(dt, this.realTime, cam);
     this.env.update(dt, this.realTime, cam.position);
     this.map.update(dt, this.realTime);

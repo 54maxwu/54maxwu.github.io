@@ -14,6 +14,7 @@
 //   - 手臂是兩段式 IK：肩膀固定在畫面外，手掌貼在槍的握點上，手肘自然彎向外下方
 import * as THREE from 'three';
 import { buildGun } from './guns.js';
+import {GRENADE_KEYS,GRENADE_ANIMATION,GRENADE_HOLD} from './grenade-throw.js';
 
 const MOVING_PARTS=['mag','bolt','slide','pin','lever','pump'];
 export function restoreWeaponParts(gun){
@@ -52,7 +53,7 @@ const KEYS = {
   reload: [[0, {}], [0.14, { y: -0.03, x: -0.02, rx: 0.18, rz: 0.45 }], [0.86, { y: -0.03, x: -0.02, rx: 0.18, rz: 0.45 }], [1, {}]],
   slash: [[0, { x: 0.06, ry: 1.1 }], [0.5, { z: -0.08, rx: 0.3, rz: -0.6 }], [1, { x: -0.06, ry: -1.1 }]],
   stab: [[0, {}], [0.35, { z: 0.08, y: 0.05, rx: -0.4 }], [0.55, { z: -0.14, y: 0.01, rx: 0.5 }], [0.65, { z: -0.14, rx: 0.5 }], [1, {}]],
-  throw: [[0, {}], [0.3, {}], [0.55, { y: 0.08, z: 0.1, rx: 0.8 }], [0.8, { y: -0.04, z: -0.2, rx: -0.8 }], [1, { y: -0.04, z: -0.2, rx: -0.8 }]],
+  throw: GRENADE_KEYS,
   inspect: [[0, {}], [0.25, { x: -0.08, y: 0.04, ry: 0.9, rz: 0.5 }], [0.4, { x: -0.08, y: 0.04, ry: 0.9, rz: 0.5 }], [0.6, { x: -0.04, y: 0.02, ry: -0.2, rz: 0.25, rx: 0.3 }], [0.8, { x: -0.04, y: 0.02, ry: -0.2, rz: 0.25, rx: 0.3 }], [1, {}]],
 };
 const POSE_KEYS = ['x', 'y', 'z', 'rx', 'ry', 'rz'];
@@ -209,6 +210,7 @@ export class ViewModel {
 
   equip(id, drawTime) {
     this.holdGrenade=false;
+    this.grenadeDetached=false;
     if (!this.guns[id]) {
       const g = buildGun(id);
       g.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
@@ -251,9 +253,10 @@ export class ViewModel {
 
   reload(dur, empty) { this.play('reload', dur, { empty }); }
   melee(heavy) { this.play(heavy ? 'stab' : 'slash', heavy ? 0.85 : 0.38, { dir: Math.random() < 0.5 ? 1 : -1 }); }
-  throwNade() { this.play('throw', 0.75); }
-  primeNade(){this.holdGrenade=true;this.throwNade();}
-  releaseNade(){this.holdGrenade=false;if(this.anim?.type==='throw')this.anim.t=this.anim.dur*.3;}
+  throwNade() { this.play('throw', GRENADE_ANIMATION); }
+  primeNade(){this.holdGrenade=true;this.grenadeDetached=false;this.throwNade();}
+  releaseNade(){this.holdGrenade=false;if(this.anim?.type==='throw')this.anim.t=this.anim.dur*GRENADE_HOLD;}
+  detachNade(){this.grenadeDetached=true;if(this.id==='he'&&this.cur)this.cur.visible=false;}
   inspect() { if (!this.anim) this.play('inspect', 2.6); }
   setVisible(v) { this.rig.visible = v; }
 
@@ -335,9 +338,10 @@ export class ViewModel {
       P.pump.position.z = R.pump.p.z + back * 0.085;
       if (span(f, 0.2, 0.95) > 0.45 && !a.ejected) { a.ejected = true; this.ejectShell(); }
     } else if (a.type === 'throw') {
-      if (P.pin) P.pin.visible = span(f, 0, 0.3) < 0.6;
-      if (f < 0.3) hands.L = this.cur.localToWorld(new THREE.Vector3(0.03, 0.06, 0));
-      if (f > 0.72) this.cur.visible = false;
+      const pull=span(f,.08,GRENADE_HOLD);
+      if(P.pin)P.pin.visible=pull<.65;
+      hands.L=f<GRENADE_HOLD?this.cur.localToWorld(new THREE.Vector3(.03-.16*pull,.06+.02*pull,.04)):new THREE.Vector3(-.22,-.24,-.24);
+      if(this.grenadeDetached)this.cur.visible=false;
     }
     return hands;
   }
@@ -385,9 +389,13 @@ export class ViewModel {
     // 動作
     let hands = { L: null, R: null };
     const a = this.anim;
+    if(!a&&id==='he'&&this.grenadeDetached){
+      const o=sampleKeys(KEYS.throw,1,this._pose);x+=o.x;y+=o.y;z+=o.z;rx+=o.rx;ry+=o.ry;rz+=o.rz;
+      hands.L=new THREE.Vector3(-.22,-.24,-.24);
+    }
     if (a) {
       a.t += dt;
-      if(a.type==='throw'&&this.holdGrenade)a.t=Math.min(a.t,a.dur*.3);
+      if(a.type==='throw'&&this.holdGrenade)a.t=Math.min(a.t,a.dur*GRENADE_HOLD);
       const f = Math.min(1, a.t / a.dur);
       const o = sampleKeys(KEYS[a.type], f, this._pose);
       const flip = a.dir || 1;                         // 揮刀左右交替

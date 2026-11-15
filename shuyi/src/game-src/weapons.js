@@ -109,7 +109,7 @@ export const WEAPONS = {
   rpg: gun({
     id: 'rpg', name: '火箭筒', hudName: 'ROCKET LAUNCHER', slot: 0, type: 'launcher', sound: 'rocket',
     dmg: 190, radius: 6.5, armorPen: 0.9, rpm: 35, mag: 1, reserve: 3, reload: 3.6, draw: 1.0,
-    speed: 0.76, range: 160, falloff: 0.99, projectileSpeed: 40,
+    speed: 0.76, range: 160, falloff: 0.99, projectileSpeed: 40, armingDistance: 3,
     spread: { base: 0.002, move: 0.018, air: 0.06, crouch: 0.7, perShot: 0, max: 0.02, recover: 4 },
     recoil: { pattern: path([[0, 3, 0]]), upMax: 0.12, recover: 4 },
   }),

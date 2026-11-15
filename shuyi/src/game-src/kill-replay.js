@@ -3,6 +3,7 @@ import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {WEAPONS,CAUSES} from './weapons.js';
 import {audio} from './audio.js';
 import {replayTime,replaySpeed,REPLAY_DURATION,REPLAY_AFTER,SHOT} from './replay-timing.js';
+import {replayState} from './replay-state.js';
 
 // 擊殺回放：像電影一樣分四個鏡頭（見 replay-timing.js），鏡頭之間硬切，加上寬銀幕黑邊與調色。
 //   一、擊殺者越肩鏡頭   二、子彈時間追蹤   三、命中定格   四、低角度環繞看身體倒下（慢動作漸快）
@@ -20,7 +21,7 @@ export class KillReplay {
     this.detail=document.createElement('span');this.speed=document.createElement('small');
     const skip=document.createElement('button');skip.textContent='跳過回放 · 空白鍵';skip.onclick=()=>this.stop();
     this.overlay.append(title,this.detail,this.speed,skip);document.body.append(this.overlay);
-    addEventListener('keydown',e=>{if(this.active&&e.code==='Space'){e.preventDefault();this.stop();}});
+    addEventListener('keydown',e=>{if(this.active&&!this.game.paused&&!this.game.inLoadout&&e.code==='Space'){e.preventDefault();this.stop();}});
   }
   // 30Hz 取樣；慢動作時兩格之間用插值補
   record(){const g=this.game;if(g.time<this.nextSample)return;this.nextSample=g.time+1/30;
@@ -78,8 +79,11 @@ export class KillReplay {
   safe(focus,desired){const d=_w.copy(desired).sub(focus),L=d.length();if(L<1e-4)return desired;d.divideScalar(L);const t=this.freeDist(focus,d,L);return t<L?focus.clone().addScaledVector(d,Math.max(.12,t-.18)):desired;}
   once(key,fn){if(!this.sounds[key]){this.sounds[key]=true;fn();}}
   update(dt){if(!this.active)return false;const g=this.game;
-    if(g.paused)return true;
-    this.elapsed+=dt;const e=this.elapsed;if(e>=REPLAY_DURATION||g.player.alive||!g.playing){this.stop();return false;}
+    const state=replayState(g);
+    if(state==='stop'){this.stop();return false;}
+    if(state==='paused'){this.overlay.hidden=true;return true;}
+    this.overlay.hidden=false;
+    this.elapsed+=dt;const e=this.elapsed;if(e>=REPLAY_DURATION){this.stop();return false;}
     const offset=replayTime(e),time=this.deathTime+offset;
     let a=this.clip[0],b=a;for(const f of this.clip){if(f.time<=time)a=f;if(f.time>=time){b=f;break;}b=f;}
     const t=a&&b?THREE.MathUtils.clamp((time-a.time)/(b.time-a.time||1),0,1):0;

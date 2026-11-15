@@ -34,14 +34,21 @@ export const rocketCombat = {
       const actor = this.firstActorHit(r.owner, p, d, 0, wall ? wall.t : length);
       const hit = actor || wall;
       const old = p.clone();
-      p.addScaledVector(d, hit ? Math.max(0, hit.t - 0.08) : length);
-      r.distance += length;
+      const travel=hit?THREE.MathUtils.clamp(hit.t,0,length):length;
+      p.addScaledVector(d, hit ? Math.max(0, travel - 0.08) : travel);
+      r.distance += travel;
       this.fx.rocketTrail?.(old, p, d, r);
       const flicker = 0.85 + Math.random() * 0.3;
       r.mesh.children[0].scale.set(flicker, flicker, flicker);
       this.combatHistory?.sample(r.historyId,this.time,p);
       if(hit||r.distance>=r.def.range)this.combatHistory?.finish(r.historyId,this.time,p);
-      if (hit) this.explode(p.clone(), r.owner, r.def.id,{projectileId:r.historyId});
+      if(hit){
+        if(r.distance>=(r.def.armingDistance||0))this.explode(p.clone(),r.owner,r.def.id,{projectileId:r.historyId});
+        else{
+          this.fx.impact?.(p,d.clone().negate(),wall?.collider?.mat||'metal',d);
+          if(r.owner.isPlayer)this.hud?.toast('距離過近，火箭彈尚未解保，未引爆',2);
+        }
+      }
       if (hit || r.distance >= r.def.range) {
         this.renderer.scene.remove(r.mesh);
         return false;

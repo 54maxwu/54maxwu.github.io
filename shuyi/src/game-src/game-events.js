@@ -62,6 +62,7 @@ export const events = {
     audio.playGrenadePin();
   },
   onGrenadeRelease(a){if(a.isPlayer)this.vm.releaseNade();},
+  onGrenadeThrow(a){if(a.isPlayer)this.vm.detachNade();},
 
   hearable(a, range) { return a.pos.distanceTo(this.renderer.camera.position) <= range; },
 };

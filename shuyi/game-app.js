@@ -33605,6 +33605,7 @@ void main() {
       range: 160,
       falloff: 0.99,
       projectileSpeed: 40,
+      armingDistance: 3,
       spread: { base: 2e-3, move: 0.018, air: 0.06, crouch: 0.7, perShot: 0, max: 0.02, recover: 4 },
       recoil: { pattern: path([[0, 3, 0]]), upMax: 0.12, recover: 4 }
     }),
@@ -34088,6 +34089,12 @@ void main() {
     return 0.2 + 0.15 * (e - SHOT.fall);
   }
 
+  // game-src/replay-state.js
+  function replayState(game) {
+    if (!game.playing || !game.player || game.player.alive) return "stop";
+    return game.paused || game.inLoadout ? "paused" : "play";
+  }
+
   // game-src/kill-replay.js
   var UP = new Vector3(0, 1, 0);
   var _v = new Vector3();
@@ -34129,7 +34136,7 @@ void main() {
       this.overlay.append(title, this.detail, this.speed, skip);
       document.body.append(this.overlay);
       addEventListener("keydown", (e) => {
-        if (this.active && e.code === "Space") {
+        if (this.active && !this.game.paused && !this.game.inLoadout && e.code === "Space") {
           e.preventDefault();
           this.stop();
         }
@@ -34266,10 +34273,19 @@ void main() {
     update(dt) {
       if (!this.active) return false;
       const g = this.game;
-      if (g.paused) return true;
+      const state = replayState(g);
+      if (state === "stop") {
+        this.stop();
+        return false;
+      }
+      if (state === "paused") {
+        this.overlay.hidden = true;
+        return true;
+      }
+      this.overlay.hidden = false;
       this.elapsed += dt;
       const e = this.elapsed;
-      if (e >= REPLAY_DURATION || g.player.alive || !g.playing) {
+      if (e >= REPLAY_DURATION) {
         this.stop();
         return false;
       }
@@ -40235,6 +40251,29 @@ void main() {
     return mesh;
   }
 
+  // game-src/grenade-throw.js
+  var GRENADE_PRIME = 0.52;
+  var GRENADE_WINDUP = 0.2;
+  var GRENADE_ANIMATION = 1.1;
+  var GRENADE_HOLD = 0.48;
+  var GRENADE_RELEASE = GRENADE_HOLD + GRENADE_WINDUP / GRENADE_ANIMATION;
+  var GRENADE_KEYS = [
+    [0, {}],
+    [0.2, { x: 0.02, y: 0.025, z: 0.04, rz: -0.1 }],
+    [GRENADE_HOLD, { x: 0.04, y: 0.03, z: 0.04, rx: 0.2, ry: -0.1 }],
+    [0.56, { x: 0.1, y: 0.1, z: 0.14, rx: 0.75, ry: -0.4, rz: 0.12 }],
+    [GRENADE_RELEASE, { x: 0.04, y: 0.13, z: -0.2, rx: -0.9, ry: 0.1 }],
+    [0.82, { x: 0, y: 0.035, z: -0.24, rx: -1.1 }],
+    [1, { x: 0.02, y: -0.12, z: -0.08, rx: -0.3 }]
+  ];
+  function grenadeLaunch(actor) {
+    const forward = actor.forward(new Vector3()), right = new Vector3(Math.cos(actor.yaw), 0, -Math.sin(actor.yaw));
+    const up = new Vector3().crossVectors(right, forward).normalize();
+    const position = actor.eye(new Vector3()).addScaledVector(right, 0.17).addScaledVector(up, 0.01).addScaledVector(forward, 0.5);
+    const velocity = forward.clone().multiplyScalar(15).add(new Vector3(0, 3.6, 0)).addScaledVector(actor.vel, 0.6);
+    return { position, velocity };
+  }
+
   // game-src/viewmodel.js
   var MOVING_PARTS = ["mag", "bolt", "slide", "pin", "lever", "pump"];
   function restoreWeaponParts(gun2) {
@@ -40274,7 +40313,7 @@ void main() {
     reload: [[0, {}], [0.14, { y: -0.03, x: -0.02, rx: 0.18, rz: 0.45 }], [0.86, { y: -0.03, x: -0.02, rx: 0.18, rz: 0.45 }], [1, {}]],
     slash: [[0, { x: 0.06, ry: 1.1 }], [0.5, { z: -0.08, rx: 0.3, rz: -0.6 }], [1, { x: -0.06, ry: -1.1 }]],
     stab: [[0, {}], [0.35, { z: 0.08, y: 0.05, rx: -0.4 }], [0.55, { z: -0.14, y: 0.01, rx: 0.5 }], [0.65, { z: -0.14, rx: 0.5 }], [1, {}]],
-    throw: [[0, {}], [0.3, {}], [0.55, { y: 0.08, z: 0.1, rx: 0.8 }], [0.8, { y: -0.04, z: -0.2, rx: -0.8 }], [1, { y: -0.04, z: -0.2, rx: -0.8 }]],
+    throw: GRENADE_KEYS,
     inspect: [[0, {}], [0.25, { x: -0.08, y: 0.04, ry: 0.9, rz: 0.5 }], [0.4, { x: -0.08, y: 0.04, ry: 0.9, rz: 0.5 }], [0.6, { x: -0.04, y: 0.02, ry: -0.2, rz: 0.25, rx: 0.3 }], [0.8, { x: -0.04, y: 0.02, ry: -0.2, rz: 0.25, rx: 0.3 }], [1, {}]]
   };
   var POSE_KEYS = ["x", "y", "z", "rx", "ry", "rz"];
@@ -40429,6 +40468,7 @@ void main() {
     }
     equip(id, drawTime) {
       this.holdGrenade = false;
+      this.grenadeDetached = false;
       if (!this.guns[id]) {
         const g = buildGun(id);
         g.traverse((o) => {
@@ -40483,15 +40523,20 @@ void main() {
       this.play(heavy ? "stab" : "slash", heavy ? 0.85 : 0.38, { dir: Math.random() < 0.5 ? 1 : -1 });
     }
     throwNade() {
-      this.play("throw", 0.75);
+      this.play("throw", GRENADE_ANIMATION);
     }
     primeNade() {
       this.holdGrenade = true;
+      this.grenadeDetached = false;
       this.throwNade();
     }
     releaseNade() {
       this.holdGrenade = false;
-      if (this.anim?.type === "throw") this.anim.t = this.anim.dur * 0.3;
+      if (this.anim?.type === "throw") this.anim.t = this.anim.dur * GRENADE_HOLD;
+    }
+    detachNade() {
+      this.grenadeDetached = true;
+      if (this.id === "he" && this.cur) this.cur.visible = false;
     }
     inspect() {
       if (!this.anim) this.play("inspect", 2.6);
@@ -40588,9 +40633,10 @@ void main() {
           this.ejectShell();
         }
       } else if (a.type === "throw") {
-        if (P.pin) P.pin.visible = span(f, 0, 0.3) < 0.6;
-        if (f < 0.3) hands.L = this.cur.localToWorld(new Vector3(0.03, 0.06, 0));
-        if (f > 0.72) this.cur.visible = false;
+        const pull = span(f, 0.08, GRENADE_HOLD);
+        if (P.pin) P.pin.visible = pull < 0.65;
+        hands.L = f < GRENADE_HOLD ? this.cur.localToWorld(new Vector3(0.03 - 0.16 * pull, 0.06 + 0.02 * pull, 0.04)) : new Vector3(-0.22, -0.24, -0.24);
+        if (this.grenadeDetached) this.cur.visible = false;
       }
       return hands;
     }
@@ -40625,9 +40671,19 @@ void main() {
       }
       let hands = { L: null, R: null };
       const a = this.anim;
+      if (!a && id === "he" && this.grenadeDetached) {
+        const o = sampleKeys(KEYS.throw, 1, this._pose);
+        x += o.x;
+        y += o.y;
+        z += o.z;
+        rx += o.rx;
+        ry += o.ry;
+        rz += o.rz;
+        hands.L = new Vector3(-0.22, -0.24, -0.24);
+      }
       if (a) {
         a.t += dt;
-        if (a.type === "throw" && this.holdGrenade) a.t = Math.min(a.t, a.dur * 0.3);
+        if (a.type === "throw" && this.holdGrenade) a.t = Math.min(a.t, a.dur * GRENADE_HOLD);
         const f = Math.min(1, a.t / a.dur);
         const o = sampleKeys(KEYS[a.type], f, this._pose);
         const flip = a.dir || 1;
@@ -41984,6 +42040,8 @@ void main() {
       this.autoSwitchAt = 0;
       this.grenadePrimed = false;
       this.grenadeReleased = false;
+      this.grenadeThrowing = false;
+      this.grenadeReleaseT = 0;
       this.stepDist = 0;
       this.jumpCD = 0;
       this.slideCD = 0;
@@ -42019,6 +42077,8 @@ void main() {
       this.autoSwitchAt = 0;
       this.grenadePrimed = false;
       this.grenadeReleased = false;
+      this.grenadeThrowing = false;
+      this.grenadeReleaseT = 0;
       this.stepped = 0;
       this.stepOffset = 0;
       this.pos.set(sp.x, (sp.y ?? 0) + 0.02, sp.z);
@@ -42244,6 +42304,8 @@ void main() {
       this.grenadePrimed = false;
       this.grenadeReleased = false;
       this.pendingThrow = 0;
+      this.grenadeThrowing = false;
+      this.grenadeReleaseT = 0;
       this.lastSlot = this.slot;
       this.slot = slot;
       this.readyAt = now + target.def.draw;
@@ -42295,20 +42357,29 @@ void main() {
         this.game.melee(this, true);
       }
     }
-    // 手雷：按下 → 拔插銷動畫 0.52 秒 → 丟出 → 0.45 秒後自動切回上一把
+    // 手雷：拔銷 0.52 秒，放開後揮臂 0.2 秒才離手，再過 0.45 秒切回上一把。
     useGrenade(dt, inp, w, now) {
       const g = this.game;
       if (this.grenadePrimed) {
-        this.pendingThrow = Math.max(0, this.pendingThrow - dt);
-        if (!inp.fire) this.grenadeReleased = true;
-        if (this.pendingThrow <= 0 && this.grenadeReleased) {
+        if (this.grenadeThrowing) {
+          this.grenadeReleaseT = Math.max(0, this.grenadeReleaseT - dt);
+          if (this.grenadeReleaseT > 1e-6) return;
           this.grenadePrimed = false;
           this.grenadeReleased = false;
-          g.onGrenadeRelease?.(this);
+          this.grenadeThrowing = false;
+          g.onGrenadeThrow?.(this);
           g.throwGrenade(this);
           w.mag = 0;
           this.readyAt = now + 0.4;
           this.autoSwitchAt = now + 0.45;
+          return;
+        }
+        this.pendingThrow = Math.max(0, this.pendingThrow - dt);
+        if (!inp.fire) this.grenadeReleased = true;
+        if (this.pendingThrow <= 0 && this.grenadeReleased) {
+          this.grenadeThrowing = true;
+          this.grenadeReleaseT = GRENADE_WINDUP;
+          g.onGrenadeRelease?.(this);
         }
         return;
       }
@@ -42321,7 +42392,9 @@ void main() {
       if (inp.firePressed && w.mag > 0) {
         this.grenadePrimed = true;
         this.grenadeReleased = !inp.fire;
-        this.pendingThrow = 0.52;
+        this.grenadeThrowing = false;
+        this.grenadeReleaseT = 0;
+        this.pendingThrow = GRENADE_PRIME;
         g.onGrenadeStart(this);
       }
     }
@@ -43757,14 +43830,21 @@ void main() {
         const actor = this.firstActorHit(r.owner, p, d, 0, wall ? wall.t : length);
         const hit = actor || wall;
         const old = p.clone();
-        p.addScaledVector(d, hit ? Math.max(0, hit.t - 0.08) : length);
-        r.distance += length;
+        const travel = hit ? MathUtils.clamp(hit.t, 0, length) : length;
+        p.addScaledVector(d, hit ? Math.max(0, travel - 0.08) : travel);
+        r.distance += travel;
         this.fx.rocketTrail?.(old, p, d, r);
         const flicker = 0.85 + Math.random() * 0.3;
         r.mesh.children[0].scale.set(flicker, flicker, flicker);
         this.combatHistory?.sample(r.historyId, this.time, p);
         if (hit || r.distance >= r.def.range) this.combatHistory?.finish(r.historyId, this.time, p);
-        if (hit) this.explode(p.clone(), r.owner, r.def.id, { projectileId: r.historyId });
+        if (hit) {
+          if (r.distance >= (r.def.armingDistance || 0)) this.explode(p.clone(), r.owner, r.def.id, { projectileId: r.historyId });
+          else {
+            this.fx.impact?.(p, d.clone().negate(), wall?.collider?.mat || "metal", d);
+            if (r.owner.isPlayer) this.hud?.toast("\u8DDD\u96E2\u904E\u8FD1\uFF0C\u706B\u7BAD\u5F48\u5C1A\u672A\u89E3\u4FDD\uFF0C\u672A\u5F15\u7206", 2);
+          }
+        }
         if (hit || r.distance >= r.def.range) {
           this.renderer.scene.remove(r.mesh);
           return false;
@@ -44004,10 +44084,15 @@ void main() {
     // ───────── 手雷 ─────────
     throwGrenade(a, drop = false, live = true) {
       const eye = a.eye(new Vector3());
-      const dir = a.forward(new Vector3());
-      const right = new Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-      const pos = drop ? a.pos.clone().add(new Vector3(0, 0.9, 0)) : eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
-      const vel = drop ? a.vel.clone().multiplyScalar(0.35).add(new Vector3(0, -0.3, 0)) : dir.clone().multiplyScalar(16).add(new Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
+      const launch = drop ? null : grenadeLaunch(a);
+      const pos = drop ? a.pos.clone().add(new Vector3(0, 0.9, 0)) : launch.position;
+      const vel = drop ? a.vel.clone().multiplyScalar(0.35).add(new Vector3(0, -0.3, 0)) : launch.velocity;
+      if (!drop) {
+        const offset = pos.clone().sub(eye), distance = offset.length();
+        offset.divideScalar(distance || 1);
+        const wall = this.world.raycast(eye.x, eye.y, eye.z, offset.x, offset.y, offset.z, distance + 0.07, "move");
+        if (wall) pos.copy(eye).addScaledVector(offset, Math.max(0, wall.t - 0.08));
+      }
       const mesh = buildGunMerged("he");
       mesh.scale.setScalar(1.3);
       mesh.position.copy(pos);
@@ -44243,6 +44328,8 @@ void main() {
       v.grenadePrimed = false;
       v.grenadeReleased = false;
       v.pendingThrow = 0;
+      v.grenadeThrowing = false;
+      v.grenadeReleaseT = 0;
       const impact = hitInfo.point?.clone() || (headshot ? v.soldier.headWorld(new Vector3()) : v.soldier.chestWorld(new Vector3())).clone();
       v.alive = false;
       v.hp = 0;
@@ -44375,6 +44462,9 @@ void main() {
     },
     onGrenadeRelease(a) {
       if (a.isPlayer) this.vm.releaseNade();
+    },
+    onGrenadeThrow(a) {
+      if (a.isPlayer) this.vm.detachNade();
     },
     hearable(a, range) {
       return a.pos.distanceTo(this.renderer.camera.position) <= range;
@@ -44660,6 +44750,7 @@ void main() {
       if (!fromLock) this.lock();
     }
     quitToMenu() {
+      this.killReplay?.stop();
       this.playing = false;
       this.paused = false;
       this.ended = true;
@@ -44826,7 +44917,7 @@ void main() {
     renderFrame(dt) {
       const R = this.renderer, cam = R.camera, p = this.player;
       (this.distanceDetails ?? (this.distanceDetails = new DistanceDetails(this.map.meshes || []))).update(dt, cam);
-      if (p && this.playing) this.updateViewModel(dt, p);
+      if (p && this.playing) this.updateViewModel(this.paused ? 0 : dt, p);
       this.fx.update(dt, this.realTime, cam);
       this.env.update(dt, this.realTime, cam.position);
       this.map.update(dt, this.realTime);

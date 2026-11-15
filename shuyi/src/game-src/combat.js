@@ -13,6 +13,7 @@ import { audio } from './audio.js';
 import { WEAPONS, CAUSES, jitterDir } from './weapons.js';
 import { buildGunMerged } from './guns.js';
 import { rocketCombat } from './rockets.js';
+import {grenadeLaunch} from './grenade-throw.js';
 
 // 連殺稱號：[英文播報, 中文]
 const STREAK = [null, null, ['DOUBLE KILL', '雙殺'], ['TRIPLE KILL', '三殺'], ['MULTI KILL', '四殺'], ['ULTRA KILL', '五殺'], ['RAMPAGE', '六殺！'], ['UNSTOPPABLE', '無人能擋'], ['GODLIKE', '超神']];
@@ -237,10 +238,13 @@ export const combat = {
 
   throwGrenade(a,drop=false,live=true) {
     const eye = a.eye(new THREE.Vector3());
-    const dir = a.forward(new THREE.Vector3());
-    const right = new THREE.Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-    const pos = drop?a.pos.clone().add(new THREE.Vector3(0,.9,0)):eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
-    const vel = drop?a.vel.clone().multiplyScalar(.35).add(new THREE.Vector3(0,-.3,0)):dir.clone().multiplyScalar(16).add(new THREE.Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
+    const launch=drop?null:grenadeLaunch(a);
+    const pos=drop?a.pos.clone().add(new THREE.Vector3(0,.9,0)):launch.position;
+    const vel=drop?a.vel.clone().multiplyScalar(.35).add(new THREE.Vector3(0,-.3,0)):launch.velocity;
+    if(!drop){const offset=pos.clone().sub(eye),distance=offset.length();offset.divideScalar(distance||1);
+      const wall=this.world.raycast(eye.x,eye.y,eye.z,offset.x,offset.y,offset.z,distance+.07,'move');
+      if(wall)pos.copy(eye).addScaledVector(offset,Math.max(0,wall.t-.08));
+    }
     const mesh = buildGunMerged('he');
     mesh.scale.setScalar(1.3);
     mesh.position.copy(pos);
@@ -458,7 +462,7 @@ export const combat = {
 
   kill(v, att, cause, headshot, wallbang, dir,hitInfo={}) {
     if(v.weapon?.id==='he'&&v.weapon.mag>0){this.throwGrenade(v,true,!!v.grenadePrimed);v.weapon.mag=0;}
-    v.grenadePrimed=false;v.grenadeReleased=false;v.pendingThrow=0;
+    v.grenadePrimed=false;v.grenadeReleased=false;v.pendingThrow=0;v.grenadeThrowing=false;v.grenadeReleaseT=0;
     const impact=hitInfo.point?.clone()||(headshot?v.soldier.headWorld(new THREE.Vector3()):v.soldier.chestWorld(new THREE.Vector3())).clone();
     v.alive = false; v.hp = 0; v.deadT = 0; v.respawnT = 4.0; v.stats.d++; v.scoped = 0;
     // 衝量依武器：子彈打人不會把人打飛，主要是讓人「順著中彈方向軟倒」；霰彈、狙擊重一點，爆炸才會炸飛
