@@ -33959,6 +33959,15 @@ void main() {
     }
   };
   var CampusNav = class {
+    nodeSupported(n) {
+      const revision = this.world.structuralRevision || 0;
+      if (n.supportRevision !== revision) {
+        const s = this.world.support(n.x, n.z, 0.3, n.y + 0.03);
+        n.supported = !!s && Math.abs(s.y - (n.y - 0.025)) < 0.08;
+        n.supportRevision = revision;
+      }
+      return n.supported;
+    }
     // 一公尺網格可跨過數個小階，但不能把課桌或女兒牆當成一整步。
     canClimb(a, b) {
       if (a.y > b.y) [a, b] = [b, a];
@@ -34108,7 +34117,9 @@ void main() {
           break;
         }
         for (let k of n.edges) {
-          let q = this.nodes[k], ng = this.g[id] + Math.hypot(q.x - n.x, q.z - n.z) + Math.abs(q.y - n.y) * 0.8;
+          let q = this.nodes[k];
+          if (!this.nodeSupported(q)) continue;
+          let ng = this.g[id] + Math.hypot(q.x - n.x, q.z - n.z) + Math.abs(q.y - n.y) * 0.8;
           if (this.seen[k] !== gen || ng < this.g[k]) {
             this.g[k] = ng;
             this.seen[k] = gen;
@@ -34610,6 +34621,60 @@ void main() {
     B._attach = previous;
   }
 
+  // campus-breakables.js
+  function fractureGeometry(source, size = 2.4) {
+    const g = source.index ? source.toNonIndexed() : source;
+    g.computeBoundingBox();
+    const bounds = g.boundingBox, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+    const cells = /* @__PURE__ */ new Map();
+    const clip = (poly, axis, edge, sign2) => {
+      const out = [];
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i], b = poly[(i + 1) % poly.length];
+        const da = sign2 * (a[axis] - edge), db = sign2 * (b[axis] - edge);
+        if (da >= -1e-7) out.push(a);
+        if (da < 0 !== db < 0) {
+          const t = da / (da - db);
+          out.push(a.map((v, j) => v + (b[j] - v) * t));
+        }
+      }
+      return out;
+    };
+    for (let i = 0; i < P.count; i += 3) {
+      const tri = [0, 1, 2].map((j) => {
+        const n = i + j;
+        return [
+          P.getX(n),
+          P.getY(n),
+          P.getZ(n),
+          N?.getX(n) || 0,
+          N?.getY(n) || 0,
+          N?.getZ(n) || 0,
+          U?.getX(n) || 0,
+          U?.getY(n) || 0
+        ];
+      });
+      const xs = tri.map((v) => v[0]), zs = tri.map((v) => v[2]);
+      for (let x = Math.floor(Math.min(...xs) / size); x <= Math.floor(Math.max(...xs) / size); x++)
+        for (let z = Math.floor(Math.min(...zs) / size); z <= Math.floor(Math.max(...zs) / size); z++) {
+          let poly = tri;
+          for (const [axis, edge, sign2] of [[0, x * size, 1], [0, (x + 1) * size, -1], [2, z * size, 1], [2, (z + 1) * size, -1]]) poly = clip(poly, axis, edge, sign2);
+          if (poly.length < 3) continue;
+          const key = `${x},${z}`, data = cells.get(key) || [];
+          for (let j = 1; j < poly.length - 1; j++) data.push(poly[0], poly[j], poly[j + 1]);
+          cells.set(key, data);
+        }
+    }
+    return [...cells.values()].map((data) => {
+      const out = new BufferGeometry();
+      out.setAttribute("position", new Float32BufferAttribute(data.flatMap((v) => v.slice(0, 3)), 3));
+      out.setAttribute("normal", new Float32BufferAttribute(data.flatMap((v) => v.slice(3, 6)), 3));
+      out.setAttribute("uv", new Float32BufferAttribute(data.flatMap((v) => v.slice(6, 8)), 2));
+      out.computeBoundingBox();
+      return out;
+    }).filter((g2) => g2.boundingBox.max.distanceTo(g2.boundingBox.min) > 0.01);
+  }
+
   // campus-real.js
   var FB = [0, 4, 7.6, 11.2, 14.8];
   var FH = [4, 3.6, 3.6, 3.6, 3.6];
@@ -34820,17 +34885,12 @@ void main() {
         return;
       }
       const kind = this.M[k].col, hx = x1 - x0, hn = n1 - n0, hy = y1 - y0;
-      const breakable = !!(col && kind && !this.noBreak && (this.forceBreak || !(hy < 0.6 && Math.max(hx, hn) > 1.5)) && !(hx > 2.5 && hn > 2.5));
+      const breakable = !!(y1 > 0.12 && !this._attach && !["water", "waterRipple"].includes(k));
       if (breakable && !this._split) {
-        const L = Math.max(hx, hn), T = Math.min(hx, hn);
-        if (T <= 0.7 && (L > 1.8 || hy > 2.8)) {
-          const nl = Math.max(1, Math.round(L / 1.4)), nv = hy > 2.8 ? 2 : 1;
+        const nx = Math.max(1, Math.ceil(hx / 2.4)), nn = Math.max(1, Math.ceil(hn / 2.4)), ny = Math.max(1, Math.ceil(hy / 2.8));
+        if (nx * nn * ny > 1) {
           this._split = true;
-          for (let i = 0; i < nl; i++) for (let j = 0; j < nv; j++) {
-            const ya = y0 + hy * j / nv, yb = y0 + hy * (j + 1) / nv;
-            if (hx >= hn) this.box(k, x0 + hx * i / nl, x0 + hx * (i + 1) / nl, ya, yb, n0, n1, col);
-            else this.box(k, x0, x1, ya, yb, n0 + hn * i / nl, n0 + hn * (i + 1) / nl, col);
-          }
+          for (let i = 0; i < nx; i++) for (let j = 0; j < nn; j++) for (let v = 0; v < ny; v++) this.box(k, x0 + hx * i / nx, x0 + hx * (i + 1) / nx, y0 + hy * v / ny, y0 + hy * (v + 1) / ny, n0 + hn * j / nn, n0 + hn * (j + 1) / nn, col);
           this._split = false;
           return;
         }
@@ -34844,12 +34904,12 @@ void main() {
       this.quad(k, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], [[U(x0), U(z0)], [U(x1), U(z0)], [U(x1), U(z1)], [U(x0), U(z1)]]);
       this.quad(k, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], [[U(x0), U(y0)], [U(x1), U(y0)], [U(x1), U(y1)], [U(x0), U(y1)]]);
       this.quad(k, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], [[U(-x1), U(y0)], [U(-x0), U(y0)], [U(-x0), U(y1)], [U(-x1), U(y1)]]);
-      if (col && kind) {
-        const c = this.collide(x0, x1, y0, y1, n0, n1, kind, typeof col === "object" ? col : {});
+      if (col && kind || breakable) {
+        const c = col && kind ? this.collide(x0, x1, y0, y1, n0, n1, kind, typeof col === "object" ? col : {}) : null;
         if (breakable) {
           const vol = hx * hy * hn, hp = Math.round(Math.max(40, Math.min(520, 380 * Math.sqrt(vol / 0.6))) * (HPK[k] || 1));
-          const part = { ranges: [{ k, start: vStart, count: 36 }], c, hp, max: hp, kind: k, box: { x0, x1, y0, y1, n0, n1 }, cb: c.bullet, cs: c.sight };
-          c.part = part;
+          const part = { ranges: [{ k, start: vStart, count: 36 }], c, hp, max: hp, kind: k, box: { x0, x1, y0, y1, n0, n1 }, cb: c?.bullet, cs: c?.sight };
+          if (c) c.part = part;
           this.parts.push(part);
         }
       }
@@ -34865,6 +34925,7 @@ void main() {
     }
     destroyPart(p, dir) {
       if (p.dead) return null;
+      this.world.structuralRevision = (this.world.structuralRevision || 0) + 1;
       if (p.kind === "tree") this.fellTree(p, dir);
       p.dead = true;
       this.wrecked.push(this.info(p));
@@ -34873,6 +34934,7 @@ void main() {
         p.c.bullet = "pass";
         p.c.sight = false;
       }
+      for (const o of p.objects || []) o.visible = false;
       for (const r of p.ranges) {
         const a = this.meshByKey[r.k].geometry.attributes.position, A = a.array, s = r.start * 3;
         for (let i = 3; i < r.count * 3; i++) A[s + i] = A[s + i % 3];
@@ -34952,6 +35014,7 @@ void main() {
       }
     }
     resetParts() {
+      this.world.structuralRevision = (this.world.structuralRevision || 0) + 1;
       this.resetMotion();
       for (const t of this.falling) {
         this.scene.remove(t.g);
@@ -34975,6 +35038,7 @@ void main() {
         }
         p.dead = false;
         p.hp = p.max;
+        for (const o of p.objects || []) o.visible = true;
         if (p.c) {
           p.c.solid = true;
           p.c.bullet = p.cb;
@@ -35014,6 +35078,12 @@ void main() {
             break;
           }
           arr.push(c.part);
+        }
+        if (p.kind === "roof" && !hard && !arr.length) {
+          for (const c of W.query(b.x0 + e, -b.n1 + e, b.x1 - e, -b.n0 - e)) if (ok(c) && c.part !== p && c.top <= b.y0 + 0.06 && c.top >= b.y0 - 3) {
+            if (c.part) arr.push(c.part);
+            else hard = true;
+          }
         }
         below.set(p, hard || arr);
         const L = [];
@@ -35356,9 +35426,58 @@ void main() {
       }
     }
     geo(k, g, part) {
+      g.computeBoundingBox();
+      const b = g.boundingBox;
+      if (!part && (this.M[k].col || ["leaf", "leafLight", "leafDark", "foliage", "flower"].includes(k)) && b.max.y > 0.12 && b.max.x - b.min.x < 180 && b.max.z - b.min.z < 180) {
+        for (const chunk of fractureGeometry(g)) {
+          const b2 = chunk.boundingBox;
+          const box2 = { x0: b2.min.x, x1: b2.max.x, y0: b2.min.y, y1: b2.max.y, n0: -b2.max.z, n1: -b2.min.z };
+          const c = this.M[k].col ? this.collide(box2.x0, Math.max(box2.x0 + 0.03, box2.x1), box2.y0, Math.max(box2.y0 + 0.03, box2.y1), box2.n0, Math.max(box2.n0 + 0.03, box2.n1), this.M[k].col) : null;
+          const p = { ranges: [], c, hp: 260, max: 260, kind: k, box: box2, cb: c?.bullet, cs: c?.sight };
+          if (c) c.part = p;
+          this.parts.push(p);
+          (this.extra[k] || (this.extra[k] = [])).push({ g: chunk, part: p });
+        }
+        return;
+      }
       (this.extra[k] || (this.extra[k] = [])).push({ g: g.index ? g.toNonIndexed() : g, part });
     }
     finish(scene, shadows) {
+      for (const c of [...this.world.colliders]) {
+        if (c.part || c.tag === "glass" || c.tag === "boundary" || c.top <= 0.12 || c.bottom < -0.1) continue;
+        c.solid = false;
+        c.bullet = "pass";
+        c.sight = false;
+        const nx = Math.max(1, Math.ceil(c.hx * 2 / 2.4)), nz = Math.max(1, Math.ceil(c.hz * 2 / 2.4));
+        for (let x = 0; x < nx; x++) for (let z = 0; z < nz; z++) {
+          const box2 = { x0: c.minX + (c.maxX - c.minX) * x / nx, x1: c.minX + (c.maxX - c.minX) * (x + 1) / nx, y0: c.bottom, y1: c.top, n0: -(c.minZ + (c.maxZ - c.minZ) * (z + 1) / nz), n1: -(c.minZ + (c.maxZ - c.minZ) * z / nz) };
+          const cc = this.collide(box2.x0, box2.x1, box2.y0, box2.y1, box2.n0, box2.n1, c.mat, { surface: c.surface });
+          const p = { ranges: [], c: cc, hp: 350, max: 350, kind: c.mat === "metal" ? "metal" : "concrete", box: box2, cb: cc.bullet, cs: cc.sight };
+          cc.part = p;
+          for (const q2 of this.parts) {
+            if (q2.c) continue;
+            const b = q2.box;
+            if (b.x0 < box2.x1 + 0.08 && b.x1 > box2.x0 - 0.08 && b.n0 < box2.n1 + 0.08 && b.n1 > box2.n0 - 0.08 && b.y0 < box2.y1 + 0.08 && b.y1 > box2.y0 - 0.08) {
+              (p.links || (p.links = [])).push(q2);
+              (q2.links || (q2.links = [])).push(p);
+            }
+          }
+          this.parts.push(p);
+        }
+      }
+      for (const o of scene.children) {
+        if (!o.isMesh || o.geometry?.type !== "PlaneGeometry") continue;
+        const v = o.position;
+        let best = null, dist = 0.25;
+        for (const p of this.parts) {
+          const b = p.box, d = Math.hypot(Math.max(b.x0 - v.x, 0, v.x - b.x1), Math.max(b.y0 - v.y, 0, v.y - b.y1), Math.max(-b.n1 - v.z, 0, v.z + b.n0));
+          if (d < dist) {
+            dist = d;
+            best = p;
+          }
+        }
+        if (best) (best.objects || (best.objects = [])).push(o);
+      }
       const meshes = [];
       let faces = 0;
       for (const k of /* @__PURE__ */ new Set([...Object.keys(this.buf), ...Object.keys(this.extra)])) {
@@ -35498,7 +35617,7 @@ void main() {
           for (const d of doors) cuts3.push([d, d + DW, 0, 2.3]);
           if (L2 > 5) cuts3.push([a0 + 2.5, a1 - 2.5, 1, 2.3]);
           wallU(lb, "brick", a0, a1, yb, ceil, COR, COR + 0.1, cuts3, "glass");
-          wallU(lb, "plaster", a0, a1, yb, ceil, COR + 0.1, COR + 0.2, cuts3, false);
+          wallU(lb, "plaster", a0, a1, yb, ceil, COR + 0.1, COR + 0.2, cuts3, true);
         }
         const L = a1 - a0;
         let cuts2 = [];
@@ -36096,7 +36215,6 @@ void main() {
       B.box("stone", x0 - 0.4, x1 + 0.4, 5.6, 6.2, n0, n1);
       plaque(scene, "\u5316\u96E8\u81FA", { x: (x0 + x1) / 2, y: 5.9, n: n1 + 0.02, w: 3.2, h: 0.55, face: "n", bg: "#c9c4b8" });
       hipRoof(B, x0 - 1.6, x1 + 1.6, 6.2, n0 - 0.4, n1 + 1.6, 2.4, { upturn: 0.9 });
-      B.collide(x0 - 1.6, x1 + 1.6, 6.2, 7.6, n0, n1 + 1.6);
     }
     for (const [x0, x1] of [[-30.7, -16.2], [-10.5, 4.5]]) for (const n of [34.6, 58.6]) {
       const x = (x0 + x1) / 2, d = n < 46 ? -1 : 1;
@@ -36135,7 +36253,6 @@ void main() {
       B.box("stone", x0 - 0.1, x1 + 0.1, h1 - 0.3, h1 + 0.1, n0 - 0.1, n1 + 0.1, false);
       B.box("stone", x0 - 0.1, x1 + 0.1, h2 - 0.2, h2, n0 - 0.1, n1 + 0.1, false);
       hipRoof(B, x0 - 0.8, x1 + 0.8, h2, n0 - 0.8, n1 + 0.8, 6, { gable: true });
-      B.collide(x0, x1, h2, h2 + 0.3, n0, n1);
       B.box("white", (x0 + x1) / 2 - 3.2, (x0 + x1) / 2 + 3.2, h2 + 5.4, h2 + 6.6, n0 + 4, n1 - 4, false);
       hipRoof(B, (x0 + x1) / 2 - 4, (x0 + x1) / 2 + 4, h2 + 6.6, n0 + 3.5, n1 - 3.5, 1.8, { gable: true });
       B.noBreak = true;

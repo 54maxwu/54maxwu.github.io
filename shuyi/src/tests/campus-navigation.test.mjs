@@ -25,3 +25,13 @@ test('a low step remains usable when there is head clearance',()=>{
   w.add({x:1,y:2.2,z:0,sx:1,sy:.4,sz:2});
   assert.equal(nav(w).canClimb({x:0,y:.025,z:0},{x:1,y:.525,z:0}),false);
 });
+
+test('destroyed floors invalidate walking nodes and resetting restores them',()=>{
+  const w=world(),floor=w.add({x:1,y:3.9,z:0,sx:3,sy:.2,sz:3});
+  const n=nav(w),point={x:1,y:4.025,z:0};
+  assert.equal(n.nodeSupported(point),true);
+  floor.solid=false;w.structuralRevision=1;
+  assert.equal(n.nodeSupported(point),false);
+  floor.solid=true;w.structuralRevision=2;
+  assert.equal(n.nodeSupported(point),true);
+});

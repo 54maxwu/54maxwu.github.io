@@ -16,6 +16,7 @@ import {brickMaps,foliageTexture,lawnTexture,herringboneTexture,latticeTexture} 
 import {treeCrown} from './campus-vegetation.js';
 import {buildNeighborhood} from './campus-neighborhood.js';
 import {decorateParapet} from './campus-facade.js';
+import {fractureGeometry} from './campus-breakables.js';
 
 const FB=[0,4,7.6,11.2,14.8],FH=[4,3.6,3.6,3.6,3.6],ROOF=18.4,SLAB=0.25;   // floor bases / heights
 const SITE={x0:-70,x1:71,n0:-70,n1:77};
@@ -88,12 +89,13 @@ class Builder{
     if(x1<x0)[x0,x1]=[x1,x0];if(n1<n0)[n0,n1]=[n1,n0];if(y1<y0)[y0,y1]=[y1,y0];if(x1-x0<1e-3||y1-y0<1e-3||n1-n0<1e-3)return;
     if(k==='glass'){ // breakable pane: instanced, not merged
       const c=col?this.collide(x0,x1,y0,y1,n0,n1,'glass',{tag:'glass'}):null;if(c)c.glassId=this.glass.length;this.glass.push({x0,x1,y0,y1,n0,n1,c});return}
-    // 可破壞：牆、柱、欄杆、桌子等；樓板、樓梯、地面、平台與屋頂維持不壞（避免穿地與導航失效）
+    // 地表保留；建築、樓梯、平台與裝飾分塊受損，破壞時同步移除碰撞。
     const kind=this.M[k].col,hx=x1-x0,hn=n1-n0,hy=y1-y0;
-    const breakable=!!(col&&kind&&!this.noBreak&&(this.forceBreak||!(hy<0.6&&Math.max(hx,hn)>1.5))&&!(hx>2.5&&hn>2.5));   // forceBreak：外凸的陽台樓板等，雖是薄板也可打爛
-    if(breakable&&!this._split){const L=Math.max(hx,hn),T=Math.min(hx,hn);
-      if(T<=0.7&&(L>1.8||hy>2.8)){const nl=Math.max(1,Math.round(L/1.4)),nv=hy>2.8?2:1;this._split=true;
-        for(let i=0;i<nl;i++)for(let j=0;j<nv;j++){const ya=y0+hy*j/nv,yb=y0+hy*(j+1)/nv;if(hx>=hn)this.box(k,x0+hx*i/nl,x0+hx*(i+1)/nl,ya,yb,n0,n1,col);else this.box(k,x0,x1,ya,yb,n0+hn*i/nl,n0+hn*(i+1)/nl,col)}
+    const breakable=!!(y1>0.12&&!this._attach&&!['water','waterRipple'].includes(k));
+    if(breakable&&!this._split){
+      const nx=Math.max(1,Math.ceil(hx/2.4)),nn=Math.max(1,Math.ceil(hn/2.4)),ny=Math.max(1,Math.ceil(hy/2.8));
+      if(nx*nn*ny>1){this._split=true;
+        for(let i=0;i<nx;i++)for(let j=0;j<nn;j++)for(let v=0;v<ny;v++)this.box(k,x0+hx*i/nx,x0+hx*(i+1)/nx,y0+hy*v/ny,y0+hy*(v+1)/ny,n0+hn*j/nn,n0+hn*(j+1)/nn,col);
         this._split=false;return}}
     const vStart=(this.buf[k]?this.buf[k].p.length:0)/3;
     const z0=-n1,z1=-n0,s=this.M[k].s,U=v=>v/s;this.boxes++;
@@ -103,9 +105,9 @@ class Builder{
     this.quad(k,[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[0,-1,0],[[U(x0),U(z0)],[U(x1),U(z0)],[U(x1),U(z1)],[U(x0),U(z1)]]);
     this.quad(k,[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],[0,0,1],[[U(x0),U(y0)],[U(x1),U(y0)],[U(x1),U(y1)],[U(x0),U(y1)]]);
     this.quad(k,[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[0,0,-1],[[U(-x1),U(y0)],[U(-x0),U(y0)],[U(-x0),U(y1)],[U(-x1),U(y1)]]);
-    if(col&&kind){const c=this.collide(x0,x1,y0,y1,n0,n1,kind,typeof col==='object'?col:{});
+    if((col&&kind)||breakable){const c=col&&kind?this.collide(x0,x1,y0,y1,n0,n1,kind,typeof col==='object'?col:{}):null;
       if(breakable){const vol=hx*hy*hn,hp=Math.round(Math.max(40,Math.min(520,380*Math.sqrt(vol/0.6)))*(HPK[k]||1));
-        const part={ranges:[{k,start:vStart,count:36}],c,hp,max:hp,kind:k,box:{x0,x1,y0,y1,n0,n1},cb:c.bullet,cs:c.sight};c.part=part;this.parts.push(part)}}
+        const part={ranges:[{k,start:vStart,count:36}],c,hp,max:hp,kind:k,box:{x0,x1,y0,y1,n0,n1},cb:c?.bullet,cs:c?.sight};if(c)c.part=part;this.parts.push(part)}}
     if(!col&&this._attach)this._attach.ranges.push({k,start:vStart,count:36});
   }
   collide(x0,x1,y0,y1,n0,n1,kind='concrete',o={}){
@@ -113,7 +115,7 @@ class Builder{
     return this.world.add({x:(x0+x1)/2,y:(y0+y1)/2,z:-(n0+n1)/2,sx:x1-x0,sy:y1-y0,sz:n1-n0,...base,...o});
   }
   info(p){const b=p.box;return{x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2,z:-(b.n0+b.n1)/2,sx:b.x1-b.x0,sy:b.y1-b.y0,sz:b.n1-b.n0,kind:p.kind,c:p.c}}
-  destroyPart(p,dir){if(p.dead)return null;if(p.kind==='tree')this.fellTree(p,dir);p.dead=true;this.wrecked.push(this.info(p));if(p.c){p.c.solid=false;p.c.bullet='pass';p.c.sight=false}
+  destroyPart(p,dir){if(p.dead)return null;this.world.structuralRevision=(this.world.structuralRevision||0)+1;if(p.kind==='tree')this.fellTree(p,dir);p.dead=true;this.wrecked.push(this.info(p));if(p.c){p.c.solid=false;p.c.bullet='pass';p.c.sight=false}for(const o of p.objects||[])o.visible=false;
     for(const r of p.ranges){const a=this.meshByKey[r.k].geometry.attributes.position,A=a.array,s=r.start*3;for(let i=3;i<r.count*3;i++)A[s+i]=A[s+i%3];a.addUpdateRange(s,r.count*3);a.needsUpdate=true}
     for(const q of p.links||[])if(!q.dead)this.destroyPart(q,dir);   // 牆的另一層（磚面＋粉刷面）一起破
     return this.info(p)}
@@ -141,9 +143,9 @@ class Builder{
         t.col=c}}
       t.g.quaternion.setFromAxisAngle(t.axis,Math.max(0,t.ang))}
   }
-  resetParts(){this.resetMotion();
+  resetParts(){this.world.structuralRevision=(this.world.structuralRevision||0)+1;this.resetMotion();
     for(const t of this.falling){this.scene.remove(t.g);this.scene.remove(t.stump);t.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});t.stump.geometry.dispose();if(t.col){t.col.solid=false;t.col.bullet='pass';t.col.sight=false}}
-    this.falling=[];const touched=new Set();for(const p of this.parts){if(!p.dead){p.hp=p.max;continue}p.dead=false;p.hp=p.max;if(p.c){p.c.solid=true;p.c.bullet=p.cb;p.c.sight=p.cs}
+    this.falling=[];const touched=new Set();for(const p of this.parts){if(!p.dead){p.hp=p.max;continue}p.dead=false;p.hp=p.max;for(const o of p.objects||[])o.visible=true;if(p.c){p.c.solid=true;p.c.bullet=p.cb;p.c.sight=p.cs}
     for(const r of p.ranges){const a=this.meshByKey[r.k].geometry.attributes.position,s=r.start*3;a.array.set(this.origPos[r.k].subarray(s,s+r.count*3),s);a.addUpdateRange(s,r.count*3);touched.add(a)}}for(const a of touched)a.needsUpdate=true}
   // ---------- 結構支撐：失去支撐的部件整塊塌落 ----------
   // 支撐規則：底下有東西撐著（地面、樓板、或本身有支撐的部件）＝「落地」；
@@ -156,6 +158,9 @@ class Builder{
       let hard=false;const arr=[];
       for(const c of W.query(b.x0+e,-b.n1+e,b.x1-e,-b.n0-e)){if(!ok(c)||c.part===p)continue;if(c.top<b.y0-0.06||c.bottom>b.y0-0.02)continue;
         if(!c.part){hard=true;break}arr.push(c.part)}
+      if(p.kind==='roof'&&!hard&&!arr.length){
+        for(const c of W.query(b.x0+e,-b.n1+e,b.x1-e,-b.n0-e))if(ok(c)&&c.part!==p&&c.top<=b.y0+.06&&c.top>=b.y0-3){if(c.part)arr.push(c.part);else hard=true}
+      }
       below.set(p,hard||arr);
       const L=[];
       for(const c of W.query(b.x0-0.05,-b.n1-0.05,b.x1+0.05,-b.n0+0.05)){if(!ok(c)||!c.part||c.part===p)continue;if(Math.min(c.top,b.y1)-Math.max(c.bottom,b.y0)<0.25)continue;L.push(c.part)}
@@ -255,8 +260,40 @@ class Builder{
       for(const r of p.ranges){const g=this.meshByKey[r.k].geometry,s0=r.start*3,n=r.count*3;g.attributes.position.array.set(this.origPos[r.k].subarray(s0,s0+n),s0);g.attributes.normal.array.set(this.origNrm[r.k].subarray(s0,s0+n),s0);
         g.attributes.position.addUpdateRange(s0,n);g.attributes.position.needsUpdate=true;g.attributes.normal.addUpdateRange(s0,n);g.attributes.normal.needsUpdate=true}
       p.mv=null}}
-  geo(k,g,part){(this.extra[k]||(this.extra[k]=[])).push({g:g.index?g.toNonIndexed():g,part})}
+  geo(k,g,part){
+    g.computeBoundingBox();const b=g.boundingBox;
+    if(!part&&(this.M[k].col||['leaf','leafLight','leafDark','foliage','flower'].includes(k))&&b.max.y>.12&&b.max.x-b.min.x<180&&b.max.z-b.min.z<180){
+      for(const chunk of fractureGeometry(g)){const b=chunk.boundingBox;
+        const box={x0:b.min.x,x1:b.max.x,y0:b.min.y,y1:b.max.y,n0:-b.max.z,n1:-b.min.z};
+        const c=this.M[k].col?this.collide(box.x0,Math.max(box.x0+.03,box.x1),box.y0,Math.max(box.y0+.03,box.y1),box.n0,Math.max(box.n0+.03,box.n1),this.M[k].col):null;
+        const p={ranges:[],c,hp:260,max:260,kind:k,box,cb:c?.bullet,cs:c?.sight};if(c)c.part=p;this.parts.push(p);
+        (this.extra[k]||(this.extra[k]=[])).push({g:chunk,part:p});
+      }return;
+    }
+    (this.extra[k]||(this.extra[k]=[])).push({g:g.index?g.toNonIndexed():g,part});
+  }
   finish(scene,shadows){
+    // Legacy standalone colliders (fences, gates, planters) must also receive damage.
+    for(const c of [...this.world.colliders]){
+      if(c.part||c.tag==='glass'||c.tag==='boundary'||c.top<=.12||c.bottom<-.1)continue;
+      c.solid=false;c.bullet='pass';c.sight=false;
+      const nx=Math.max(1,Math.ceil(c.hx*2/2.4)),nz=Math.max(1,Math.ceil(c.hz*2/2.4));
+      for(let x=0;x<nx;x++)for(let z=0;z<nz;z++){
+        const box={x0:c.minX+(c.maxX-c.minX)*x/nx,x1:c.minX+(c.maxX-c.minX)*(x+1)/nx,y0:c.bottom,y1:c.top,n0:-(c.minZ+(c.maxZ-c.minZ)*(z+1)/nz),n1:-(c.minZ+(c.maxZ-c.minZ)*z/nz)};
+        const cc=this.collide(box.x0,box.x1,box.y0,box.y1,box.n0,box.n1,c.mat,{surface:c.surface});
+        const p={ranges:[],c:cc,hp:350,max:350,kind:c.mat==='metal'?'metal':'concrete',box,cb:cc.bullet,cs:cc.sight};cc.part=p;
+        for(const q of this.parts){if(q.c)continue;const b=q.box;
+          if(b.x0<box.x1+.08&&b.x1>box.x0-.08&&b.n0<box.n1+.08&&b.n1>box.n0-.08&&b.y0<box.y1+.08&&b.y1>box.y0-.08){(p.links||(p.links=[])).push(q);(q.links||(q.links=[])).push(p)}
+        }
+        this.parts.push(p);
+      }
+    }
+    // Signs are separate textured planes: bind their visibility to the wall behind them.
+    for(const o of scene.children){if(!o.isMesh||o.geometry?.type!=='PlaneGeometry')continue;
+      const v=o.position;let best=null,dist=.25;
+      for(const p of this.parts){const b=p.box,d=Math.hypot(Math.max(b.x0-v.x,0,v.x-b.x1),Math.max(b.y0-v.y,0,v.y-b.y1),Math.max(-b.n1-v.z,0,v.z+b.n0));if(d<dist){dist=d;best=p}}
+      if(best)(best.objects||(best.objects=[])).push(o);
+    }
     const meshes=[];let faces=0;
     for(const k of new Set([...Object.keys(this.buf),...Object.keys(this.extra)])){
       const parts=[];const B=this.buf[k];
@@ -323,7 +360,7 @@ function bar(B,o){
       if(!stair&&!pass&&s.type!=='open'&&s.type!=='void'){
         const L=a1-a0,DW=1.7,doors=L>5?[a0+.4,a1-.4-DW]:[a0+(L-DW)/2];let cuts=[];for(const d of doors)cuts.push([d,d+DW,0,2.3]);
         if(L>5)cuts.push([a0+2.5,a1-2.5,1.0,2.3]);
-        wallU(lb,'brick',a0,a1,yb,ceil,COR,COR+.1,cuts,'glass');wallU(lb,'plaster',a0,a1,yb,ceil,COR+.1,COR+.2,cuts,false);
+        wallU(lb,'brick',a0,a1,yb,ceil,COR,COR+.1,cuts,'glass');wallU(lb,'plaster',a0,a1,yb,ceil,COR+.1,COR+.2,cuts,true);
       }
       // outer wall (w = D-.3 .. D) with windows / openings
       const L=a1-a0;let cuts=[];
@@ -576,7 +613,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
   // 化雨臺: stage on the north face at the north passage, granite columns, upturned red-tile roof (photo N004)
   { const x0=-14,x1=1,n0=3.2,n1=10;B.noBreak=true;B.box('quarry',x0,x1,0,1.0,n0,n1);for(let i=0;i<4;i++)B.box('granite',x0+2,x1-2,0,1-(i+1)*.25,n1+i*.35,n1+(i+1)*.35);B.noBreak=false;
     for(const x of [x0+.6,x1-.6,(x0+x1)/2-2.4,(x0+x1)/2+2.4])B.box('granite',x-.45,x+.45,1,5.6,n1-1.1,n1-.2);
-    B.box('stone',x0-.4,x1+.4,5.6,6.2,n0,n1);plaque(scene,'化雨臺',{x:(x0+x1)/2,y:5.9,n:n1+.02,w:3.2,h:.55,face:'n',bg:'#c9c4b8'});hipRoof(B,x0-1.6,x1+1.6,6.2,n0-.4,n1+1.6,2.4,{upturn:.9});B.collide(x0-1.6,x1+1.6,6.2,7.6,n0,n1+1.6);}
+    B.box('stone',x0-.4,x1+.4,5.6,6.2,n0,n1);plaque(scene,'化雨臺',{x:(x0+x1)/2,y:5.9,n:n1+.02,w:3.2,h:.55,face:'n',bg:'#c9c4b8'});hipRoof(B,x0-1.6,x1+1.6,6.2,n0-.4,n1+1.6,2.4,{upturn:.9});}
   // basketball hoops (OSM courts)
   for(const [x0,x1] of [[-30.7,-16.2],[-10.5,4.5]])for(const n of [34.6,58.6]){const x=(x0+x1)/2,d=n<46?-1:1;B.box('metal',x-.1,x+.1,0,3.3,n+d*.5-.1,n+d*.5+.1);B.box('white',x-.9,x+.9,2.9,3.95,n-.03,n+.03);B.box('red',x-.23,x+.23,3.05,3.08,n-.5*d-.25,n-.5*d+.25,false)}
   // playground 遊戲器材區 (NW) + 湧泉臺
@@ -589,7 +626,7 @@ export async function buildRealCampus(scene,world,renderer,progress,{quality='me
     for(let x=x0+5;x<x1-2;x+=6)for(let n=n0+6;n<n1-2;n+=7)B.box('concrete',x-.3,x+.3,0,h1-.3,n-.3,n+.3);
     ring(h1,h2,'brick',[[x0+12,x0+17.1,0,3.4],[x0+2,x0+6,1.5,6.5],[x0+23,x0+27,1.5,6.5]]);B.box('stone',x0-.1,x1+.1,h1-.3,h1+.1,n0-.1,n1+.1,false);B.box('stone',x0-.1,x1+.1,h2-.2,h2,n0-.1,n1+.1,false);
     // gable roof, ridge along n, with raised 太子樓 clerestory
-    hipRoof(B,x0-.8,x1+.8,h2,n0-.8,n1+.8,6,{gable:true});B.collide(x0,x1,h2,h2+.3,n0,n1);
+    hipRoof(B,x0-.8,x1+.8,h2,n0-.8,n1+.8,6,{gable:true});
     B.box('white',(x0+x1)/2-3.2,(x0+x1)/2+3.2,h2+5.4,h2+6.6,n0+4,n1-4,false);hipRoof(B,(x0+x1)/2-4,(x0+x1)/2+4,h2+6.6,n0+3.5,n1-3.5,1.8,{gable:true});
     // front stairs from the south to the 2F hall entrance (photo N006)
     B.noBreak=true;for(let i=0;i<30;i++){const t=h1*(30-i)/30;B.box('granite',41,52,0,t,n0-.33*(i+1),n0-.33*i)}B.noBreak=false;B.box('brick',40.6,41,0,h1+1,n0-10,n0);B.box('brick',52,52.4,0,h1+1,n0-10,n0);
