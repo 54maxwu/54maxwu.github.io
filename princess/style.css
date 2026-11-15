@@ -279,3 +279,32 @@ button { font-family: inherit; cursor: pointer; border: none; }
 @media (prefers-reduced-motion: reduce) {
   *, .stage svg * { animation: none !important; }
 }
+
+/* ---------- fullscreen ---------- */
+html, body { height: 100dvh; }
+body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#btnFull { background: linear-gradient(135deg, #8fd3ff, #b98cff); color: #fff; box-shadow: 0 3px 0 #7d8fd6, 0 0 14px rgba(143, 211, 255, .6); }
+
+body.is-fs .topbar { padding: 6px 12px; }
+body.is-fs .topbar h1 { font-size: clamp(16px, 2.2vw, 22px); }
+body.is-fs .layout { padding: 0 12px 12px; gap: 12px; }
+body.is-fs .panel { max-width: 720px; }
+body.is-fs .options { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+body.is-fs .opt .swatch { width: 52px; height: 52px; }
+body.is-fs .opt svg { width: 68px; height: 68px; }
+
+@media (max-width: 760px), (orientation: portrait) {
+  body.is-fs .topbar h1 .title, body.is-fs .topbar h1 .sp { display: none; }
+  body.is-fs .layout { padding: 0 8px 8px; gap: 8px; }
+  body.is-fs .stage-wrap { flex: 1 1 56%; }
+  body.is-fs .panel { flex: 1 1 44%; }
+  body.is-fs .options { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+  body.is-fs .opt .swatch { width: 40px; height: 40px; }
+  body.is-fs .opt svg { width: 54px; height: 54px; }
+}
+/* 橫向手機全螢幕：左右並排，把空間留給公主 */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.is-fs .topbar { padding: 4px 10px; }
+  body.is-fs .topbar h1 .title { display: none; }
+  body.is-fs .actions button { font-size: 12px; padding: 4px 9px; }
+}

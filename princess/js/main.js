@@ -434,3 +434,54 @@ setInterval(() => {
 // ---------------- start ----------------
 dirt = makeDirt();
 goStep(0);
+
+// ---------------- fullscreen ----------------
+(() => {
+  const btn = $('#btnFull');
+  const root = document.documentElement;
+  const canNative = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+  let pseudo = false;
+
+  const sync = () => {
+    const on = !!fsEl() || pseudo;
+    document.body.classList.toggle('is-fs', on || standalone);
+    btn.textContent = on ? '↙ 離開全螢幕' : '⛶ 全螢幕';
+  };
+  const showTip = (msg) => {
+    const tip = $('#tip');
+    tip.textContent = msg;
+    setTimeout(() => { if (tip.textContent === msg) tip.textContent = ''; }, 3500);
+  };
+
+  const toggle = async () => {
+    if (fsEl()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      return;
+    }
+    if (pseudo) { pseudo = false; sync(); return; }
+    if (canNative) {
+      try {
+        const req = root.requestFullscreen || root.webkitRequestFullscreen;
+        await req.call(root, { navigationUI: 'hide' });
+        return;
+      } catch (_) { /* fall through to pseudo mode */ }
+    }
+    // iPhone Safari 等不支援網頁全螢幕：改用沉浸模式，並提示加入主畫面
+    pseudo = true; sync();
+    window.scrollTo(0, 1);
+    showTip('📱 分享 → 加入主畫面，就能全螢幕玩喔！');
+  };
+
+  if (standalone) btn.style.display = 'none';
+  btn.addEventListener('click', toggle);
+  document.addEventListener('fullscreenchange', sync);
+  document.addEventListener('webkitfullscreenchange', sync);
+  document.addEventListener('keydown', (e) => {
+    if (e.target.closest?.('input, textarea')) return;
+    if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); toggle(); }
+    else if (e.key === 'Escape' && pseudo) { pseudo = false; sync(); }
+  });
+  sync();
+})();
