@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>夢幻小公主化妝間</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="sky" id="sky" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <h1><span class="crown">👑</span><span class="title">夢幻小公主化妝間</span><span class="sp">✨</span></h1>
+    <div class="actions">
+      <button id="btnRandom" title="隨機造型">🎲 魔法變身</button>
+      <button id="btnReset" title="重新開始">🔄 重來</button>
+      <button id="btnPhoto" title="拍照存檔">📸 拍照</button>
+      <button id="btnMusic" class="off" title="音樂盒">🎵</button>
+      <button id="btnSound" title="音效">🔊</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage-wrap">
+      <div class="stage" id="stage">
+        <svg id="princess" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="grain" id="grain"></div>
+        <div class="fx" id="fx"></div>
+        <div class="tip" id="tip"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <nav class="steps" id="steps"></nav>
+      <nav class="cats" id="cats"></nav>
+      <div class="options" id="options"></div>
+    </section>
+  </main>
+
+  <div class="modal hidden" id="photoModal">
+    <div class="modal-box">
+      <h2>✨ 好夢幻的公主！✨</h2>
+      <img id="photoImg" alt="公主照片">
+      <div class="modal-actions">
+        <a id="photoDownload" download="夢幻小公主.png"><button>💾 下載照片</button></a>
+        <button id="photoClose">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script src="js/catalog.js"></script>
+  <script src="js/extra-catalog.js"></script>
+  <script src="js/draw-bg.js"></script>
+  <script src="js/draw-face.js"></script>
+  <script src="js/draw-hair.js"></script>
+  <script src="js/draw-dress.js"></script>
+  <script src="js/draw-acc.js"></script>
+  <script src="js/draw-magic.js"></script>
+  <script src="js/extra-face.js"></script>
+  <script src="js/extra-hair.js"></script>
+  <script src="js/extra-dress.js"></script>
+  <script src="js/extra-acc.js"></script>
+  <script src="js/extra-scene.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

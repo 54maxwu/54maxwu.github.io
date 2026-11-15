@@ -28,10 +28,11 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const SCREEN_FS = /* glsl */`
 uniform sampler2D tScene;
 uniform vec2 uTexel;
-uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uUnderRoof, uConc;
+uniform float uTime, uDamage, uLowHP, uFlash, uVignette, uDeath, uScope, uProtect, uUnderRoof, uConc, uCine;
 varying vec2 vUv;
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 
 // 心跳：一長一短兩下，比單純正弦更像真的心跳
 float heartbeat(float t) {
@@ -51,7 +52,7 @@ void main() {
   uv += drift;
 
   vec3 col;
-  float split = (uDamage * 0.001 + uDeath * 0.002) * rad;
+  float split = (uDamage * 0.001 + uDeath * 0.002 + uCine * 0.0016) * rad * rad;
   if (split > 0.00005) {
     vec2 dir = normalize(fromC + 1e-5) * split;
     col = vec3(texture2D(tScene, uv + dir).r, texture2D(tScene, uv).g, texture2D(tScene, uv - dir).b);
@@ -81,6 +82,19 @@ void main() {
 
   // 暗角（開鏡時加重）
   col *= 1.0 - smoothstep(0.55, 1.2, rad) * clamp(uVignette + uScope * 0.5 + k * 0.4, 0.0, 1.0);
+
+  // 電影感調色（擊殺回放）：陰影偏青、亮部偏暖、對比 S 曲線、略降飽和、膠片顆粒、重暗角
+  if (uCine > 0.001) {
+    vec3 c = col;
+    float l = luma(c);
+    vec3 graded = mix(c * vec3(0.86, 1.0, 1.08), c * vec3(1.12, 1.0, 0.84), smoothstep(0.05, 0.6, l));
+    graded = mix(vec3(luma(graded)), graded, 0.82);
+    graded = pow(max(graded, 0.0), vec3(1.12)) * 1.1;   // 加一點對比（線性 HDR 空間，之後才做 ACES）
+    graded *= 1.0 - smoothstep(0.35, 1.15, rad) * 0.55;
+    float grain = hash12(gl_FragCoord.xy + fract(uTime * 24.0) * 917.0) - 0.5;
+    graded += grain * 0.045 * (0.35 + 0.65 * (1.0 - l));
+    col = mix(col, graded, uCine);
+  }
 
   // 閃光彈／爆炸閃白
   col += vec3(uFlash);
@@ -126,7 +140,7 @@ export class Renderer {
       uniforms: {
         tScene: u(this.target.texture), uTexel: u(new THREE.Vector2(1, 1)),
         uTime: u(0), uDamage: u(0), uLowHP: u(0), uFlash: u(0), uVignette: u(0.28), uDeath: u(0),
-        uScope: u(0), uProtect: u(0), uUnderRoof: u(0), uConc: u(0),
+        uScope: u(0), uProtect: u(0), uUnderRoof: u(0), uConc: u(0), uCine: u(0),
       },
       vertexShader: SCREEN_VS,
       fragmentShader: SCREEN_FS,

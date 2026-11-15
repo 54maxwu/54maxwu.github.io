@@ -414,9 +414,9 @@ export class Game {
     this.updateScreenFx(dt);
     if(this.killReplay?.update(dt)){
       this.vm.setVisible(false);
-      const u=R.fx.uniforms;u.uDeath.value=0;u.uDamage.value=0;u.uVignette.value=.3;
-      R.render(this.killReplay.scene,this.killReplay.camera);
-    }else R.render();
+      const u=R.fx.uniforms,kr=this.killReplay;u.uDeath.value=0;u.uDamage.value=0;u.uLowHP.value=0;u.uConc.value=0;u.uVignette.value=.15;u.uCine.value=kr.cine;u.uFlash.value=kr.flash;
+      R.render(kr.scene,kr.camera);
+    }else{R.fx.uniforms.uCine.value=0;R.render();}
   }
 
   updateViewModel(dt, p) {

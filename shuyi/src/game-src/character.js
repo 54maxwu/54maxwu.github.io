@@ -9,7 +9,7 @@
 //   kick()             開槍後座
 //   flinch(part)       中彈硬直（上身後仰，打頭時頭甩更大）
 //   setRim(kind)       輪廓光：0 無、1 隊友淡藍、2 敵人暖紅
-//   die(dirX, dirZ, headshot, world, velocity, dirY)   進入布娃娃
+//   die(dirX, dirZ, headshot, world, velocity, dirY, opts)   進入布娃娃（opts：命中點、衝量、爆炸）
 //   reset()            重生時回到站姿
 //   hitTest(origin, dir, maxT, frame)   子彈命中測試 → { t, part }（part：head chest stomach arm leg）
 //   muzzleWorld(out) headWorld(out) chestWorld(out)
@@ -424,10 +424,11 @@ export class Soldier {
     else v.set(0, 0, 0, 0);
   }
 
-  die(dirX, dirZ, headshot, world, velocity, dirY = 0) {
+  // opts：{ point 命中點, force 衝量 m/s, explosive }，交給布娃娃決定怎麼倒
+  die(dirX, dirZ, headshot, world, velocity, dirY = 0, opts = {}) {
     this.deadT = 0;
     this.root.updateWorldMatrix(true, true);
-    this.ragdoll = new Ragdoll(this.bones, world, new THREE.Vector3(dirX, dirY, dirZ), velocity, headshot);
+    this.ragdoll = new Ragdoll(this.bones, world, new THREE.Vector3(dirX, dirY, dirZ), velocity, headshot, opts);
     this.material.transparent = false; this.material.opacity = 1; this.opacity = 1;
   }
 

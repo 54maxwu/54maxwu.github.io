@@ -454,7 +454,10 @@ export const combat = {
     v.grenadePrimed=false;v.grenadeReleased=false;v.pendingThrow=0;
     const impact=hitInfo.point?.clone()||(headshot?v.soldier.headWorld(new THREE.Vector3()):v.soldier.chestWorld(new THREE.Vector3())).clone();
     v.alive = false; v.hp = 0; v.deadT = 0; v.respawnT = 4.0; v.stats.d++; v.scoped = 0;
-    v.soldier.die(dir.x, dir.z, headshot, this.world, v.vel, dir.y || 0);
+    // 衝量依武器：子彈打人不會把人打飛，主要是讓人「順著中彈方向軟倒」；霰彈、狙擊重一點，爆炸才會炸飛
+    const wtype = WEAPONS[cause]?.type, explosive = ['he', 'rpg'].includes(cause);
+    const force = explosive ? 7 : ({ sniper: 3, shotgun: 3.4, rifle: 1.7, smg: 1.3, pistol: 1.2, melee: 2.2 })[wtype] ?? 1.5;
+    v.soldier.die(dir.x, dir.z, headshot, this.world, v.vel, dir.y || 0, { point: hitInfo.point || impact, force, explosive });
     audio.playDeath(v.soldier.chestWorld(new THREE.Vector3()));
     const p = this.player, byOther = att && att !== v;
     if (byOther) {
