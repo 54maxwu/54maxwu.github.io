@@ -38,10 +38,9 @@ export async function buildCampus(scene,world,renderer,progress){
   looseGlass(w){return destruct?destruct.looseGlass(w):[]},
   pushAt(p,r,k){return destruct?destruct.push(p,r,k):0},
   resetDestruction(){if(destruct)destruct.reset()},
-  resetGlass(){if(!glassApi)return;glassApi.panes.forEach((p,i)=>{if(p.c&&p.c.broken){p.c.broken=false;p.c.solid=true;p.c.bullet='pen';glassApi.place(i,true)}});glassApi.mesh.instanceMatrix.needsUpdate=true},isSpawn(p){return spawns[p.team].some(s=>Math.hypot(s.x-p.pos.x,s.z-p.pos.z)<12&&Math.abs(s.y-p.pos.y)<3)},pickBotGoal(bot,near){const other=bot.team==='BL'?'GR':'BL';const pool=nav.main;
+  resetGlass(){if(!glassApi)return;glassApi.panes.forEach((p,i)=>{if(p.c&&p.c.broken){p.c.broken=false;p.c.solid=true;p.c.bullet='pen';glassApi.place(i,true)}});glassApi.mesh.instanceMatrix.needsUpdate=true},isSpawn(p){return spawns[p.team].some(s=>Math.hypot(s.x-p.pos.x,s.z-p.pos.z)<12&&Math.abs(s.y-p.pos.y)<3)},pickBotGoal(bot,near){const pool=nav.main;
  // near: flank point within ~25 m of a target; otherwise roam the whole campus (all floors).
  if(near){for(let i=0;i<60;i++){const n=nav.nodes[pool[Math.floor(Math.random()*pool.length)]];const d=Math.hypot(n.x-near.x,n.z-near.z);if(d>6&&d<25)return[n.x,n.z,n.y]}}
- if(bot.stage<1&&Math.random()<.5){const s=spawns[other][bot.id%spawns[other].length];return[s.x,s.z,s.y]}
  const n=nav.nodes[pool[Math.floor(Math.random()*pool.length)]];return[n.x,n.z,n.y]}};
  console.log('CAMPUS_READY',{mode,faces:visuals.facesCount,colliders:world.colliders.length,nodes:nav.nodes.length,connected:nav.main.length,spawns});return map;
 }

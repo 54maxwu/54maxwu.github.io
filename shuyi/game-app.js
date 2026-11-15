@@ -36455,7 +36455,6 @@ void main() {
         return spawns[p.team].some((s) => Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 12 && Math.abs(s.y - p.pos.y) < 3);
       },
       pickBotGoal(bot, near) {
-        const other = bot.team === "BL" ? "GR" : "BL";
         const pool = nav.main;
         if (near) {
           for (let i = 0; i < 60; i++) {
@@ -36463,10 +36462,6 @@ void main() {
             const d = Math.hypot(n2.x - near.x, n2.z - near.z);
             if (d > 6 && d < 25) return [n2.x, n2.z, n2.y];
           }
-        }
-        if (bot.stage < 1 && Math.random() < 0.5) {
-          const s = spawns[other][bot.id % spawns[other].length];
-          return [s.x, s.z, s.y];
         }
         const n = nav.nodes[pool[Math.floor(Math.random() * pool.length)]];
         return [n.x, n.z, n.y];
@@ -40775,10 +40770,10 @@ void main() {
 
   // game-src/bots.js
   var DIFF = {
-    easy: { reaction: [0.55, 0.9], aimError: 0.075, settle: 2.2, turnRate: 3.2, headshot: 0.07, recoilCtl: 1, recoilComp: 0.55, strafe: 0.35, sight: 50, fov: 1.6, hop: 0 },
-    normal: { reaction: [0.38, 0.62], aimError: 0.058, settle: 3.2, turnRate: 5.2, headshot: 0.12, recoilCtl: 0.85, recoilComp: 0.8, strafe: 0.65, sight: 62, fov: 1.85, hop: 0.05 },
-    hard: { reaction: [0.2, 0.34], aimError: 0.032, settle: 5.5, turnRate: 8.5, headshot: 0.3, recoilCtl: 0.6, recoilComp: 0.9, strafe: 0.85, sight: 75, fov: 2.05, hop: 0.12 },
-    hell: { reaction: [0.12, 0.2], aimError: 0.02, settle: 8.5, turnRate: 13, headshot: 0.5, recoilCtl: 0.42, recoilComp: 0.95, strafe: 1, sight: 95, fov: 2.3, hop: 0.2 }
+    easy: { reaction: [0.6, 1], aimError: 0.075, settle: 2.2, turnRate: 3.2, headshot: 0.07, recoilCtl: 1, recoilComp: 0.55, strafe: 0.35, sight: 50, fov: 1.92 },
+    normal: { reaction: [0.4, 0.7], aimError: 0.058, settle: 3.2, turnRate: 5.2, headshot: 0.12, recoilCtl: 0.85, recoilComp: 0.8, strafe: 0.65, sight: 62, fov: 1.92 },
+    hard: { reaction: [0.28, 0.46], aimError: 0.032, settle: 5.5, turnRate: 7.2, headshot: 0.3, recoilCtl: 0.6, recoilComp: 0.9, strafe: 0.85, sight: 75, fov: 1.92 },
+    hell: { reaction: [0.22, 0.36], aimError: 0.02, settle: 8.5, turnRate: 8.5, headshot: 0.5, recoilCtl: 0.42, recoilComp: 0.95, strafe: 1, sight: 95, fov: 1.92 }
   };
   var TEAM_PREFIX = { BL: "\u5973\u540C\u5B78", GR: "\u7537\u540C\u5B78" };
   var THINK_EVERY = 0.15;
@@ -40804,6 +40799,10 @@ void main() {
       this.lastSeenT = -99;
       this.heard = null;
       this.heardT = -99;
+      this.heardReady = 0;
+      this.observedAim = null;
+      this.observedVelocity = new Vector3();
+      this.lookUntil = 0;
       this.reactUntil = 0;
       this.errYaw = 0;
       this.errPitch = 0;
@@ -40832,6 +40831,18 @@ void main() {
       this.target = null;
       this.visible = false;
       this.lastSeen = null;
+      this.lastSeenT = this.heardT = -99;
+      this.heard = null;
+      this.heardReady = 0;
+      this.observedAim = null;
+      this.observedVelocity.set(0, 0, 0);
+      this.lookYaw = this.lookPitch = void 0;
+      this.lookUntil = 0;
+      this.huntFor = void 0;
+      this.fireHeld = false;
+      this.nadeAt = null;
+      this.wantJump = this.wantScope = false;
+      this.crouchUntil = this.reactUntil = this.burstRestUntil = 0;
       this.stage = 0;
       this.newGoal();
     }
@@ -40848,23 +40859,29 @@ void main() {
     pathDone() {
       return !this.path || this.pi >= this.path.length;
     }
-    // 回傳往下一個路徑點的單位方向（並在到達時前進到下一點）；高度差太大就嘗試跳
+    // 回傳往下一個可步行路徑點的單位方向；卡住時另外處理跳躍。
     steer() {
       if (this.pathDone()) return null;
       const wp = this.path[this.pi], wy = wp[2] ?? this.pos.y;
       const dx = wp[0] - this.pos.x, dz = wp[1] - this.pos.z, d = Math.hypot(dx, dz);
       if (d < 0.55 && Math.abs(wy - this.pos.y) < 1.1) this.pi++;
-      if (wy - this.pos.y > 0.5 && d < 1.5) {
-        this.wantJump = true;
-        return null;
-      }
       return d > 0.01 ? [dx / d, dz / d] : null;
     }
     // ───────── 感知 ─────────
     hear(pos, loud) {
       if (!this.alive || this.visible) return;
+      const now = this.game.time, dist = this.pos.distanceTo(pos), range = loud ? 45 : 12;
+      if (dist > range || now - this.heardT < 0.35) return;
+      const e = this.eye(_eye), dx = pos.x - e.x, dy = pos.y + 0.8 - e.y, dz = pos.z - e.z, L = Math.hypot(dx, dy, dz);
+      const muffled = L > 0.1 && this.game.world.raycast(e.x, e.y, e.z, dx / L, dy / L, dz / L, L - 0.1, "sight");
+      if (muffled && dist > range * (loud ? 0.55 : 0.3)) return;
+      const uncertainty = Math.max(0.7, dist * (loud ? 0.14 : 0.3)) + (muffled ? 2 : 0), angle = rand2(0, Math.PI * 2), r = Math.sqrt(Math.random()) * uncertainty;
+      if (!this.heard || now - this.heardT > 1.5) this.heardReady = now + rand2(0.25, 0.6);
       this.heard = pos.clone();
-      this.heardT = this.game.time;
+      this.heard.x += Math.cos(angle) * r;
+      this.heard.z += Math.sin(angle) * r;
+      this.heard.y = this.pos.y;
+      this.heardT = now;
       this.heardLoud = loud;
     }
     onDamaged(att) {
@@ -40873,21 +40890,23 @@ void main() {
       this.errPitch += rand2(0.02, 0.055);
       this.reactUntil = Math.max(this.reactUntil, this.game.time + 0.06);
       if (this.visible && this.target === att) return;
-      this.lastSeen = att.pos.clone();
-      this.lastSeenT = this.game.time;
       if (!this.visible) {
-        this.target = att;
-        this.lookYaw = yawTo(this.pos.x, this.pos.z, att.pos.x, att.pos.z) + (Math.random() - 0.5) * 0.5;
+        const yaw = yawTo(this.pos.x, this.pos.z, att.pos.x, att.pos.z) + rand2(-0.55, 0.55), distance = rand2(4, 9);
+        this.heard = this.pos.clone().add(new Vector3(-Math.sin(yaw) * distance, 0, -Math.cos(yaw) * distance));
+        this.heardT = this.game.time;
+        this.heardReady = this.game.time + rand2(0.2, 0.45);
       }
     }
-    // 視距內、在視野角內（6 m 內不限角度）、頭或胸口任一點沒被擋住
+    // 任何距離都遵守水平／垂直視野，頭或胸口必須在視線內。
     canSee(t) {
       const e = this.eye(_eye), dist = e.distanceTo(t.pos);
       if (dist > this.skill.sight) return false;
       const off = Math.abs(wrapAngle(yawTo(this.pos.x, this.pos.z, t.pos.x, t.pos.z) - this.yaw));
-      if (off > this.skill.fov / 2 && dist > 6) return false;
+      if (off > this.skill.fov / 2) return false;
       for (const pt of [t.soldier.headWorld(_a), t.soldier.chestWorld(_b)]) {
         const dx = pt.x - e.x, dy = pt.y - e.y, dz = pt.z - e.z, L = Math.hypot(dx, dy, dz);
+        if (L < 1e-3) continue;
+        if (Math.abs(Math.atan2(dy, Math.hypot(dx, dz)) - this.pitch) > Math.PI / 4) continue;
         if (!this.game.world.raycast(e.x, e.y, e.z, dx / L, dy / L, dz / L, L - 0.1, "sight")) return true;
       }
       return false;
@@ -40908,7 +40927,7 @@ void main() {
     acquire(foe, dist) {
       const now = this.game.time, [r0, r1] = this.skill.reaction;
       const again = this.target === foe && now - this.lastSeenT < 1.5;
-      this.reactUntil = now + rand2(r0, r1) * (again ? 0.4 : 1);
+      this.reactUntil = now + Math.max(0.18, rand2(r0, r1) * (again ? 0.65 : 1));
       const err = this.skill.aimError * (0.8 + dist / 28), dir = rand2(0, Math.PI * 2);
       this.errYaw = Math.cos(dir) * err * 1.3;
       this.errPitch = Math.sin(dir) * err * 0.8 - err * 0.1;
@@ -40924,12 +40943,14 @@ void main() {
         this.visible = true;
         this.lastSeen = seen.foe.pos.clone();
         this.lastSeenT = now;
+        this.observedAim = (this.aimHead ? seen.foe.soldier.headWorld(_a) : seen.foe.soldier.chestWorld(_a)).clone();
+        this.observedVelocity.copy(seen.foe.vel);
         this.state = "engage";
         this.planEngage(seen.foe, seen.dist);
       } else {
         this.visible = false;
         this.engageT = 0;
-        if (this.target && (!this.target.alive || now - this.lastSeenT > 5)) this.target = null;
+        if (this.target && now - this.lastSeenT > 5) this.target = null;
         this.planSearch(now);
       }
       this.checkStuck();
@@ -40952,16 +40973,17 @@ void main() {
       }
     }
     planSearch(now) {
-      if (this.lastSeen && now - this.lastSeenT < 5) {
+      if (this.lastSeen && now - this.lastSeenT < 5 && !(this.heard && this.heardT > this.lastSeenT && now >= this.heardReady)) {
         this.state = "hunt";
         if (this.huntFor !== this.lastSeenT) {
           this.routeTo(this.lastSeen.x, this.lastSeen.z, this.lastSeen.y);
           this.huntFor = this.lastSeenT;
         }
-      } else if (this.heard && now - this.heardT < 3 && Math.random() < 0.5) {
+      } else if (this.heard && now - this.heardT < 3 && now >= this.heardReady) {
         this.state = "listen";
         this.routeTo(this.heard.x, this.heard.z, this.heard.y);
         this.lookYaw = yawTo(this.pos.x, this.pos.z, this.heard.x, this.heard.z);
+        this.lookUntil = now + 1.2;
         this.heard = null;
       } else if (this.pathDone()) {
         this.state = "roam";
@@ -41026,6 +41048,7 @@ void main() {
         const d = this.nadeAt.distanceTo(this.pos);
         this.lookYaw = yawTo(this.pos.x, this.pos.z, this.nadeAt.x, this.nadeAt.z);
         this.lookPitch = 0.25 + d * 0.012;
+        this.lookUntil = now + 0.8;
         act.firePressed = true;
         this.nadeAt = null;
       } else if (this.slot === 3 && this.inv[3].mag <= 0 && !this.pendingThrow && !this.autoSwitchAt) {
@@ -41035,19 +41058,20 @@ void main() {
     fight(act, dt, now) {
       const S = this.skill, tgt = this.target, w = this.weapon, d = w.def;
       const e = this.eye(_eye);
-      const aim = (this.aimHead ? tgt.soldier.headWorld(_a) : tgt.soldier.chestWorld(_a)).addScaledVector(tgt.vel, 0.08);
+      if (!this.observedAim) return;
+      const aim = _a.copy(this.observedAim).addScaledVector(this.observedVelocity, Math.min(0.08, Math.max(0, now - this.lastSeenT)));
       const dx = aim.x - e.x, dy = aim.y - e.y, dz = aim.z - e.z, flat = Math.hypot(dx, dz);
       const trueYaw = Math.atan2(-dx, -dz), truePitch = Math.atan2(dy, flat);
       const settle = Math.exp(-S.settle * dt);
       this.errYaw *= settle;
       this.errPitch *= settle;
-      const shake = 4e-3 * (1 + tgt.speed / 4);
+      const shake = 4e-3 * (1 + this.observedVelocity.length() / 4);
       act.yaw = trueYaw + this.errYaw + Math.sin(now * 3.1 + this.id) * shake;
       act.pitch = truePitch + this.errPitch + Math.cos(now * 2.7 + this.id) * shake * 0.6 - this.punchP * S.recoilComp;
       this.lookYaw = this.lookPitch = void 0;
       const off = Math.hypot(wrapAngle(this.yaw - trueYaw), this.pitch - truePitch);
       const tolerance = Math.atan2(0.32, flat) * 1.4 + 0.01;
-      if (now >= this.reactUntil && off < tolerance && now >= this.readyAt && !this.nadeAt) this.pullTrigger(act, d, off, tolerance, flat, dt, now);
+      if (now >= this.reactUntil && off < tolerance && now >= this.readyAt && !this.nadeAt && this.canSee(tgt)) this.pullTrigger(act, d, off, tolerance, flat, dt, now);
       if (this.wantScope) {
         act.alt = true;
         this.wantScope = false;
@@ -41067,7 +41091,6 @@ void main() {
           act.wishZ = act.wishZ * 0.35 + dir[1];
         }
       }
-      if (Math.random() < S.hop * dt && this.onGround && d.type !== "sniper") this.wantJump = true;
     }
     pullTrigger(act, d, off, tolerance, dist, dt, now) {
       switch (d.type) {
@@ -41090,6 +41113,9 @@ void main() {
       }
     }
     travel(act, now) {
+      if (now > this.lookUntil) {
+        this.lookYaw = this.lookPitch = void 0;
+      }
       if (this.scoped && now - this.lastSeenT > 2) act.alt = true;
       const dir = this.steer();
       if (dir) {
@@ -41107,6 +41133,7 @@ void main() {
     avoidCrowding(act) {
       for (const a of this.game.actors) {
         if (a === this || !a.alive) continue;
+        if (Math.abs(a.pos.y - this.pos.y) > 1.5) continue;
         const dx = this.pos.x - a.pos.x, dz = this.pos.z - a.pos.z, d2 = dx * dx + dz * dz;
         if (d2 < 1.2 && d2 > 1e-4) {
           const d = Math.sqrt(d2);
@@ -41819,9 +41846,9 @@ void main() {
     },
     // 跑步腳步聲：30 m 外聽不到；不是靜步的話，12 m 內的敵方電腦也會聽到
     onFootstep(a) {
+      if (!a.walk && !a.crouch) this.alertBots(a.pos, a.team, 12, false);
       if (!a.isPlayer && !this.hearable(a, 30)) return;
       audio.playFootstep(where(a), surface(a), { run: true, crouch: a.crouch });
-      if (!a.walk) this.alertBots(a.pos, a.team, 12, false);
     },
     onSwitch(a) {
       if (!a.isPlayer) return;

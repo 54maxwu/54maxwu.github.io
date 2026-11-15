@@ -24,9 +24,9 @@ export const events = {
 
   // 跑步腳步聲：30 m 外聽不到；不是靜步的話，12 m 內的敵方電腦也會聽到
   onFootstep(a) {
+    if (!a.walk&&!a.crouch) this.alertBots(a.pos, a.team, 12, false);
     if (!a.isPlayer && !this.hearable(a, 30)) return;
     audio.playFootstep(where(a), surface(a), { run: true, crouch: a.crouch });
-    if (!a.walk) this.alertBots(a.pos, a.team, 12, false);
   },
 
   onSwitch(a) {
