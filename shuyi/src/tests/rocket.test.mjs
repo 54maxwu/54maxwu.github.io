@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { rocketCombat } from '../game-src/rockets.js';
 import { WEAPONS, WeaponState, PRIMARIES } from '../game-src/weapons.js';
+import { rocketEffects } from '../game-src/rocket-effects.js';
 
 function game(wall = null, actor = null) {
   const blasts = [];
@@ -35,4 +36,21 @@ test('actor contact detonates the projectile and restarting removes active rocke
   g.updateRockets(0.1); assert.equal(g.blasts.length, 1);
   g.launchRocket({}, new THREE.Vector3(), new THREE.Vector3(0, 0, -1), WEAPONS.rpg);
   g.clearRockets(); assert.equal(g.rockets.length, 0); assert.equal(g.renderer.scene.children.length, 0);
+});
+
+test('smoke trail density follows distance instead of frame rate and stops at impact', () => {
+  function trail(steps) {
+    const smoke = [], fire = [], r = { trailDistance: 0 };
+    const fx = { smoke: { emit: p => smoke.push(p) }, add: { emit: p => fire.push(p) } };
+    const dir = new THREE.Vector3(0, 0, -1);
+    for (let i = 0; i < steps; i++) {
+      rocketEffects.rocketTrail.call(fx, new THREE.Vector3(0, 0, -i * 12 / steps),
+        new THREE.Vector3(0, 0, -(i + 1) * 12 / steps), dir, r);
+    }
+    assert.ok(smoke.every(p => p.z >= -12 && Number.isFinite(p.z)));
+    assert.equal(fire.length, smoke.length);
+    return smoke.length;
+  }
+  assert.equal(trail(24), 24);
+  assert.equal(trail(96), 24);
 });

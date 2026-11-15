@@ -281,7 +281,8 @@ export const combat = {
 
   explode(p, owner, weaponId = 'he') {
     const he = WEAPONS[weaponId];
-    this.fx.explosion(p);
+    if (weaponId === 'rpg') this.fx.rocketExplosion(p);
+    else this.fx.explosion(p);
     // 震碎附近玻璃、炸毀牆柱桌椅樹木、把課桌椅推翻
     const panes = this.map.breakGlassNear?.(p, 7) || [];
     for (const q of panes) this.fx.shatter(q, null, p);

@@ -14,6 +14,7 @@
 //     s0→s1 大小（公尺）, r,g,b 顏色（可 >1 表示發光）, a0→a1 透明度,
 //     grav 重力（負值往上飄）, drag 空氣阻力, floor? 落地高度 }
 import * as THREE from 'three';
+import { rocketEffects } from './rocket-effects.js';
 
 // ───────── 粒子池 ─────────
 // 以「欄位陣列」存放（每個屬性一條 Float32Array），不產生垃圾物件；
@@ -234,6 +235,11 @@ class StaticSet {
 
 
 export class Effects {
+  rocketLaunch(...args) { return rocketEffects.rocketLaunch.apply(this, args); }
+  rocketTrail(...args) { return rocketEffects.rocketTrail.apply(this, args); }
+  rocketExplosion(...args) { return rocketEffects.rocketExplosion.apply(this, args); }
+  updateRocketEffects(...args) { return rocketEffects.updateRocketEffects.apply(this, args); }
+  clearRocketEffects() { return rocketEffects.clearRocketEffects.call(this); }
   constructor(scene, T, camera) {
     this.scene = scene; this.camera = camera; this.T = T;
     this.add = new ParticlePool(scene, T.glow, true, 900);      // 發光：火花、火球
@@ -535,6 +541,7 @@ export class Effects {
     M.count = n; M.instanceMatrix.needsUpdate = true;
   }
   clearDecals() {
+    this.clearRocketEffects();
     for (const d of Object.values(this.decals)) { d.mesh.count = 0; d.i = 0; }
     this.rubble.clear(); this.jag.clear(); this.rebar.clear(); this.chunks = []; this.shards = []; this.cases = [];
   }
@@ -588,6 +595,7 @@ export class Effects {
     M.count = n; M.instanceMatrix.needsUpdate = true;
   }
   update(dt, t, camera) {
+    this.updateRocketEffects(dt, camera);
     // 破壞系統
     this.updateShards(dt);
     this.updateChunks(dt);

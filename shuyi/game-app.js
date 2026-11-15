@@ -34322,10 +34322,10 @@ void main() {
     };
   }
   function foliageCluster(emit, x, y, z, r, { density = 28, flatten: flatten2 = 0.8 } = {}) {
-    const rand3 = randomAt(x, z);
+    const rand4 = randomAt(x, z);
     for (let i = 0; i < 7; i++) {
       const angle = i * 2.39996, spread2 = i ? Math.sqrt(i / 7) * r * 0.63 : 0;
-      const g = new SphereGeometry(r * (0.43 + rand3() * 0.18), 6, 4);
+      const g = new SphereGeometry(r * (0.43 + rand4() * 0.18), 6, 4);
       const pos = g.attributes.position;
       for (let j = 0; j < pos.count; j++) {
         const k = 0.92 + 0.1 * Math.sin(pos.getX(j) * 9 + pos.getY(j) * 7 + pos.getZ(j) * 11 + i);
@@ -34333,28 +34333,28 @@ void main() {
       }
       g.scale(1, flatten2, 1);
       g.computeVertexNormals();
-      g.translate(x + Math.cos(angle) * spread2, y + (rand3() - 0.4) * r * 0.26, z + Math.sin(angle) * spread2);
+      g.translate(x + Math.cos(angle) * spread2, y + (rand4() - 0.4) * r * 0.26, z + Math.sin(angle) * spread2);
       emit(i % 3 === 0 ? "leaf" : i % 3 === 1 ? "leafLight" : "leafDark", g);
     }
     for (let i = 0; i < density; i++) {
-      const a = rand3() * Math.PI * 2, v = rand3() * 1.6 - 0.65, ring = Math.sqrt(1 - v * v);
-      const g = new PlaneGeometry(r * (0.38 + rand3() * 0.25), r * (0.33 + rand3() * 0.28));
+      const a = rand4() * Math.PI * 2, v = rand4() * 1.6 - 0.65, ring = Math.sqrt(1 - v * v);
+      const g = new PlaneGeometry(r * (0.38 + rand4() * 0.25), r * (0.33 + rand4() * 0.28));
       g.rotateX(v - 0.15);
       g.rotateY(-a + Math.PI / 2);
-      g.rotateZ((rand3() - 0.5) * 0.6);
+      g.rotateZ((rand4() - 0.5) * 0.6);
       g.translate(x + Math.cos(a) * ring * r * 0.88, y + v * r * flatten2, z + Math.sin(a) * ring * r * 0.88);
       emit("foliage", g);
     }
   }
   function treeCrown(emit, x, z, h, r, low) {
-    const rand3 = randomAt(x, z), base = new Vector3(x, h * 0.39, z);
+    const rand4 = randomAt(x, z), base = new Vector3(x, h * 0.39, z);
     for (let i = 0; i < 5; i++) {
-      const a = i * 2.39996, end = new Vector3(x + Math.cos(a) * r * 0.6, h * (0.6 + rand3() * 0.12), z + Math.sin(a) * r * 0.6);
+      const a = i * 2.39996, end = new Vector3(x + Math.cos(a) * r * 0.6, h * (0.6 + rand4() * 0.12), z + Math.sin(a) * r * 0.6);
       const axis = end.clone().sub(base), branch = new CylinderGeometry(0.045 * h / 7, 0.11 * h / 7, axis.length(), 6);
       branch.applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), axis.clone().normalize()));
       branch.translate(...base.clone().add(end).multiplyScalar(0.5).toArray());
       emit("bark", branch);
-      foliageCluster(emit, end.x, end.y, end.z, r * (0.55 + rand3() * 0.13), { density: low ? 9 : 22, flatten: 0.8 });
+      foliageCluster(emit, end.x, end.y, end.z, r * (0.55 + rand4() * 0.13), { density: low ? 9 : 22, flatten: 0.8 });
     }
   }
 
@@ -34469,17 +34469,17 @@ void main() {
   }
   function brickMaps() {
     const draw = (mode) => (g, size) => {
-      const rand3 = seeded(), bw = size / 8, bh = size / 24;
+      const rand4 = seeded(), bw = size / 8, bh = size / 24;
       g.fillStyle = mode === "color" ? "#999287" : mode === "height" ? "#333333" : "#ededed";
       g.fillRect(0, 0, size, size);
       for (let row = 0; row < 24; row++) for (let col = -1; col < 8; col++) {
-        const x = col * bw + (row % 2 ? bw / 2 : 0), y = row * bh, k = rand3(), warm = rand3();
+        const x = col * bw + (row % 2 ? bw / 2 : 0), y = row * bh, k = rand4(), warm = rand4();
         g.fillStyle = mode === "color" ? `rgb(${145 + k * 40 | 0},${84 + k * 26 + warm * 6 | 0},${64 + k * 22 | 0})` : mode === "height" ? `rgb(${180 + k * 40 | 0},${180 + k * 40 | 0},${180 + k * 40 | 0})` : "#c9c9c9";
         g.fillRect(x + 1.5, y + 1.5, bw - 3, bh - 3);
         if (mode === "color") {
           for (let i = 0; i < 16; i++) {
-            g.fillStyle = `rgba(45,33,25,${0.025 + rand3() * 0.055})`;
-            g.fillRect(x + rand3() * bw, y + rand3() * bh, 1 + rand3() * 5, 1 + rand3() * 2);
+            g.fillStyle = `rgba(45,33,25,${0.025 + rand4() * 0.055})`;
+            g.fillRect(x + rand4() * bw, y + rand4() * bh, 1 + rand4() * 5, 1 + rand4() * 2);
           }
           g.fillStyle = "rgba(230,211,181,.07)";
           g.fillRect(x + 3, y + 2, bw - 6, 2);
@@ -34490,7 +34490,7 @@ void main() {
   }
   function foliageTexture() {
     return texture(256, (g) => {
-      const rand3 = seeded(827);
+      const rand4 = seeded(827);
       g.clearRect(0, 0, 256, 256);
       g.strokeStyle = "#475b32";
       g.lineWidth = 3;
@@ -34499,48 +34499,48 @@ void main() {
       g.bezierCurveTo(105, 150, 160, 95, 128, 12);
       g.stroke();
       for (let i = 0; i < 70; i++) {
-        const y = 20 + rand3() * 211, spread2 = Math.sin(y / 256 * Math.PI) * 100, x = 128 + (rand3() - 0.5) * spread2 * 2;
-        const k = rand3();
+        const y = 20 + rand4() * 211, spread2 = Math.sin(y / 256 * Math.PI) * 100, x = 128 + (rand4() - 0.5) * spread2 * 2;
+        const k = rand4();
         g.fillStyle = `rgb(${39 + k * 37 | 0},${69 + k * 43 | 0},${23 + k * 20 | 0})`;
         g.beginPath();
-        g.ellipse(x, y, 7 + rand3() * 7, 3 + rand3() * 4, rand3() * Math.PI, 0, Math.PI * 2);
+        g.ellipse(x, y, 7 + rand4() * 7, 3 + rand4() * 4, rand4() * Math.PI, 0, Math.PI * 2);
         g.fill();
       }
     });
   }
   function lawnTexture() {
     return texture(512, (g, size) => {
-      const rand3 = seeded(594);
+      const rand4 = seeded(594);
       g.fillStyle = "#657b42";
       g.fillRect(0, 0, size, size);
       for (let i = 0; i < 95; i++) {
-        const x = rand3() * size, y = rand3() * size, r = 12 + rand3() * 52, grad = g.createRadialGradient(x, y, 0, x, y, r);
+        const x = rand4() * size, y = rand4() * size, r = 12 + rand4() * 52, grad = g.createRadialGradient(x, y, 0, x, y, r);
         grad.addColorStop(0, i % 3 ? "rgba(160,150,81,.24)" : "rgba(45,76,36,.24)");
         grad.addColorStop(1, "rgba(90,110,50,0)");
         g.fillStyle = grad;
         g.fillRect(x - r, y - r, r * 2, r * 2);
       }
       for (let i = 0; i < 26e3; i++) {
-        const x = rand3() * size, y = rand3() * size, k = rand3();
+        const x = rand4() * size, y = rand4() * size, k = rand4();
         g.strokeStyle = k > 0.5 ? "rgba(178,188,106,.22)" : "rgba(37,65,27,.22)";
         g.lineWidth = 0.6;
         g.beginPath();
         g.moveTo(x, y);
-        g.lineTo(x + (rand3() - 0.5) * 3, y - 1 - rand3() * 3);
+        g.lineTo(x + (rand4() - 0.5) * 3, y - 1 - rand4() * 3);
         g.stroke();
       }
     });
   }
   function herringboneTexture() {
     return texture(512, (g, size) => {
-      const rand3 = seeded(316);
+      const rand4 = seeded(316);
       g.fillStyle = "#8e8274";
       g.fillRect(0, 0, size, size);
       const unit = 32;
       for (let a = -16; a < 24; a++) for (let b = -32; b < 32; b++) {
         const x = (2 * a - b) * unit, y = (2 * a + b) * unit;
         for (const [dx, dy, w, h] of [[0, 0, unit * 2, unit], [unit * 2, 0, unit, unit * 2]]) {
-          const k = rand3();
+          const k = rand4();
           g.fillStyle = `rgb(${139 + k * 31 | 0},${93 + k * 23 | 0},${73 + k * 21 | 0})`;
           g.fillRect(x + dx + 1, y + dy + 1, w - 2, h - 2);
         }
@@ -36720,6 +36720,169 @@ void main() {
     }
   };
 
+  // game-src/rocket-effects.js
+  var TAU = Math.PI * 2;
+  var rand = (a, b) => a + Math.random() * (b - a);
+  var rocketEffects = {
+    rocketLaunch(p, dir) {
+      this.light(p, 16, 0.16, 16757594, 9);
+      for (let i = 0; i < 12; i++) {
+        const speed = rand(1, 4);
+        this.smoke.emit({
+          x: p.x,
+          y: p.y - 0.12,
+          z: p.z,
+          vx: -dir.x * speed + rand(-0.6, 0.6),
+          vy: -dir.y * speed + rand(0.1, 0.8),
+          vz: -dir.z * speed + rand(-0.6, 0.6),
+          max: rand(0.3, 0.65),
+          s0: 0.12,
+          s1: 0.75,
+          r: 0.57,
+          g: 0.53,
+          b: 0.48,
+          a0: 0.35,
+          drag: 3
+        });
+      }
+    },
+    rocketTrail(from, to, dir, rocket) {
+      const length = from.distanceTo(to);
+      const spacing = 0.5;
+      let offset = spacing - rocket.trailDistance;
+      const count = Math.min(24, Math.max(0, Math.floor((length - offset) / spacing) + 1));
+      for (let i = 0; i < count; i++, offset += spacing) {
+        const p = from.clone().addScaledVector(dir, offset);
+        this.smoke.emit({
+          x: p.x,
+          y: p.y,
+          z: p.z,
+          vx: rand(-0.18, 0.18),
+          vy: rand(0.12, 0.35),
+          vz: rand(-0.18, 0.18),
+          max: rand(0.9, 1.5),
+          s0: 0.18,
+          s1: rand(0.7, 1),
+          r: 0.5,
+          g: 0.48,
+          b: 0.44,
+          a0: 0.45,
+          grav: -0.12,
+          drag: 1.5
+        });
+        this.add.emit({
+          x: p.x,
+          y: p.y,
+          z: p.z,
+          vx: -dir.x * 1.5,
+          vy: -dir.y * 1.5,
+          vz: -dir.z * 1.5,
+          max: rand(0.1, 0.2),
+          s0: 0.36,
+          s1: 0.08,
+          r: 2.3,
+          g: 0.8,
+          b: 0.12,
+          a0: 0.8
+        });
+      }
+      rocket.trailDistance = (rocket.trailDistance + length) % spacing;
+    },
+    rocketExplosion(p) {
+      this.explosion(p);
+      this.light(p, 95, 0.45, 16756325, 27);
+      this.add.emit({ x: p.x, y: p.y, z: p.z, max: 0.12, s0: 3, s1: 9, r: 3, g: 2.3, b: 1.6, a0: 1 });
+      for (let i = 0; i < 32; i++) {
+        const az = rand(0, TAU), h = rand(-0.6, 1), rad = Math.sqrt(1 - h * h), speed = rand(5, 16);
+        const dx = Math.cos(az) * rad, dz = Math.sin(az) * rad;
+        this.add.emit({
+          x: p.x,
+          y: p.y,
+          z: p.z,
+          vx: dx * speed,
+          vy: h * speed,
+          vz: dz * speed,
+          max: rand(0.35, 0.8),
+          s0: rand(0.6, 1.2),
+          s1: 2,
+          r: 2.4,
+          g: rand(0.5, 1.1),
+          b: 0.08,
+          a0: 0.9,
+          drag: 4
+        });
+        for (let j = 0; j < 3; j++) {
+          this.add.emit({
+            x: p.x,
+            y: p.y,
+            z: p.z,
+            vx: dx * speed * 1.9,
+            vy: h * speed * 1.9,
+            vz: dz * speed * 1.9,
+            max: 0.65 + j * 0.16,
+            s0: 0.12 - j * 0.025,
+            s1: 0.015,
+            r: 2.3,
+            g: 1.1,
+            b: 0.22,
+            a0: 1,
+            grav: 8,
+            drag: 0.8 + j * 0.3
+          });
+        }
+      }
+      if (!this.rocketWaves) {
+        const geo = new PlaneGeometry(2, 2);
+        this.rocketWaves = Array.from({ length: 8 }, () => {
+          const mat = new ShaderMaterial({
+            uniforms: { opacity: { value: 0 } },
+            vertexShader: "varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",
+            fragmentShader: `varying vec2 vUv; uniform float opacity;
+            void main(){vec2 p=(vUv-.5)*2.;float r=length(p);
+              float band=smoothstep(.76,.9,r)*(1.-smoothstep(.91,1.,r));
+              float wisps=.7+.3*sin(atan(p.y,p.x)*13.+r*24.);
+              gl_FragColor=vec4(1.,.66,.32,band*wisps*opacity);
+              #include <colorspace_fragment>
+            }`,
+            transparent: true,
+            side: DoubleSide,
+            blending: AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false
+          });
+          const mesh = new Mesh(geo, mat);
+          mesh.visible = false;
+          this.scene.add(mesh);
+          return { mesh, age: 1 };
+        });
+        this.rocketWaveNext = 0;
+      }
+      const wave = this.rocketWaves[this.rocketWaveNext++ % this.rocketWaves.length];
+      wave.age = 0;
+      wave.mesh.position.copy(p);
+      wave.mesh.scale.setScalar(0.3);
+      wave.mesh.visible = true;
+      wave.mesh.material.uniforms.opacity.value = 0.55;
+      wave.mesh.lookAt(this.camera.position);
+    },
+    updateRocketEffects(dt, camera) {
+      for (const wave of this.rocketWaves || []) {
+        if (!wave.mesh.visible) continue;
+        wave.age += dt;
+        const t = Math.min(1, wave.age / 0.48);
+        wave.mesh.visible = t < 1;
+        wave.mesh.scale.setScalar(0.3 + 10 * (1 - Math.pow(1 - t, 2)));
+        wave.mesh.material.uniforms.opacity.value = 0.55 * (1 - t) * (1 - t);
+        wave.mesh.lookAt(camera.position);
+      }
+    },
+    clearRocketEffects() {
+      for (const wave of this.rocketWaves || []) wave.mesh.visible = false;
+      this.add.n = 0;
+      this.smoke.n = 0;
+    }
+  };
+
   // game-src/effects.js
   var FIELDS = ["x", "y", "z", "vx", "vy", "vz", "age", "ttl", "s0", "s1", "r", "g", "b", "a0", "a1", "grav", "drag", "floor"];
   var ParticlePool = class {
@@ -36923,7 +37086,7 @@ void main() {
     t.colorSpace = SRGBColorSpace;
     return t;
   }
-  var rand = (a, b) => a + Math.random() * (b - a);
+  var rand2 = (a, b) => a + Math.random() * (b - a);
   var spread = (k) => (Math.random() - 0.5) * k;
   function slashTex() {
     const c = document.createElement("canvas");
@@ -37000,6 +37163,21 @@ void main() {
     }
   };
   var Effects = class {
+    rocketLaunch(...args) {
+      return rocketEffects.rocketLaunch.apply(this, args);
+    }
+    rocketTrail(...args) {
+      return rocketEffects.rocketTrail.apply(this, args);
+    }
+    rocketExplosion(...args) {
+      return rocketEffects.rocketExplosion.apply(this, args);
+    }
+    updateRocketEffects(...args) {
+      return rocketEffects.updateRocketEffects.apply(this, args);
+    }
+    clearRocketEffects() {
+      return rocketEffects.clearRocketEffects.call(this);
+    }
     constructor(scene, T, camera) {
       this.scene = scene;
       this.camera = camera;
@@ -37088,12 +37266,12 @@ void main() {
       const F = this.flashes[this.flashNext++ % this.flashes.length];
       F.s.position.copy(pos).addScaledVector(dir, 0.05);
       F.s.material.rotation = Math.random() * Math.PI * 2;
-      F.s.scale.setScalar(0.42 * big * rand(0.8, 1.2));
+      F.s.scale.setScalar(0.42 * big * rand2(0.8, 1.2));
       F.s.visible = true;
       F.t = 0.05;
       this.light(pos, 6 * big, 0.06);
       for (let i = 0; i < 2; i++) {
-        this.smoke.emit({ x: pos.x, y: pos.y, z: pos.z, vx: dir.x * rand(0.8, 1.8), vy: 0.25 + dir.y, vz: dir.z * rand(0.8, 1.8), max: rand(0.5, 0.8), s0: 0.08, s1: 0.45, r: 0.72, g: 0.71, b: 0.7, a0: 0.16, a1: 0, grav: -0.35, drag: 3.2 });
+        this.smoke.emit({ x: pos.x, y: pos.y, z: pos.z, vx: dir.x * rand2(0.8, 1.8), vy: 0.25 + dir.y, vz: dir.z * rand2(0.8, 1.8), max: rand2(0.5, 0.8), s0: 0.08, s1: 0.45, r: 0.72, g: 0.71, b: 0.7, a0: 0.16, a1: 0, grav: -0.35, drag: 3.2 });
       }
     }
     tracer(from, to) {
@@ -37105,28 +37283,28 @@ void main() {
     impact(p, n, mat, dir) {
       const S = this.smoke, A = this.add;
       if (mat === "flesh") {
-        for (let i = 0; i < 9; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 1.8 + spread(1.6), vy: rand(0, 1.1), vz: dir.z * 1.8 + spread(1.6), max: rand(0.3, 0.6), s0: 0.05, s1: 0.3, r: 0.42, g: 0.02, b: 0.03, a0: 0.75, a1: 0, grav: 1.8, drag: 4 });
-        for (let i = 0; i < 7; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 3 + spread(2.2), vy: rand(0.3, 2.2), vz: dir.z * 3 + spread(2.2), max: 0.65, s0: 0.035, s1: 0.03, r: 0.33, g: 0, b: 0.01, a0: 1, a1: 0.6, grav: 9.8, drag: 0.5, floor: 0.01 });
+        for (let i = 0; i < 9; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 1.8 + spread(1.6), vy: rand2(0, 1.1), vz: dir.z * 1.8 + spread(1.6), max: rand2(0.3, 0.6), s0: 0.05, s1: 0.3, r: 0.42, g: 0.02, b: 0.03, a0: 0.75, a1: 0, grav: 1.8, drag: 4 });
+        for (let i = 0; i < 7; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: dir.x * 3 + spread(2.2), vy: rand2(0.3, 2.2), vz: dir.z * 3 + spread(2.2), max: 0.65, s0: 0.035, s1: 0.03, r: 0.33, g: 0, b: 0.01, a0: 1, a1: 0.6, grav: 9.8, drag: 0.5, floor: 0.01 });
         return;
       }
       if (mat === "metal") {
         const count = 6 + (Math.random() * 7 | 0);
         for (let i = 0; i < count; i++) {
-          const v = rand(3, 8);
-          A.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.4)) * v, vy: (n.y + rand(0, 0.8)) * v, vz: (n.z + spread(1.4)) * v, max: rand(0.15, 0.42), s0: 0.035, s1: 0.01, r: 1.7, g: 1.15, b: 0.5, a0: 1, a1: 0.25, grav: 9.8, drag: 1.5, floor: 0.01 });
+          const v = rand2(3, 8);
+          A.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.4)) * v, vy: (n.y + rand2(0, 0.8)) * v, vz: (n.z + spread(1.4)) * v, max: rand2(0.15, 0.42), s0: 0.035, s1: 0.01, r: 1.7, g: 1.15, b: 0.5, a0: 1, a1: 0.25, grav: 9.8, drag: 1.5, floor: 0.01 });
         }
         A.emit({ x: p.x + n.x * 0.02, y: p.y + n.y * 0.02, z: p.z + n.z * 0.02, max: 0.05, s0: 0.24, s1: 0.1, r: 1.5, g: 1.25, b: 0.8, a0: 1, a1: 0 });
-        this.decals.metal.add(p, n, rand(0.07, 0.1));
+        this.decals.metal.add(p, n, rand2(0.07, 0.1));
       } else if (mat === "wood") {
-        for (let i = 0; i < 8; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1)) * 3, vy: (n.y + rand(0, 1)) * 3, vz: (n.z + spread(1)) * 3, max: 0.7, s0: 0.035, s1: 0.03, r: 0.6, g: 0.44, b: 0.27, a0: 1, a1: 0.8, grav: 9.8, drag: 1, floor: 0.01 });
-        this.decals.wood.add(p, n, rand(0.08, 0.11));
+        for (let i = 0; i < 8; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1)) * 3, vy: (n.y + rand2(0, 1)) * 3, vz: (n.z + spread(1)) * 3, max: 0.7, s0: 0.035, s1: 0.03, r: 0.6, g: 0.44, b: 0.27, a0: 1, a1: 0.8, grav: 9.8, drag: 1, floor: 0.01 });
+        this.decals.wood.add(p, n, rand2(0.08, 0.11));
       } else if (mat !== "mesh") {
-        for (let i = 0; i < 5; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.2)) * 2.6, vy: (n.y + rand(0, 1)) * 2.6, vz: (n.z + spread(1.2)) * 2.6, max: 0.6, s0: 0.025, s1: 0.02, r: 0.62, g: 0.6, b: 0.56, a0: 1, a1: 0.7, grav: 9.8, drag: 0.8, floor: 0.01 });
-        this.decals.concrete.add(p, n, rand(0.07, 0.11));
+        for (let i = 0; i < 5; i++) S.emit({ x: p.x, y: p.y, z: p.z, vx: (n.x + spread(1.2)) * 2.6, vy: (n.y + rand2(0, 1)) * 2.6, vz: (n.z + spread(1.2)) * 2.6, max: 0.6, s0: 0.025, s1: 0.02, r: 0.62, g: 0.6, b: 0.56, a0: 1, a1: 0.7, grav: 9.8, drag: 0.8, floor: 0.01 });
+        this.decals.concrete.add(p, n, rand2(0.07, 0.11));
       }
       const tint = mat === "wood" ? [0.62, 0.52, 0.4] : mat === "metal" ? [0.5, 0.5, 0.5] : [0.6, 0.58, 0.55];
       for (let i = 0; i < 3; i++) {
-        S.emit({ x: p.x + n.x * 0.05, y: p.y + n.y * 0.05, z: p.z + n.z * 0.05, vx: n.x * rand(0.5, 1.5) + spread(0.4), vy: n.y * 0.8 + 0.3, vz: n.z * rand(0.5, 1.5) + spread(0.4), max: rand(0.8, 1.4), s0: 0.12, s1: 0.6, r: tint[0], g: tint[1], b: tint[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
+        S.emit({ x: p.x + n.x * 0.05, y: p.y + n.y * 0.05, z: p.z + n.z * 0.05, vx: n.x * rand2(0.5, 1.5) + spread(0.4), vy: n.y * 0.8 + 0.3, vz: n.z * rand2(0.5, 1.5) + spread(0.4), max: rand2(0.8, 1.4), s0: 0.12, s1: 0.6, r: tint[0], g: tint[1], b: tint[2], a0: 0.35, a1: 0, grav: -0.2, drag: 2.5 });
       }
     }
     // 玻璃碎裂：整片玻璃化為碎片，沿子彈方向（或爆炸外推）噴出後落地
@@ -37387,6 +37565,7 @@ void main() {
       M.instanceMatrix.needsUpdate = true;
     }
     clearDecals() {
+      this.clearRocketEffects();
       for (const d of Object.values(this.decals)) {
         d.mesh.count = 0;
         d.i = 0;
@@ -37399,7 +37578,7 @@ void main() {
       this.cases = [];
     }
     bloodSplat(p) {
-      this.decals.blood.add(p, new Vector3(0, 1, 0), rand(0.5, 0.9));
+      this.decals.blood.add(p, new Vector3(0, 1, 0), rand2(0.5, 0.9));
     }
     // 手雷爆炸：閃光 → 火球 → 四散火星 → 貼地衝擊塵環 → 上升黑煙柱 → 地面焦痕
     explosion(p) {
@@ -37407,20 +37586,20 @@ void main() {
       this.light(p, 60, 0.35, 16748608, 22);
       A.emit({ x: p.x, y, z: p.z, max: 0.16, s0: 2.2, s1: 7, r: 2.4, g: 1.8, b: 1.1, a0: 1, a1: 0 });
       for (let i = 0; i < 24; i++) {
-        const az = rand(0, Math.PI * 2), el2 = rand(0, 1.2), v = rand(3, 9);
-        A.emit({ x: p.x, y, z: p.z, vx: Math.cos(az) * Math.cos(el2) * v, vy: Math.sin(el2) * v + 1, vz: Math.sin(az) * Math.cos(el2) * v, max: rand(0.35, 0.7), s0: 0.9, s1: 2.3, r: 1.9, g: 0.85, b: 0.28, a0: 0.9, a1: 0, grav: -1, drag: 4 });
+        const az = rand2(0, Math.PI * 2), el2 = rand2(0, 1.2), v = rand2(3, 9);
+        A.emit({ x: p.x, y, z: p.z, vx: Math.cos(az) * Math.cos(el2) * v, vy: Math.sin(el2) * v + 1, vz: Math.sin(az) * Math.cos(el2) * v, max: rand2(0.35, 0.7), s0: 0.9, s1: 2.3, r: 1.9, g: 0.85, b: 0.28, a0: 0.9, a1: 0, grav: -1, drag: 4 });
       }
       for (let i = 0; i < 40; i++) {
-        const az = rand(0, Math.PI * 2), v = rand(8, 22);
-        A.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: Math.cos(az) * v, vy: rand(0, 10), vz: Math.sin(az) * v, max: rand(0.4, 0.9), s0: 0.06, s1: 0.02, r: 1.9, g: 1.2, b: 0.5, a0: 1, a1: 0.4, grav: 12, drag: 1.2, floor: 0.02 });
+        const az = rand2(0, Math.PI * 2), v = rand2(8, 22);
+        A.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: Math.cos(az) * v, vy: rand2(0, 10), vz: Math.sin(az) * v, max: rand2(0.4, 0.9), s0: 0.06, s1: 0.02, r: 1.9, g: 1.2, b: 0.5, a0: 1, a1: 0.4, grav: 12, drag: 1.2, floor: 0.02 });
       }
       for (let i = 0; i < 18; i++) {
-        const az = i / 18 * Math.PI * 2 + spread(0.3), v = rand(5, 9);
-        S.emit({ x: p.x, y: p.y + 0.15, z: p.z, vx: Math.cos(az) * v, vy: 0.2, vz: Math.sin(az) * v, max: rand(1.2, 2), s0: 0.6, s1: 2.6, r: 0.55, g: 0.5, b: 0.44, a0: 0.45, a1: 0, grav: 0, drag: 2.6 });
+        const az = i / 18 * Math.PI * 2 + spread(0.3), v = rand2(5, 9);
+        S.emit({ x: p.x, y: p.y + 0.15, z: p.z, vx: Math.cos(az) * v, vy: 0.2, vz: Math.sin(az) * v, max: rand2(1.2, 2), s0: 0.6, s1: 2.6, r: 0.55, g: 0.5, b: 0.44, a0: 0.45, a1: 0, grav: 0, drag: 2.6 });
       }
       for (let i = 0; i < 22; i++) {
-        const az = rand(0, Math.PI * 2), v = rand(1, 3);
-        S.emit({ x: p.x + Math.cos(az) * 0.5, y: p.y + rand(0.4, 1.4), z: p.z + Math.sin(az) * 0.5, vx: Math.cos(az) * v, vy: rand(1, 3), vz: Math.sin(az) * v, max: rand(3, 6), s0: 1.2, s1: 5, r: 0.21, g: 0.2, b: 0.19, a0: 0.75, a1: 0, grav: -0.4, drag: 1.2 });
+        const az = rand2(0, Math.PI * 2), v = rand2(1, 3);
+        S.emit({ x: p.x + Math.cos(az) * 0.5, y: p.y + rand2(0.4, 1.4), z: p.z + Math.sin(az) * 0.5, vx: Math.cos(az) * v, vy: rand2(1, 3), vz: Math.sin(az) * v, max: rand2(3, 6), s0: 1.2, s1: 5, r: 0.21, g: 0.2, b: 0.19, a0: 0.75, a1: 0, grav: -0.4, drag: 1.2 });
       }
       this.decals.scorch.add(new Vector3(p.x, 0.01, p.z), new Vector3(0, 1, 0), 3.2);
       this.shake = Math.max(this.shake, 1);
@@ -37466,6 +37645,7 @@ void main() {
       M.instanceMatrix.needsUpdate = true;
     }
     update(dt, t, camera) {
+      this.updateRocketEffects(dt, camera);
       this.updateShards(dt);
       this.updateChunks(dt);
       this.updateCases(dt);
@@ -40837,7 +41017,7 @@ void main() {
   var _b = new Vector3();
   var wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   var yawTo = (fx, fz, tx, tz) => Math.atan2(-(tx - fx), -(tz - fz));
-  var rand2 = (a, b) => a + Math.random() * (b - a);
+  var rand3 = (a, b) => a + Math.random() * (b - a);
   var Bot = class extends Actor {
     constructor(game, o) {
       super(game, o);
@@ -40875,7 +41055,7 @@ void main() {
       this.thinkT = Math.random() * THINK_EVERY;
       this.engageT = 0;
       this.engageLimit = 3;
-      this.nadeCooldown = rand2(20, 40);
+      this.nadeCooldown = rand3(20, 40);
       this.nadeAt = null;
       this.stuck = { t: 0, n: 0, at: new Vector3() };
     }
@@ -40930,8 +41110,8 @@ void main() {
       const e = this.eye(_eye), dx = pos.x - e.x, dy = pos.y + 0.8 - e.y, dz = pos.z - e.z, L = Math.hypot(dx, dy, dz);
       const muffled = L > 0.1 && this.game.world.raycast(e.x, e.y, e.z, dx / L, dy / L, dz / L, L - 0.1, "sight");
       if (muffled && dist > range * (loud ? 0.55 : 0.3)) return;
-      const uncertainty = Math.max(0.7, dist * (loud ? 0.14 : 0.3)) + (muffled ? 2 : 0), angle = rand2(0, Math.PI * 2), r = Math.sqrt(Math.random()) * uncertainty;
-      if (!this.heard || now - this.heardT > 1.5) this.heardReady = now + rand2(0.25, 0.6);
+      const uncertainty = Math.max(0.7, dist * (loud ? 0.14 : 0.3)) + (muffled ? 2 : 0), angle = rand3(0, Math.PI * 2), r = Math.sqrt(Math.random()) * uncertainty;
+      if (!this.heard || now - this.heardT > 1.5) this.heardReady = now + rand3(0.25, 0.6);
       this.heard = pos.clone();
       this.heard.x += Math.cos(angle) * r;
       this.heard.z += Math.sin(angle) * r;
@@ -40942,14 +41122,14 @@ void main() {
     onDamaged(att) {
       if (!att || !this.alive) return;
       this.errYaw += (Math.random() - 0.5) * 0.09;
-      this.errPitch += rand2(0.02, 0.055);
+      this.errPitch += rand3(0.02, 0.055);
       this.reactUntil = Math.max(this.reactUntil, this.game.time + 0.06);
       if (this.visible && this.target === att) return;
       if (!this.visible) {
-        const yaw = yawTo(this.pos.x, this.pos.z, att.pos.x, att.pos.z) + rand2(-0.55, 0.55), distance = rand2(4, 9);
+        const yaw = yawTo(this.pos.x, this.pos.z, att.pos.x, att.pos.z) + rand3(-0.55, 0.55), distance = rand3(4, 9);
         this.heard = this.pos.clone().add(new Vector3(-Math.sin(yaw) * distance, 0, -Math.cos(yaw) * distance));
         this.heardT = this.game.time;
-        this.heardReady = this.game.time + rand2(0.2, 0.45);
+        this.heardReady = this.game.time + rand3(0.2, 0.45);
       }
     }
     // 任何距離都遵守水平／垂直視野，頭或胸口必須在視線內。
@@ -40982,8 +41162,8 @@ void main() {
     acquire(foe, dist) {
       const now = this.game.time, [r0, r1] = this.skill.reaction;
       const again = this.target === foe && now - this.lastSeenT < 1.5;
-      this.reactUntil = now + Math.max(0.18, rand2(r0, r1) * (again ? 0.65 : 1));
-      const err = this.skill.aimError * (0.8 + dist / 28), dir = rand2(0, Math.PI * 2);
+      this.reactUntil = now + Math.max(0.18, rand3(r0, r1) * (again ? 0.65 : 1));
+      const err = this.skill.aimError * (0.8 + dist / 28), dir = rand3(0, Math.PI * 2);
       this.errYaw = Math.cos(dir) * err * 1.3;
       this.errPitch = Math.sin(dir) * err * 0.8 - err * 0.1;
       this.aimHead = Math.random() < this.skill.headshot;
@@ -41014,7 +41194,7 @@ void main() {
     planEngage(foe, dist) {
       const w = this.weapon;
       if (w.def.type === "sniper" && !this.scoped && dist > 7 && this.game.time >= w.boltUntil) this.wantScope = true;
-      if (Math.random() < 0.12 * this.skill.strafe) this.crouchUntil = this.game.time + rand2(0.6, 1.8);
+      if (Math.random() < 0.12 * this.skill.strafe) this.crouchUntil = this.game.time + rand3(0.6, 1.8);
       if (dist < 10) {
         this.path = null;
         return;
@@ -41022,7 +41202,7 @@ void main() {
       this.engageT += THINK_EVERY;
       if (this.pathDone() || this.engageT > this.engageLimit) {
         this.engageT = 0;
-        this.engageLimit = rand2(2.5, 5);
+        this.engageLimit = rand3(2.5, 5);
         if (Math.random() < 0.5) this.routeTo(foe.pos.x, foe.pos.z, foe.pos.y);
         else this.newGoal(foe.pos);
       }
@@ -41052,7 +41232,7 @@ void main() {
         const d = this.lastSeen.distanceTo(this.pos);
         if (d > 7 && d < 24 && Math.random() < 0.35) {
           this.nadeAt = this.lastSeen.clone();
-          this.nadeCooldown = rand2(25, 50);
+          this.nadeCooldown = rand3(25, 50);
         }
       }
     }
@@ -41079,7 +41259,7 @@ void main() {
       const now = this.game.time;
       this.thinkT -= dt;
       if (this.thinkT <= 0) {
-        this.thinkT = THINK_EVERY * rand2(0.87, 1.27);
+        this.thinkT = THINK_EVERY * rand3(0.87, 1.27);
         this.think();
       }
       const act = { wishX: 0, wishZ: 0, fire: false, firePressed: false, alt: false, sw: null, crouch: now < this.crouchUntil, walk: false, yaw: this.yaw, pitch: this.pitch };
@@ -41133,7 +41313,7 @@ void main() {
       }
       this.strafeT -= dt;
       if (this.strafeT <= 0) {
-        this.strafeT = rand2(0.25, 0.95);
+        this.strafeT = rand3(0.25, 0.95);
         this.strafeDir = Math.random() < 0.2 ? 0 : Math.random() < 0.5 ? -1 : 1;
       }
       const sideK = d.type === "sniper" ? 0 : S.strafe * this.strafeDir;
@@ -41161,7 +41341,7 @@ void main() {
         default:
           if (now < this.burstRestUntil) break;
           act.fire = true;
-          if (dist > 14 && ++this.burst > rand2(3, 7)) {
+          if (dist > 14 && ++this.burst > rand3(3, 7)) {
             this.burst = 0;
             this.burstRestUntil = now + 0.18 + Math.random() * 0.3 * (dist / 30);
           }
@@ -41429,13 +41609,18 @@ void main() {
   var bodyMaterial;
   var flameGeometry;
   var flameMaterial;
+  var coreMaterial;
   function rocketMesh() {
     bodyGeometry2 || (bodyGeometry2 = new ConeGeometry(0.055, 0.42, 8).rotateX(-Math.PI / 2));
     bodyMaterial || (bodyMaterial = new MeshStandardMaterial({ color: 6845504, metalness: 0.5, roughness: 0.5 }));
-    flameGeometry || (flameGeometry = new ConeGeometry(0.065, 0.3, 8).rotateX(Math.PI / 2).translate(0, 0, 0.3));
-    flameMaterial || (flameMaterial = new MeshBasicMaterial({ color: 16755768 }));
+    flameGeometry || (flameGeometry = new ConeGeometry(0.11, 0.85, 12).rotateX(Math.PI / 2).translate(0, 0, 0.58));
+    flameMaterial || (flameMaterial = new MeshBasicMaterial({ color: 16737819, transparent: true, opacity: 0.65, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
+    coreMaterial || (coreMaterial = new MeshBasicMaterial({ color: 16773564, transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
     const mesh = new Mesh(bodyGeometry2, bodyMaterial);
     mesh.add(new Mesh(flameGeometry, flameMaterial));
+    const core = new Mesh(flameGeometry, coreMaterial);
+    core.scale.set(0.45, 0.45, 0.7);
+    mesh.add(core);
     return mesh;
   }
   var rocketCombat = {
@@ -41444,7 +41629,8 @@ void main() {
       mesh.position.copy(eye);
       mesh.quaternion.setFromUnitVectors(new Vector3(0, 0, -1), dir);
       this.renderer.scene.add(mesh);
-      this.rockets.push({ mesh, owner, dir: dir.clone(), def, distance: 0 });
+      this.fx.rocketLaunch?.(eye, dir);
+      this.rockets.push({ mesh, owner, dir: dir.clone(), def, distance: 0, trailDistance: 0 });
     },
     updateRockets(dt) {
       this.rockets = this.rockets.filter((r) => {
@@ -41456,7 +41642,9 @@ void main() {
         const old = p.clone();
         p.addScaledVector(d, hit ? Math.max(0, hit.t - 0.08) : length);
         r.distance += length;
-        this.fx.tracer(old, p.clone());
+        this.fx.rocketTrail?.(old, p, d, r);
+        const flicker = 0.85 + Math.random() * 0.3;
+        r.mesh.children[0].scale.set(flicker, flicker, flicker);
         if (hit) this.explode(p.clone(), r.owner, r.def.id);
         if (hit || r.distance >= r.def.range) {
           this.renderer.scene.remove(r.mesh);
@@ -41746,7 +41934,8 @@ void main() {
     },
     explode(p, owner, weaponId = "he") {
       const he = WEAPONS[weaponId];
-      this.fx.explosion(p);
+      if (weaponId === "rpg") this.fx.rocketExplosion(p);
+      else this.fx.explosion(p);
       const panes = this.map.breakGlassNear?.(p, 7) || [];
       for (const q of panes) this.fx.shatter(q, null, p);
       if (panes.length) audio.playGlassBreak(p, Math.min(1.5, 0.6 + panes.length * 0.15));
