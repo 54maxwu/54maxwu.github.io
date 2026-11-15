@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {searchPath,PathJobs} from '../path-jobs.js';
+function graph(count=100){const nodes=Array.from({length:count},(_,id)=>({id,x:id,y:0,z:0,edges:[id-1,id+1].filter(n=>n>=0&&n<count)}));return{nodes,world:{structuralRevision:0},nearest:x=>nodes[Math.round(x)],nodeSupported:n=>!n.dead};}
+test('long paths yield and retain their destination',()=>{const nav=graph(),job=searchPath(nav,0,0,99,0);let r,yields=0;do{r=job.next();if(!r.done)yields++;}while(!r.done);assert.ok(yields>0);assert.equal(r.value.length,100);assert.deepEqual(r.value.at(-1),[99,0,0]);});
+test('an unsupported node cannot form a walking route',()=>{const nav=graph();nav.nodes[50].dead=true;const job=searchPath(nav,0,0,99,0);let r;do{r=job.next();}while(!r.done);assert.equal(r.value,null);});
+test('new goals replace pending requests and reset discards all old callbacks',()=>{const nav=graph(),jobs=new PathJobs(nav),owner={},done=[];jobs.request(owner,[0,0,99,0],p=>done.push(p.at(-1)[0]));jobs.request(owner,[0,0,20,0],p=>done.push(p.at(-1)[0]));jobs.update(100);assert.deepEqual(done,[20]);jobs.request(owner,[0,0,99,0],()=>assert.fail('stale callback'));jobs.clear();jobs.update();assert.equal(jobs.requests.size,0);});

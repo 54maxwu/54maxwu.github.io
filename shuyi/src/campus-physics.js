@@ -1,4 +1,5 @@
 import {World} from './game-src/physics.js';
+import {PathJobs} from './path-jobs.js';
 export class CampusWorld extends World {
   query(...args){return super.query(...args).slice();}
   rayCandidates(ox,oy,oz,dx,dy,dz,maxT){let x=Math.floor(ox/4),z=Math.floor(oz/4),sx=Math.sign(dx),sz=Math.sign(dz),tx=sx?((sx>0?(x+1)*4:x*4)-ox)/dx:Infinity,tz=sz?((sz>0?(z+1)*4:z*4)-oz)/dz:Infinity,deltaX=sx?4/Math.abs(dx):Infinity,deltaZ=sz?4/Math.abs(dz):Infinity;const seen=new Set(),out=[],minY=Math.min(oy,oy+dy*maxT),maxY=Math.max(oy,oy+dy*maxT);for(let t=0;t<=maxT;){for(const c of this.grid.get(x*1000+z)||[]){if(c.top<minY||c.bottom>maxY||seen.has(c))continue;seen.add(c);out.push(c)}if(tx===Infinity&&tz===Infinity)break;if(tx<tz){t=tx;tx+=deltaX;x+=sx}else{t=tz;tz+=deltaZ;z+=sz}}return out;}
@@ -6,6 +7,9 @@ export class CampusWorld extends World {
   raycastAll(ox,oy,oz,dx,dy,dz,maxT){const out=[],r={};for(const c of this.rayCandidates(ox,oy,oz,dx,dy,dz,maxT)){if(c.bullet!=='pass'&&World.rayOBB(c,ox,oy,oz,dx,dy,dz,maxT,r))out.push({...r,collider:c})}return out.sort((a,b)=>a.t-b.t)}
 }
 export class CampusNav {
+ requestPath(owner,args,done){(this.pathJobs??=new PathJobs(this)).request(owner,args,done);}
+ updatePaths(){this.pathJobs?.update(2);}
+ clearRequests(){this.pathJobs?.clear();}
  nodeSupported(n){const revision=this.world.structuralRevision||0;if(n.supportRevision!==revision){const c=n.supportCollider;const s=c?.solid&&!c.part?.movable&&Math.abs(c.top-(n.y-.025))<.08?{y:c.top}:this.world.support(n.x,n.z,.3,n.y+.03);n.supported=!!s&&Math.abs(s.y-(n.y-.025))<.08;n.supportRevision=revision;}return n.supported;}
  // 一公尺網格可跨過數個小階，但不能把課桌或女兒牆當成一整步。
  canClimb(a,b){

@@ -331,9 +331,16 @@ export const combat = {
   afterWreck(att) {
     const M = this.map;
     if (!M.takeWrecked) return;
-    for (let round = 0; round < 8; round++) {
-      const list = M.takeWrecked();
-      if (!list.length) break;
+    const list=M.takeWrecked();
+    if(list.length)(this.wreckQueue??=[]).push({list,index:0,att});
+  },
+
+  processWreckQueue() {
+    const M=this.map,end=performance.now()+2;
+    while(this.wreckQueue?.length){
+      const job=this.wreckQueue[0],att=job.att;
+      const list=job.list.slice(job.index,job.index+8);job.index+=list.length;
+      if(job.index>=job.list.length)this.wreckQueue.shift();
       for (const x of list) { this.fx.clearDecalsIn(x); this.fx.wakeRubble(x); }
       for (const x of list) this.fx.remnants(x);
       M.collapse?.(list, att);
@@ -341,6 +348,8 @@ export const combat = {
         const q = M.breakGlass(c);
         if (q) { this.fx.shatter(q, new THREE.Vector3(0, -0.3, 0)); audio.playGlassBreak(new THREE.Vector3(q.x, q.y, q.z), 0.8); }
       }
+      this.afterWreck(att);
+      if(performance.now()>=end)break;
     }
   },
 

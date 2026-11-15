@@ -80,6 +80,11 @@ export class Bot extends Actor {
   // ───────── 路徑 ─────────
 
   routeTo(x, z, y = 0) {
+    if(this.game.nav.requestPath){
+      this.routePending=true;
+      this.game.nav.requestPath(this,[this.pos.x,this.pos.z,x,z,this.pos.y,y],path=>{this.routePending=false;if(this.alive){this.path=path;this.pi=1;}});
+      return;
+    }
     this.path = this.game.nav.findPath(this.pos.x, this.pos.z, x, z, this.pos.y, y);
     this.pi = 1;
   }
@@ -90,12 +95,22 @@ export class Bot extends Actor {
     this.routeTo(p[0], p[1], p[2] || 0);
   }
 
-  pathDone() { return !this.path || this.pi >= this.path.length; }
+  pathDone() { return !this.routePending && (!this.path || this.pi >= this.path.length); }
 
   // 回傳往下一個可步行路徑點的單位方向；卡住時另外處理跳躍。
   steer() {
-    if (this.pathDone()) return null;
+    if (!this.path || this.pi >= this.path.length) return null;
     const wp = this.path[this.pi], wy = wp[2] ?? this.pos.y;
+    const revision=this.game.world.structuralRevision||0;
+    if(this.checkedRouteRevision!==revision||this.checkedWaypoint!==this.pi){
+      this.checkedRouteRevision=revision;this.checkedWaypoint=this.pi;
+      const support=this.game.world.support(wp[0],wp[1],.3,wy+.03);
+      if(!support||Math.abs(support.y-(wy-.025))>.15){
+        this.path=null;
+        if(this.goal&&!this.routePending)this.routeTo(this.goal[0],this.goal[1],this.goal[2]||0);
+        return null;
+      }
+    }
     const dx = wp[0] - this.pos.x, dz = wp[1] - this.pos.z, d = Math.hypot(dx, dz);
     if (d < 0.55 && Math.abs(wy - this.pos.y) < 1.1) this.pi++;
     return d > 0.01 ? [dx / d, dz / d] : null;

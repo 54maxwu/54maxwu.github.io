@@ -402,7 +402,10 @@ export class Effects {
   }
   // 物件被打爛：依材質噴出碎塊與粉塵
   debris(b, dir, from) {
+    if(this.camera.position.distanceToSquared(new THREE.Vector3(b.x,b.y,b.z))>90*90)return;
     const base = KIND_COL[b.kind] || [0.72, 0.7, 0.66], vol = b.sx * b.sy * b.sz, tree = b.kind === 'tree';
+    const metal=['metal','green','red','blue','yellow'].includes(b.kind),wood=['wood','board','bark'].includes(b.kind),tile=b.kind==='roof';
+    if(metal)for(let i=0;i<10;i++)this.add.emit({x:b.x,y:b.y,z:b.z,vx:(Math.random()-.5)*8,vy:Math.random()*5,vz:(Math.random()-.5)*8,max:.3+Math.random()*.35,s0:.07,s1:.01,r:2,g:1.2,b:.4,a0:1,grav:9.8});
     const n = tree ? 40 : Math.max(10, Math.min(46, vol * 55 | 0)), floor = this.world ? -50 : Math.max(b.y - b.sy / 2, -0.2);
     for (let i = 0; i < n; i++) {
       if (this.chunks.length >= this.chunkMax) this.chunks.shift();
@@ -412,15 +415,16 @@ export class Effects {
       else { const dx = x - from.x, dy = y - from.y, dz = z - from.z, L = Math.hypot(dx, dy, dz) || 1, s = 4 + Math.random() * 6; v = new THREE.Vector3(dx / L * s, dy / L * s + 2, dz / L * s); }
       const k = 0.8 + Math.random() * 0.3, col = leaf ? [0.24 * k, 0.45 * k, 0.2 * k] : [base[0] * k, base[1] * k, base[2] * k];
       const sz = leaf ? 0.12 + Math.random() * 0.14 : 0.06 + Math.random() * 0.16;
-      this.chunks.push({ p: new THREE.Vector3(x, y, z), v, q: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new THREE.Vector3(sz, sz * (leaf ? 0.15 : 0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false, chk: 0 });
+      this.chunks.push({ p: new THREE.Vector3(x, y, z), v, q: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new THREE.Vector3(sz*(wood?1.8:1), sz * (leaf||tile||metal ? 0.15 : wood?.25:0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false, chk: 0 });
     }
     const dust = tree ? [0.45, 0.5, 0.35] : base.map(c => c * 0.9 + 0.08);
-    for (let i = 0; i < (tree ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
+    for (let i = 0; i < (metal?2:tree ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
   }
   updateChunks(dt) {
     const D = this._dummy, M = this.chunkMesh, dq = new THREE.Quaternion(), ax = new THREE.Vector3();
     let n = 0;
     for (const ch of this.chunks) {
+      if(ch.p.distanceToSquared(this.camera.position)>75*75){ch.life=ch.max;continue;}
       ch.life += dt; if (ch.life >= ch.max) continue;
       this.refloor(ch, dt);
       if (!ch.rest) {
@@ -581,6 +585,7 @@ export class Effects {
     const D = this._dummy, M = this.shardMesh, dq = new THREE.Quaternion(), ax = new THREE.Vector3();
     let n = 0;
     for (const sh of this.shards) {
+      if(sh.p.distanceToSquared(this.camera.position)>75*75){sh.life=sh.max;continue;}
       sh.life += dt; if (sh.life >= sh.max) continue;
       this.refloor(sh, dt);
       if (!sh.rest) {

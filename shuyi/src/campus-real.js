@@ -17,6 +17,7 @@ import {treeCrown} from './campus-vegetation.js';
 import {buildNeighborhood} from './campus-neighborhood.js';
 import {decorateParapet} from './campus-facade.js';
 import {fractureGeometry} from './campus-breakables.js';
+import {materialDurability} from './material-strength.js';
 
 const FB=[0,4,7.6,11.2,14.8],FH=[4,3.6,3.6,3.6,3.6],ROOF=18.4,SLAB=0.25;   // floor bases / heights
 const SITE={x0:-70,x1:71,n0:-70,n1:77};
@@ -106,7 +107,7 @@ class Builder{
     this.quad(k,[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],[0,0,1],[[U(x0),U(y0)],[U(x1),U(y0)],[U(x1),U(y1)],[U(x0),U(y1)]]);
     this.quad(k,[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[0,0,-1],[[U(-x1),U(y0)],[U(-x0),U(y0)],[U(-x0),U(y1)],[U(-x1),U(y1)]]);
     if((col&&kind)||breakable){const c=col&&kind?this.collide(x0,x1,y0,y1,n0,n1,kind,typeof col==='object'?col:{}):null;
-      if(breakable){const vol=hx*hy*hn,hp=Math.round(Math.max(40,Math.min(520,380*Math.sqrt(vol/0.6)))*(HPK[k]||1));
+      if(breakable){const vol=hx*hy*hn,hp=materialDurability(k,vol);
         const part={ranges:[{k,start:vStart,count:36}],c,hp,max:hp,kind:k,box:{x0,x1,y0,y1,n0,n1},cb:c?.bullet,cs:c?.sight};if(c)c.part=part;this.parts.push(part)}}
     if(!col&&this._attach)this._attach.ranges.push({k,start:vStart,count:36});
   }
@@ -166,7 +167,18 @@ class Builder{
       const L=[];
       for(const c of W.query(b.x0-0.05,-b.n1-0.05,b.x1+0.05,-b.n0+0.05)){if(!ok(c)||!c.part||c.part===p)continue;if(Math.min(c.top,b.y1)-Math.max(c.bottom,b.y0)<0.25)continue;L.push(c.part)}
       lat.set(p,L)}
-    const g=q=>!set.has(q)||G.get(q),sp=q=>!set.has(q)||S.get(q);
+    // Remember real supports so a neighbouring floating island is not treated as ground.
+    for(const p of set){const b=below.get(p);p.supportRoot=b===true;p.supportDeps=[...(Array.isArray(b)?b:[]),...(lat.get(p)||[])];}
+    const anchored=start=>{
+      const revision=W.structuralRevision||0;if(start.anchorRevision===revision)return start.anchored;
+      const seen=new Set(),stack=[start];let found=false;
+      while(stack.length){const q=stack.pop();if(!q||q.dead||seen.has(q))continue;seen.add(q);
+        if(q.box.y0<=.05||q.supportRoot||q.anchorRevision===revision&&q.anchored){found=true;break;}
+        for(const dep of q.supportDeps||[])if(!dep.dead)stack.push(dep);
+      }
+      start.anchorRevision=revision;start.anchored=found;return found;
+    };
+    const g=q=>set.has(q)?G.get(q):anchored(q),sp=q=>set.has(q)?S.get(q):anchored(q);
     for(let it=0,ch=true;ch&&it<60;it++){ch=false;
       for(const p of set){const bl=below.get(p);
         if(!G.get(p)&&(bl===true||bl.some(sp))){G.set(p,true);ch=true}
@@ -267,7 +279,8 @@ class Builder{
       for(const chunk of fractureGeometry(g)){const b=chunk.boundingBox;
         const box={x0:b.min.x,x1:b.max.x,y0:b.min.y,y1:b.max.y,n0:-b.max.z,n1:-b.min.z};
         const c=this.M[k].col?this.collide(box.x0,Math.max(box.x0+.03,box.x1),box.y0,Math.max(box.y0+.03,box.y1),box.n0,Math.max(box.n0+.03,box.n1),this.M[k].col):null;
-        const p={ranges:[],c,hp:260,max:260,kind:k,box,cb:c?.bullet,cs:c?.sight};if(c)c.part=p;this.parts.push(p);
+        const hp=materialDurability(k,(box.x1-box.x0)*(box.y1-box.y0)*(box.n1-box.n0));
+        const p={ranges:[],c,hp,max:hp,kind:k,box,cb:c?.bullet,cs:c?.sight};if(c)c.part=p;this.parts.push(p);
         (this.extra[k]||(this.extra[k]=[])).push({g:chunk,part:p});
       }return;
     }
@@ -337,7 +350,6 @@ function placedExtrude(shape,depth,{plane='x',at=0,scale=1}){
 function archShape(a0,a1,spring,rise,top){const s=new THREE.Shape(),cx=(a0+a1)/2,rx=(a1-a0)/2;s.moveTo(a0,spring);s.lineTo(a0,top);s.lineTo(a1,top);s.lineTo(a1,spring);s.absellipse(cx,spring,rx,rise,0,Math.PI,false);return s}
 
 // Toughness per material (multiplies size-based hit points).
-const HPK={brick:1,stone:1,granite:1.3,concrete:1.2,plaster:.5,wood:.45,board:.4,beige:.6,white:.7,red:.7,blue:.7,yellow:.7,green:.5,metal:.8,quarry:1,terrazzo:1};
 
 // ---------- building bar (corridor on courtyard side, rooms behind) ----------
 // toW(u,w) -> [x,n]. w=0 courtyard face, w=D outer face. Corridor w 0..3.
@@ -682,4 +694,4 @@ export const REAL_BUILDINGS=[
 export function realLocate(rooms,p){const b=REAL_BUILDINGS.find(b=>p.x>=b.x0&&p.x<=b.x1&&p.z>=b.z0&&p.z<=b.z1);if(!b)return '';if(b.outdoor)return b.name;
   const floor=Math.max(1,Math.min(5,FB.findLastIndex(y=>p.y>=y-.6)+1));const r=rooms.find(r=>r.building===b.name&&r.floor===floor&&p.x>=r.x0-.2&&p.x<=r.x1+.2&&p.z>=r.z0-.2&&p.z<=r.z1+.2);
   return b.name+' '+floor+'F'+(r?' · '+r.name+(r.cls?' '+r.cls:''):'')}
-export {FB,ROOF,SITE,CampusNav};
+export {FB,ROOF,SITE,CampusNav,Builder};

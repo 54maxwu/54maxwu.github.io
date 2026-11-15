@@ -33162,6 +33162,62 @@ void main() {
     }
   };
 
+  // distance-details.js
+  var DistanceDetails = class {
+    constructor(meshes) {
+      this.layers = [];
+      this.elapsed = 1;
+      this.last = new Vector3(Infinity, Infinity, Infinity);
+      for (const mesh of meshes) {
+        const kind = mesh.name.replace("real:", "");
+        if (!["foliage", "flower", "drain", "lattice", "waterRipple", "shade"].includes(kind)) continue;
+        const geo = mesh.geometry, p = geo.attributes.position;
+        if (geo.index || !p) continue;
+        const bins = /* @__PURE__ */ new Map();
+        for (let i = 0; i < p.count; i += 6) {
+          let x = 0, z = 0;
+          const end = Math.min(i + 6, p.count);
+          for (let j = i; j < end; j++) {
+            x += p.getX(j);
+            z += p.getZ(j);
+          }
+          x /= end - i;
+          z /= end - i;
+          const key = `${Math.floor(x / 16)},${Math.floor(z / 16)}`;
+          if (!bins.has(key)) bins.set(key, { x: Math.floor(x / 16) * 16 + 8, z: Math.floor(z / 16) * 16 + 8, full: [], simple: [] });
+          const cell = bins.get(key), keep = i / 6 % 3 === 0;
+          for (let j = i; j < end; j++) {
+            cell.full.push(j);
+            if (keep) cell.simple.push(j);
+          }
+        }
+        const index = new BufferAttribute(new Uint32Array(p.count), 1).setUsage(DynamicDrawUsage);
+        for (let i = 0; i < p.count; i++) index.array[i] = i;
+        geo.setIndex(index);
+        this.layers.push({ geo, index, kind, bins: [...bins.values()] });
+      }
+    }
+    update(dt, camera) {
+      this.elapsed += dt;
+      if (this.elapsed < 0.5 || camera.position.distanceToSquared(this.last) < 36) return;
+      this.elapsed = 0;
+      this.last.copy(camera.position);
+      for (const layer of this.layers) {
+        let n = 0;
+        for (const cell of layer.bins) {
+          const distance = Math.hypot(cell.x - this.last.x, cell.z - this.last.z);
+          const indices = distance < 55 ? cell.full : distance < 110 || layer.kind === "foliage" ? cell.simple : [];
+          layer.index.array.set(indices, n);
+          n += indices.length;
+        }
+        layer.geo.setDrawRange(0, n);
+        layer.index.clearUpdateRanges();
+        layer.index.addUpdateRange(0, n);
+        layer.index.needsUpdate = true;
+      }
+    }
+  };
+
   // game-src/textures.js
   function rng(seed) {
     let s = seed >>> 0;
@@ -33927,6 +33983,102 @@ void main() {
     }
   };
 
+  // path-jobs.js
+  function* searchPath(nav, ax, az, bx, bz, ay = 0, by = 0) {
+    const a = nav.nearest(ax, az, ay), b = nav.nearest(bx, bz, by);
+    if (!a || !b) return null;
+    const cost = /* @__PURE__ */ new Map([[a.id, 0]]), parent = /* @__PURE__ */ new Map(), heap = [];
+    const h = (n) => Math.hypot(n.x - b.x, n.z - b.z) + Math.abs(n.y - b.y);
+    const push = (id, g) => {
+      const item = { id, g, f: g + h(nav.nodes[id]) };
+      let i = heap.length;
+      heap.push(item);
+      while (i) {
+        const p = i - 1 >> 1;
+        if (heap[p].f <= item.f) break;
+        heap[i] = heap[p];
+        i = p;
+      }
+      heap[i] = item;
+    };
+    const pop = () => {
+      const top = heap[0], last = heap.pop();
+      if (heap.length) {
+        let i = 0;
+        while (i * 2 + 1 < heap.length) {
+          let c = i * 2 + 1;
+          if (c + 1 < heap.length && heap[c + 1].f < heap[c].f) c++;
+          if (heap[c].f >= last.f) break;
+          heap[i] = heap[c];
+          i = c;
+        }
+        heap[i] = last;
+      }
+      return top;
+    };
+    push(a.id, 0);
+    let expanded = 0;
+    while (heap.length) {
+      if (++expanded % 32 === 0) yield;
+      const item = pop(), n = nav.nodes[item.id];
+      if (item.g !== cost.get(n.id)) continue;
+      if (!nav.nodeSupported(n)) continue;
+      if (n.id === b.id) {
+        const result = [];
+        for (let id = b.id; id !== void 0; id = parent.get(id)) {
+          const p = nav.nodes[id];
+          result.push([p.x, p.z, p.y]);
+        }
+        return result.reverse();
+      }
+      for (const id of n.edges) {
+        const q = nav.nodes[id];
+        if (!nav.nodeSupported(q)) continue;
+        const g = item.g + Math.hypot(q.x - n.x, q.z - n.z) + Math.abs(q.y - n.y) * 0.8;
+        if (g < (cost.get(id) ?? Infinity)) {
+          cost.set(id, g);
+          parent.set(id, n.id);
+          push(id, g);
+        }
+      }
+    }
+    return null;
+  }
+  var PathJobs = class {
+    constructor(nav) {
+      this.nav = nav;
+      this.requests = /* @__PURE__ */ new Map();
+      this.active = null;
+    }
+    request(owner, args, done) {
+      this.requests.set(owner, { owner, args, done, revision: -1 });
+    }
+    clear() {
+      this.requests.clear();
+      this.active = null;
+    }
+    update(budget = 2) {
+      const end = performance.now() + budget;
+      do {
+        if (this.active && this.requests.get(this.active.owner) !== this.active) this.active = null;
+        if (!this.active) this.active = this.requests.values().next().value;
+        const job = this.active;
+        if (!job) return;
+        const revision = this.nav.world.structuralRevision || 0;
+        if (job.revision !== revision) {
+          job.revision = revision;
+          job.search = searchPath(this.nav, ...job.args);
+        }
+        const result = job.search.next();
+        if (result.done) {
+          this.requests.delete(job.owner);
+          this.active = null;
+          job.done(result.value);
+        }
+      } while (performance.now() < end);
+    }
+  };
+
   // campus-physics.js
   var CampusWorld = class extends World {
     query(...args) {
@@ -33978,6 +34130,15 @@ void main() {
     }
   };
   var CampusNav = class {
+    requestPath(owner, args, done) {
+      (this.pathJobs ?? (this.pathJobs = new PathJobs(this))).request(owner, args, done);
+    }
+    updatePaths() {
+      this.pathJobs?.update(2);
+    }
+    clearRequests() {
+      this.pathJobs?.clear();
+    }
     nodeSupported(n) {
       const revision = this.world.structuralRevision || 0;
       if (n.supportRevision !== revision) {
@@ -34695,6 +34856,12 @@ void main() {
     }).filter((g2) => g2.boundingBox.max.distanceTo(g2.boundingBox.min) > 0.01);
   }
 
+  // material-strength.js
+  var STRENGTH = { granite: 1.4, concrete: 1.25, metal: 1.5, brick: 0.9, stone: 1, plaster: 0.32, wood: 0.4, board: 0.3, roof: 0.38, beige: 0.4, white: 0.5, green: 1.1, red: 1.1, blue: 1.1, yellow: 1.1, quarry: 0.9, terrazzo: 1, leaf: 0.12, leafLight: 0.12, leafDark: 0.12, foliage: 0.08, flower: 0.08 };
+  function materialDurability(kind, volume) {
+    return Math.round(Math.max(35, Math.min(520, 380 * Math.sqrt(Math.max(0, volume) / 0.6))) * (STRENGTH[kind] ?? 1));
+  }
+
   // campus-real.js
   var FB = [0, 4, 7.6, 11.2, 14.8];
   var FH = [4, 3.6, 3.6, 3.6, 3.6];
@@ -34927,7 +35094,7 @@ void main() {
       if (col && kind || breakable) {
         const c = col && kind ? this.collide(x0, x1, y0, y1, n0, n1, kind, typeof col === "object" ? col : {}) : null;
         if (breakable) {
-          const vol = hx * hy * hn, hp = Math.round(Math.max(40, Math.min(520, 380 * Math.sqrt(vol / 0.6))) * (HPK[k] || 1));
+          const vol = hx * hy * hn, hp = materialDurability(k, vol);
           const part = { ranges: [{ k, start: vStart, count: 36 }], c, hp, max: hp, kind: k, box: { x0, x1, y0, y1, n0, n1 }, cb: c?.bullet, cs: c?.sight };
           if (c) c.part = part;
           this.parts.push(part);
@@ -35121,7 +35288,31 @@ void main() {
         }
         lat.set(p, L);
       }
-      const g = (q) => !set.has(q) || G.get(q), sp = (q) => !set.has(q) || S.get(q);
+      for (const p of set) {
+        const b = below.get(p);
+        p.supportRoot = b === true;
+        p.supportDeps = [...Array.isArray(b) ? b : [], ...lat.get(p) || []];
+      }
+      const anchored = (start) => {
+        const revision = W.structuralRevision || 0;
+        if (start.anchorRevision === revision) return start.anchored;
+        const seen = /* @__PURE__ */ new Set(), stack = [start];
+        let found = false;
+        while (stack.length) {
+          const q = stack.pop();
+          if (!q || q.dead || seen.has(q)) continue;
+          seen.add(q);
+          if (q.box.y0 <= 0.05 || q.supportRoot || q.anchorRevision === revision && q.anchored) {
+            found = true;
+            break;
+          }
+          for (const dep of q.supportDeps || []) if (!dep.dead) stack.push(dep);
+        }
+        start.anchorRevision = revision;
+        start.anchored = found;
+        return found;
+      };
+      const g = (q) => set.has(q) ? G.get(q) : anchored(q), sp = (q) => set.has(q) ? S.get(q) : anchored(q);
       for (let it = 0, ch = true; ch && it < 60; it++) {
         ch = false;
         for (const p of set) {
@@ -35462,7 +35653,8 @@ void main() {
           const b2 = chunk.boundingBox;
           const box2 = { x0: b2.min.x, x1: b2.max.x, y0: b2.min.y, y1: b2.max.y, n0: -b2.max.z, n1: -b2.min.z };
           const c = this.M[k].col ? this.collide(box2.x0, Math.max(box2.x0 + 0.03, box2.x1), box2.y0, Math.max(box2.y0 + 0.03, box2.y1), box2.n0, Math.max(box2.n0 + 0.03, box2.n1), this.M[k].col) : null;
-          const p = { ranges: [], c, hp: 260, max: 260, kind: k, box: box2, cb: c?.bullet, cs: c?.sight };
+          const hp = materialDurability(k, (box2.x1 - box2.x0) * (box2.y1 - box2.y0) * (box2.n1 - box2.n0));
+          const p = { ranges: [], c, hp, max: hp, kind: k, box: box2, cb: c?.bullet, cs: c?.sight };
           if (c) c.part = p;
           this.parts.push(p);
           (this.extra[k] || (this.extra[k] = [])).push({ g: chunk, part: p });
@@ -35613,7 +35805,6 @@ void main() {
     s.absellipse(cx, spring, rx, rise, 0, Math.PI, false);
     return s;
   }
-  var HPK = { brick: 1, stone: 1, granite: 1.3, concrete: 1.2, plaster: 0.5, wood: 0.45, board: 0.4, beige: 0.6, white: 0.7, red: 0.7, blue: 0.7, yellow: 0.7, green: 0.5, metal: 0.8, quarry: 1, terrazzo: 1 };
   function bar(B, o) {
     const { u0, u1, D: D2, toW, segs, open, ends = {} } = o, COR = 3;
     const lb = (k, a0, a1, y0, y1, w0, w1, col = true) => {
@@ -37515,7 +37706,10 @@ void main() {
     }
     // 物件被打爛：依材質噴出碎塊與粉塵
     debris(b, dir, from) {
+      if (this.camera.position.distanceToSquared(new Vector3(b.x, b.y, b.z)) > 90 * 90) return;
       const base = KIND_COL[b.kind] || [0.72, 0.7, 0.66], vol = b.sx * b.sy * b.sz, tree2 = b.kind === "tree";
+      const metal = ["metal", "green", "red", "blue", "yellow"].includes(b.kind), wood = ["wood", "board", "bark"].includes(b.kind), tile = b.kind === "roof";
+      if (metal) for (let i = 0; i < 10; i++) this.add.emit({ x: b.x, y: b.y, z: b.z, vx: (Math.random() - 0.5) * 8, vy: Math.random() * 5, vz: (Math.random() - 0.5) * 8, max: 0.3 + Math.random() * 0.35, s0: 0.07, s1: 0.01, r: 2, g: 1.2, b: 0.4, a0: 1, grav: 9.8 });
       const n = tree2 ? 40 : Math.max(10, Math.min(46, vol * 55 | 0)), floor = this.world ? -50 : Math.max(b.y - b.sy / 2, -0.2);
       for (let i = 0; i < n; i++) {
         if (this.chunks.length >= this.chunkMax) this.chunks.shift();
@@ -37528,15 +37722,19 @@ void main() {
         }
         const k = 0.8 + Math.random() * 0.3, col = leaf ? [0.24 * k, 0.45 * k, 0.2 * k] : [base[0] * k, base[1] * k, base[2] * k];
         const sz = leaf ? 0.12 + Math.random() * 0.14 : 0.06 + Math.random() * 0.16;
-        this.chunks.push({ p: new Vector3(x, y, z), v, q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new Vector3(sz, sz * (leaf ? 0.15 : 0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false, chk: 0 });
+        this.chunks.push({ p: new Vector3(x, y, z), v, q: new Quaternion().setFromEuler(new Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3)), w: new Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12), s: new Vector3(sz * (wood ? 1.8 : 1), sz * (leaf || tile || metal ? 0.15 : wood ? 0.25 : 0.6 + Math.random() * 0.5), sz * (0.7 + Math.random() * 0.5)), col, life: 0, max: 4 + Math.random() * 3, floor, rest: false, chk: 0 });
       }
       const dust = tree2 ? [0.45, 0.5, 0.35] : base.map((c) => c * 0.9 + 0.08);
-      for (let i = 0; i < (tree2 ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
+      for (let i = 0; i < (metal ? 2 : tree2 ? 8 : 14); i++) this.smoke.emit({ x: b.x + (Math.random() - 0.5) * b.sx, y: b.y + (Math.random() - 0.5) * b.sy, z: b.z + (Math.random() - 0.5) * b.sz, vx: (Math.random() - 0.5) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5) * 1.5, life: 0, max: 1.6 + Math.random() * 1.2, s0: 0.4, s1: 1.6, r: dust[0], g: dust[1], b: dust[2], a0: 0.5, a1: 0, grav: -0.15, drag: 2 });
     }
     updateChunks(dt) {
       const D2 = this._dummy, M = this.chunkMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const ch of this.chunks) {
+        if (ch.p.distanceToSquared(this.camera.position) > 75 * 75) {
+          ch.life = ch.max;
+          continue;
+        }
         ch.life += dt;
         if (ch.life >= ch.max) continue;
         this.refloor(ch, dt);
@@ -37766,6 +37964,10 @@ void main() {
       const D2 = this._dummy, M = this.shardMesh, dq = new Quaternion(), ax = new Vector3();
       let n = 0;
       for (const sh of this.shards) {
+        if (sh.p.distanceToSquared(this.camera.position) > 75 * 75) {
+          sh.life = sh.max;
+          continue;
+        }
         sh.life += dt;
         if (sh.life >= sh.max) continue;
         this.refloor(sh, dt);
@@ -41241,6 +41443,17 @@ void main() {
     }
     // ───────── 路徑 ─────────
     routeTo(x, z, y = 0) {
+      if (this.game.nav.requestPath) {
+        this.routePending = true;
+        this.game.nav.requestPath(this, [this.pos.x, this.pos.z, x, z, this.pos.y, y], (path2) => {
+          this.routePending = false;
+          if (this.alive) {
+            this.path = path2;
+            this.pi = 1;
+          }
+        });
+        return;
+      }
       this.path = this.game.nav.findPath(this.pos.x, this.pos.z, x, z, this.pos.y, y);
       this.pi = 1;
     }
@@ -41250,12 +41463,23 @@ void main() {
       this.routeTo(p[0], p[1], p[2] || 0);
     }
     pathDone() {
-      return !this.path || this.pi >= this.path.length;
+      return !this.routePending && (!this.path || this.pi >= this.path.length);
     }
     // 回傳往下一個可步行路徑點的單位方向；卡住時另外處理跳躍。
     steer() {
-      if (this.pathDone()) return null;
+      if (!this.path || this.pi >= this.path.length) return null;
       const wp = this.path[this.pi], wy = wp[2] ?? this.pos.y;
+      const revision = this.game.world.structuralRevision || 0;
+      if (this.checkedRouteRevision !== revision || this.checkedWaypoint !== this.pi) {
+        this.checkedRouteRevision = revision;
+        this.checkedWaypoint = this.pi;
+        const support = this.game.world.support(wp[0], wp[1], 0.3, wy + 0.03);
+        if (!support || Math.abs(support.y - (wy - 0.025)) > 0.15) {
+          this.path = null;
+          if (this.goal && !this.routePending) this.routeTo(this.goal[0], this.goal[1], this.goal[2] || 0);
+          return null;
+        }
+      }
       const dx = wp[0] - this.pos.x, dz = wp[1] - this.pos.z, d = Math.hypot(dx, dz);
       if (d < 0.55 && Math.abs(wy - this.pos.y) < 1.1) this.pi++;
       return d > 0.01 ? [dx / d, dz / d] : null;
@@ -42139,9 +42363,16 @@ void main() {
     afterWreck(att) {
       const M = this.map;
       if (!M.takeWrecked) return;
-      for (let round = 0; round < 8; round++) {
-        const list = M.takeWrecked();
-        if (!list.length) break;
+      const list = M.takeWrecked();
+      if (list.length) (this.wreckQueue ?? (this.wreckQueue = [])).push({ list, index: 0, att });
+    },
+    processWreckQueue() {
+      const M = this.map, end = performance.now() + 2;
+      while (this.wreckQueue?.length) {
+        const job = this.wreckQueue[0], att = job.att;
+        const list = job.list.slice(job.index, job.index + 8);
+        job.index += list.length;
+        if (job.index >= job.list.length) this.wreckQueue.shift();
         for (const x of list) {
           this.fx.clearDecalsIn(x);
           this.fx.wakeRubble(x);
@@ -42155,6 +42386,8 @@ void main() {
             audio.playGlassBreak(new Vector3(q.x, q.y, q.z), 0.8);
           }
         }
+        this.afterWreck(att);
+        if (performance.now() >= end) break;
       }
     },
     // 塌落的牆塊落地、翻倒的桌子撞地：碎屑、聲音、震動，正下方的人受傷
@@ -42533,6 +42766,8 @@ void main() {
       this.nades = [];
       this.timers = [];
       this.clearRockets();
+      this.nav.clearRequests?.();
+      this.wreckQueue = [];
       this.score = { BL: 0, GR: 0 };
       this.goal = o.goal;
       this.timeLeft = 600;
@@ -42776,6 +43011,10 @@ void main() {
       }
       this.player.update(dt);
       for (const a of this.actors) if (!a.isPlayer) a.update(dt);
+      if (vis > 0) {
+        this.nav.updatePaths?.();
+        this.processWreckQueue();
+      }
       for (const a of this.actors) this.updateBody(a, dt, vis);
       this.updateNades(dt);
       this.updateRockets(dt);
@@ -42813,6 +43052,7 @@ void main() {
     // ───────── 每幀輸出 ─────────
     renderFrame(dt) {
       const R = this.renderer, cam = R.camera, p = this.player;
+      (this.distanceDetails ?? (this.distanceDetails = new DistanceDetails(this.map.meshes || []))).update(dt, cam);
       if (p && this.playing) this.updateViewModel(dt, p);
       this.fx.update(dt, this.realTime, cam);
       this.env.update(dt, this.realTime, cam.position);

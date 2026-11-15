@@ -4,6 +4,7 @@
 // 除錯：window.__game 指向目前的 Game；網址參數 ?q=low|medium|high 指定畫質、?nolock 不鎖滑鼠、?autostart 直接開局
 import * as THREE from 'three';
 import { Renderer } from './render.js';
+import { DistanceDetails } from '../distance-details.js';
 import { buildTextures } from './textures.js';
 import { buildCampus } from '../campus-map.js';
 import { CampusEnvironment as Environment } from '../campus-env.js';
@@ -150,6 +151,8 @@ export class Game {
     for (const n of this.nades) this.renderer.scene.remove(n.mesh);
     this.nades = []; this.timers = [];
     this.clearRockets();
+    this.nav.clearRequests?.();
+    this.wreckQueue=[];
     this.score = { BL: 0, GR: 0 };
     this.goal = o.goal; this.timeLeft = 600;
     this.env.apply(o.tod);
@@ -355,6 +358,7 @@ export class Game {
     }
     this.player.update(dt);
     for (const a of this.actors) if (!a.isPlayer) a.update(dt);
+    if(vis>0){this.nav.updatePaths?.();this.processWreckQueue();}
     for (const a of this.actors) this.updateBody(a, dt, vis);
     this.updateNades(dt);
     this.updateRockets(dt);
@@ -392,6 +396,7 @@ export class Game {
 
   renderFrame(dt) {
     const R = this.renderer, cam = R.camera, p = this.player;
+    (this.distanceDetails??=new DistanceDetails(this.map.meshes||[])).update(dt,cam);
     if (p && this.playing) this.updateViewModel(dt, p);
     this.fx.update(dt, this.realTime, cam);
     this.env.update(dt, this.realTime, cam.position);
