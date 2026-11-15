@@ -8,7 +8,7 @@
 //   touch.fire / firePressed 按住開火／這一幀剛按下
 //   touch.jump / touch.crouch
 //   touchLook.x / .y          視角拖曳量（像素，玩家端再乘靈敏度）
-//   pressed.add('KeyR' | 'KeyQ' | 'Digit4')、mouse.rp（開鏡）
+//   pressed.add('KeyR' | 'CycleWeapon' | 'Digit4')、mouse.rp（開鏡）
 //
 // 操作方式
 //   左半邊：手指放下的位置就是搖桿中心（浮動搖桿），放開歸零
@@ -27,7 +27,7 @@ const BUTTONS = [
   { id: 'crouch', label: '蹲', cls: 'crouch' },
   { id: 'scope', label: '開鏡', cls: 'scope' },
   { id: 'reload', label: '換彈', cls: 'reload' },
-  { id: 'swap', label: '切槍', cls: 'swap' },
+  { id: 'swap', label: '換武器', cls: 'swap' },
   { id: 'nade', label: '手雷', cls: 'nade' },
 ];
 
@@ -59,16 +59,25 @@ export class TouchControls {
     this.stickId = null; this.sx = 0; this.sy = 0;
     this.looks = new Map();      // pointerId → 上一個位置（視角拖曳，可以多指）
     this.held = new Map();       // pointerId → 按鍵 id
+    this.captures = new Map();   // 指尖移出按鍵後仍接收同一根手指的事件
 
     const opt = { passive: false };
     window.addEventListener('pointerdown', (e) => this.down(e), opt);
     window.addEventListener('pointermove', (e) => this.move(e), opt);
     window.addEventListener('pointerup', (e) => this.up(e), opt);
     window.addEventListener('pointercancel', (e) => this.up(e), opt);
+    window.addEventListener('lostpointercapture', (e) => this.up(e), opt);
     window.addEventListener('blur', () => this.releaseAll());
+    document.addEventListener('visibilitychange', () => { if(document.hidden)this.releaseAll(); });
+    // Safari 的手勢事件與 Touch Events 備援：不可讓遊戲中的雙指手勢交給瀏覽器。
+    for(const name of ['gesturestart','gesturechange','gestureend'])document.addEventListener(name,e=>e.preventDefault(),opt);
+    for(const name of ['touchstart','touchmove','touchend'])document.addEventListener(name,e=>{
+      const t=e.target;
+      if(this.player&&(t===this.game.renderer?.renderer?.domElement||t?.id==='c'||this.root.contains(t)))e.preventDefault();
+    },opt);
   }
 
-  get player() { return this.game.playing ? this.game.player : null; }
+  get player() { return this.game.playing&&!this.game.paused&&!this.game.inLoadout&&this.game.player?.alive ? this.game.player : null; }
 
   // 只處理落在遊戲畫面或觸控圖層上的手指，選單、暫停畫面照常點擊
   owns(e) {
@@ -82,9 +91,11 @@ export class TouchControls {
     const p = this.player;
     if (!p) return;
     e.preventDefault();
+    try { e.target.setPointerCapture(e.pointerId); this.captures.set(e.pointerId,e.target); } catch { /* 舊版瀏覽器以 window 事件追蹤 */ }
     this.btn.crouch.classList.toggle('lit', !!p.touch.crouch);   // 重生後玩家物件會換新
-    const id = e.target?.dataset?.id;
-    if (id) { this.held.set(e.pointerId, id); this.press(id, p); e.target.classList.add('down'); }
+    const button=e.target?.closest?.('.tbtn');
+    const id = button?.dataset?.id;
+    if (id) { this.held.set(e.pointerId, id); this.press(id, p); button.classList.add('down'); }
     if (id === 'fire' || id === 'fire2') { this.looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); return; }
     if (id) return;
     if (e.clientX < innerWidth * 0.42 && this.stickId === null) {
@@ -125,7 +136,8 @@ export class TouchControls {
 
   up(e) {
     if (e.pointerType !== 'touch') return;
-    const p = this.player;
+    const p = this.game.player;
+    const capture=this.captures.get(e.pointerId);this.captures.delete(e.pointerId);
     if (e.pointerId === this.stickId) {
       this.stickId = null;
       this.base.classList.remove('active');
@@ -135,9 +147,10 @@ export class TouchControls {
     const id = this.held.get(e.pointerId);
     if (id) {
       this.held.delete(e.pointerId);
-      this.btn[id]?.classList.remove('down');
+      if(![...this.held.values()].includes(id))this.btn[id]?.classList.remove('down');
       if ((id === 'fire' || id === 'fire2') && p && ![...this.held.values()].some((v) => v === 'fire' || v === 'fire2')) p.touch.fire = false;
     }
+    try { if(capture?.hasPointerCapture(e.pointerId))capture.releasePointerCapture(e.pointerId); } catch { /* 已取消的指標可能已由瀏覽器釋放 */ }
   }
 
   press(id, p) {
@@ -153,7 +166,7 @@ export class TouchControls {
         break;
       case 'scope': p.mouse.rp = true; break;
       case 'reload': p.pressed.add('KeyR'); break;
-      case 'swap': p.pressed.add('KeyQ'); break;
+      case 'swap': p.pressed.add('CycleWeapon'); break;
       case 'nade': p.pressed.add('Digit4'); break;
     }
   }
@@ -163,11 +176,14 @@ export class TouchControls {
   }
 
   releaseAll() {
-    const p = this.player;
+    if(!this.enabled)return;
+    const p = this.game.player;
+    const captures=[...this.captures];this.captures.clear();
     this.stickId = null; this.looks.clear(); this.held.clear();
     this.base?.classList.remove('active');
     for (const b of Object.values(this.btn || {})) b.classList.remove('down');
-    if (p) { p.touch.mx = p.touch.mz = 0; p.touch.fire = false; }
+    if (p) { p.touch.mx = p.touch.mz = 0; p.touch.fire = p.touch.firePressed = p.touch.jump = false; if(p.touchLook)p.touchLook.x=p.touchLook.y=0; }
+    for(const [id,target]of captures){try{if(target.hasPointerCapture(id))target.releasePointerCapture(id)}catch{}}
   }
 }
 

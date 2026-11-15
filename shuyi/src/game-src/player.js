@@ -140,19 +140,22 @@ export class Player extends Actor {
   pickSlot() {
     let sw = null;
     SLOT_KEYS.forEach((code, i) => { if (this.consumePressed(code)) sw = i; });
-    if (this.consumePressed('KeyQ')) sw = this.lastSlot;
-    if (this.mouse.wheel) {
-      const step = this.mouse.wheel > 0 ? 1 : -1;
-      this.mouse.wheel = 0;
-      let n = this.slot;
-      for (let tries = 0; tries < 4; tries++) {
-        n = (n + step + 4) % 4;
-        if (this.inv[n] && !this.isEmptyNade(n)) break;
-      }
-      sw = n;
-    }
+    const cycle=this.consumePressed('CycleWeapon'),previous=this.consumePressed('KeyQ'),wheel=this.mouse.wheel;
+    this.mouse.wheel=0;
+    if(sw===null&&cycle)sw=this.nextSlot(1);
+    if(sw===null&&previous)sw=this.lastSlot;
+    if(sw===null&&wheel)sw=this.nextSlot(wheel>0?1:-1);
     if (sw !== null && this.isEmptyNade(sw)) { this.game.hud.toast('沒有手雷了', 1.2); sw = null; }
     return sw;
+  }
+
+  nextSlot(step) {
+      let n = this.slot;
+      for (let tries = 0; tries < this.inv.length; tries++) {
+        n = (n + step + this.inv.length) % this.inv.length;
+        if (this.inv[n] && !this.isEmptyNade(n)) return n;
+      }
+      return null;
   }
 
   isEmptyNade(slot) {

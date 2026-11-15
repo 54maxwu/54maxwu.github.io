@@ -206,6 +206,7 @@ export class Game {
 
   // 出生點：避開有人站著的點，偏好離敵人遠的點（加一點隨機）
   spawnActor(a, first) {
+    if(a.isPlayer)this.touch?.releaseAll();
     let best = null, bestScore = -Infinity;
     for (const p of this.map.spawns[a.team]) {
       let score = Math.random() * 3;
@@ -245,7 +246,7 @@ export class Game {
     else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has('nolock')) this.pause();
   }
 
-  pause() { this.paused = true; this.hud.show('pause'); this.hud.scoreboard(false); }
+  pause() { this.touch?.releaseAll(); this.paused = true; this.hud.show('pause'); this.hud.scoreboard(false); }
 
   resume(fromLock) { this.paused = false; this.hud.show(null); if (!fromLock) this.lock(); }
 
@@ -263,6 +264,7 @@ export class Game {
     if (!this.playing) return;
     if (this.inLoadout) { this.closeLoadout(); return; }
     this.inLoadout = true;
+    this.touch?.releaseAll();
     this.hud.show('loadout');
     const current = this.player.nextPrimary || this.player.primary;
     for (const card of document.querySelectorAll('#loadCards .card')) card.classList.toggle('on', card.dataset.w === current);

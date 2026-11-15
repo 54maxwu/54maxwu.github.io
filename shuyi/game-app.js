@@ -40187,6 +40187,8 @@ void main() {
       this.soldier.setWeapon(this.primary);
     }
     spawn(sp) {
+      this.pendingThrow = 0;
+      this.autoSwitchAt = 0;
       this.stepped = 0;
       this.stepOffset = 0;
       this.pos.set(sp.x, (sp.y ?? 0) + 0.02, sp.z);
@@ -40670,22 +40672,24 @@ void main() {
       SLOT_KEYS.forEach((code, i) => {
         if (this.consumePressed(code)) sw = i;
       });
-      if (this.consumePressed("KeyQ")) sw = this.lastSlot;
-      if (this.mouse.wheel) {
-        const step = this.mouse.wheel > 0 ? 1 : -1;
-        this.mouse.wheel = 0;
-        let n = this.slot;
-        for (let tries = 0; tries < 4; tries++) {
-          n = (n + step + 4) % 4;
-          if (this.inv[n] && !this.isEmptyNade(n)) break;
-        }
-        sw = n;
-      }
+      const cycle = this.consumePressed("CycleWeapon"), previous = this.consumePressed("KeyQ"), wheel = this.mouse.wheel;
+      this.mouse.wheel = 0;
+      if (sw === null && cycle) sw = this.nextSlot(1);
+      if (sw === null && previous) sw = this.lastSlot;
+      if (sw === null && wheel) sw = this.nextSlot(wheel > 0 ? 1 : -1);
       if (sw !== null && this.isEmptyNade(sw)) {
         this.game.hud.toast("\u6C92\u6709\u624B\u96F7\u4E86", 1.2);
         sw = null;
       }
       return sw;
+    }
+    nextSlot(step) {
+      let n = this.slot;
+      for (let tries = 0; tries < this.inv.length; tries++) {
+        n = (n + step + this.inv.length) % this.inv.length;
+        if (this.inv[n] && !this.isEmptyNade(n)) return n;
+      }
+      return null;
     }
     isEmptyNade(slot) {
       const w = this.inv[slot];
@@ -41162,7 +41166,7 @@ void main() {
     { id: "crouch", label: "\u8E72", cls: "crouch" },
     { id: "scope", label: "\u958B\u93E1", cls: "scope" },
     { id: "reload", label: "\u63DB\u5F48", cls: "reload" },
-    { id: "swap", label: "\u5207\u69CD", cls: "swap" },
+    { id: "swap", label: "\u63DB\u6B66\u5668", cls: "swap" },
     { id: "nade", label: "\u624B\u96F7", cls: "nade" }
   ];
   var TouchControls = class {
@@ -41190,15 +41194,25 @@ void main() {
       this.sy = 0;
       this.looks = /* @__PURE__ */ new Map();
       this.held = /* @__PURE__ */ new Map();
+      this.captures = /* @__PURE__ */ new Map();
       const opt = { passive: false };
       window.addEventListener("pointerdown", (e) => this.down(e), opt);
       window.addEventListener("pointermove", (e) => this.move(e), opt);
       window.addEventListener("pointerup", (e) => this.up(e), opt);
       window.addEventListener("pointercancel", (e) => this.up(e), opt);
+      window.addEventListener("lostpointercapture", (e) => this.up(e), opt);
       window.addEventListener("blur", () => this.releaseAll());
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) this.releaseAll();
+      });
+      for (const name of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(name, (e) => e.preventDefault(), opt);
+      for (const name of ["touchstart", "touchmove", "touchend"]) document.addEventListener(name, (e) => {
+        const t = e.target;
+        if (this.player && (t === this.game.renderer?.renderer?.domElement || t?.id === "c" || this.root.contains(t))) e.preventDefault();
+      }, opt);
     }
     get player() {
-      return this.game.playing ? this.game.player : null;
+      return this.game.playing && !this.game.paused && !this.game.inLoadout && this.game.player?.alive ? this.game.player : null;
     }
     // 只處理落在遊戲畫面或觸控圖層上的手指，選單、暫停畫面照常點擊
     owns(e) {
@@ -41211,12 +41225,18 @@ void main() {
       const p = this.player;
       if (!p) return;
       e.preventDefault();
+      try {
+        e.target.setPointerCapture(e.pointerId);
+        this.captures.set(e.pointerId, e.target);
+      } catch {
+      }
       this.btn.crouch.classList.toggle("lit", !!p.touch.crouch);
-      const id = e.target?.dataset?.id;
+      const button = e.target?.closest?.(".tbtn");
+      const id = button?.dataset?.id;
       if (id) {
         this.held.set(e.pointerId, id);
         this.press(id, p);
-        e.target.classList.add("down");
+        button.classList.add("down");
       }
       if (id === "fire" || id === "fire2") {
         this.looks.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -41269,7 +41289,9 @@ void main() {
     }
     up(e) {
       if (e.pointerType !== "touch") return;
-      const p = this.player;
+      const p = this.game.player;
+      const capture = this.captures.get(e.pointerId);
+      this.captures.delete(e.pointerId);
       if (e.pointerId === this.stickId) {
         this.stickId = null;
         this.base.classList.remove("active");
@@ -41282,8 +41304,12 @@ void main() {
       const id = this.held.get(e.pointerId);
       if (id) {
         this.held.delete(e.pointerId);
-        this.btn[id]?.classList.remove("down");
+        if (![...this.held.values()].includes(id)) this.btn[id]?.classList.remove("down");
         if ((id === "fire" || id === "fire2") && p && ![...this.held.values()].some((v) => v === "fire" || v === "fire2")) p.touch.fire = false;
+      }
+      try {
+        if (capture?.hasPointerCapture(e.pointerId)) capture.releasePointerCapture(e.pointerId);
+      } catch {
       }
     }
     press(id, p) {
@@ -41308,7 +41334,7 @@ void main() {
           p.pressed.add("KeyR");
           break;
         case "swap":
-          p.pressed.add("KeyQ");
+          p.pressed.add("CycleWeapon");
           break;
         case "nade":
           p.pressed.add("Digit4");
@@ -41319,7 +41345,10 @@ void main() {
       this.knob.style.transform = `translate(calc(-50% + ${dx * STICK_R}px), calc(-50% + ${dy * STICK_R}px))`;
     }
     releaseAll() {
-      const p = this.player;
+      if (!this.enabled) return;
+      const p = this.game.player;
+      const captures = [...this.captures];
+      this.captures.clear();
       this.stickId = null;
       this.looks.clear();
       this.held.clear();
@@ -41327,7 +41356,14 @@ void main() {
       for (const b of Object.values(this.btn || {})) b.classList.remove("down");
       if (p) {
         p.touch.mx = p.touch.mz = 0;
-        p.touch.fire = false;
+        p.touch.fire = p.touch.firePressed = p.touch.jump = false;
+        if (p.touchLook) p.touchLook.x = p.touchLook.y = 0;
+      }
+      for (const [id, target] of captures) {
+        try {
+          if (target.hasPointerCapture(id)) target.releasePointerCapture(id);
+        } catch {
+        }
       }
     }
   };
@@ -42103,6 +42139,7 @@ void main() {
     }
     // 出生點：避開有人站著的點，偏好離敵人遠的點（加一點隨機）
     spawnActor(a, first) {
+      if (a.isPlayer) this.touch?.releaseAll();
       let best = null, bestScore = -Infinity;
       for (const p of this.map.spawns[a.team]) {
         let score = Math.random() * 3;
@@ -42154,6 +42191,7 @@ void main() {
       } else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has("nolock")) this.pause();
     }
     pause() {
+      this.touch?.releaseAll();
       this.paused = true;
       this.hud.show("pause");
       this.hud.scoreboard(false);
@@ -42182,6 +42220,7 @@ void main() {
         return;
       }
       this.inLoadout = true;
+      this.touch?.releaseAll();
       this.hud.show("loadout");
       const current = this.player.nextPrimary || this.player.primary;
       for (const card of document.querySelectorAll("#loadCards .card")) card.classList.toggle("on", card.dataset.w === current);

@@ -10,8 +10,8 @@
   --num:"Bahnschrift","DIN Alternate","Roboto Condensed","Arial Narrow",var(--tc);
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#07100c;color:var(--chalk);font-family:var(--tc);user-select:none;-webkit-user-select:none}
-#c{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+html,body{margin:0;height:100%;overflow:hidden;background:#07100c;color:var(--chalk);font-family:var(--tc);user-select:none;-webkit-user-select:none;touch-action:pan-x pan-y;overscroll-behavior:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none;-webkit-touch-callout:none}
 #ui{position:fixed;inset:0;pointer-events:none;z-index:2}
 .hidden{display:none!important}
 button{font-family:inherit;color:inherit}
@@ -224,7 +224,7 @@ kbd{font-family:var(--num);font-size:12px;padding:1px 7px;border-radius:4px;bord
 
 /* 觸控操作（touch.js）：按鍵以右下角為基準排成弧形，留出手機瀏海與底部手勢區 */
 #touch{position:absolute;inset:0;pointer-events:none;--sr:env(safe-area-inset-right,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px)}
-#touch.on{touch-action:none}
+#touch.on,#touch.on *{touch-action:none;-webkit-touch-callout:none}
 #touch .stick{position:absolute;left:calc(120px + var(--sl));top:calc(100% - 140px - var(--sb));width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06),rgba(255,255,255,.14));border:2px solid rgba(255,255,255,.22);opacity:.45;transition:opacity .15s;pointer-events:none}
 #touch .stick.active{opacity:1;transition:none}
 #touch .knob{position:absolute;left:50%;top:50%;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.32);border:2px solid rgba(255,255,255,.6);transform:translate(-50%,-50%)}
