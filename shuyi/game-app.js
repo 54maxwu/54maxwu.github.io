@@ -33182,6 +33182,7 @@ void main() {
     medium: { dpr: 1.15, msaa: 2 },
     high: { dpr: 1.5, msaa: 4 }
   };
+  var nativeResolutionFloor = (baseDpr) => Math.min(1, 1 / Math.max(1, baseDpr));
   var SCREEN_VS = (
     /* glsl */
     `
@@ -33216,7 +33217,7 @@ void main() {
   uv += drift;
 
   vec3 col;
-  float split = (uDamage * 0.003 + uDeath * 0.005 + k * 0.004) * rad;
+  float split = (uDamage * 0.001 + uDeath * 0.002) * rad;
   if (split > 0.00005) {
     vec2 dir = normalize(fromC + 1e-5) * split;
     col = vec3(texture2D(tScene, uv + dir).r, texture2D(tScene, uv).g, texture2D(tScene, uv - dir).b);
@@ -33225,15 +33226,8 @@ void main() {
   }
 
   if (k > 0.002) {
-    vec3 blur = col;
-    for (int i = 1; i <= 6; i++) {
-      float s = float(i) / 6.0;
-      blur += texture2D(tScene, mix(uv, vec2(0.5), s * 0.035 * k)).rgb;
-    }
-    blur /= 7.0;
-    vec3 ghost = texture2D(tScene, uv + vec2(0.014, -0.004) * k).rgb;
-    col = mix(col, blur * 0.75 + ghost * 0.25, k);
-    col = mix(col, vec3(luma(col)), k * 0.4);
+    // Concussion keeps drift, shake and sound without smearing the entire view.
+    col = mix(col, vec3(luma(col)), k * 0.12);
   }
 
   // \u4F4E\u8840\u91CF\uFF1A\u984F\u8272\u6D41\u5931\uFF0C\u908A\u7DE3\u96A8\u5FC3\u8DF3\u6CDB\u7D05
@@ -33328,8 +33322,9 @@ void main() {
       this.perfSeconds = this.perfFrames = 0;
       if (this.perfCooldown > 0) return;
       const old = this.resolutionScale;
-      if (fps < 45) this.resolutionScale = Math.max(0.6, old - 0.15);
-      else if (fps > 57) this.resolutionScale = Math.min(1, old + 0.05);
+      const floor = nativeResolutionFloor(this.baseDpr);
+      if (fps < 45) this.resolutionScale = Math.max(floor, old - 0.1);
+      else if (fps > 50) this.resolutionScale = Math.min(1, Math.max(floor, old + 0.05));
       if (Math.abs(old - this.resolutionScale) < 1e-3) return;
       this.perfCooldown = fps < 45 ? 3 : 8;
       this.renderer.setPixelRatio(this.baseDpr * this.resolutionScale);
@@ -34052,9 +34047,9 @@ void main() {
   var audio = new AudioSystem();
 
   // game-src/replay-timing.js
+  var REPLAY_DURATION = 9.5;
   function replayTime(elapsed) {
-    const t = Math.max(0, elapsed - 0.55);
-    return t < 0.7 ? -0.8 + t / 0.7 * 0.6 : t < 2.9 ? -0.2 + (t - 0.7) * 0.2 : 0.24 + (t - 2.9) * 0.65;
+    return elapsed < 2.5 ? -0.8 + Math.max(0, elapsed) * 0.2 : elapsed < 6.5 ? -0.3 + (elapsed - 2.5) * 0.075 : 0;
   }
 
   // game-src/kill-replay.js
@@ -34113,7 +34108,7 @@ void main() {
       this.frames = [];
       this.nextSample = 0;
     }
-    start(victim, attacker, cause, headshot, wallbang) {
+    start(victim, attacker, cause, headshot, wallbang, hitInfo = {}) {
       this.stop();
       const g = this.game;
       this.active = true;
@@ -34122,7 +34117,11 @@ void main() {
       this.clip = this.frames.slice();
       this.victim = victim.id;
       this.attacker = attacker?.id;
-      this.impact = (headshot ? victim.soldier.headWorld(new Vector3()) : victim.soldier.chestWorld(new Vector3())).clone();
+      this.impact = hitInfo.point?.clone() || (headshot ? victim.soldier.headWorld(new Vector3()) : victim.soldier.chestWorld(new Vector3())).clone();
+      this.partName = { head: "\u982D\u90E8", chest: "\u8EC0\u5E79", arm: "\u624B\u81C2", leg: "\u817F\u90E8" }[hitInfo.part] || (headshot ? "\u982D\u90E8" : "\u8EC0\u5E79");
+      this.damageText = hitInfo.damage ? ` \xB7 \u6700\u5F8C\u4E00\u64CA ${hitInfo.damage} \u50B7\u5BB3` : "";
+      victim.respawnT = 0.2;
+      this.lookFocus = null;
       this.origin = attacker && attacker !== victim ? attacker.soldier.muzzleWorld(new Vector3()) : this.impact.clone().add(new Vector3(1, 3, 1));
       this.scene = new Scene();
       this.scene.background = g.renderer.scene.background;
@@ -34154,12 +34153,17 @@ void main() {
       this.distance = distance;
       this.bullet = new Mesh(new SphereGeometry(0.045, 8, 6), new MeshBasicMaterial({ color: 16772266, toneMapped: false }));
       this.scene.add(this.bullet);
+      this.marker = new Mesh(new TorusGeometry(0.075, 9e-3, 6, 32), new MeshBasicMaterial({ color: 16756072, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+      this.marker.position.copy(this.impact);
+      this.marker.renderOrder = 10;
+      this.scene.add(this.marker);
       this.explosive = ["he", "rpg"].includes(cause);
       this.impactFlash = new Sprite(new SpriteMaterial({ map: g.T.glow, color: this.explosive ? 16747317 : 16771004, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
       this.impactFlash.position.copy(this.impact);
       this.scene.add(this.impactFlash);
       this.showTrace = !!attacker && attacker !== victim && ["rifle", "smg", "sniper", "pistol", "shotgun", "launcher"].includes(WEAPONS[cause]?.type);
-      this.detail.textContent = `${attacker && attacker !== victim ? attacker.name : "\u74B0\u5883\uFF0F\u81EA\u8EAB"} \xB7 ${WEAPONS[cause]?.name || CAUSES[cause]?.name || "\u50B7\u5BB3"}${headshot ? " \xB7 \u7206\u982D" : ""}${wallbang ? " \xB7 \u7A7F\u900F\u63A9\u9AD4" : ""}`;
+      this.explanation = `${attacker && attacker !== victim ? attacker.name : "\u74B0\u5883\uFF0F\u81EA\u8EAB"} \u4F7F\u7528 ${WEAPONS[cause]?.name || CAUSES[cause]?.name || "\u50B7\u5BB3"} \u2192 \u547D\u4E2D\u4F60\u7684${this.partName}${headshot ? "\uFF08\u7206\u982D\uFF09" : ""}${wallbang ? " \xB7 \u7A7F\u900F\u63A9\u9AD4" : ""}${this.damageText}`;
+      this.detail.textContent = this.explanation;
       this.overlay.hidden = false;
       g.touch?.releaseAll();
       this.record();
@@ -34171,7 +34175,7 @@ void main() {
       const g = this.game;
       if (g.paused) return true;
       this.elapsed += dt;
-      if (this.elapsed >= 3.85 || g.player.alive || !g.playing) {
+      if (this.elapsed >= REPLAY_DURATION || g.player.alive || !g.playing) {
         this.stop();
         return false;
       }
@@ -34193,19 +34197,30 @@ void main() {
       const side = new Vector3().crossVectors(this.direction, new Vector3(0, 1, 0));
       if (side.lengthSq() < 0.01) side.set(1, 0, 0);
       side.normalize();
-      const phase = MathUtils.clamp((this.elapsed - 0.55) / 3.3, 0, 1), focus = this.origin.clone().lerp(this.impact, MathUtils.smoothstep(phase, 0, 0.65));
-      const desired = focus.clone().addScaledVector(side, 2.2 + Math.sin(phase * Math.PI) * 1.2).add(new Vector3(0, 0.8, 0)).addScaledVector(this.direction, -(1.3 + 3 * (1 - phase)));
+      const phase = MathUtils.smoothstep(this.elapsed, 2.5, 6.5), close = MathUtils.smoothstep(this.elapsed, 6.5, 7.5);
+      const focus = this.origin.clone().lerp(this.impact, phase);
+      const desired = focus.clone().addScaledVector(side, MathUtils.lerp(2.8, 0.75, close)).add(new Vector3(0, MathUtils.lerp(0.5, 0.12, close), 0)).addScaledVector(this.direction, -MathUtils.lerp(3, 1, close));
       const delta = desired.clone().sub(focus), length = delta.length();
       delta.normalize();
       const hit = g.world.raycast(focus.x, focus.y, focus.z, delta.x, delta.y, delta.z, length, "move");
-      this.camera.position.copy(focus).addScaledVector(delta, hit ? Math.max(0.15, hit.t - 0.2) : length);
-      this.camera.lookAt(focus);
+      const safe = focus.clone().addScaledVector(delta, hit ? Math.max(0.15, hit.t - 0.2) : length);
+      if (!this.lookFocus) {
+        this.camera.position.copy(safe);
+        this.lookFocus = focus.clone();
+      } else {
+        this.camera.position.lerp(safe, 1 - Math.exp(-dt * 6));
+        this.lookFocus.lerp(focus, 1 - Math.exp(-dt * 8));
+      }
+      this.camera.lookAt(this.lookFocus);
       this.camera.aspect = g.renderer.camera.aspect;
-      this.camera.fov = 52 - phase * 12;
+      this.camera.fov = 52 - close * 22;
       this.camera.updateProjectionMatrix();
-      this.trace.visible = this.showTrace && offset >= -0.2;
-      this.bullet.visible = this.showTrace && offset >= -0.2 && offset <= 0;
-      this.bullet.position.copy(this.origin).lerp(this.impact, MathUtils.clamp((offset + 0.2) / 0.2, 0, 1));
+      this.trace.visible = this.showTrace && offset >= -0.3;
+      this.bullet.visible = this.showTrace && offset >= -0.3 && offset < 0;
+      this.bullet.position.copy(this.origin).lerp(this.impact, MathUtils.clamp((offset + 0.3) / 0.3, 0, 1));
+      this.marker.visible = this.elapsed >= 6.5;
+      this.marker.quaternion.copy(this.camera.quaternion);
+      this.overlay.style.backgroundColor = `rgba(0,0,0,${Math.max(0, 1 - this.elapsed / 0.35)})`;
       this.impactFlash.visible = offset >= 0 && offset < 0.35;
       this.impactFlash.scale.setScalar((this.explosive ? 5 : 0.6) * (1 + Math.max(0, offset) * 3));
       this.impactFlash.material.opacity = Math.max(0, 1 - offset / 0.35);
@@ -34213,7 +34228,8 @@ void main() {
         this.impactSound = true;
         audio.play("impf", null, { ui: true, gain: 0.45, rate: 0.55, duration: 0.35 });
       }
-      this.speed.textContent = this.elapsed < 1.25 ? "\u56DE\u770B\u653B\u64CA\u4F4D\u7F6E" : this.elapsed < 3.45 ? "SLOW \xB7 0.2\xD7 \xB7 \u81F4\u547D\u8DEF\u5F91\u793A\u610F" : "\u547D\u4E2D\u7D30\u7BC0";
+      this.title.textContent = this.elapsed < 2.5 ? "\u8AB0\u64CA\u6BBA\u4E86\u4F60" : this.elapsed < 6.5 ? "\u6700\u5F8C\u4E00\u64CA \xB7 \u6162\u52D5\u4F5C" : `\u81F4\u547D\u547D\u4E2D \xB7 ${this.partName}\u7279\u5BEB`;
+      this.speed.textContent = this.elapsed < 2.5 ? "\u653B\u64CA\u8005\u8207\u4F7F\u7528\u6B66\u5668" : this.elapsed < 6.5 ? "SLOW \xB7 0.075\xD7 \xB7 \u81F4\u547D\u8DEF\u5F91\u793A\u610F" : "\u547D\u4E2D\u9EDE\u6A19\u8A18 \xB7 \u5B9A\u683C\u6AA2\u8996 \xB7 \u53EF\u96A8\u6642\u8DF3\u904E";
       return true;
     }
     stop() {
@@ -34222,13 +34238,13 @@ void main() {
       for (const root of this.clones?.values() || []) root.traverse((o) => {
         if (o.isSkinnedMesh) o.skeleton.dispose();
       });
-      for (const o of [this.trace, this.bullet]) {
+      for (const o of [this.trace, this.bullet, this.marker]) {
         o?.geometry.dispose();
         o?.material.dispose();
       }
       this.impactFlash?.material.dispose();
       this.impactFlash = null;
-      this.trace = this.bullet = null;
+      this.trace = this.bullet = this.marker = null;
       this.scene = null;
       this.clones = null;
       this.clip = [];
@@ -37249,7 +37265,7 @@ void main() {
     return m;
   }
   function groundTexture() {
-    const S = 6, W = (SITE.x1 - SITE.x0) * S, H = (SITE.n1 - SITE.n0) * S;
+    const S = 12, W = (SITE.x1 - SITE.x0) * S, H = (SITE.n1 - SITE.n0) * S;
     const c = document.createElement("canvas");
     c.width = W;
     c.height = H;
@@ -37311,6 +37327,7 @@ void main() {
     await tick("\u5EFA\u7ACB\u5BE6\u666F\u6821\u5712\uFF1A\u5730\u9762\u8207\u64CD\u5834");
     B.collide(SITE.x0 - 40, SITE.x1 + 40, -2, 0, SITE.n0 - 40, SITE.n1 + 40, "concrete");
     const gplane = new Mesh(new PlaneGeometry(SITE.x1 - SITE.x0, SITE.n1 - SITE.n0), new MeshStandardMaterial({ map: groundTexture(), roughness: 1 }));
+    gplane.material.map.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
     gplane.rotation.x = -Math.PI / 2;
     gplane.position.set((SITE.x0 + SITE.x1) / 2, 0, -(SITE.n0 + SITE.n1) / 2);
     gplane.receiveShadow = shadows;
@@ -39846,6 +39863,7 @@ void main() {
       this.sleeveMat.color.set(SLEEVE[team] ?? SLEEVE.BL);
     }
     equip(id, drawTime) {
+      this.holdGrenade = false;
       if (!this.guns[id]) {
         const g = buildGun(id);
         g.traverse((o) => {
@@ -39901,6 +39919,14 @@ void main() {
     }
     throwNade() {
       this.play("throw", 0.75);
+    }
+    primeNade() {
+      this.holdGrenade = true;
+      this.throwNade();
+    }
+    releaseNade() {
+      this.holdGrenade = false;
+      if (this.anim?.type === "throw") this.anim.t = this.anim.dur * 0.3;
     }
     inspect() {
       if (!this.anim) this.play("inspect", 2.6);
@@ -40036,6 +40062,7 @@ void main() {
       const a = this.anim;
       if (a) {
         a.t += dt;
+        if (a.type === "throw" && this.holdGrenade) a.t = Math.min(a.t, a.dur * 0.3);
         const f = Math.min(1, a.t / a.dur);
         const o = sampleKeys(KEYS[a.type], f, this._pose);
         const flip = a.dir || 1;
@@ -41181,6 +41208,8 @@ void main() {
       this.reScope = 0;
       this.pendingThrow = 0;
       this.autoSwitchAt = 0;
+      this.grenadePrimed = false;
+      this.grenadeReleased = false;
       this.stepDist = 0;
       this.jumpCD = 0;
       this.slideCD = 0;
@@ -41214,6 +41243,8 @@ void main() {
     spawn(sp) {
       this.pendingThrow = 0;
       this.autoSwitchAt = 0;
+      this.grenadePrimed = false;
+      this.grenadeReleased = false;
       this.stepped = 0;
       this.stepOffset = 0;
       this.pos.set(sp.x, (sp.y ?? 0) + 0.02, sp.z);
@@ -41436,6 +41467,9 @@ void main() {
       const target = this.inv[slot];
       if (!target || target.def.type === "grenade" && target.mag <= 0) return;
       this.weapon.reloadUntil = 0;
+      this.grenadePrimed = false;
+      this.grenadeReleased = false;
+      this.pendingThrow = 0;
       this.lastSlot = this.slot;
       this.slot = slot;
       this.readyAt = now + target.def.draw;
@@ -41490,9 +41524,13 @@ void main() {
     // 手雷：按下 → 拔插銷動畫 0.52 秒 → 丟出 → 0.45 秒後自動切回上一把
     useGrenade(dt, inp, w, now) {
       const g = this.game;
-      if (this.pendingThrow > 0) {
-        this.pendingThrow -= dt;
-        if (this.pendingThrow <= 0) {
+      if (this.grenadePrimed) {
+        this.pendingThrow = Math.max(0, this.pendingThrow - dt);
+        if (!inp.fire) this.grenadeReleased = true;
+        if (this.pendingThrow <= 0 && this.grenadeReleased) {
+          this.grenadePrimed = false;
+          this.grenadeReleased = false;
+          g.onGrenadeRelease?.(this);
           g.throwGrenade(this);
           w.mag = 0;
           this.readyAt = now + 0.4;
@@ -41507,6 +41545,8 @@ void main() {
         return;
       }
       if (inp.firePressed && w.mag > 0) {
+        this.grenadePrimed = true;
+        this.grenadeReleased = !inp.fire;
         this.pendingThrow = 0.52;
         g.onGrenadeStart(this);
       }
@@ -42685,7 +42725,7 @@ void main() {
           this.fx.impact(pt2, back, "flesh", dir);
           if (part === "head") this.fx.impact(pt2, back, "flesh", dir);
           if (!this._quiet) audio.playImpact(pt2, "flesh");
-          this.damage(actor, shooter, dmg, part, d.id, dir, wallbang);
+          this.damage(actor, shooter, dmg, part, d.id, dir, wallbang, false, pt2);
           return pt2;
         }
         if (!h) break;
@@ -42798,17 +42838,18 @@ void main() {
       });
     },
     // ───────── 手雷 ─────────
-    throwGrenade(a) {
+    throwGrenade(a, drop = false, live = true) {
       const eye = a.eye(new Vector3());
       const dir = a.forward(new Vector3());
       const right = new Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-      const pos = eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
-      const vel = dir.clone().multiplyScalar(16).add(new Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
+      const pos = drop ? a.pos.clone().add(new Vector3(0, 0.9, 0)) : eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
+      const vel = drop ? a.vel.clone().multiplyScalar(0.35).add(new Vector3(0, -0.3, 0)) : dir.clone().multiplyScalar(16).add(new Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
       const mesh = buildGunMerged("he");
       mesh.scale.setScalar(1.3);
       mesh.position.copy(pos);
       this.renderer.scene.add(mesh);
-      this.nades.push({ mesh, pos, vel, fuse: WEAPONS.he.fuse, owner: a, spin: new Vector3(Math.random() * 10, Math.random() * 10, 0) });
+      this.nades.push({ mesh, pos, vel, fuse: live ? WEAPONS.he.fuse : 12, live, owner: a, spin: new Vector3(Math.random() * 10, Math.random() * 10, 0) });
+      if (drop) return;
       audio.playGrenadeThrow();
       if (a.isPlayer) audio.announce("Fire in the hole!");
       this.alertBots(pos, a.team, 20, false);
@@ -42844,7 +42885,7 @@ void main() {
         n.mesh.rotation.x += n.spin.x * dt;
         n.mesh.rotation.y += n.spin.y * dt;
         if (n.fuse > 0) return true;
-        this.explode(n.pos.clone(), n.owner);
+        if (n.live !== false) this.explode(n.pos.clone(), n.owner);
         this.renderer.scene.remove(n.mesh);
         return false;
       });
@@ -42981,7 +43022,7 @@ void main() {
     },
     // ───────── 傷害與擊殺 ─────────
     // 護甲：腿部以外的傷害有一部分由護甲吸收（依武器的穿甲比例），護甲也會被磨損
-    damage(v, att, amt, part, cause, dir, wallbang, melee) {
+    damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint) {
       if (!v.alive || v.protectT > 0) return;
       if (att && att !== v && att.team === v.team) return;
       const armorBefore = v.armor, armored = armorBefore > 0 && part !== "leg";
@@ -43020,9 +43061,17 @@ void main() {
         }
         if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new Vector3()));
       }
-      if (killed) this.kill(v, att, cause, part === "head" && !melee, wallbang, dir);
+      if (killed) this.kill(v, att, cause, part === "head" && !melee, wallbang, dir, { part, point: hitPoint, damage: Math.round(hpLoss) });
     },
-    kill(v, att, cause, headshot, wallbang, dir) {
+    kill(v, att, cause, headshot, wallbang, dir, hitInfo = {}) {
+      if (v.weapon?.id === "he" && v.weapon.mag > 0) {
+        this.throwGrenade(v, true, !!v.grenadePrimed);
+        v.weapon.mag = 0;
+      }
+      v.grenadePrimed = false;
+      v.grenadeReleased = false;
+      v.pendingThrow = 0;
+      const impact = hitInfo.point?.clone() || (headshot ? v.soldier.headWorld(new Vector3()) : v.soldier.chestWorld(new Vector3())).clone();
       v.alive = false;
       v.hp = 0;
       v.deadT = 0;
@@ -43044,7 +43093,7 @@ void main() {
       if (att === p && v !== p) this.celebrate(att, v, cause, headshot, wallbang);
       if (v === p) {
         p.startDeathCam(att);
-        this.killReplay?.start(v, att, cause, headshot, wallbang);
+        this.killReplay?.start(v, att, cause, headshot, wallbang, { ...hitInfo, point: impact });
         this.vm.setVisible(false);
         audio.setLowHealth(false);
         const weapon = WEAPONS[cause]?.name || cause;
@@ -43147,8 +43196,11 @@ void main() {
     },
     onGrenadeStart(a) {
       if (!a.isPlayer) return;
-      this.vm.throwNade();
+      this.vm.primeNade();
       audio.playGrenadePin();
+    },
+    onGrenadeRelease(a) {
+      if (a.isPlayer) this.vm.releaseNade();
     },
     hearable(a, range) {
       return a.pos.distanceTo(this.renderer.camera.position) <= range;
@@ -43575,7 +43627,7 @@ void main() {
       if (!a.alive) {
         a.deadT += dt;
         if (vis) s.update(vis, {});
-        a.respawnT -= dt;
+        if (!(a.isPlayer && this.killReplay?.active)) a.respawnT -= dt;
         if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
         return;
       }

@@ -129,7 +129,7 @@ export const combat = {
         this.fx.impact(pt, back, 'flesh', dir);
         if (part === 'head') this.fx.impact(pt, back, 'flesh', dir);
         if (!this._quiet) audio.playImpact(pt, 'flesh');
-        this.damage(actor, shooter, dmg, part, d.id, dir, wallbang);
+        this.damage(actor, shooter, dmg, part, d.id, dir, wallbang, false, pt);
         return pt;
       }
       if (!h) break;
@@ -233,17 +233,18 @@ export const combat = {
 
   // ───────── 手雷 ─────────
 
-  throwGrenade(a) {
+  throwGrenade(a,drop=false,live=true) {
     const eye = a.eye(new THREE.Vector3());
     const dir = a.forward(new THREE.Vector3());
     const right = new THREE.Vector3(Math.cos(a.yaw), 0, -Math.sin(a.yaw));
-    const pos = eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
-    const vel = dir.clone().multiplyScalar(16).add(new THREE.Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
+    const pos = drop?a.pos.clone().add(new THREE.Vector3(0,.9,0)):eye.clone().addScaledVector(dir, 0.5).addScaledVector(right, 0.12);
+    const vel = drop?a.vel.clone().multiplyScalar(.35).add(new THREE.Vector3(0,-.3,0)):dir.clone().multiplyScalar(16).add(new THREE.Vector3(0, 2.8, 0)).addScaledVector(a.vel, 0.6);
     const mesh = buildGunMerged('he');
     mesh.scale.setScalar(1.3);
     mesh.position.copy(pos);
     this.renderer.scene.add(mesh);
-    this.nades.push({ mesh, pos, vel, fuse: WEAPONS.he.fuse, owner: a, spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, 0) });
+    this.nades.push({ mesh, pos, vel, fuse: live?WEAPONS.he.fuse:12,live, owner: a, spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, 0) });
+    if(drop)return;
     audio.playGrenadeThrow();
     if (a.isPlayer) audio.announce('Fire in the hole!');
     this.alertBots(pos, a.team, 20, false);
@@ -273,7 +274,7 @@ export const combat = {
       n.mesh.rotation.x += n.spin.x * dt;
       n.mesh.rotation.y += n.spin.y * dt;
       if (n.fuse > 0) return true;
-      this.explode(n.pos.clone(), n.owner);
+      if(n.live!==false)this.explode(n.pos.clone(), n.owner);
       this.renderer.scene.remove(n.mesh);
       return false;
     });
@@ -411,7 +412,7 @@ export const combat = {
   // ───────── 傷害與擊殺 ─────────
 
   // 護甲：腿部以外的傷害有一部分由護甲吸收（依武器的穿甲比例），護甲也會被磨損
-  damage(v, att, amt, part, cause, dir, wallbang, melee) {
+  damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint) {
     if (!v.alive || v.protectT > 0) return;
     if (att && att !== v && att.team === v.team) return;          // 沒有友軍傷害
     const armorBefore = v.armor, armored = armorBefore > 0 && part !== 'leg';
@@ -445,10 +446,13 @@ export const combat = {
       if (killed || this.time - (this._hmT ?? -1) > 0.03) { audio.playHitmarker(part === 'head', armored && part !== 'head'); this._hmT = this.time; }
       if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new THREE.Vector3()));
     }
-    if (killed) this.kill(v, att, cause, part === 'head' && !melee, wallbang, dir);
+    if (killed) this.kill(v, att, cause, part === 'head' && !melee, wallbang, dir,{part,point:hitPoint,damage:Math.round(hpLoss)});
   },
 
-  kill(v, att, cause, headshot, wallbang, dir) {
+  kill(v, att, cause, headshot, wallbang, dir,hitInfo={}) {
+    if(v.weapon?.id==='he'&&v.weapon.mag>0){this.throwGrenade(v,true,!!v.grenadePrimed);v.weapon.mag=0;}
+    v.grenadePrimed=false;v.grenadeReleased=false;v.pendingThrow=0;
+    const impact=hitInfo.point?.clone()||(headshot?v.soldier.headWorld(new THREE.Vector3()):v.soldier.chestWorld(new THREE.Vector3())).clone();
     v.alive = false; v.hp = 0; v.deadT = 0; v.respawnT = 4.0; v.stats.d++; v.scoped = 0;
     v.soldier.die(dir.x, dir.z, headshot, this.world, v.vel, dir.y || 0);
     audio.playDeath(v.soldier.chestWorld(new THREE.Vector3()));
@@ -465,7 +469,7 @@ export const combat = {
     if (att === p && v !== p) this.celebrate(att, v, cause, headshot, wallbang);
     if (v === p) {
       p.startDeathCam(att);
-      this.killReplay?.start(v,att,cause,headshot,wallbang);
+      this.killReplay?.start(v,att,cause,headshot,wallbang,{...hitInfo,point:impact});
       this.vm.setVisible(false);
       audio.setLowHealth(false);
       const weapon = WEAPONS[cause]?.name || cause;

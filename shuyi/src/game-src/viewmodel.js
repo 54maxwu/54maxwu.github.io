@@ -208,6 +208,7 @@ export class ViewModel {
   }
 
   equip(id, drawTime) {
+    this.holdGrenade=false;
     if (!this.guns[id]) {
       const g = buildGun(id);
       g.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
@@ -251,6 +252,8 @@ export class ViewModel {
   reload(dur, empty) { this.play('reload', dur, { empty }); }
   melee(heavy) { this.play(heavy ? 'stab' : 'slash', heavy ? 0.85 : 0.38, { dir: Math.random() < 0.5 ? 1 : -1 }); }
   throwNade() { this.play('throw', 0.75); }
+  primeNade(){this.holdGrenade=true;this.throwNade();}
+  releaseNade(){this.holdGrenade=false;if(this.anim?.type==='throw')this.anim.t=this.anim.dur*.3;}
   inspect() { if (!this.anim) this.play('inspect', 2.6); }
   setVisible(v) { this.rig.visible = v; }
 
@@ -384,6 +387,7 @@ export class ViewModel {
     const a = this.anim;
     if (a) {
       a.t += dt;
+      if(a.type==='throw'&&this.holdGrenade)a.t=Math.min(a.t,a.dur*.3);
       const f = Math.min(1, a.t / a.dur);
       const o = sampleKeys(KEYS[a.type], f, this._pose);
       const flip = a.dir || 1;                         // 揮刀左右交替

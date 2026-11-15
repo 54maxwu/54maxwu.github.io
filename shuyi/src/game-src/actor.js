@@ -49,7 +49,7 @@ export class Actor {
     this.radarT = 0; this.ping = 20 + ((Math.random() * 40) | 0);
     this.lastHurt = -99; this.lastAttacker = null;
     this.scoped = 0; this.scopeReady = false; this.scopeT = 0; this.reScope = 0;
-    this.pendingThrow = 0; this.autoSwitchAt = 0;
+    this.pendingThrow = 0; this.autoSwitchAt = 0; this.grenadePrimed=false;this.grenadeReleased=false;
     this.stepDist = 0;
     this.jumpCD = 0; this.slideCD = 0; this.mantleCD = 0; this.slideT = 0; this.tagT = 0; this.mantleS = null;
     this.soldier = new Soldier(team);
@@ -76,7 +76,7 @@ export class Actor {
   }
 
   spawn(sp) {
-    this.pendingThrow = 0; this.autoSwitchAt = 0;
+    this.pendingThrow = 0; this.autoSwitchAt = 0; this.grenadePrimed=false;this.grenadeReleased=false;
     this.stepped = 0; this.stepOffset = 0;
     this.pos.set(sp.x, (sp.y ?? 0) + 0.02, sp.z);
     this.vel.set(0, 0, 0);
@@ -280,6 +280,7 @@ export class Actor {
     const target = this.inv[slot];
     if (!target || (target.def.type === 'grenade' && target.mag <= 0)) return;
     this.weapon.reloadUntil = 0;                // 換槍會中斷換彈
+    this.grenadePrimed=false;this.grenadeReleased=false;this.pendingThrow=0;
     this.lastSlot = this.slot; this.slot = slot;
     this.readyAt = now + target.def.draw;
     this.scoped = 0; this.scopeReady = false;
@@ -325,9 +326,12 @@ export class Actor {
   // 手雷：按下 → 拔插銷動畫 0.52 秒 → 丟出 → 0.45 秒後自動切回上一把
   useGrenade(dt, inp, w, now) {
     const g = this.game;
-    if (this.pendingThrow > 0) {
-      this.pendingThrow -= dt;
-      if (this.pendingThrow <= 0) {
+    if (this.grenadePrimed) {
+      this.pendingThrow = Math.max(0,this.pendingThrow-dt);
+      if(!inp.fire)this.grenadeReleased=true;
+      if (this.pendingThrow <= 0&&this.grenadeReleased) {
+        this.grenadePrimed=false;this.grenadeReleased=false;
+        g.onGrenadeRelease?.(this);
         g.throwGrenade(this);
         w.mag = 0;
         this.readyAt = now + 0.4;
@@ -341,7 +345,7 @@ export class Actor {
       this.switchTo(back, now);
       return;
     }
-    if (inp.firePressed && w.mag > 0) { this.pendingThrow = 0.52; g.onGrenadeStart(this); }
+    if (inp.firePressed && w.mag > 0) { this.grenadePrimed=true;this.grenadeReleased=!inp.fire;this.pendingThrow = 0.52; g.onGrenadeStart(this); }
   }
 
   useGun(inp, w, now) {

@@ -382,7 +382,7 @@ export class Game {
     if (!a.alive) {
       a.deadT += dt;
       if (vis) s.update(vis, {});
-      a.respawnT -= dt;
+      if(!(a.isPlayer&&this.killReplay?.active))a.respawnT -= dt;
       if (a.respawnT <= 0 && !this.ended) this.spawnActor(a);
       return;
     }

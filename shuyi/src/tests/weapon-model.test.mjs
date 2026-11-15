@@ -12,7 +12,7 @@ test('lighter held weapons move faster than heavier weapons',()=>{
  const speeds=['knife','deagle','mp5','m4a1','ak47','m870','awm','rpg'].map(id=>WEAPONS[id].speed);
  for(let i=1;i<speeds.length;i++)assert.ok(speeds[i-1]>speeds[i]);
 });
-test('replay slows the critical impact interval to one fifth speed',()=>{
- assert.ok(Math.abs((replayTime(2.3)-replayTime(1.3))-.2)<1e-6);
- assert.ok(replayTime(.55)<0);assert.ok(replayTime(3.8)>0);
+test('replay slows the fatal interval and holds the impact for a final close-up',()=>{
+ assert.ok(Math.abs((replayTime(4)-replayTime(3))-.075)<1e-6);
+ assert.ok(replayTime(.55)<0);assert.equal(replayTime(7),0);assert.equal(replayTime(9),0);
 });

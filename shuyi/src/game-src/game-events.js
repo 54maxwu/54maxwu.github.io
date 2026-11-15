@@ -58,9 +58,10 @@ export const events = {
   onDryFire(a) { if (a.isPlayer) audio.playDryFire(); },
   onGrenadeStart(a) {
     if (!a.isPlayer) return;
-    this.vm.throwNade();
+    this.vm.primeNade();
     audio.playGrenadePin();
   },
+  onGrenadeRelease(a){if(a.isPlayer)this.vm.releaseNade();},
 
   hearable(a, range) { return a.pos.distanceTo(this.renderer.camera.position) <= range; },
 };

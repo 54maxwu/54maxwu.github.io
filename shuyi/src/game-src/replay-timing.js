@@ -1,1 +1,3 @@
-export function replayTime(elapsed){const t=Math.max(0,elapsed-.55);return t<.7?-.8+t/.7*.6:t<2.9?-.2+(t-.7)*.2:.24+(t-2.9)*.65;}
+export const REPLAY_DURATION=9.5;
+// Establish the attacker, approach the fatal impact, then hold its exact pose.
+export function replayTime(elapsed){return elapsed<2.5?-.8+Math.max(0,elapsed)*.2:elapsed<6.5?-.3+(elapsed-2.5)*.075:0;}

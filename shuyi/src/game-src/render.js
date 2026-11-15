@@ -19,6 +19,7 @@ const QUALITY = {
   medium: { dpr: 1.15, msaa: 2 },
   high: { dpr: 1.5, msaa: 4 },
 };
+export const nativeResolutionFloor = baseDpr => Math.min(1, 1 / Math.max(1, baseDpr));
 
 const SCREEN_VS = /* glsl */`
 varying vec2 vUv;
@@ -50,7 +51,7 @@ void main() {
   uv += drift;
 
   vec3 col;
-  float split = (uDamage * 0.003 + uDeath * 0.005 + k * 0.004) * rad;
+  float split = (uDamage * 0.001 + uDeath * 0.002) * rad;
   if (split > 0.00005) {
     vec2 dir = normalize(fromC + 1e-5) * split;
     col = vec3(texture2D(tScene, uv + dir).r, texture2D(tScene, uv).g, texture2D(tScene, uv - dir).b);
@@ -59,15 +60,8 @@ void main() {
   }
 
   if (k > 0.002) {
-    vec3 blur = col;
-    for (int i = 1; i <= 6; i++) {
-      float s = float(i) / 6.0;
-      blur += texture2D(tScene, mix(uv, vec2(0.5), s * 0.035 * k)).rgb;
-    }
-    blur /= 7.0;
-    vec3 ghost = texture2D(tScene, uv + vec2(0.014, -0.004) * k).rgb;
-    col = mix(col, blur * 0.75 + ghost * 0.25, k);
-    col = mix(col, vec3(luma(col)), k * 0.4);
+    // Concussion keeps drift, shake and sound without smearing the entire view.
+    col = mix(col, vec3(luma(col)), k * 0.12);
   }
 
   // 低血量：顏色流失，邊緣隨心跳泛紅
@@ -163,8 +157,9 @@ export class Renderer {
     this.perfSeconds = this.perfFrames = 0;
     if (this.perfCooldown > 0) return;
     const old = this.resolutionScale;
-    if (fps < 45) this.resolutionScale = Math.max(0.6, old - 0.15);
-    else if (fps > 57) this.resolutionScale = Math.min(1, old + 0.05);
+    const floor=nativeResolutionFloor(this.baseDpr);
+    if (fps < 45) this.resolutionScale = Math.max(floor, old - 0.1);
+    else if (fps > 50) this.resolutionScale = Math.min(1, Math.max(floor,old + 0.05));
     if (Math.abs(old - this.resolutionScale) < 0.001) return;
     this.perfCooldown = fps < 45 ? 3 : 8;
     this.renderer.setPixelRatio(this.baseDpr * this.resolutionScale);
