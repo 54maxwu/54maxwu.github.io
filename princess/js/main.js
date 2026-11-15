@@ -465,13 +465,19 @@ goStep(0);
       try {
         const req = root.requestFullscreen || root.webkitRequestFullscreen;
         await req.call(root, { navigationUI: 'hide' });
-        return;
+        // 舊版 webkit 前綴不回傳 Promise、失敗也不丟錯：稍等確認真的進入全螢幕
+        await new Promise(r => setTimeout(r, 400));
+        if (fsEl()) return;
       } catch (_) { /* fall through to pseudo mode */ }
     }
-    // iPhone Safari 等不支援網頁全螢幕：改用沉浸模式，並提示加入主畫面
+    // iPhone / iPad 上的 Safari、Chrome 等不支援網頁全螢幕：改用沉浸模式，並提示加入主畫面
     pseudo = true; sync();
     window.scrollTo(0, 1);
-    showTip('📱 分享 → 加入主畫面，就能全螢幕玩喔！');
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const crios = /CriOS/.test(navigator.userAgent);
+    showTip(ios
+      ? (crios ? '📱 網址列的分享鈕 ⬆ → 加入主畫面，就能全螢幕玩！' : '📱 分享 ⬆ → 加入主畫面，就能全螢幕玩！')
+      : '這個瀏覽器不支援全螢幕，已切換成精簡畫面');
   };
 
   if (standalone) btn.style.display = 'none';
