@@ -150,7 +150,7 @@ button { font-family: inherit; cursor: pointer; border: none; }
   padding: 8px 18px; border-radius: 999px;
   font-weight: 700; font-size: 15px; color: var(--pink-dark);
   box-shadow: 0 3px 14px rgba(255, 143, 199, .4);
-  white-space: nowrap; pointer-events: none;
+  width: max-content; max-width: 92%; text-align: center; pointer-events: none;
   transition: opacity .3s;
 }
 .tip:empty { opacity: 0; }
@@ -308,3 +308,5 @@ body.is-fs .opt svg { width: 68px; height: 68px; }
   body.is-fs .topbar h1 .title { display: none; }
   body.is-fs .actions button { font-size: 12px; padding: 4px 9px; }
 }
+#btnInstall { background: linear-gradient(135deg, #ffb86b, #ff8fc7); color: #fff; box-shadow: 0 3px 0 #d97a9e, 0 0 14px rgba(255, 184, 107, .6); }
+#btnInstall[hidden] { display: none; }

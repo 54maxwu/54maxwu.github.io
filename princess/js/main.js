@@ -449,10 +449,10 @@ goStep(0);
     document.body.classList.toggle('is-fs', on || standalone);
     btn.textContent = on ? '↙ 離開全螢幕' : '⛶ 全螢幕';
   };
-  const showTip = (msg) => {
+  const showTip = (msg, ms = 3500) => {
     const tip = $('#tip');
     tip.textContent = msg;
-    setTimeout(() => { if (tip.textContent === msg) tip.textContent = ''; }, 3500);
+    setTimeout(() => { if (tip.textContent === msg) tip.textContent = ''; }, ms);
   };
 
   const toggle = async () => {
@@ -461,6 +461,7 @@ goStep(0);
       return;
     }
     if (pseudo) { pseudo = false; sync(); return; }
+    let why = canNative ? '' : '沒有全螢幕功能';
     if (canNative) {
       try {
         const req = root.requestFullscreen || root.webkitRequestFullscreen;
@@ -468,8 +469,14 @@ goStep(0);
         // 舊版 webkit 前綴不回傳 Promise、失敗也不丟錯：稍等確認真的進入全螢幕
         await new Promise(r => setTimeout(r, 400));
         if (fsEl()) return;
-      } catch (_) { /* fall through to pseudo mode */ }
+        why = '沒有反應';
+      } catch (err) {
+        why = (err && (err.name + ' ' + err.message)) || String(err);
+        console.warn('[fullscreen]', err);
+      }
     }
+    if (window !== top) why += '｜在框架內';
+    if (/; wv\)|Line\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent)) why += '｜App 內建瀏覽器';
     // iPhone / iPad 上的 Safari、Chrome 等不支援網頁全螢幕：改用沉浸模式，並提示加入主畫面
     pseudo = true; sync();
     window.scrollTo(0, 1);
@@ -477,7 +484,7 @@ goStep(0);
     const crios = /CriOS/.test(navigator.userAgent);
     showTip(ios
       ? (crios ? '📱 網址列的分享鈕 ⬆ → 加入主畫面，就能全螢幕玩！' : '📱 分享 ⬆ → 加入主畫面，就能全螢幕玩！')
-      : '這個瀏覽器不支援全螢幕，已切換成精簡畫面');
+      : `無法全螢幕（${why}），已切換成精簡畫面`, 8000);
   };
 
   if (standalone) btn.style.display = 'none';
@@ -490,4 +497,27 @@ goStep(0);
     else if (e.key === 'Escape' && pseudo) { pseudo = false; sync(); }
   });
   sync();
+})();
+
+// ---------------- install as app (PWA) ----------------
+(() => {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('[sw]', err));
+  }
+  const btn = $('#btnInstall');
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();          // 改由我們的按鈕觸發安裝視窗
+    deferred = e;
+    btn.hidden = false;
+  });
+  btn.addEventListener('click', async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    const { outcome } = await deferred.userChoice;
+    deferred = null;
+    btn.hidden = true;
+    if (outcome === 'accepted') $('#tip').textContent = '🎉 安裝好了！從主畫面的 👑 圖示打開就是全螢幕';
+  });
+  window.addEventListener('appinstalled', () => { btn.hidden = true; });
 })();
