@@ -16,7 +16,9 @@
 //   listen  聽到聲音：轉頭並走過去查看
 import * as THREE from 'three';
 import {planTactics} from './bot-tactics.js';
+import {resetMotion,smoothMovement,combatStep,wantsBurst,shotFired} from './bot-motion.js';
 import { Actor } from './actor.js';
+import {BotSchedule} from './bot-schedule.js';
 
 // 難度
 //   reaction  發現敵人到開火的延遲（秒，區間）
@@ -64,9 +66,15 @@ export class Bot extends Actor {
     this.engageT = 0; this.engageLimit = 3;
     this.nadeCooldown = rand(20, 40); this.nadeAt = null;
     this.stuck = { t: 0, n: 0, at: new THREE.Vector3() };
+    this.schedule=new BotSchedule(this);
   }
 
   onSpawn() {
+    this.schedule?.reset();
+    this.routeVersion=(this.routeVersion||0)+1;this.routePending=false;this.routeGoal=null;
+    this.checkedRouteRevision=this.checkedWaypoint=undefined;
+    resetMotion(this);
+    this.peekPoint=null;this.peekPhase=null;this.nextPeek=0;this.coverCycleAt=this.game.time+2+this.id*.2;
     this.tactic='engage';this.coverPoint=null;this.tacticAt=0;this.searchProbe=0;this.searchAt=0;
     this.state = 'roam';
     this.path = null; this.goal = null; this.target = null; this.visible = false; this.lastSeen = null;
@@ -82,11 +90,17 @@ export class Bot extends Actor {
   // ───────── 路徑 ─────────
 
   routeTo(x, z, y = 0) {
+    const revision=this.game.world.structuralRevision||0,previous=this.routeGoal;
+    if(previous&&Math.hypot(previous[0]-x,previous[1]-z)<.35&&Math.abs(previous[2]-y)<.35&&this.routeRevision===revision&&(this.routePending||this.path&&!this.pathDone()))return;
+    this.routeGoal=[x,z,y];this.routeRevision=revision;
+    const version=this.routeVersion=(this.routeVersion||0)+1;
+    this.path=null;this.pi=0;this.checkedWaypoint=undefined;
     if(this.game.nav.requestPath){
       this.routePending=true;
-      this.game.nav.requestPath(this,[this.pos.x,this.pos.z,x,z,this.pos.y,y],path=>{this.routePending=false;if(this.alive){this.path=path;this.pi=1;}});
+      this.game.nav.requestPath(this,[this.pos.x,this.pos.z,x,z,this.pos.y,y],path=>{if(version!==this.routeVersion)return;this.routePending=false;if(this.alive){this.path=path;this.pi=path?.length>1?1:0;}});
       return;
     }
+    this.routePending=false;
     this.path = this.game.nav.findPath(this.pos.x, this.pos.z, x, z, this.pos.y, y);
     this.pi = 1;
   }
@@ -109,7 +123,7 @@ export class Bot extends Actor {
       const support=this.game.world.support(wp[0],wp[1],.3,wy+.03);
       if(!support||Math.abs(support.y-(wy-.025))>.15){
         this.path=null;
-        if(this.goal&&!this.routePending)this.routeTo(this.goal[0],this.goal[1],this.goal[2]||0);
+        const goal=this.routeGoal||this.goal;if(goal&&!this.routePending)this.routeTo(goal[0],goal[1],goal[2]||0);
         return null;
       }
     }
@@ -198,12 +212,12 @@ export class Bot extends Actor {
       this.observedVelocity.copy(seen.foe.vel);
       this.state = 'engage';
       this.searchProbe=0;this.searchAt=0;
-      planTactics(this,seen,now);
-      if(this.coverPoint)this.state='retreat';else this.planEngage(seen.foe, seen.dist);
+      if(!this.schedule||this.schedule.allowsTactics(now))planTactics(this,seen,now);
+      if(this.coverPoint)this.state='retreat';else if(!this.schedule?.holdsPlan())this.planEngage(seen.foe, seen.dist);
     } else {
       this.visible = false; this.engageT = 0;
       if (this.target && now - this.lastSeenT > 5) this.target = null;
-      this.planSearch(now);
+      if(this.schedule?.holdsPlan())this.state='retreat';else this.planSearch(now);
     }
     this.checkStuck();
   }
@@ -223,6 +237,8 @@ export class Bot extends Actor {
   }
 
   planSearch(now) {
+    if(this.coverPoint&&this.tactic==='peek'&&now<this.coverUntil&&now-this.lastSeenT<3){this.state='retreat';return;}
+    if(this.coverPoint&&this.tactic==='peek'){this.coverPoint=null;this.peekPoint=null;this.peekPhase=null;}
     if(this.coverPoint&&this.tactic==='cover'){
       const distance=this.pos.distanceTo(this.coverPoint);
       if(distance<1.2){this.path=null;this.crouchUntil=now+.6;if(this.weapon.canReload())this.startReload();}
@@ -278,6 +294,7 @@ export class Bot extends Actor {
   update(dt) {
     if (!this.alive) return;
     const now = this.game.time;
+    this.schedule.refresh(now);
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = THINK_EVERY * rand(0.87, 1.27); this.think(); }
 
@@ -285,7 +302,10 @@ export class Bot extends Actor {
     this.handleGrenade(act, now);
     if (this.target?.alive && this.visible) this.fight(act, dt, now);
     else this.travel(act, now);
+    this.schedule.apply(act,now);
     this.avoidCrowding(act);
+    if(['observe-cover','reload-cover','fire-window','observe-search'].includes(this.schedule.task))act.wishX=act.wishZ=0;
+    smoothMovement(this,act,dt);
     this.turnToward(act.yaw, act.pitch, dt);
 
     this.move(dt, act.wishX, act.wishZ, this.wantJump, act.crouch, act.walk);
@@ -326,29 +346,19 @@ export class Bot extends Actor {
     act.pitch = truePitch + this.errPitch + Math.cos(now * 2.7 + this.id) * shake * 0.6 - this.punchP * S.recoilComp;
     this.lookYaw = this.lookPitch = undefined;
 
+    combatStep(this,act,d,flat,now);
     // 準心進到目標範圍內才開火（目標約 0.32 m 寬）
     const off = Math.hypot(wrapAngle(this.yaw - trueYaw), this.pitch - truePitch);
     const tolerance = Math.atan2(0.32, flat) * 1.4 + 0.01;
-    if (now >= this.reactUntil && off < tolerance && now >= this.readyAt && !this.nadeAt && this.canSee(tgt)) this.pullTrigger(act, d, off, tolerance, flat, dt, now);
+    if ((!this.coverPoint||this.peekPhase==='exposed') && !w.reloading && now >= this.reactUntil && off < tolerance && now >= this.readyAt && !this.nadeAt && this.canSee(tgt)) this.pullTrigger(act, d, off, tolerance, flat, dt, now);
     if (this.wantScope) { act.alt = true; this.wantScope = false; }
 
-    // 橫移：隨機換方向，偶爾站定
-    this.strafeT -= dt;
-    if (this.strafeT <= 0) {
-      this.strafeT = rand(0.25, 0.95);
-      this.strafeDir = Math.random() < 0.2 ? 0 : Math.random() < 0.5 ? -1 : 1;
-    }
-    const sideK = d.type === 'sniper' ? 0 : S.strafe * this.strafeDir;
-    act.wishX = Math.cos(this.yaw) * sideK;
-    act.wishZ = -Math.sin(this.yaw) * sideK;
     if(this.coverPoint){
-      const distance=this.pos.distanceTo(this.coverPoint),dir=distance>1?this.steer():null;
-      act.wishX=dir?.[0]||0;act.wishZ=dir?.[1]||0;
-      if(distance<=1){act.crouch=true;if(w.canReload()&&(w.mag<Math.max(1,d.mag*.3)||this.hp<=35))this.startReload();}
+      this.coverAction(act,now);
       return;
     }
     // 10 m 外：沿路徑推進，橫移保留一部分
-    if (flat >= 10 && d.type !== 'sniper') {
+    if (flat >= 10 && d.type !== 'sniper' && now >= (this.plantUntil||0)) {
       const dir = this.steer();
       if (dir) { act.wishX = act.wishX * 0.35 + dir[0]; act.wishZ = act.wishZ * 0.35 + dir[1]; }
     }
@@ -357,17 +367,21 @@ export class Bot extends Actor {
   pullTrigger(act, d, off, tolerance, dist, dt, now) {
     switch (d.type) {
       case 'sniper': if (this.scoped && this.scopeReady && off < tolerance * 0.6) act.firePressed = true; break;
-      case 'pistol': act.firePressed = Math.random() < dt * 5; break;
-      case 'shotgun': act.firePressed = dist < 24 && Math.random() < dt * 6; break;
+      case 'pistol': if(now>=(this.triggerAt||0)){act.firePressed=true;this.triggerAt=now+rand(.22,.38);} break;
+      case 'shotgun': if(dist<24&&now>=(this.triggerAt||0)){act.firePressed=true;this.triggerAt=now+.85;} break;
       default:
-        if (now < this.burstRestUntil) break;
-        act.fire = true;
-        // 遠距離點放：打 3～7 發停一下
-        if (dist > 14 && ++this.burst > rand(3, 7)) { this.burst = 0; this.burstRestUntil = now + 0.18 + Math.random() * 0.3 * (dist / 30); }
+        act.fire = wantsBurst(this,d,dist,now);
     }
   }
 
+  onShotFired(def){shotFired(this,def,this.game.time);}
+
+  coverAction(act,now){
+    this.schedule.coverAction(act,now);
+  }
+
   travel(act, now) {
+    if(this.coverPoint){this.coverAction(act,now);if(this.observedAim){act.yaw=yawTo(this.pos.x,this.pos.z,this.observedAim.x,this.observedAim.z);act.pitch=0;}return;}
     if(now>this.lookUntil){this.lookYaw=this.lookPitch=undefined;}
     if (this.scoped && now - this.lastSeenT > 2) act.alt = true;    // 收鏡
     const dir = this.steer();

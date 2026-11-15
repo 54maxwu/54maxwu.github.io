@@ -33359,9 +33359,18 @@ void main() {
     render(scene = this.scene, camera = this.camera) {
       const r = this.renderer;
       const autoClear = r.autoClear;
+      const visibility = scene.userData.spatialVisibility;
+      if (visibility) {
+        const u = scene.userData;
+        if (!u.shadowLight && (u.shadowLightSearch = (u.shadowLightSearch || 0) + 1) % 120 === 1) scene.traverse((o) => {
+          if (!u.shadowLight && o.isDirectionalLight && o.castShadow) u.shadowLight = o;
+        });
+        visibility.update(camera, r.shadowMap.enabled, scene.userData.shadowLight);
+      }
       r.setRenderTarget(this.target);
       r.autoClear = true;
       r.render(scene, camera);
+      this.lastWorldStats = { calls: r.info.render.calls, triangles: r.info.render.triangles };
       r.autoClear = false;
       r.clearDepth();
       r.render(this.vmScene, this.vmCamera);
@@ -34155,12 +34164,16 @@ void main() {
       this.damageText = hitInfo.damage ? ` \xB7 \u6700\u5F8C\u4E00\u64CA ${hitInfo.damage} \u50B7\u5BB3` : "";
       victim.respawnT = 0.2;
       this.byOther = !!attacker && attacker !== victim;
-      this.origin = this.byOther ? attacker.soldier.muzzleWorld(new Vector3()) : this.impact.clone().add(new Vector3(1, 3, 1));
+      this.hitEvent = hitInfo.event;
+      this.projectile = this.hitEvent?.projectile;
+      const recordedOrigin = this.projectile?.path[0]?.position || this.hitEvent?.origin;
+      this.origin = recordedOrigin ? new Vector3().fromArray(recordedOrigin) : this.byOther ? attacker.soldier.muzzleWorld(new Vector3()) : this.impact.clone().add(new Vector3(1, 3, 1));
       this.scene = new Scene();
       this.scene.background = g.renderer.scene.background;
       this.scene.environment = g.renderer.scene.environment;
       this.scene.environmentIntensity = g.renderer.scene.environmentIntensity;
       this.scene.fog = g.renderer.scene.fog;
+      this.scene.userData.spatialVisibility = g.renderer.scene.userData.spatialVisibility;
       for (const mesh of g.map.meshes || []) this.scene.add(mesh.clone());
       for (const mesh of g.renderer.scene.children) if (mesh.isMesh && !mesh.isInstancedMesh && mesh.geometry?.type === "PlaneGeometry" && !(g.map.meshes || []).includes(mesh)) this.scene.add(mesh.clone());
       this.scene.add(new HemisphereLight(13623551, 4865588, 1.25));
@@ -34200,7 +34213,7 @@ void main() {
       this.trace = new Line(traceGeo, new LineBasicMaterial({ color: 16767124, transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false, toneMapped: false }));
       this.trace.visible = false;
       this.scene.add(this.trace);
-      this.bullet = new Mesh(new CapsuleGeometry(0.012, 0.09, 3, 8), new MeshBasicMaterial({ color: 16773312, toneMapped: false }));
+      this.bullet = new Mesh(this.projectile?.weapon === "he" ? new SphereGeometry(0.08, 8, 6) : new CapsuleGeometry(0.012, 0.09, 3, 8), new MeshBasicMaterial({ color: this.projectile?.weapon === "he" ? 6321213 : 16773312, toneMapped: false }));
       this.bullet.quaternion.setFromUnitVectors(UP, this.direction);
       this.scene.add(this.bullet);
       this.bulletGlow = new Sprite(new SpriteMaterial({ map: g.T.glow, color: 16760944, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
@@ -34212,11 +34225,12 @@ void main() {
       this.scene.add(this.marker);
       this.explosive = ["he", "rpg"].includes(cause);
       this.impactFlash = new Sprite(new SpriteMaterial({ map: g.T.glow, color: this.explosive ? 16747317 : 16771004, transparent: true, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
-      this.impactFlash.position.copy(this.impact);
+      this.impactFlash.position.copy(this.explosive && this.hitEvent?.origin ? new Vector3().fromArray(this.hitEvent.origin) : this.impact);
       this.scene.add(this.impactFlash);
-      this.showTrace = this.byOther && ["rifle", "smg", "sniper", "pistol", "shotgun", "launcher"].includes(WEAPONS[cause]?.type);
-      this.killerName = this.byOther ? attacker.name : "\u74B0\u5883\uFF0F\u81EA\u8EAB";
+      this.showTrace = !!this.projectile || this.byOther && !!this.hitEvent?.exact && ["rifle", "smg", "sniper", "pistol", "shotgun"].includes(WEAPONS[cause]?.type);
+      this.killerName = this.hitEvent?.source?.name || (this.byOther ? attacker.name : "\u74B0\u5883\uFF0F\u81EA\u8EAB");
       this.weaponName = WEAPONS[cause]?.name || CAUSES[cause]?.name || "\u50B7\u5BB3";
+      this.recordLabel = this.projectile ? `${this.projectile.weapon === "rpg" ? "\u706B\u7BAD" : "\u624B\u96F7"}\u8ECC\u8DE1\u5BE6\u9304 \xB7 \u7206\u70B8\u50B7\u5BB3\u793A\u610F` : this.hitEvent?.exact ? "\u5BE6\u969B\u547D\u4E2D\u5C04\u7DDA \xB7 \u98DB\u884C\u70BA\u6162\u52D5\u4F5C\u793A\u610F" : "\u50B7\u5BB3\u4F4D\u7F6E\u793A\u610F";
       this.explanation = `${this.killerName} \u4F7F\u7528 ${this.weaponName} \u2192 \u547D\u4E2D\u4F60\u7684${this.partName}${headshot ? "\uFF08\u7206\u982D\uFF09" : ""}${wallbang ? " \xB7 \u7A7F\u900F\u63A9\u9AD4" : ""}${this.damageText}`;
       this.detail.textContent = this.explanation;
       this.overlay.hidden = false;
@@ -34280,6 +34294,19 @@ void main() {
       const D2 = this.direction, S = _v.copy(this.side).multiplyScalar(this.sideSign).clone();
       let pos, look, fov2, shake = 0;
       const bulletS = MathUtils.clamp((offset + 0.3) / 0.3, 0, 1), bp = this.origin.clone().lerp(this.impact, bulletS);
+      if (this.projectile) {
+        const path2 = this.projectile.path;
+        let a2 = path2[0], b2 = a2;
+        for (const s of path2) {
+          if (s.time <= time) a2 = s;
+          if (s.time >= time) {
+            b2 = s;
+            break;
+          }
+          b2 = s;
+        }
+        bp.fromArray(a2.position).lerp(_w.fromArray(b2.position), MathUtils.clamp((time - a2.time) / (b2.time - a2.time || 1), 0, 1));
+      }
       if (shot === 0) {
         const k = e / SHOT.bullet;
         if (this.aHead) {
@@ -34340,15 +34367,34 @@ void main() {
       this.camera.aspect = g.renderer.camera.aspect;
       this.camera.fov = fov2;
       this.camera.updateProjectionMatrix();
+      if (this.aHead) {
+        const root = this.clones.get(this.attacker), head = this.aHead.getWorldPosition(_w);
+        root.visible = shot !== 1 || this.camera.position.distanceToSquared(head) > 0.8 * 0.8;
+      }
       this.rimLight.position.copy(this.lookFocus).addScaledVector(_w.copy(this.lookFocus).sub(this.camPos).normalize(), 20).addScaledVector(UP, 8);
       this.rimLight.target.position.copy(this.lookFocus);
       if (this.vGun) this.vGun.visible = offset < 0.25;
-      const flying = this.showTrace && offset >= -0.3 && offset < 0;
-      this.trace.visible = this.showTrace && offset >= -0.3 && e < SHOT.fall + 1.2;
+      const flying = this.showTrace && offset < 0 && (this.projectile ? time >= this.projectile.path[0].time : offset >= -0.3);
+      this.trace.visible = this.showTrace && (this.projectile ? time >= this.projectile.path[0].time : offset >= -0.3) && e < SHOT.fall + 1.2;
       if (this.trace.visible) {
-        const arr = this.trace.geometry.attributes.position;
-        arr.setXYZ(1, bp.x, bp.y, bp.z);
-        arr.needsUpdate = true;
+        if (this.projectile) {
+          const positions = this.projectile.path.filter((s) => s.time < time).flatMap((s) => s.position);
+          positions.push(...bp.toArray());
+          if (positions.length < 6) positions.push(...bp.toArray());
+          let attr = this.trace.geometry.attributes.position;
+          if (attr.count < 257) {
+            attr = new Float32BufferAttribute(new Float32Array(257 * 3), 3);
+            this.trace.geometry.setAttribute("position", attr);
+          }
+          attr.array.set(positions);
+          attr.needsUpdate = true;
+          this.trace.geometry.setDrawRange(0, positions.length / 3);
+          this.trace.frustumCulled = false;
+        } else {
+          const arr = this.trace.geometry.attributes.position;
+          arr.setXYZ(1, bp.x, bp.y, bp.z);
+          arr.needsUpdate = true;
+        }
         this.trace.material.opacity = e < SHOT.fall ? 0.55 : 0.55 * (1 - (e - SHOT.fall) / 1.2);
       }
       this.bullet.visible = this.bulletGlow.visible = flying;
@@ -34370,7 +34416,7 @@ void main() {
       this.overlay.classList.toggle("cut", shot > 0);
       const sp = replaySpeed(e);
       this.title.textContent = shot === 0 ? `\u64CA\u6BBA\u8005 \xB7 ${this.killerName}` : shot === 1 ? this.showTrace ? "\u5B50\u5F48\u6642\u9593" : "\u6700\u5F8C\u4E00\u64CA" : shot === 2 ? `\u81F4\u547D\u4E00\u64CA \xB7 ${this.partName}` : "\u5012\u4E0B";
-      this.speed.textContent = shot === 2 ? "FREEZE" : `SLOW \xB7 ${sp.toFixed(2)}\xD7`;
+      this.speed.textContent = (shot === 2 ? "FREEZE" : `SLOW \xB7 ${sp.toFixed(2)}\xD7`) + ` \xB7 ${this.recordLabel}`;
       this.detail.textContent = shot === 0 ? `${this.weaponName}` : this.explanation;
       return true;
     }
@@ -34449,6 +34495,87 @@ void main() {
         layer.index.addUpdateRange(0, n);
         layer.index.needsUpdate = true;
       }
+    }
+  };
+
+  // game-src/performance-stats.js
+  var PerformanceStats = class {
+    constructor() {
+      this.samples = [];
+    }
+    add(sample) {
+      this.samples.push(sample);
+      if (this.samples.length > 300) this.samples.shift();
+    }
+    report() {
+      const out = { samples: this.samples.length };
+      for (const key of ["frameMs", "simulationMs", "renderMs", "calls", "triangles"]) {
+        const a = this.samples.map((s) => s[key]).filter(Number.isFinite).sort((a2, b) => a2 - b);
+        out[key] = a.length ? { median: a[Math.floor((a.length - 1) * 0.5)], p95: a[Math.floor((a.length - 1) * 0.95)], max: a.at(-1) } : null;
+      }
+      return out;
+    }
+  };
+
+  // game-src/combat-history.js
+  var xyz = (p) => p?.toArray ? p.toArray() : p ? Array.from(p) : null;
+  var actorSource = (a) => a ? { id: a.id, name: a.name, team: a.team } : null;
+  var CombatHistory = class {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.events = [];
+      this.projectiles = /* @__PURE__ */ new Map();
+      this.nextId = 1;
+    }
+    add(time, type, data = {}) {
+      const event = { ...data, id: this.nextId++, time, type };
+      this.events.push(event);
+      this.prune(time);
+      return event;
+    }
+    prune(time) {
+      while (this.events.length > 512 || this.events[0]?.time < time - 12) this.events.shift();
+      for (const [id, p] of this.projectiles) if (p.ended !== void 0 && p.ended < time - 12) this.projectiles.delete(id);
+    }
+    shot(time, actor, weapon, origin, direction) {
+      return this.add(time, "shot", { source: actorSource(actor), weapon, origin: xyz(origin), direction: xyz(direction) });
+    }
+    launch(time, actor, weapon, position) {
+      const e = this.add(time, "launch", { source: actorSource(actor), weapon, origin: xyz(position) });
+      this.projectiles.set(e.id, { id: e.id, source: e.source, weapon, path: [{ time, position: xyz(position) }] });
+      while (this.projectiles.size > 64) this.projectiles.delete(this.projectiles.keys().next().value);
+      return e.id;
+    }
+    sample(id, time, position, force = false) {
+      const p = this.projectiles.get(id);
+      if (!p) return;
+      time = Math.max(time, p.path.at(-1).time);
+      if (!force && time - p.path.at(-1).time < 0.05) return;
+      p.path.push({ time, position: xyz(position) });
+      if (p.path.length > 256) p.path.shift();
+    }
+    finish(id, time, position) {
+      this.sample(id, time, position, true);
+      const p = this.projectiles.get(id);
+      if (p) p.ended = time;
+    }
+    impact(time, victim, attacker, weapon, part, point, damage, context = {}) {
+      const projectile = this.projectiles.get(context.projectileId);
+      return this.add(time, "hit", {
+        source: context.source || projectile?.source || actorSource(attacker),
+        victim: actorSource(victim),
+        weapon,
+        part,
+        point: xyz(point),
+        exact: !!context.exact,
+        damage,
+        wallbang: !!context.wallbang,
+        shotId: context.shotId,
+        origin: xyz(context.origin),
+        projectile: projectile ? { ...projectile, path: projectile.path.map((s) => ({ time: s.time, position: [...s.position] })) } : null
+      });
     }
   };
 
@@ -34830,11 +34957,11 @@ void main() {
     function batch() {
       return { p: [], uv: [], c: [] };
     }
-    function box2(out, x, y, z, i, lo = [0, 0, 0], hi = [1, 1, 1], cull = true) {
+    function box2(out, x, y, z, i, lo = [0, 0, 0], hi = [1, 1, 1], cull2 = true) {
       let n = names[i];
       for (let f = 0; f < 6; f++) {
         let d = dirs[f], nb = get(x + d[0], y + d[1], z + d[2]);
-        if (cull && !empty(nb) && (!special(nb) || nb === i)) continue;
+        if (cull2 && !empty(nb) && (!special(nb) || nb === i)) continue;
         let index = lookup.get(tex(n, f)) || 0, tx = index % cols, ty = Math.floor(index / cols);
         let color = new Color(n.includes("leaves") ? "#79a959" : n === "grass_block" && f === 2 ? "#90b766" : n === "water" ? "#6eabdd" : "#ffffff").multiplyScalar(shade[f]);
         for (let j of [0, 1, 2, 0, 2, 3]) {
@@ -34866,35 +34993,35 @@ void main() {
         for (let y = 0; y < H; y++) for (let z = zz; z < Math.min(D2, zz + 32); z++) for (let x = xx; x < Math.min(W, xx + 32); x++) {
           let i = get(x, y, z);
           if (skip(i)) continue;
-          let n = names[i], p = palette[i].Properties || {}, lo = [0, 0, 0], hi = [1, 1, 1], cull = true;
+          let n = names[i], p = palette[i].Properties || {}, lo = [0, 0, 0], hi = [1, 1, 1], cull2 = true;
           if (/slab$/.test(n) && p.type !== "double") {
             if (p.type === "top") lo[1] = 0.5;
             else hi[1] = 0.5;
-            cull = false;
+            cull2 = false;
           } else if (/carpet|snow$/.test(n)) {
             hi[1] = 0.08;
-            cull = false;
+            cull2 = false;
           } else if (/pane|iron_bars/.test(n)) {
             lo[0] = 0.44;
             hi[0] = 0.56;
-            cull = false;
+            cull2 = false;
           } else if (/fence|wall$/.test(n)) {
             lo[0] = lo[2] = 0.3;
             hi[0] = hi[2] = 0.7;
-            cull = false;
+            cull2 = false;
           } else if (/door$/.test(n)) {
             if (p.facing === "east" || p.facing === "west") hi[0] = 0.18;
             else hi[2] = 0.18;
-            cull = false;
+            cull2 = false;
           } else if (/torch|flower|grass$|sapling/.test(n) && n !== "grass_block") {
             lo[0] = lo[2] = 0.35;
             hi[0] = hi[2] = 0.65;
             hi[1] = 0.7;
-            cull = false;
+            cull2 = false;
           }
           if (/stairs$/.test(n)) {
             hi[1] = 0.5;
-            cull = false;
+            cull2 = false;
             box2(o, x, y, z, i, lo, hi, false);
             let l = [0, 0.5, 0], h = [1, 1, 1];
             if (p.facing === "east") l[0] = 0.5;
@@ -34904,7 +35031,7 @@ void main() {
             box2(o, x, y, z, i, l, h, false);
             continue;
           }
-          box2(/glass|water|ice/.test(n) ? a : o, x, y, z, i, lo, hi, cull);
+          box2(/glass|water|ice/.test(n) ? a : o, x, y, z, i, lo, hi, cull2);
         }
         mesh(o, mat);
         mesh(a, glassmat);
@@ -35737,6 +35864,291 @@ void main() {
       result.gpuType = gpuType;
     }
     return result;
+  }
+
+  // spatial-batches.js
+  var SKIP = ["foliage", "flower", "drain", "lattice", "waterRipple", "shade"];
+  var LEAF_TRIS = 256;
+  var MARGIN_ANGLE = MathUtils.degToRad(15);
+  var MARGIN_DIST = 2;
+  function buildTriangleBVH(position, triangles, leafSize = 8) {
+    const n = triangles.length, tmin = new Float32Array(n * 3), tmax = new Float32Array(n * 3), cen = new Float32Array(n * 3);
+    for (let k = 0; k < n; k++) {
+      const t = triangles[k];
+      for (let a = 0; a < 3; a++) {
+        const g = a === 0 ? "getX" : a === 1 ? "getY" : "getZ";
+        const v0 = position[g](t * 3), v1 = position[g](t * 3 + 1), v2 = position[g](t * 3 + 2);
+        tmin[k * 3 + a] = Math.min(v0, v1, v2);
+        tmax[k * 3 + a] = Math.max(v0, v1, v2);
+        cen[k * 3 + a] = (v0 + v1 + v2) / 3;
+      }
+    }
+    const order = new Uint32Array(n);
+    for (let i = 0; i < n; i++) order[i] = i;
+    const box2 = [], left = [], right = [], start = [], count = [];
+    const stack = n ? [[0, n, -1, 0]] : [];
+    while (stack.length) {
+      const [s, e, parent, side] = stack.pop(), id = start.length;
+      if (parent >= 0) (side ? right : left)[parent] = id;
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      let cx0 = Infinity, cy0 = Infinity, cz0 = Infinity, cx1 = -Infinity, cy1 = -Infinity, cz1 = -Infinity;
+      for (let i = s; i < e; i++) {
+        const k = order[i] * 3;
+        if (tmin[k] < x0) x0 = tmin[k];
+        if (tmin[k + 1] < y0) y0 = tmin[k + 1];
+        if (tmin[k + 2] < z0) z0 = tmin[k + 2];
+        if (tmax[k] > x1) x1 = tmax[k];
+        if (tmax[k + 1] > y1) y1 = tmax[k + 1];
+        if (tmax[k + 2] > z1) z1 = tmax[k + 2];
+        if (cen[k] < cx0) cx0 = cen[k];
+        if (cen[k + 1] < cy0) cy0 = cen[k + 1];
+        if (cen[k + 2] < cz0) cz0 = cen[k + 2];
+        if (cen[k] > cx1) cx1 = cen[k];
+        if (cen[k + 1] > cy1) cy1 = cen[k + 1];
+        if (cen[k + 2] > cz1) cz1 = cen[k + 2];
+      }
+      box2.push(x0, y0, z0, x1, y1, z1);
+      start.push(s);
+      count.push(e - s);
+      left.push(-1);
+      right.push(-1);
+      const ex = cx1 - cx0, ey = cy1 - cy0, ez = cz1 - cz0, extent = Math.max(x1 - x0, y1 - y0, z1 - z0);
+      if (e - s <= LEAF_TRIS || extent <= leafSize || Math.max(ex, ey, ez) < 1e-4) continue;
+      const axis = ex >= ey && ex >= ez ? 0 : ey >= ez ? 1 : 2, mid = s + e >> 1;
+      selectNth(order, cen, axis, s, e - 1, mid);
+      stack.push([mid, e, id, 1], [s, mid, id, 0]);
+    }
+    const triOrder = new Uint32Array(n);
+    for (let i = 0; i < n; i++) triOrder[i] = triangles[order[i]];
+    return { box: new Float32Array(box2), left: Int32Array.from(left), right: Int32Array.from(right), start: Uint32Array.from(start), count: Uint32Array.from(count), triOrder };
+  }
+  function selectNth(order, cen, axis, s, e, nth) {
+    while (e > s) {
+      const pivot = cen[order[s + e >> 1] * 3 + axis];
+      let i = s, j = e;
+      while (i <= j) {
+        while (cen[order[i] * 3 + axis] < pivot) i++;
+        while (cen[order[j] * 3 + axis] > pivot) j--;
+        if (i <= j) {
+          const t = order[i];
+          order[i] = order[j];
+          order[j] = t;
+          i++;
+          j--;
+        }
+      }
+      if (nth <= j) e = j;
+      else if (nth >= i) s = i;
+      else return;
+    }
+  }
+  function spatialBatches(meshes, movableRanges = /* @__PURE__ */ new Map(), leafSize = 8) {
+    for (const source of meshes) {
+      const geo = source.geometry, p = geo?.attributes.position;
+      if (source.isInstancedMesh || geo.index || !p || SKIP.includes(source.name.replace("real:", ""))) continue;
+      const triCount = Math.floor(p.count / 3), moving = new Uint8Array(triCount);
+      for (const r of movableRanges.get(source.name.replace("real:", "")) || [])
+        for (let t = Math.floor(r.start / 3); t < Math.ceil((r.start + r.count) / 3) && t < triCount; t++) moving[t] = 1;
+      const still = [], move = [];
+      for (let t = 0; t < triCount; t++) (moving[t] ? move : still).push(t);
+      const bvh = buildTriangleBVH(p, still, leafSize);
+      const full = new Uint32Array(p.count);
+      let w = 0;
+      for (const t of bvh.triOrder) {
+        full[w++] = t * 3;
+        full[w++] = t * 3 + 1;
+        full[w++] = t * 3 + 2;
+      }
+      for (const t of move) {
+        full[w++] = t * 3;
+        full[w++] = t * 3 + 1;
+        full[w++] = t * 3 + 2;
+      }
+      for (let i = triCount * 3; i < p.count; i++) full[w++] = i;
+      const movingRange = [still.length * 3, full.length - still.length * 3];
+      const dynamic = () => new BufferAttribute(full.slice(), 1).setUsage(DynamicDrawUsage);
+      const index = dynamic(), shadowIndex = dynamic();
+      geo.setIndex(index);
+      const cells = [];
+      for (let i = 0; i < bvh.count.length; i++) if (bvh.left[i] < 0) cells.push({ start: bvh.start[i] * 3, count: bvh.count[i] * 3, moving: false });
+      if (move.length) cells.push({ start: movingRange[0], count: movingRange[1], moving: true });
+      geo.userData.spatial = { bvh, cells, full, index, shadowIndex, movingRange, selectionList: null, shadowSelectionList: null, count: full.length, shadowCount: full.length };
+      source.frustumCulled = false;
+      source.onBeforeShadow = () => {
+        const s = geo.userData.spatial;
+        geo.setIndex(s.shadowIndex);
+        geo.setDrawRange(0, s.shadowCount);
+      };
+      source.onAfterShadow = () => {
+        const s = geo.userData.spatial;
+        geo.setIndex(s.index);
+        geo.setDrawRange(0, s.count);
+      };
+    }
+    return meshes;
+  }
+  var _corners = Array.from({ length: 8 }, () => new Vector3());
+  var _m2 = new Matrix4();
+  var _dir = new Vector3();
+  var _target2 = new Vector3();
+  var SpatialVisibility = class {
+    constructor(meshes) {
+      this.layers = meshes.filter((m) => m.geometry.userData.spatial);
+      this.frustum = new Frustum();
+      this.shadowFrustum = new Frustum();
+      this.projection = new Matrix4();
+      this.valid = false;
+      this.sun = new Vector3();
+      this.stats = { reselections: 0 };
+      this.ground = Infinity;
+      for (const m of this.layers) {
+        const b = m.geometry.userData.spatial.bvh.box;
+        if (b.length) this.ground = Math.min(this.ground, b[1]);
+      }
+      if (!Number.isFinite(this.ground)) this.ground = 0;
+    }
+    // shadowLight：投射陰影的平行光（可省略：陰影改畫完整索引）
+    update(camera, shadows = false, shadowLight = null) {
+      camera.updateMatrixWorld();
+      const light = shadows && shadowLight?.isDirectionalLight && shadowLight.castShadow ? shadowLight : null;
+      if (light) {
+        light.updateMatrixWorld();
+        light.target.updateMatrixWorld();
+        _dir.setFromMatrixPosition(light.matrixWorld).sub(_target2.setFromMatrixPosition(light.target.matrixWorld)).normalize();
+      }
+      const sunChanged = light ? this.sun.distanceToSquared(_dir) > 1e-6 : this.sun.lengthSq() > 0;
+      if (this.valid && shadows === this.shadows && !sunChanged && this.contains(camera)) return false;
+      this.shadows = shadows;
+      this.sun.copy(light ? _dir : _dir.set(0, 0, 0));
+      this.select(camera, light);
+      return true;
+    }
+    // 目前真實視錐的 8 個角都還在選取視錐內，代表上次選取結果仍完整涵蓋畫面
+    contains(camera) {
+      _m2.multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
+      let i = 0;
+      for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) _corners[i++].set(x, y, z).applyMatrix4(_m2);
+      for (const plane of this.frustum.planes) for (const c of _corners) if (plane.distanceToPoint(c) < 0) return false;
+      return true;
+    }
+    select(camera, light) {
+      this.stats.reselections++;
+      const near = camera.near, far = camera.far;
+      const halfV = Math.atan(Math.tan(MathUtils.degToRad(camera.fov) / 2) / (camera.zoom || 1));
+      const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
+      const tv = Math.tan(Math.min(halfV + MARGIN_ANGLE, 1.48)), th = Math.tan(Math.min(halfH + MARGIN_ANGLE, 1.48));
+      this.projection.makePerspective(-near * th, near * th, near * tv, -near * tv, near, far);
+      this.frustum.setFromProjectionMatrix(_m2.multiplyMatrices(this.projection, camera.matrixWorldInverse));
+      for (const plane of this.frustum.planes) plane.constant += MARGIN_DIST;
+      this.frustum.planes[4].normal.set(0, 0, 0);
+      this.frustum.planes[4].constant = Infinity;
+      this.valid = true;
+      let sweep = null;
+      if (light && this.sun.y > 0.05) {
+        light.shadow.updateMatrices(light);
+        const sc = light.shadow.camera;
+        this.shadowFrustum.setFromProjectionMatrix(_m2.multiplyMatrices(sc.projectionMatrix, sc.matrixWorldInverse));
+        sweep = { x: -this.sun.x / this.sun.y, z: -this.sun.z / this.sun.y, ground: this.ground };
+      }
+      for (const mesh of this.layers) {
+        const s = mesh.geometry.userData.spatial;
+        const ranges = cull(s.bvh, this.frustum.planes, null, null);
+        const shadowRanges = sweep ? cull(s.bvh, this.frustum.planes, sweep, this.shadowFrustum.planes) : null;
+        s.count = writeRanges(s, s.index, ranges, "selection");
+        s.shadowCount = writeRanges(s, s.shadowIndex, shadowRanges, "shadowSelection");
+        mesh.geometry.setDrawRange(0, s.count);
+      }
+    }
+  };
+  function cull(bvh, planes, sweep, extra) {
+    const out = [];
+    if (!bvh.start.length) return out;
+    const all = (1 << planes.length) - 1, allExtra = extra ? (1 << extra.length) - 1 : 0;
+    const stack = [0, all, allExtra];
+    while (stack.length) {
+      const extraMask0 = stack.pop(), mask0 = stack.pop(), id = stack.pop(), b = id * 6;
+      let x0 = bvh.box[b], y0 = bvh.box[b + 1], z0 = bvh.box[b + 2], x1 = bvh.box[b + 3], y1 = bvh.box[b + 4], z1 = bvh.box[b + 5];
+      let extraMask = extraMask0, outside = false;
+      for (let i = 0; extraMask && i < extra.length; i++) {
+        if (!(extraMask & 1 << i)) continue;
+        const r = boxPlane(extra[i], x0, y0, z0, x1, y1, z1);
+        if (r < 0) {
+          outside = true;
+          break;
+        }
+        if (r > 0) extraMask &= ~(1 << i);
+      }
+      if (outside) continue;
+      if (sweep) {
+        const h = Math.max(0, y1 - sweep.ground), ox = sweep.x * h, oz = sweep.z * h;
+        if (ox < 0) x0 += ox;
+        else x1 += ox;
+        if (oz < 0) z0 += oz;
+        else z1 += oz;
+        y0 = Math.min(y0, sweep.ground);
+      }
+      let mask = mask0;
+      for (let i = 0; mask && i < planes.length; i++) {
+        if (!(mask & 1 << i)) continue;
+        const r = boxPlane(planes[i], x0, y0, z0, x1, y1, z1);
+        if (r < 0) {
+          outside = true;
+          break;
+        }
+        if (r > 0) mask &= ~(1 << i);
+      }
+      if (outside) continue;
+      const l = bvh.left[id];
+      if (!mask && !extraMask || l < 0) {
+        const s = bvh.start[id] * 3, c = bvh.count[id] * 3, last = out.length - 1;
+        if (last >= 0 && out[last][0] + out[last][1] === s) out[last][1] += c;
+        else out.push([s, c]);
+        continue;
+      }
+      stack.push(bvh.right[id], mask, extraMask, l, mask, extraMask);
+    }
+    return out;
+  }
+  function boxPlane(plane, x0, y0, z0, x1, y1, z1) {
+    const n = plane.normal, d = plane.constant;
+    const max = n.x * (n.x > 0 ? x1 : x0) + n.y * (n.y > 0 ? y1 : y0) + n.z * (n.z > 0 ? z1 : z0) + d;
+    if (max < 0) return -1;
+    const min = n.x * (n.x > 0 ? x0 : x1) + n.y * (n.y > 0 ? y0 : y1) + n.z * (n.z > 0 ? z0 : z1) + d;
+    return min >= 0 ? 1 : 0;
+  }
+  function writeRanges(s, attribute, ranges, key) {
+    const moving = s.movingRange[1] ? [s.movingRange] : [];
+    const list = ranges ? ranges.concat(moving) : [[0, s.full.length]];
+    const previous = s[key + "List"];
+    let count = 0;
+    for (const [, c] of list) count += c;
+    let same = 0, offset = 0;
+    if (previous) {
+      while (same < list.length && same < previous.length && list[same][0] === previous[same][0] && list[same][1] === previous[same][1]) offset += list[same++][1];
+      if (same === list.length && same === previous.length) return count;
+      if (same < list.length && same < previous.length && list[same][0] === previous[same][0]) offset += Math.min(list[same][1], previous[same][1]);
+    }
+    s[key + "List"] = list;
+    let n = 0;
+    for (const [start, c] of list) {
+      const end = n + c;
+      if (end > offset) {
+        const skip = Math.max(0, offset - n);
+        attribute.array.set(s.full.subarray(start + skip, start + c), n + skip);
+      }
+      n = end;
+    }
+    if (n > offset) {
+      let lo = offset, hi = n;
+      for (const r of attribute.updateRanges) {
+        lo = Math.min(lo, r.start);
+        hi = Math.max(hi, r.start + r.count);
+      }
+      attribute.clearUpdateRanges();
+      attribute.addUpdateRange(lo, hi - lo);
+      attribute.needsUpdate = true;
+    }
+    return n;
   }
 
   // campus-vegetation.js
@@ -37011,7 +37423,15 @@ void main() {
           this.partGrid.get(key).push(p);
         }
       }
-      return { meshes, facesCount: faces };
+      const moving = /* @__PURE__ */ new Map();
+      for (const p of this.parts) if (p.movable) for (const r of p.ranges) {
+        if (!moving.has(r.k)) moving.set(r.k, []);
+        moving.get(r.k).push(r);
+      }
+      const batches = typeof location !== "undefined" && new URLSearchParams(location.search).get("spatial") === "off" ? meshes : spatialBatches(meshes, moving);
+      scene.userData.spatialVisibility = new SpatialVisibility(batches);
+      for (const mesh of batches) if (!mesh.parent) scene.add(mesh);
+      return { meshes: batches, facesCount: faces, spatialStats: { sourceMeshes: meshes.length, batches: batches.length, cells: batches.reduce((n, m) => n + (m.geometry.userData.spatial?.cells.length || 0), 0) } };
     }
   };
   function placedExtrude(shape, depth, { plane = "x", at: at2 = 0, scale = 1 }) {
@@ -40723,12 +41143,12 @@ void main() {
   var _d2 = new Vector3();
   var _q = new Quaternion();
   var _q2 = new Quaternion();
-  var _m2 = new Matrix4();
+  var _m4 = new Matrix4();
   function frameQuat(up, side, out) {
     const u = _a.copy(up).normalize();
     const s = _b.copy(side).addScaledVector(u, -side.dot(u)).normalize();
     const f = _c.crossVectors(s, u);
-    return out.setFromRotationMatrix(_m2.makeBasis(s, u, f));
+    return out.setFromRotationMatrix(_m4.makeBasis(s, u, f));
   }
   var Ragdoll = class {
     // opts：{ point, force, explosive, rng }
@@ -42203,16 +42623,17 @@ void main() {
     for (let i = 0; i < 12; i++) {
       const angle = i * Math.PI / 4, r = i < 8 ? 3.5 : 6.5;
       const x = bot.pos.x + Math.cos(angle) * r, z = bot.pos.z + Math.sin(angle) * r;
-      const floor = world.support(x, z, 0.3, bot.pos.y + 0.4);
-      if (!floor || Math.abs(floor.y - bot.pos.y) > 0.65 || world.blocked(x, floor.y + 0.1, z, 0.34, 1.65)) continue;
-      const point = new Vector3(x, floor.y, z), eye = point.clone().add(new Vector3(0, 1.1, 0));
+      const node = bot.game.nav.nearest(x, z, bot.pos.y);
+      if (!node || Math.hypot(node.x - x, node.z - z) > 1.5 || Math.abs(node.y - 0.025 - bot.pos.y) > 0.65) continue;
+      const floor = world.support(node.x, node.z, 0.3, bot.pos.y + 0.4);
+      if (!floor || Math.abs(floor.y - bot.pos.y) > 0.65 || world.blocked(node.x, floor.y + 0.1, node.z, 0.34, 1.65)) continue;
+      const point = new Vector3(node.x, floor.y, node.z), eye = point.clone().add(new Vector3(0, 1.1, 0));
       const delta = threat.clone().sub(eye), length = delta.length();
       if (length < 1) continue;
       delta.divideScalar(length);
       const hidden = !!world.raycast(eye.x, eye.y, eye.z, delta.x, delta.y, delta.z, length - 0.2, "sight");
       if (requireCover && !hidden) continue;
-      const node = bot.game.nav.nearest(x, z, floor.y);
-      if (!node || Math.hypot(node.x - x, node.z - z) > 1.5 || Math.abs(node.y - 0.025 - floor.y) > 0.3) continue;
+      if (Math.abs(node.y - 0.025 - floor.y) > 0.3) continue;
       const score = (hidden ? 8 : 0) + point.distanceTo(threat) * 0.2 - point.distanceTo(bot.pos);
       if (score > bestScore) {
         bestScore = score;
@@ -42227,12 +42648,28 @@ void main() {
     const w = bot.weapon;
     const allies = bot.game.actors.filter((a) => a !== bot && a.alive && a.team === bot.team && a.pos.distanceToSquared(bot.pos) < 144).length;
     bot.tactic = combatIntent({ health: bot.hp, mag: w.mag, reloading: w.reloading, enemies: bot.visibleEnemies || 1, allies, type: w.def.type, distance: seen.dist });
-    if (bot.coverPoint && bot.tactic !== "engage" && now < (bot.coverUntil || 0)) {
+    if (bot.coverPoint && now < (bot.coverUntil || 0)) {
       const p = bot.coverPoint, delta = bot.observedAim.clone().sub(p).add(new Vector3(0, -1.1, 0)), length = delta.length();
       delta.divideScalar(length || 1);
-      if (bot.game.world.raycast(p.x, p.y + 1.1, p.z, delta.x, delta.y, delta.z, length - 0.2, "sight")) return;
+      if (bot.game.world.raycast(p.x, p.y + 1.1, p.z, delta.x, delta.y, delta.z, length - 0.2, "sight")) {
+        if (bot.tactic === "engage") bot.tactic = "peek";
+        return;
+      }
     }
     bot.coverPoint = null;
+    bot.peekPoint = null;
+    bot.peekPhase = null;
+    if (bot.tactic === "engage" && seen.dist > 12 && now >= (bot.coverCycleAt || 0)) {
+      bot.coverCycleAt = now + 7;
+      const point = findCover(bot, bot.observedAim);
+      if (point) {
+        bot.tactic = "peek";
+        bot.coverPoint = point;
+        bot.coverUntil = now + 4.5;
+        bot.routeTo(point.x, point.z, point.y);
+        return;
+      }
+    }
     if (bot.tactic !== "engage") {
       const point = findCover(bot, bot.observedAim) || findCover(bot, bot.observedAim, false);
       if (point) {
@@ -42243,6 +42680,336 @@ void main() {
       } else bot.tactic = "engage";
     }
   }
+  function findPeek(bot) {
+    const p = bot.coverPoint, threat = bot.observedAim, W = bot.game.world;
+    if (!p || !threat) return null;
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4, x = p.x + Math.cos(angle) * 1.4, z = p.z + Math.sin(angle) * 1.4;
+      const node = bot.game.nav.nearest(x, z, p.y);
+      if (!node || Math.hypot(node.x - x, node.z - z) > 0.8) continue;
+      const floor = W.support(node.x, node.z, 0.3, p.y + 0.4);
+      if (!floor || Math.abs(floor.y - p.y) > 0.3 || Math.abs(node.y - 0.025 - floor.y) > 0.3 || W.blocked(node.x, floor.y + 0.1, node.z, 0.34, 1.7)) continue;
+      const point = new Vector3(node.x, floor.y, node.z), step = point.clone().sub(p), L = step.length();
+      if (L < 0.65 || L > 1.9) continue;
+      step.divideScalar(L);
+      if (W.raycast(p.x, p.y + 0.8, p.z, step.x, step.y, step.z, L, "move")) continue;
+      const d = threat.clone().sub(point).add(new Vector3(0, -1.45, 0)), range = d.length();
+      d.divideScalar(range || 1);
+      if (!W.raycast(point.x, floor.y + 1.45, point.z, d.x, d.y, d.z, range - 0.1, "sight")) return point;
+    }
+    return null;
+  }
+
+  // game-src/bot-motion.js
+  function resetMotion(bot) {
+    bot.motionX = bot.motionZ = 0;
+    bot.movePhaseUntil = 0;
+    bot.triggerAt = 0;
+    bot.burstRemaining = 0;
+    bot.burstRestUntil = 0;
+    bot.burstWeapon = null;
+    bot.plantUntil = bot.aimSettleUntil = 0;
+  }
+  function smoothMovement(bot, act, dt) {
+    const k = 1 - Math.exp(-12 * dt);
+    bot.motionX = (bot.motionX || 0) + (act.wishX - (bot.motionX || 0)) * k;
+    bot.motionZ = (bot.motionZ || 0) + (act.wishZ - (bot.motionZ || 0)) * k;
+    act.wishX = bot.motionX;
+    act.wishZ = bot.motionZ;
+  }
+  function combatStep(bot, act, def, distance, now, random = Math.random) {
+    if (now >= (bot.movePhaseUntil || 0)) {
+      bot.movePhaseUntil = now + 0.65 + random() * 0.75;
+      bot.strafeDir = random() < 0.3 ? 0 : random() < 0.5 ? -1 : 1;
+    }
+    const planted = def.type === "sniper" || now < (bot.plantUntil || 0);
+    const side = planted ? 0 : bot.skill.strafe * bot.strafeDir;
+    act.wishX = Math.cos(bot.yaw) * side;
+    act.wishZ = -Math.sin(bot.yaw) * side;
+    if (distance > 14 && now >= (bot.burstRestUntil || 0) && !bot.burstRemaining) bot.plantUntil = now + 0.24;
+  }
+  function wantsBurst(bot, def, dist, now, random = Math.random) {
+    if (bot.burstWeapon !== def.id) {
+      bot.burstWeapon = def.id;
+      bot.burstRemaining = 0;
+      bot.burstRestUntil = 0;
+    }
+    if (now < (bot.burstRestUntil || 0) || now < (bot.aimSettleUntil || 0)) return false;
+    if (!bot.burstRemaining) {
+      bot.burstRemaining = dist > 25 ? 2 + Math.floor(random() * 2) : dist > 14 ? 3 + Math.floor(random() * 3) : 7 + Math.floor(random() * 4);
+      if (dist > 14) {
+        bot.aimSettleUntil = now + 0.1;
+        return false;
+      }
+    }
+    return true;
+  }
+  function shotFired(bot, def, now, random = Math.random) {
+    if (!def.auto) return;
+    bot.burstRemaining = Math.max(0, (bot.burstRemaining || 1) - 1);
+    if (!bot.burstRemaining) {
+      bot.burstRestUntil = now + 0.22 + random() * 0.25;
+      bot.aimSettleUntil = 0;
+    }
+  }
+
+  // game-src/bot-schedule.js
+  var COVER_TASKS = /* @__PURE__ */ new Set(["take-cover", "observe-cover", "reload-cover", "peek-out", "fire-window", "return-cover"]);
+  var BotSchedule = class {
+    constructor(bot) {
+      this.bot = bot;
+      this.reset();
+    }
+    reset() {
+      this.task = "roam";
+      this.entered = 0;
+      this.until = 0;
+      this.cover = null;
+      this.revision = -1;
+      this.trace = [];
+      this.retryAt = 0;
+      this.routeRetryAt = 0;
+      this.progressAt = 0;
+      this.bestDistance = Infinity;
+    }
+    change(task, now, reason, duration = 0) {
+      if (this.task === task) return;
+      this.task = task;
+      this.entered = now;
+      this.until = now + duration;
+      this.trace.push({ task, time: now, reason });
+      if (this.trace.length > 24) this.trace.shift();
+      this.progressAt = now;
+      this.bestDistance = Infinity;
+    }
+    holdsPlan() {
+      return COVER_TASKS.has(this.task) || this.task === "reload" || this.task === "observe-search";
+    }
+    allowsTactics(now) {
+      return !this.holdsPlan() && now >= this.retryAt;
+    }
+    cancelRoute() {
+      const b = this.bot;
+      b.routeVersion = (b.routeVersion || 0) + 1;
+      b.routePending = false;
+      b.path = null;
+      b.pi = 0;
+      b.routeGoal = null;
+    }
+    clearCover(now, reason) {
+      const b = this.bot;
+      this.cancelRoute();
+      this.cover = null;
+      b.coverPoint = null;
+      b.peekPoint = null;
+      b.peekPhase = null;
+      b.coverUntil = 0;
+      b.tacticAt = 0;
+      b.motionX = b.motionZ = 0;
+      this.retryAt = now + 0.6;
+      this.change(b.visible ? "engage" : "search", now, reason);
+    }
+    valid(point, shield = false) {
+      const b = this.bot, W = b.game.world, floor = W.support(point.x, point.z, 0.3, point.y + 0.4);
+      if (!floor || Math.abs(floor.y - point.y) > 0.35 || W.blocked(point.x, point.y + 0.1, point.z, 0.34, 1.7)) return false;
+      if (shield && b.observedAim) {
+        const d = b.observedAim.clone().sub(point).add(new Vector3(0, -1.1, 0)), L = d.length();
+        d.divideScalar(L || 1);
+        if (!W.raycast(point.x, point.y + 1.1, point.z, d.x, d.y, d.z, Math.max(0, L - 0.1), "sight")) return false;
+      }
+      return true;
+    }
+    refresh(now) {
+      const b = this.bot, revision = b.game.world.structuralRevision || 0;
+      if (this.cover && revision !== this.revision) {
+        if (!this.valid(this.cover, true)) {
+          this.clearCover(now, "cover-destroyed");
+          this.revision = revision;
+          return;
+        }
+        if (b.peekPoint && !this.valid(b.peekPoint)) {
+          b.peekPoint = null;
+          b.peekPhase = "return";
+          this.change("return-cover", now, "peek-floor-destroyed");
+          b.routeTo(this.cover.x, this.cover.z, this.cover.y);
+        }
+      }
+      this.revision = revision;
+      if (this.cover && !b.visible && now - b.lastSeenT > 3 && !b.weapon.reloading) this.clearCover(now, "observation-expired");
+    }
+    adopt(now) {
+      const b = this.bot;
+      if (!b.coverPoint) return;
+      if (!this.cover || this.cover.distanceToSquared(b.coverPoint) > 0.09) {
+        this.cover = b.coverPoint.clone();
+        b.peekPoint = null;
+        b.peekPhase = null;
+        this.change("take-cover", now, "cover-selected");
+      }
+    }
+    move(act, destination, now, arrival = 0.65) {
+      const b = this.bot, d = b.pos.distanceTo(destination);
+      if (d < this.bestDistance - 0.15) {
+        this.bestDistance = d;
+        this.progressAt = now;
+      }
+      if (d <= arrival) {
+        act.wishX = act.wishZ = 0;
+        return true;
+      }
+      if (now - this.progressAt > 4) {
+        this.clearCover(now, "route-timeout");
+        act.wishX = act.wishZ = 0;
+        return false;
+      }
+      if (!b.routePending && b.pathDone()) {
+        if (now >= (this.routeRetryAt || 0)) {
+          this.routeRetryAt = now + 0.8;
+          b.routeTo(destination.x, destination.z, destination.y);
+        }
+      }
+      const direction = b.steer();
+      act.wishX = direction?.[0] || 0;
+      act.wishZ = direction?.[1] || 0;
+      act.walk = true;
+      return false;
+    }
+    coverAction(act, now) {
+      const b = this.bot, w = b.weapon;
+      this.adopt(now);
+      if (!this.cover) return;
+      const endangered = w.reloading || w.mag === 0 || b.hp <= 35 || b.lastHurt > this.entered;
+      if (["peek-out", "fire-window"].includes(this.task) && endangered) {
+        b.peekPhase = "return";
+        this.change("return-cover", now, "hurt-or-reload");
+        b.routeTo(this.cover.x, this.cover.z, this.cover.y);
+      }
+      if (this.task === "take-cover" || this.task === "return-cover") {
+        act.fire = act.firePressed = false;
+        if (!this.move(act, this.cover, now)) return;
+        b.peekPoint = null;
+        b.peekPhase = null;
+        this.cancelRoute();
+        this.change("observe-cover", now, "cover-reached", 0.45);
+        act.crouch = true;
+      }
+      if (this.task === "observe-cover" || this.task === "reload-cover") {
+        act.wishX = act.wishZ = 0;
+        act.fire = act.firePressed = false;
+        act.crouch = true;
+        if (w.reloading) {
+          this.change("reload-cover", now, "reload-in-progress");
+          return;
+        }
+        if (w.canReload() && (w.mag < Math.max(1, w.def.mag * 0.3) || b.hp <= 35)) {
+          b.startReload();
+          if (w.reloading) this.change("reload-cover", now, "reload-started");
+          return;
+        }
+        if (this.task === "reload-cover") {
+          this.change("observe-cover", now, "reload-complete", 0.5);
+          return;
+        }
+        if (now < this.until) return;
+        if (now - b.lastSeenT > 2.5) {
+          this.clearCover(now, "search-after-cover");
+          return;
+        }
+        if (b.tactic !== "peek" || b.hp <= 35) {
+          if (now - this.entered > 1.6) this.clearCover(now, "defensive-pause-complete");
+          return;
+        }
+        const point = findPeek(b);
+        if (!point) {
+          this.clearCover(now, "no-safe-peek");
+          return;
+        }
+        b.peekPoint = point;
+        b.peekPhase = "out";
+        this.change("peek-out", now, "peek-selected");
+        b.routeTo(point.x, point.z, point.y);
+      }
+      if (this.task === "peek-out") {
+        act.fire = act.firePressed = false;
+        act.crouch = false;
+        if (!b.peekPoint) {
+          this.clearCover(now, "peek-missing");
+          return;
+        }
+        if (this.move(act, b.peekPoint, now, 0.5)) {
+          this.cancelRoute();
+          b.peekPhase = "exposed";
+          this.change("fire-window", now, "peek-reached", 0.65);
+        }
+      }
+      if (this.task === "fire-window") {
+        act.wishX = act.wishZ = 0;
+        act.crouch = false;
+        if (now >= this.until || !b.visible) {
+          act.fire = act.firePressed = false;
+          b.peekPhase = "return";
+          this.change("return-cover", now, b.visible ? "firing-window-complete" : "lost-sight");
+          b.routeTo(this.cover.x, this.cover.z, this.cover.y);
+        }
+      }
+    }
+    apply(act, now) {
+      const b = this.bot, w = b.weapon;
+      if (b.coverPoint) return;
+      if (COVER_TASKS.has(this.task)) {
+        this.cover = null;
+        this.change(b.visible ? "engage" : "search", now, "cover-released");
+      }
+      if (w.reloading) {
+        this.change("reload", now, "reload-in-progress");
+        act.fire = act.firePressed = false;
+        return;
+      }
+      if (w.mag === 0 && w.canReload()) {
+        if (now >= this.retryAt && b.observedAim && now - b.lastSeenT < 3) {
+          this.retryAt = now + 1;
+          const point = findCover(b, b.observedAim);
+          if (point) {
+            b.coverPoint = point;
+            b.tactic = "cover";
+            b.routeTo(point.x, point.z, point.y);
+            this.coverAction(act, now);
+            return;
+          }
+        }
+        b.startReload();
+        this.change("reload", now, "empty-no-cover");
+        act.fire = act.firePressed = false;
+        return;
+      }
+      if (b.visible) {
+        if (now >= b.reactUntil) this.change("engage", now, "visible-enemy");
+        else this.change("react", now, "visual-reaction");
+        return;
+      }
+      if (this.task === "reload") this.change("search", now, "reload-complete");
+      const memory = b.lastSeen && now - b.lastSeenT < 5;
+      if (memory && b.pos.distanceTo(b.lastSeen) < 2.5 && this.task !== "observe-search") {
+        this.cancelRoute();
+        b.lookYaw = b.yaw;
+        this.change("observe-search", now, "search-location-reached", 1.1);
+      }
+      if (this.task === "observe-search") {
+        act.wishX = act.wishZ = 0;
+        act.fire = act.firePressed = false;
+        act.yaw = b.lookYaw + Math.sin((now - this.entered) * 3) * 0.6;
+        act.pitch = 0;
+        if (now >= this.until || !memory) {
+          b.lastSeen = null;
+          b.huntFor = void 0;
+          this.change("roam", now, "search-complete");
+          b.newGoal();
+        }
+        return;
+      }
+      this.change(memory ? "search" : b.state === "listen" ? "listen" : "roam", now, "perception-update");
+    }
+  };
 
   // game-src/bots.js
   var DIFF = {
@@ -42299,8 +43066,19 @@ void main() {
       this.nadeCooldown = rand3(20, 40);
       this.nadeAt = null;
       this.stuck = { t: 0, n: 0, at: new Vector3() };
+      this.schedule = new BotSchedule(this);
     }
     onSpawn() {
+      this.schedule?.reset();
+      this.routeVersion = (this.routeVersion || 0) + 1;
+      this.routePending = false;
+      this.routeGoal = null;
+      this.checkedRouteRevision = this.checkedWaypoint = void 0;
+      resetMotion(this);
+      this.peekPoint = null;
+      this.peekPhase = null;
+      this.nextPeek = 0;
+      this.coverCycleAt = this.game.time + 2 + this.id * 0.2;
       this.tactic = "engage";
       this.coverPoint = null;
       this.tacticAt = 0;
@@ -42329,17 +43107,27 @@ void main() {
     }
     // ───────── 路徑 ─────────
     routeTo(x, z, y = 0) {
+      const revision = this.game.world.structuralRevision || 0, previous = this.routeGoal;
+      if (previous && Math.hypot(previous[0] - x, previous[1] - z) < 0.35 && Math.abs(previous[2] - y) < 0.35 && this.routeRevision === revision && (this.routePending || this.path && !this.pathDone())) return;
+      this.routeGoal = [x, z, y];
+      this.routeRevision = revision;
+      const version = this.routeVersion = (this.routeVersion || 0) + 1;
+      this.path = null;
+      this.pi = 0;
+      this.checkedWaypoint = void 0;
       if (this.game.nav.requestPath) {
         this.routePending = true;
         this.game.nav.requestPath(this, [this.pos.x, this.pos.z, x, z, this.pos.y, y], (path2) => {
+          if (version !== this.routeVersion) return;
           this.routePending = false;
           if (this.alive) {
             this.path = path2;
-            this.pi = 1;
+            this.pi = path2?.length > 1 ? 1 : 0;
           }
         });
         return;
       }
+      this.routePending = false;
       this.path = this.game.nav.findPath(this.pos.x, this.pos.z, x, z, this.pos.y, y);
       this.pi = 1;
     }
@@ -42362,7 +43150,8 @@ void main() {
         const support = this.game.world.support(wp[0], wp[1], 0.3, wy + 0.03);
         if (!support || Math.abs(support.y - (wy - 0.025)) > 0.15) {
           this.path = null;
-          if (this.goal && !this.routePending) this.routeTo(this.goal[0], this.goal[1], this.goal[2] || 0);
+          const goal = this.routeGoal || this.goal;
+          if (goal && !this.routePending) this.routeTo(goal[0], goal[1], goal[2] || 0);
           return null;
         }
       }
@@ -42455,14 +43244,15 @@ void main() {
         this.state = "engage";
         this.searchProbe = 0;
         this.searchAt = 0;
-        planTactics(this, seen, now);
+        if (!this.schedule || this.schedule.allowsTactics(now)) planTactics(this, seen, now);
         if (this.coverPoint) this.state = "retreat";
-        else this.planEngage(seen.foe, seen.dist);
+        else if (!this.schedule?.holdsPlan()) this.planEngage(seen.foe, seen.dist);
       } else {
         this.visible = false;
         this.engageT = 0;
         if (this.target && now - this.lastSeenT > 5) this.target = null;
-        this.planSearch(now);
+        if (this.schedule?.holdsPlan()) this.state = "retreat";
+        else this.planSearch(now);
       }
       this.checkStuck();
     }
@@ -42484,6 +43274,15 @@ void main() {
       }
     }
     planSearch(now) {
+      if (this.coverPoint && this.tactic === "peek" && now < this.coverUntil && now - this.lastSeenT < 3) {
+        this.state = "retreat";
+        return;
+      }
+      if (this.coverPoint && this.tactic === "peek") {
+        this.coverPoint = null;
+        this.peekPoint = null;
+        this.peekPhase = null;
+      }
       if (this.coverPoint && this.tactic === "cover") {
         const distance = this.pos.distanceTo(this.coverPoint);
         if (distance < 1.2) {
@@ -42558,6 +43357,7 @@ void main() {
     update(dt) {
       if (!this.alive) return;
       const now = this.game.time;
+      this.schedule.refresh(now);
       this.thinkT -= dt;
       if (this.thinkT <= 0) {
         this.thinkT = THINK_EVERY * rand3(0.87, 1.27);
@@ -42567,7 +43367,10 @@ void main() {
       this.handleGrenade(act, now);
       if (this.target?.alive && this.visible) this.fight(act, dt, now);
       else this.travel(act, now);
+      this.schedule.apply(act, now);
       this.avoidCrowding(act);
+      if (["observe-cover", "reload-cover", "fire-window", "observe-search"].includes(this.schedule.task)) act.wishX = act.wishZ = 0;
+      smoothMovement(this, act, dt);
       this.turnToward(act.yaw, act.pitch, dt);
       this.move(dt, act.wishX, act.wishZ, this.wantJump, act.crouch, act.walk);
       this.wantJump = false;
@@ -42605,32 +43408,19 @@ void main() {
       act.yaw = trueYaw + this.errYaw + Math.sin(now * 3.1 + this.id) * shake;
       act.pitch = truePitch + this.errPitch + Math.cos(now * 2.7 + this.id) * shake * 0.6 - this.punchP * S.recoilComp;
       this.lookYaw = this.lookPitch = void 0;
+      combatStep(this, act, d, flat, now);
       const off = Math.hypot(wrapAngle(this.yaw - trueYaw), this.pitch - truePitch);
       const tolerance = Math.atan2(0.32, flat) * 1.4 + 0.01;
-      if (now >= this.reactUntil && off < tolerance && now >= this.readyAt && !this.nadeAt && this.canSee(tgt)) this.pullTrigger(act, d, off, tolerance, flat, dt, now);
+      if ((!this.coverPoint || this.peekPhase === "exposed") && !w.reloading && now >= this.reactUntil && off < tolerance && now >= this.readyAt && !this.nadeAt && this.canSee(tgt)) this.pullTrigger(act, d, off, tolerance, flat, dt, now);
       if (this.wantScope) {
         act.alt = true;
         this.wantScope = false;
       }
-      this.strafeT -= dt;
-      if (this.strafeT <= 0) {
-        this.strafeT = rand3(0.25, 0.95);
-        this.strafeDir = Math.random() < 0.2 ? 0 : Math.random() < 0.5 ? -1 : 1;
-      }
-      const sideK = d.type === "sniper" ? 0 : S.strafe * this.strafeDir;
-      act.wishX = Math.cos(this.yaw) * sideK;
-      act.wishZ = -Math.sin(this.yaw) * sideK;
       if (this.coverPoint) {
-        const distance = this.pos.distanceTo(this.coverPoint), dir = distance > 1 ? this.steer() : null;
-        act.wishX = dir?.[0] || 0;
-        act.wishZ = dir?.[1] || 0;
-        if (distance <= 1) {
-          act.crouch = true;
-          if (w.canReload() && (w.mag < Math.max(1, d.mag * 0.3) || this.hp <= 35)) this.startReload();
-        }
+        this.coverAction(act, now);
         return;
       }
-      if (flat >= 10 && d.type !== "sniper") {
+      if (flat >= 10 && d.type !== "sniper" && now >= (this.plantUntil || 0)) {
         const dir = this.steer();
         if (dir) {
           act.wishX = act.wishX * 0.35 + dir[0];
@@ -42644,21 +43434,36 @@ void main() {
           if (this.scoped && this.scopeReady && off < tolerance * 0.6) act.firePressed = true;
           break;
         case "pistol":
-          act.firePressed = Math.random() < dt * 5;
+          if (now >= (this.triggerAt || 0)) {
+            act.firePressed = true;
+            this.triggerAt = now + rand3(0.22, 0.38);
+          }
           break;
         case "shotgun":
-          act.firePressed = dist < 24 && Math.random() < dt * 6;
+          if (dist < 24 && now >= (this.triggerAt || 0)) {
+            act.firePressed = true;
+            this.triggerAt = now + 0.85;
+          }
           break;
         default:
-          if (now < this.burstRestUntil) break;
-          act.fire = true;
-          if (dist > 14 && ++this.burst > rand3(3, 7)) {
-            this.burst = 0;
-            this.burstRestUntil = now + 0.18 + Math.random() * 0.3 * (dist / 30);
-          }
+          act.fire = wantsBurst(this, d, dist, now);
       }
     }
+    onShotFired(def) {
+      shotFired(this, def, this.game.time);
+    }
+    coverAction(act, now) {
+      this.schedule.coverAction(act, now);
+    }
     travel(act, now) {
+      if (this.coverPoint) {
+        this.coverAction(act, now);
+        if (this.observedAim) {
+          act.yaw = yawTo(this.pos.x, this.pos.z, this.observedAim.x, this.observedAim.z);
+          act.pitch = 0;
+        }
+        return;
+      }
       if (now > this.lookUntil) {
         this.lookYaw = this.lookPitch = void 0;
       }
@@ -42941,7 +43746,8 @@ void main() {
       mesh.quaternion.setFromUnitVectors(new Vector3(0, 0, -1), dir);
       this.renderer.scene.add(mesh);
       this.fx.rocketLaunch?.(eye, dir);
-      this.rockets.push({ mesh, owner, dir: dir.clone(), def, distance: 0, trailDistance: 0 });
+      const historyId = this.combatHistory?.launch(this.time, owner, def.id, eye);
+      this.rockets.push({ mesh, owner, historyId, dir: dir.clone(), def, distance: 0, trailDistance: 0 });
     },
     updateRockets(dt) {
       this.rockets = this.rockets.filter((r) => {
@@ -42956,7 +43762,9 @@ void main() {
         this.fx.rocketTrail?.(old, p, d, r);
         const flicker = 0.85 + Math.random() * 0.3;
         r.mesh.children[0].scale.set(flicker, flicker, flicker);
-        if (hit) this.explode(p.clone(), r.owner, r.def.id);
+        this.combatHistory?.sample(r.historyId, this.time, p);
+        if (hit || r.distance >= r.def.range) this.combatHistory?.finish(r.historyId, this.time, p);
+        if (hit) this.explode(p.clone(), r.owner, r.def.id, { projectileId: r.historyId });
         if (hit || r.distance >= r.def.range) {
           this.renderer.scene.remove(r.mesh);
           return false;
@@ -42983,8 +43791,10 @@ void main() {
     // ───────── 開槍 ─────────
     fireWeapon(a, ws, spread2) {
       const d = ws.def;
+      a.onShotFired?.(d);
       const eye = a.eye(new Vector3());
       const dir = jitterDir(a.forward(new Vector3()), spread2, Math.random);
+      const shot = this.combatHistory?.shot(this.time, a, d.id, eye, dir);
       const muzzle = a.isPlayer ? this.playerShotFx(a, d, dir) : this.botShotFx(a, d, dir);
       a.radarT = 1.6;
       this.alertBots(a.pos, a.team, 45, true);
@@ -42997,7 +43807,7 @@ void main() {
       for (let i = 0; i < pellets; i++) {
         const pd = pellets > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
         this._quiet = i > 0;
-        end = this.traceBullet(a, eye, pd, d);
+        end = this.traceBullet(a, eye, pd, d, shot);
         if (i === 0 && (d.type === "sniper" || Math.random() < 0.33)) this.fx.tracer(muzzle, end);
       }
       this._quiet = false;
@@ -43062,7 +43872,7 @@ void main() {
       this.fx.shake = Math.max(this.fx.shake, 0.12 + 0.2 * k);
     },
     // 彈道：依序檢查路徑上的牆面與角色。玻璃會碎、可破壞物會被打爛、薄牆可穿透（傷害遞減）
-    traceBullet(shooter, o, dir, d) {
+    traceBullet(shooter, o, dir, d, shot) {
       const range = d.range;
       const walls = this.world.raycastAll(o.x, o.y, o.z, dir.x, dir.y, dir.z, range);
       let power = d.pen, keep = 1, wallbang = false, from = 0;
@@ -43079,7 +43889,7 @@ void main() {
           this.fx.impact(pt2, back, "flesh", dir);
           if (part === "head") this.fx.impact(pt2, back, "flesh", dir);
           if (!this._quiet) audio.playImpact(pt2, "flesh");
-          this.damage(actor, shooter, dmg, part, d.id, dir, wallbang, false, pt2);
+          this.damage(actor, shooter, dmg, part, d.id, dir, wallbang, false, pt2, { shotId: shot?.id, source: shot?.source, origin: o, exact: true });
           return pt2;
         }
         if (!h) break;
@@ -43202,7 +44012,8 @@ void main() {
       mesh.scale.setScalar(1.3);
       mesh.position.copy(pos);
       this.renderer.scene.add(mesh);
-      this.nades.push({ mesh, pos, vel, fuse: live ? WEAPONS.he.fuse : 12, live, owner: a, spin: new Vector3(Math.random() * 10, Math.random() * 10, 0) });
+      const historyId = this.combatHistory?.launch(this.time, a, "he", pos);
+      this.nades.push({ mesh, pos, vel, historyId, fuse: live ? WEAPONS.he.fuse : 12, live, owner: a, spin: new Vector3(Math.random() * 10, Math.random() * 10, 0) });
       if (drop) return;
       audio.playGrenadeThrow();
       if (a.isPlayer) audio.announce("Fire in the hole!");
@@ -43227,7 +44038,10 @@ void main() {
           n.pos.addScaledVector(d, Math.max(0, hit.t - 0.07));
           const into = n.vel.dot(nrm);
           n.vel.addScaledVector(nrm, -1.45 * into).multiplyScalar(0.55);
-          if (Math.abs(into) > 2) audio.playGrenadeBounce(n.pos.clone());
+          if (Math.abs(into) > 2) {
+            audio.playGrenadeBounce(n.pos.clone());
+            this.combatHistory?.sample(n.historyId, this.time - dt + (s + 1) * h, n.pos, true);
+          }
           if (nrm.y > 0.7 && Math.abs(n.vel.y) < 1.2) {
             n.vel.y = 0;
             n.vel.x *= 0.8;
@@ -43236,15 +44050,17 @@ void main() {
           n.spin.multiplyScalar(0.6);
         }
         n.mesh.position.copy(n.pos);
+        this.combatHistory?.sample(n.historyId, this.time, n.pos);
         n.mesh.rotation.x += n.spin.x * dt;
         n.mesh.rotation.y += n.spin.y * dt;
         if (n.fuse > 0) return true;
-        if (n.live !== false) this.explode(n.pos.clone(), n.owner);
+        this.combatHistory?.finish(n.historyId, this.time, n.pos);
+        if (n.live !== false) this.explode(n.pos.clone(), n.owner, "he", { projectileId: n.historyId });
         this.renderer.scene.remove(n.mesh);
         return false;
       });
     },
-    explode(p, owner, weaponId = "he") {
+    explode(p, owner, weaponId = "he", context = {}) {
       const he = WEAPONS[weaponId];
       if (weaponId === "rpg") this.fx.rocketExplosion(p);
       else this.fx.explosion(p);
@@ -43273,7 +44089,7 @@ void main() {
         }
         if (dist > he.radius) continue;
         const dmg = he.dmg * Math.pow(1 - dist / he.radius, 1.1) * (exposed ? 1 : 0.3);
-        if (dmg > 1) this.damage(a, owner, dmg, "chest", weaponId, dir, false);
+        if (dmg > 1) this.damage(a, owner, dmg, "chest", weaponId, dir, false, false, void 0, { ...context, origin: p, exact: false });
       }
       this.alertBots(p, null, 40, true);
     },
@@ -43376,7 +44192,7 @@ void main() {
     },
     // ───────── 傷害與擊殺 ─────────
     // 護甲：腿部以外的傷害有一部分由護甲吸收（依武器的穿甲比例），護甲也會被磨損
-    damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint) {
+    damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint, context = {}) {
       if (!v.alive || v.protectT > 0) return;
       if (att && att !== v && att.team === v.team) return;
       const armorBefore = v.armor, armored = armorBefore > 0 && part !== "leg";
@@ -43415,7 +44231,9 @@ void main() {
         }
         if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new Vector3()));
       }
-      if (killed) this.kill(v, att, cause, part === "head" && !melee, wallbang, dir, { part, point: hitPoint, damage: Math.round(hpLoss) });
+      const point = hitPoint || (part === "head" ? v.soldier.headWorld(new Vector3()) : v.soldier.chestWorld(new Vector3()));
+      const event = this.combatHistory?.impact(this.time, v, att, cause, part, point, Math.round(hpLoss), { ...context, wallbang });
+      if (killed) this.kill(v, att, cause, part === "head" && !melee, wallbang, dir, { part, point, damage: Math.round(hpLoss), event });
     },
     kill(v, att, cause, headshot, wallbang, dir, hitInfo = {}) {
       if (v.weapon?.id === "he" && v.weapon.mag > 0) {
@@ -43697,6 +44515,7 @@ void main() {
     }
     // ───────── 對局流程 ─────────
     startMatch() {
+      this.performanceStats = new PerformanceStats();
       this.map.resetGlass?.();
       this.map.resetDestruction?.();
       this.fx?.clearDecals();
@@ -43712,6 +44531,7 @@ void main() {
       this.timers = [];
       this.clearRockets();
       this.killReplay?.reset();
+      (this.combatHistory ?? (this.combatHistory = new CombatHistory())).reset();
       this.nav.clearRequests?.();
       this.wreckQueue = [];
       this.score = { BL: 0, GR: 0 };
@@ -43917,6 +44737,7 @@ void main() {
     loop(now) {
       requestAnimationFrame(this.loop);
       let dt = (now - this.last) / 1e3;
+      const frameMs = dt * 1e3, simulationStart = performance.now();
       this.last = now;
       if (dt <= 0) return;
       if (this.playing && !this.paused && this.time > 3) this.renderer.samplePerformance(dt);
@@ -43938,7 +44759,9 @@ void main() {
         cam.fov = 65;
         cam.updateProjectionMatrix();
       }
+      const simulationMs = performance.now() - simulationStart, renderStart = performance.now();
       this.renderFrame(dt);
+      (this.performanceStats ?? (this.performanceStats = new PerformanceStats())).add({ frameMs, simulationMs, renderMs: performance.now() - renderStart, ...this.renderer.lastWorldStats });
     }
     // 除錯用：不渲染、直接快轉模擬
     fastForward(seconds, step = 1 / 30) {
@@ -43962,9 +44785,12 @@ void main() {
         this.processWreckQueue();
       }
       for (const a of this.actors) this.updateBody(a, dt, vis);
-      if (vis > 0) this.killReplay?.record();
       this.updateNades(dt);
       this.updateRockets(dt);
+      if (vis > 0) {
+        this.killReplay?.record();
+        this.combatHistory?.prune(this.time);
+      }
       if (this.timeLeft <= 0 && !this.ended) this.endMatch();
       const cam = this.renderer.camera;
       for (const t of this.tags) {

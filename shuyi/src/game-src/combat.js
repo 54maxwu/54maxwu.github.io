@@ -27,8 +27,10 @@ export const combat = {
 
   fireWeapon(a, ws, spread) {
     const d = ws.def;
+    a.onShotFired?.(d);
     const eye = a.eye(new THREE.Vector3());
     const dir = jitterDir(a.forward(new THREE.Vector3()), spread, Math.random);
+    const shot=this.combatHistory?.shot(this.time,a,d.id,eye,dir);
     const muzzle = a.isPlayer ? this.playerShotFx(a, d, dir) : this.botShotFx(a, d, dir);
 
     a.radarT = 1.6;   // 開槍會在敵方小地圖上短暫現形
@@ -41,7 +43,7 @@ export const combat = {
     for (let i = 0; i < pellets; i++) {
       const pd = pellets > 1 ? jitterDir(dir.clone(), d.pelletSpread, Math.random) : dir;
       this._quiet = i > 0;
-      end = this.traceBullet(a, eye, pd, d);
+      end = this.traceBullet(a, eye, pd, d,shot);
       // 約每 3 發畫一條曳光，狙擊每發都畫，霰彈只畫第一顆
       if (i === 0 && (d.type === 'sniper' || Math.random() < 0.33)) this.fx.tracer(muzzle, end);
     }
@@ -112,7 +114,7 @@ export const combat = {
   },
 
   // 彈道：依序檢查路徑上的牆面與角色。玻璃會碎、可破壞物會被打爛、薄牆可穿透（傷害遞減）
-  traceBullet(shooter, o, dir, d) {
+  traceBullet(shooter, o, dir, d,shot) {
     const range = d.range;
     const walls = this.world.raycastAll(o.x, o.y, o.z, dir.x, dir.y, dir.z, range);
     let power = d.pen, keep = 1, wallbang = false, from = 0;
@@ -129,7 +131,7 @@ export const combat = {
         this.fx.impact(pt, back, 'flesh', dir);
         if (part === 'head') this.fx.impact(pt, back, 'flesh', dir);
         if (!this._quiet) audio.playImpact(pt, 'flesh');
-        this.damage(actor, shooter, dmg, part, d.id, dir, wallbang, false, pt);
+        this.damage(actor, shooter, dmg, part, d.id, dir, wallbang, false, pt,{shotId:shot?.id,source:shot?.source,origin:o,exact:true});
         return pt;
       }
       if (!h) break;
@@ -243,7 +245,8 @@ export const combat = {
     mesh.scale.setScalar(1.3);
     mesh.position.copy(pos);
     this.renderer.scene.add(mesh);
-    this.nades.push({ mesh, pos, vel, fuse: live?WEAPONS.he.fuse:12,live, owner: a, spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, 0) });
+    const historyId=this.combatHistory?.launch(this.time,a,'he',pos);
+    this.nades.push({ mesh, pos, vel,historyId, fuse: live?WEAPONS.he.fuse:12,live, owner: a, spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, 0) });
     if(drop)return;
     audio.playGrenadeThrow();
     if (a.isPlayer) audio.announce('Fire in the hole!');
@@ -266,21 +269,23 @@ export const combat = {
         n.pos.addScaledVector(d, Math.max(0, hit.t - 0.07));
         const into = n.vel.dot(nrm);
         n.vel.addScaledVector(nrm, -1.45 * into).multiplyScalar(0.55);
-        if (Math.abs(into) > 2) audio.playGrenadeBounce(n.pos.clone());
+        if (Math.abs(into) > 2) {audio.playGrenadeBounce(n.pos.clone());this.combatHistory?.sample(n.historyId,this.time-dt+(s+1)*h,n.pos,true);}
         if (nrm.y > 0.7 && Math.abs(n.vel.y) < 1.2) { n.vel.y = 0; n.vel.x *= 0.8; n.vel.z *= 0.8; }
         n.spin.multiplyScalar(0.6);
       }
       n.mesh.position.copy(n.pos);
+      this.combatHistory?.sample(n.historyId,this.time,n.pos);
       n.mesh.rotation.x += n.spin.x * dt;
       n.mesh.rotation.y += n.spin.y * dt;
       if (n.fuse > 0) return true;
-      if(n.live!==false)this.explode(n.pos.clone(), n.owner);
+      this.combatHistory?.finish(n.historyId,this.time,n.pos);
+      if(n.live!==false)this.explode(n.pos.clone(), n.owner,'he',{projectileId:n.historyId});
       this.renderer.scene.remove(n.mesh);
       return false;
     });
   },
 
-  explode(p, owner, weaponId = 'he') {
+  explode(p, owner, weaponId = 'he',context={}) {
     const he = WEAPONS[weaponId];
     if (weaponId === 'rpg') this.fx.rocketExplosion(p);
     else this.fx.explosion(p);
@@ -309,7 +314,7 @@ export const combat = {
       }
       if (dist > he.radius) continue;
       const dmg = he.dmg * Math.pow(1 - dist / he.radius, 1.1) * (exposed ? 1 : 0.3);   // 隔著掩體只吃部分衝擊
-      if (dmg > 1) this.damage(a, owner, dmg, 'chest', weaponId, dir, false);
+      if (dmg > 1) this.damage(a, owner, dmg, 'chest', weaponId, dir, false,false,undefined,{...context,origin:p,exact:false});
     }
     this.alertBots(p, null, 40, true);
   },
@@ -412,7 +417,7 @@ export const combat = {
   // ───────── 傷害與擊殺 ─────────
 
   // 護甲：腿部以外的傷害有一部分由護甲吸收（依武器的穿甲比例），護甲也會被磨損
-  damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint) {
+  damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint,context={}) {
     if (!v.alive || v.protectT > 0) return;
     if (att && att !== v && att.team === v.team) return;          // 沒有友軍傷害
     const armorBefore = v.armor, armored = armorBefore > 0 && part !== 'leg';
@@ -446,7 +451,9 @@ export const combat = {
       if (killed || this.time - (this._hmT ?? -1) > 0.03) { audio.playHitmarker(part === 'head', armored && part !== 'head'); this._hmT = this.time; }
       if (broke && !killed) audio.playArmorBreak(v.soldier.chestWorld(new THREE.Vector3()));
     }
-    if (killed) this.kill(v, att, cause, part === 'head' && !melee, wallbang, dir,{part,point:hitPoint,damage:Math.round(hpLoss)});
+    const point=hitPoint||(part==='head'?v.soldier.headWorld(new THREE.Vector3()):v.soldier.chestWorld(new THREE.Vector3()));
+    const event=this.combatHistory?.impact(this.time,v,att,cause,part,point,Math.round(hpLoss),{...context,wallbang});
+    if (killed) this.kill(v, att, cause, part === 'head' && !melee, wallbang, dir,{part,point,damage:Math.round(hpLoss),event});
   },
 
   kill(v, att, cause, headshot, wallbang, dir,hitInfo={}) {

@@ -9,6 +9,7 @@
 // Frame: x = east, y = up, OSM north n maps to z = -n.
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {spatialBatches,SpatialVisibility} from './spatial-batches.js';
 import {CampusNav} from './campus-physics.js';
 import {buildLabels} from './campus-labels.js';
 import {gardenDetails} from './campus-garden.js';
@@ -332,7 +333,12 @@ class Builder{
     for(const k of new Set(this.parts.flatMap(p=>p.ranges.map(r=>r.k)))){const g=this.meshByKey[k].geometry;g.attributes.position.setUsage(THREE.DynamicDrawUsage);g.attributes.normal.setUsage(THREE.DynamicDrawUsage);this.origPos[k]=g.attributes.position.array.slice();this.origNrm[k]=g.attributes.normal.array.slice()}
     this.partGrid=new Map();
     for(const p of this.parts){const b=p.box;for(let x=Math.floor(b.x0/4);x<=Math.floor(b.x1/4);x++)for(let z=Math.floor(-b.n1/4);z<=Math.floor(-b.n0/4);z++){const key=`${x},${z}`;if(!this.partGrid.has(key))this.partGrid.set(key,[]);this.partGrid.get(key).push(p)}}
-    return {meshes,facesCount:faces};
+    const moving=new Map();
+    for(const p of this.parts)if(p.movable)for(const r of p.ranges){if(!moving.has(r.k))moving.set(r.k,[]);moving.get(r.k).push(r);}
+    const batches=typeof location!=='undefined'&&new URLSearchParams(location.search).get('spatial')==='off'?meshes:spatialBatches(meshes,moving);
+    scene.userData.spatialVisibility=new SpatialVisibility(batches);
+    for(const mesh of batches)if(!mesh.parent)scene.add(mesh);
+    return {meshes:batches,facesCount:faces,spatialStats:{sourceMeshes:meshes.length,batches:batches.length,cells:batches.reduce((n,m)=>n+(m.geometry.userData.spatial?.cells.length||0),0)}};
   }
 }
 

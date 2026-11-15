@@ -15,6 +15,10 @@ npm run build    # 輸出 ../index.html 與 ../game-app.js（JS 連結附內容�
 
 本機測試：在 repo 根目錄啟動任一靜態伺服器，開啟 `/shuyi/`。網址參數 `?q=low|medium|high` 可指定畫質。
 
+效能診斷：開局後在開發者工具讀取 `window.__game.performanceStats.report()`，取得最近 300 幀的幀間隔、模擬／輸出 CPU 耗時、世界繪製呼叫及三角形數的中位數、P95、最大值。輸出 CPU 耗時包含畫面更新與提交，不是 GPU 計時。`?spatial=off` 可停用 BVH 空間索引（`spatial-batches.js`：畫面與陰影投射體剔除）供同機比較；`window.__game.renderer.scene.userData.spatialVisibility.stats.reselections` 為重新選取次數。
+
+回放事件：`window.__game.combatHistory.events` 保留最多 512 筆、十二秒內事件；投擲物最多 64 個，各最多 256 個軌跡點。開局清除紀錄；不傳送到外部服務。一般槍械保存實際命中射線，飛行慢動作仍是示意；手雷／火箭保存模擬軌跡。爆炸的身體標記是代表點，場景破壞尚未回溯。
+
 ## 檔案
 
 | 檔案 | 內容 |

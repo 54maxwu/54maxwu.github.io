@@ -34,8 +34,11 @@ export class KillReplay {
     this.partName=({head:'頭部',chest:'軀幹',stomach:'腹部',arm:'手臂',leg:'腿部'})[hitInfo.part]||(headshot?'頭部':'軀幹');
     this.damageText=hitInfo.damage?` · 最後一擊 ${hitInfo.damage} 傷害`:'';victim.respawnT=.2;
     this.byOther=!!attacker&&attacker!==victim;
-    this.origin=this.byOther?attacker.soldier.muzzleWorld(new THREE.Vector3()):this.impact.clone().add(new THREE.Vector3(1,3,1));
+    this.hitEvent=hitInfo.event;this.projectile=this.hitEvent?.projectile;
+    const recordedOrigin=this.projectile?.path[0]?.position||this.hitEvent?.origin;
+    this.origin=recordedOrigin?new THREE.Vector3().fromArray(recordedOrigin):this.byOther?attacker.soldier.muzzleWorld(new THREE.Vector3()):this.impact.clone().add(new THREE.Vector3(1,3,1));
     this.scene=new THREE.Scene();this.scene.background=g.renderer.scene.background;this.scene.environment=g.renderer.scene.environment;this.scene.environmentIntensity=g.renderer.scene.environmentIntensity;this.scene.fog=g.renderer.scene.fog;
+    this.scene.userData.spatialVisibility=g.renderer.scene.userData.spatialVisibility;
     for(const mesh of g.map.meshes||[])this.scene.add(mesh.clone());
     // Terrain and signs are separate from the merged building meshes.
     for(const mesh of g.renderer.scene.children)if(mesh.isMesh&&!mesh.isInstancedMesh&&mesh.geometry?.type==='PlaneGeometry'&&!(g.map.meshes||[]).includes(mesh))this.scene.add(mesh.clone());
@@ -56,13 +59,14 @@ export class KillReplay {
     this.trace=new THREE.Line(traceGeo,new THREE.LineBasicMaterial({color:0xffd894,transparent:true,opacity:.55,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}));
     this.trace.visible=false;this.scene.add(this.trace);
     // 子彈：拉長的發光彈頭（沿飛行方向）
-    this.bullet=new THREE.Mesh(new THREE.CapsuleGeometry(.012,.09,3,8),new THREE.MeshBasicMaterial({color:0xfff0c0,toneMapped:false}));
+    this.bullet=new THREE.Mesh(this.projectile?.weapon==='he'?new THREE.SphereGeometry(.08,8,6):new THREE.CapsuleGeometry(.012,.09,3,8),new THREE.MeshBasicMaterial({color:this.projectile?.weapon==='he'?0x60743d:0xfff0c0,toneMapped:false}));
     this.bullet.quaternion.setFromUnitVectors(UP,this.direction);this.scene.add(this.bullet);
     this.bulletGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:g.T.glow,color:0xffc070,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));this.bulletGlow.scale.setScalar(.22);this.scene.add(this.bulletGlow);
     this.marker=new THREE.Mesh(new THREE.TorusGeometry(.075,.009,6,32),new THREE.MeshBasicMaterial({color:0xffad68,transparent:true,opacity:.9,depthTest:false,depthWrite:false,toneMapped:false}));this.marker.position.copy(this.impact);this.marker.renderOrder=10;this.scene.add(this.marker);
-    this.explosive=['he','rpg'].includes(cause);this.impactFlash=new THREE.Sprite(new THREE.SpriteMaterial({map:g.T.glow,color:this.explosive?0xff8b35:0xffe7bc,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));this.impactFlash.position.copy(this.impact);this.scene.add(this.impactFlash);
-    this.showTrace=this.byOther&&['rifle','smg','sniper','pistol','shotgun','launcher'].includes(WEAPONS[cause]?.type);
-    this.killerName=this.byOther?attacker.name:'環境／自身';this.weaponName=WEAPONS[cause]?.name||CAUSES[cause]?.name||'傷害';
+    this.explosive=['he','rpg'].includes(cause);this.impactFlash=new THREE.Sprite(new THREE.SpriteMaterial({map:g.T.glow,color:this.explosive?0xff8b35:0xffe7bc,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));this.impactFlash.position.copy(this.explosive&&this.hitEvent?.origin?new THREE.Vector3().fromArray(this.hitEvent.origin):this.impact);this.scene.add(this.impactFlash);
+    this.showTrace=!!this.projectile||(this.byOther&&!!this.hitEvent?.exact&&['rifle','smg','sniper','pistol','shotgun'].includes(WEAPONS[cause]?.type));
+    this.killerName=this.hitEvent?.source?.name||(this.byOther?attacker.name:'環境／自身');this.weaponName=WEAPONS[cause]?.name||CAUSES[cause]?.name||'傷害';
+    this.recordLabel=this.projectile?`${this.projectile.weapon==='rpg'?'火箭':'手雷'}軌跡實錄 · 爆炸傷害示意`:this.hitEvent?.exact?'實際命中射線 · 飛行為慢動作示意':'傷害位置示意';
     this.explanation=`${this.killerName} 使用 ${this.weaponName} → 命中你的${this.partName}${headshot?'（爆頭）':''}${wallbang?' · 穿透掩體':''}${this.damageText}`;
     this.detail.textContent=this.explanation;
     this.overlay.hidden=false;this.overlay.classList.remove('cut');g.touch?.releaseAll();this.record();
@@ -86,6 +90,10 @@ export class KillReplay {
     const D=this.direction,S=_v.copy(this.side).multiplyScalar(this.sideSign).clone();
     let pos,look,fov,shake=0;
     const bulletS=THREE.MathUtils.clamp((offset+.3)/.3,0,1),bp=this.origin.clone().lerp(this.impact,bulletS);
+    if(this.projectile){const path=this.projectile.path;let a=path[0],b=a;
+      for(const s of path){if(s.time<=time)a=s;if(s.time>=time){b=s;break;}b=s;}
+      bp.fromArray(a.position).lerp(_w.fromArray(b.position),THREE.MathUtils.clamp((time-a.time)/(b.time-a.time||1),0,1));
+    }
     if(shot===0){
       // 一、擊殺者：越肩、慢慢推進；沒有擊殺者就用廣角帶到受害者
       const k=e/SHOT.bullet;
@@ -120,15 +128,26 @@ export class KillReplay {
     this.camera.position.copy(this.camPos);
     if(shake>0)this.camera.position.add(_w.set(Math.random()-.5,Math.random()-.5,Math.random()-.5).multiplyScalar(shake));
     this.camera.lookAt(this.lookFocus);this.camera.aspect=g.renderer.camera.aspect;this.camera.fov=fov;this.camera.updateProjectionMatrix();
+    // The tracking camera can pass through the shooter's head near launch.
+    // Hide only that clone while the lens is inside its personal space.
+    if(this.aHead){const root=this.clones.get(this.attacker),head=this.aHead.getWorldPosition(_w);root.visible=shot!==1||this.camera.position.distanceToSquared(head)>.8*.8;}
     // 輪廓光從鏡頭對面打過來
     this.rimLight.position.copy(this.lookFocus).addScaledVector(_w.copy(this.lookFocus).sub(this.camPos).normalize(),20).addScaledVector(UP,8);this.rimLight.target.position.copy(this.lookFocus);
 
     // 受害者的槍在中彈後脫手（遊戲中也是 0.25 秒後消失）
     if(this.vGun)this.vGun.visible=offset<.25;
     // 子彈與彈道
-    const flying=this.showTrace&&offset>=-.3&&offset<0;
-    this.trace.visible=this.showTrace&&offset>=-.3&&e<SHOT.fall+1.2;
-    if(this.trace.visible){const arr=this.trace.geometry.attributes.position;arr.setXYZ(1,bp.x,bp.y,bp.z);arr.needsUpdate=true;this.trace.material.opacity=e<SHOT.fall?.55:.55*(1-(e-SHOT.fall)/1.2);}
+    const flying=this.showTrace&&offset<0&&(this.projectile?time>=this.projectile.path[0].time:offset>=-.3);
+    this.trace.visible=this.showTrace&&(this.projectile?time>=this.projectile.path[0].time:offset>=-.3)&&e<SHOT.fall+1.2;
+    if(this.trace.visible){
+      if(this.projectile){const positions=this.projectile.path.filter(s=>s.time<time).flatMap(s=>s.position);positions.push(...bp.toArray());
+        if(positions.length<6)positions.push(...bp.toArray());
+        let attr=this.trace.geometry.attributes.position;
+        if(attr.count<257){attr=new THREE.Float32BufferAttribute(new Float32Array(257*3),3);this.trace.geometry.setAttribute('position',attr);}
+        attr.array.set(positions);attr.needsUpdate=true;this.trace.geometry.setDrawRange(0,positions.length/3);this.trace.frustumCulled=false;
+      }else{const arr=this.trace.geometry.attributes.position;arr.setXYZ(1,bp.x,bp.y,bp.z);arr.needsUpdate=true;}
+      this.trace.material.opacity=e<SHOT.fall?.55:.55*(1-(e-SHOT.fall)/1.2);
+    }
     this.bullet.visible=this.bulletGlow.visible=flying;this.bullet.position.copy(bp);this.bulletGlow.position.copy(bp);
     // 命中：閃光、定格、標記
     const sinceHit=offset>=0?e-SHOT.impact:-1;
@@ -144,7 +163,7 @@ export class KillReplay {
     this.overlay.classList.toggle('cut',shot>0);
     const sp=replaySpeed(e);
     this.title.textContent=shot===0?`擊殺者 · ${this.killerName}`:shot===1?(this.showTrace?'子彈時間':'最後一擊'):shot===2?`致命一擊 · ${this.partName}`:'倒下';
-    this.speed.textContent=shot===2?'FREEZE':`SLOW · ${sp.toFixed(2)}×`;
+    this.speed.textContent=(shot===2?'FREEZE':`SLOW · ${sp.toFixed(2)}×`)+` · ${this.recordLabel}`;
     this.detail.textContent=shot===0?`${this.weaponName}`:this.explanation;
     return true;
   }

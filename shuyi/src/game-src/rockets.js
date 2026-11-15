@@ -23,7 +23,8 @@ export const rocketCombat = {
     this.renderer.scene.add(mesh);
     this.fx.rocketLaunch?.(eye, dir);
     // Start at the eye so a nearby wall cannot be skipped by the spawn offset.
-    this.rockets.push({ mesh, owner, dir: dir.clone(), def, distance: 0, trailDistance: 0 });
+    const historyId=this.combatHistory?.launch(this.time,owner,def.id,eye);
+    this.rockets.push({ mesh, owner,historyId, dir: dir.clone(), def, distance: 0, trailDistance: 0 });
   },
   updateRockets(dt) {
     this.rockets = this.rockets.filter(r => {
@@ -38,7 +39,9 @@ export const rocketCombat = {
       this.fx.rocketTrail?.(old, p, d, r);
       const flicker = 0.85 + Math.random() * 0.3;
       r.mesh.children[0].scale.set(flicker, flicker, flicker);
-      if (hit) this.explode(p.clone(), r.owner, r.def.id);
+      this.combatHistory?.sample(r.historyId,this.time,p);
+      if(hit||r.distance>=r.def.range)this.combatHistory?.finish(r.historyId,this.time,p);
+      if (hit) this.explode(p.clone(), r.owner, r.def.id,{projectileId:r.historyId});
       if (hit || r.distance >= r.def.range) {
         this.renderer.scene.remove(r.mesh);
         return false;

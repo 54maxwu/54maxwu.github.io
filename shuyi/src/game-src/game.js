@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { Renderer } from './render.js';
 import { KillReplay } from './kill-replay.js';
 import { DistanceDetails } from '../distance-details.js';
+import {PerformanceStats} from './performance-stats.js';
+import {CombatHistory} from './combat-history.js';
 import { buildTextures } from './textures.js';
 import { buildCampus } from '../campus-map.js';
 import { CampusEnvironment as Environment } from '../campus-env.js';
@@ -143,6 +145,7 @@ export class Game {
   // ───────── 對局流程 ─────────
 
   startMatch() {
+    this.performanceStats=new PerformanceStats();
     this.map.resetGlass?.();
     this.map.resetDestruction?.();
     this.fx?.clearDecals();
@@ -154,6 +157,7 @@ export class Game {
     this.nades = []; this.timers = [];
     this.clearRockets();
     this.killReplay?.reset();
+    (this.combatHistory??=new CombatHistory()).reset();
     this.nav.clearRequests?.();
     this.wreckQueue=[];
     this.score = { BL: 0, GR: 0 };
@@ -324,6 +328,7 @@ export class Game {
   loop(now) {
     requestAnimationFrame(this.loop);
     let dt = (now - this.last) / 1000;
+    const frameMs=dt*1000,simulationStart=performance.now();
     this.last = now;
     if (dt <= 0) return;
     if (this.playing && !this.paused && this.time > 3) this.renderer.samplePerformance(dt);
@@ -340,7 +345,9 @@ export class Game {
       if (mc) { cam.position.set(...mc.pos); cam.lookAt(...mc.look); } else { cam.position.set(123, 151, 159); cam.lookAt(0, 39, 0); }
       cam.fov = 65; cam.updateProjectionMatrix();
     }
+    const simulationMs=performance.now()-simulationStart,renderStart=performance.now();
     this.renderFrame(dt);
+    (this.performanceStats??=new PerformanceStats()).add({frameMs,simulationMs,renderMs:performance.now()-renderStart,...this.renderer.lastWorldStats});
   }
 
   // 除錯用：不渲染、直接快轉模擬
@@ -363,9 +370,9 @@ export class Game {
     for (const a of this.actors) if (!a.isPlayer) a.update(dt);
     if(vis>0){this.nav.updatePaths?.();this.processWreckQueue();}
     for (const a of this.actors) this.updateBody(a, dt, vis);
-    if(vis>0)this.killReplay?.record();
     this.updateNades(dt);
     this.updateRockets(dt);
+    if(vis>0){this.killReplay?.record();this.combatHistory?.prune(this.time);}
     if (this.timeLeft <= 0 && !this.ended) this.endMatch();
     const cam = this.renderer.camera;
     for (const t of this.tags) {

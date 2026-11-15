@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import * as THREE from 'three';
-import {combatIntent,findCover,planTactics} from '../game-src/bot-tactics.js';
+import {combatIntent,findCover,planTactics,findPeek} from '../game-src/bot-tactics.js';
 import {Bot} from '../game-src/bots.js';
 const situation={health:100,mag:20,reloading:false,enemies:1,allies:0,type:'rifle',distance:15};
 test('injury, reloading, empty ammunition and visible numerical disadvantage favor cover',()=>{
@@ -17,4 +17,10 @@ test('search uses the last visual position and stops pursuing an expired memory'
  b.target={get pos(){throw Error('must not read hidden enemy position')}};
  b.planSearch(2);assert.deepEqual(routes,[[5,0,0]]);assert.equal(b.state,'hunt');
  b.planSearch(8);assert.equal(routes.at(-1),'roam');assert.equal(b.state,'roam');
+});
+
+test('peek requires supported clearance, a clear local step and visibility to the remembered threat',()=>{
+ const b=bot();b.coverPoint=new THREE.Vector3();b.game.world.raycast=()=>null;
+ assert.ok(findPeek(b));b.game.world.raycast=()=>({t:.1});assert.equal(findPeek(b),null);
+ b.game.world.raycast=()=>null;b.game.world.support=()=>({y:3});assert.equal(findPeek(b),null);
 });

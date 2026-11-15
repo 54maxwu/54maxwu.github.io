@@ -192,11 +192,20 @@ export class Renderer {
   render(scene=this.scene,camera=this.camera) {
     const r = this.renderer;
     const autoClear = r.autoClear;
+    const visibility=scene.userData.spatialVisibility;
+    if(visibility){
+      // 只找一次投射陰影的平行光，供陰影投射體剔除使用
+      // 還沒找到時每 120 幀重找一次（光源可能在場景之後才加入）
+      const u=scene.userData;
+      if(!u.shadowLight&&(u.shadowLightSearch=(u.shadowLightSearch||0)+1)%120===1)scene.traverse(o=>{if(!u.shadowLight&&o.isDirectionalLight&&o.castShadow)u.shadowLight=o;});
+      visibility.update(camera,r.shadowMap.enabled,scene.userData.shadowLight);
+    }
 
     // 1. 世界
     r.setRenderTarget(this.target);
     r.autoClear = true;
     r.render(scene, camera);
+    this.lastWorldStats={calls:r.info.render.calls,triangles:r.info.render.triangles};
 
     // 2. 手與槍：保留世界的顏色，只清深度，所以永遠畫在最前面
     r.autoClear = false;
