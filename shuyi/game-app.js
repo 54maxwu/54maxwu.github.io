@@ -38581,6 +38581,20 @@ void main() {
   }
 
   // game-src/viewmodel.js
+  var MOVING_PARTS = ["mag", "bolt", "slide", "pin", "lever", "pump"];
+  function restoreWeaponParts(gun2) {
+    if (!gun2.userData.restParts) {
+      gun2.userData.restParts = [];
+      gun2.traverse((o) => {
+        if (MOVING_PARTS.includes(o.name)) gun2.userData.restParts.push({ o, p: o.position.clone(), r: o.rotation.clone() });
+      });
+    }
+    for (const { o, p, r } of gun2.userData.restParts) {
+      o.position.copy(p);
+      o.rotation.copy(r);
+      o.visible = true;
+    }
+  }
   var HOLD = {
     rpg: { p: [0.22, -0.23, -0.38], r: [0.025, 0.12, 0.02], kick: [0.07, 0.12], flash: 1.5 },
     ak47: { p: [0.165, -0.172, -0.55], r: [0.045, 0.165, 0.02], kick: [0.04, 0.07], flash: 1 },
@@ -38768,6 +38782,7 @@ void main() {
       }
       if (this.cur) this.holder.remove(this.cur);
       this.cur = this.guns[id];
+      restoreWeaponParts(this.cur);
       this.id = id;
       this.holder.add(this.cur);
       this.cur.visible = true;
@@ -38788,6 +38803,10 @@ void main() {
       this.kickR.reset();
     }
     fire() {
+      if (this.id === "rpg" && this.parts.mag) {
+        this.ammo = 0;
+        this.parts.mag.visible = false;
+      }
       const h = HOLD[this.id] || HOLD.ak47, k = h.kick || [0.03, 0.05];
       this.kickZ.hit(k[0] * 38);
       this.kickR.hit(k[1] * 38);
@@ -38912,6 +38931,7 @@ void main() {
       return hands;
     }
     update(dt, st) {
+      this.ammo = st.ammo ?? this.ammo;
       this.t += dt;
       if (!this.cur) return;
       const id = this.id, h = HOLD[id] || HOLD.ak47;
@@ -39005,6 +39025,7 @@ void main() {
         s.mesh.rotation.y += s.w.y * dt;
         if (s.life <= 0) s.mesh.visible = false;
       }
+      if (id === "rpg" && this.parts.mag && this.anim?.type !== "reload") this.parts.mag.visible = (this.ammo ?? 1) > 0;
       if (st.sunDirCam) this.sun.position.copy(st.sunDirCam);
       this.sun.intensity = 2.6 * (st.light ?? 1);
       this.fill.intensity = 0.35 * (st.indoor ? 0.5 : 1);
@@ -41363,6 +41384,59 @@ void main() {
     }
   };
 
+  // game-src/bot-tactics.js
+  function combatIntent({ health, mag, reloading, enemies = 1, allies = 0, type, distance }) {
+    if (health <= 35 || reloading || mag === 0 || enemies > allies + 1) return "cover";
+    if (type === "sniper" && distance < 9 || type === "shotgun" && distance > 18) return "reposition";
+    return "engage";
+  }
+  function findCover(bot, threat, requireCover = true) {
+    const world = bot.game.world;
+    let best = null, bestScore = -Infinity;
+    for (let i = 0; i < 12; i++) {
+      const angle = i * Math.PI / 4, r = i < 8 ? 3.5 : 6.5;
+      const x = bot.pos.x + Math.cos(angle) * r, z = bot.pos.z + Math.sin(angle) * r;
+      const floor = world.support(x, z, 0.3, bot.pos.y + 0.4);
+      if (!floor || Math.abs(floor.y - bot.pos.y) > 0.65 || world.blocked(x, floor.y + 0.1, z, 0.34, 1.65)) continue;
+      const point = new Vector3(x, floor.y, z), eye = point.clone().add(new Vector3(0, 1.1, 0));
+      const delta = threat.clone().sub(eye), length = delta.length();
+      if (length < 1) continue;
+      delta.divideScalar(length);
+      const hidden = !!world.raycast(eye.x, eye.y, eye.z, delta.x, delta.y, delta.z, length - 0.2, "sight");
+      if (requireCover && !hidden) continue;
+      const node = bot.game.nav.nearest(x, z, floor.y);
+      if (!node || Math.hypot(node.x - x, node.z - z) > 1.5 || Math.abs(node.y - 0.025 - floor.y) > 0.3) continue;
+      const score = (hidden ? 8 : 0) + point.distanceTo(threat) * 0.2 - point.distanceTo(bot.pos);
+      if (score > bestScore) {
+        bestScore = score;
+        best = point;
+      }
+    }
+    return best;
+  }
+  function planTactics(bot, seen, now) {
+    if (now < (bot.tacticAt || 0)) return;
+    bot.tacticAt = now + 0.8;
+    const w = bot.weapon;
+    const allies = bot.game.actors.filter((a) => a !== bot && a.alive && a.team === bot.team && a.pos.distanceToSquared(bot.pos) < 144).length;
+    bot.tactic = combatIntent({ health: bot.hp, mag: w.mag, reloading: w.reloading, enemies: bot.visibleEnemies || 1, allies, type: w.def.type, distance: seen.dist });
+    if (bot.coverPoint && bot.tactic !== "engage" && now < (bot.coverUntil || 0)) {
+      const p = bot.coverPoint, delta = bot.observedAim.clone().sub(p).add(new Vector3(0, -1.1, 0)), length = delta.length();
+      delta.divideScalar(length || 1);
+      if (bot.game.world.raycast(p.x, p.y + 1.1, p.z, delta.x, delta.y, delta.z, length - 0.2, "sight")) return;
+    }
+    bot.coverPoint = null;
+    if (bot.tactic !== "engage") {
+      const point = findCover(bot, bot.observedAim) || findCover(bot, bot.observedAim, false);
+      if (point) {
+        bot.coverPoint = point;
+        bot.coverUntil = now + 2.4;
+        bot.routeTo(point.x, point.z, point.y);
+        bot.state = "retreat";
+      } else bot.tactic = "engage";
+    }
+  }
+
   // game-src/bots.js
   var DIFF = {
     easy: { reaction: [0.6, 1], aimError: 0.075, settle: 2.2, turnRate: 3.2, headshot: 0.07, recoilCtl: 1, recoilComp: 0.55, strafe: 0.35, sight: 50, fov: 1.92 },
@@ -41420,6 +41494,11 @@ void main() {
       this.stuck = { t: 0, n: 0, at: new Vector3() };
     }
     onSpawn() {
+      this.tactic = "engage";
+      this.coverPoint = null;
+      this.tacticAt = 0;
+      this.searchProbe = 0;
+      this.searchAt = 0;
       this.state = "roam";
       this.path = null;
       this.goal = null;
@@ -41530,12 +41609,16 @@ void main() {
     }
     nearestVisibleEnemy() {
       let best = null, bestD = Infinity;
+      this.visibleEnemies = 0;
       for (const a of this.game.actors) {
         if (!a.alive || a.team === this.team) continue;
         const d = a.pos.distanceTo(this.pos);
-        if (d < bestD && this.canSee(a)) {
-          best = a;
-          bestD = d;
+        if (this.canSee(a)) {
+          this.visibleEnemies++;
+          if (d < bestD) {
+            best = a;
+            bestD = d;
+          }
         }
       }
       return best ? { foe: best, dist: bestD } : null;
@@ -41563,7 +41646,11 @@ void main() {
         this.observedAim = (this.aimHead ? seen.foe.soldier.headWorld(_a) : seen.foe.soldier.chestWorld(_a)).clone();
         this.observedVelocity.copy(seen.foe.vel);
         this.state = "engage";
-        this.planEngage(seen.foe, seen.dist);
+        this.searchProbe = 0;
+        this.searchAt = 0;
+        planTactics(this, seen, now);
+        if (this.coverPoint) this.state = "retreat";
+        else this.planEngage(seen.foe, seen.dist);
       } else {
         this.visible = false;
         this.engageT = 0;
@@ -41590,11 +41677,36 @@ void main() {
       }
     }
     planSearch(now) {
+      if (this.coverPoint && this.tactic === "cover") {
+        const distance = this.pos.distanceTo(this.coverPoint);
+        if (distance < 1.2) {
+          this.path = null;
+          this.crouchUntil = now + 0.6;
+          if (this.weapon.canReload()) this.startReload();
+        }
+        if (now - this.lastSeenT < 2.5 || this.weapon.reloading) {
+          this.state = "retreat";
+          return;
+        }
+        this.coverPoint = null;
+        this.tactic = "engage";
+      }
       if (this.lastSeen && now - this.lastSeenT < 5 && !(this.heard && this.heardT > this.lastSeenT && now >= this.heardReady)) {
         this.state = "hunt";
         if (this.huntFor !== this.lastSeenT) {
           this.routeTo(this.lastSeen.x, this.lastSeen.z, this.lastSeen.y);
           this.huntFor = this.lastSeenT;
+        }
+        if (this.pos.distanceTo(this.lastSeen) < 2.5 && now >= (this.searchAt || 0)) {
+          this.searchAt = now + 0.9;
+          this.searchProbe = (this.searchProbe || 0) + 1;
+          this.lookYaw = yawTo(this.pos.x, this.pos.z, this.lastSeen.x, this.lastSeen.z) + (this.searchProbe % 2 ? 0.65 : -0.65);
+          this.lookUntil = now + 0.85;
+          if (this.searchProbe <= 2) {
+            const angle = this.yaw + (this.searchProbe % 2 ? 1 : -1) * 1.2;
+            const node = this.game.nav.nearest(this.lastSeen.x + Math.cos(angle) * 3, this.lastSeen.z + Math.sin(angle) * 3, this.lastSeen.y);
+            if (node && Math.abs(node.y - this.lastSeen.y) < 0.8) this.routeTo(node.x, node.z, node.y);
+          }
         }
       } else if (this.heard && now - this.heardT < 3 && now >= this.heardReady) {
         this.state = "listen";
@@ -41701,6 +41813,16 @@ void main() {
       const sideK = d.type === "sniper" ? 0 : S.strafe * this.strafeDir;
       act.wishX = Math.cos(this.yaw) * sideK;
       act.wishZ = -Math.sin(this.yaw) * sideK;
+      if (this.coverPoint) {
+        const distance = this.pos.distanceTo(this.coverPoint), dir = distance > 1 ? this.steer() : null;
+        act.wishX = dir?.[0] || 0;
+        act.wishZ = dir?.[1] || 0;
+        if (distance <= 1) {
+          act.crouch = true;
+          if (w.canReload() && (w.mag < Math.max(1, d.mag * 0.3) || this.hp <= 35)) this.startReload();
+        }
+        return;
+      }
       if (flat >= 10 && d.type !== "sniper") {
         const dir = this.steer();
         if (dir) {
@@ -43072,7 +43194,7 @@ void main() {
       this.frame++;
       const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
       this.vm.setVisible(p.alive && !(p.scoped && p.weapon.def.type === "sniper"));
-      this.vm.update(dt, { speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
+      this.vm.update(dt, { ammo: p.weapon.mag, speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
       R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
     }
     // 手上的槍要跟環境一樣亮：太陽被擋住就變暗，頭頂有遮蔽算室內

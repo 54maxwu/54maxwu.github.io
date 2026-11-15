@@ -15,6 +15,7 @@
 //   hunt    敵人剛消失：走到最後看到的位置
 //   listen  聽到聲音：轉頭並走過去查看
 import * as THREE from 'three';
+import {planTactics} from './bot-tactics.js';
 import { Actor } from './actor.js';
 
 // 難度
@@ -66,6 +67,7 @@ export class Bot extends Actor {
   }
 
   onSpawn() {
+    this.tactic='engage';this.coverPoint=null;this.tacticAt=0;this.searchProbe=0;this.searchAt=0;
     this.state = 'roam';
     this.path = null; this.goal = null; this.target = null; this.visible = false; this.lastSeen = null;
     this.lastSeenT = this.heardT = -99; this.heard = null; this.heardReady = 0;
@@ -164,10 +166,11 @@ export class Bot extends Actor {
 
   nearestVisibleEnemy() {
     let best = null, bestD = Infinity;
+    this.visibleEnemies=0;
     for (const a of this.game.actors) {
       if (!a.alive || a.team === this.team) continue;
       const d = a.pos.distanceTo(this.pos);
-      if (d < bestD && this.canSee(a)) { best = a; bestD = d; }
+      if (this.canSee(a)) { this.visibleEnemies++;if(d<bestD){best = a; bestD = d;} }
     }
     return best ? { foe: best, dist: bestD } : null;
   }
@@ -194,7 +197,9 @@ export class Bot extends Actor {
       this.observedAim=(this.aimHead?seen.foe.soldier.headWorld(_a):seen.foe.soldier.chestWorld(_a)).clone();
       this.observedVelocity.copy(seen.foe.vel);
       this.state = 'engage';
-      this.planEngage(seen.foe, seen.dist);
+      this.searchProbe=0;this.searchAt=0;
+      planTactics(this,seen,now);
+      if(this.coverPoint)this.state='retreat';else this.planEngage(seen.foe, seen.dist);
     } else {
       this.visible = false; this.engageT = 0;
       if (this.target && now - this.lastSeenT > 5) this.target = null;
@@ -218,9 +223,21 @@ export class Bot extends Actor {
   }
 
   planSearch(now) {
+    if(this.coverPoint&&this.tactic==='cover'){
+      const distance=this.pos.distanceTo(this.coverPoint);
+      if(distance<1.2){this.path=null;this.crouchUntil=now+.6;if(this.weapon.canReload())this.startReload();}
+      if(now-this.lastSeenT<2.5||this.weapon.reloading){this.state='retreat';return;}
+      this.coverPoint=null;this.tactic='engage';
+    }
     if (this.lastSeen && now - this.lastSeenT < 5 && !(this.heard&&this.heardT>this.lastSeenT&&now>=this.heardReady)) {
       this.state = 'hunt';
       if (this.huntFor !== this.lastSeenT) { this.routeTo(this.lastSeen.x, this.lastSeen.z, this.lastSeen.y); this.huntFor = this.lastSeenT; }
+      if(this.pos.distanceTo(this.lastSeen)<2.5&&now>=(this.searchAt||0)){
+        this.searchAt=now+.9;this.searchProbe=(this.searchProbe||0)+1;
+        this.lookYaw=yawTo(this.pos.x,this.pos.z,this.lastSeen.x,this.lastSeen.z)+(this.searchProbe%2?.65:-.65);this.lookUntil=now+.85;
+        if(this.searchProbe<=2){const angle=this.yaw+(this.searchProbe%2?1:-1)*1.2;const node=this.game.nav.nearest(this.lastSeen.x+Math.cos(angle)*3,this.lastSeen.z+Math.sin(angle)*3,this.lastSeen.y);
+          if(node&&Math.abs(node.y-this.lastSeen.y)<.8)this.routeTo(node.x,node.z,node.y);}
+      }
     } else if (this.heard && now - this.heardT < 3 && now >= this.heardReady) {
       this.state = 'listen';
       this.routeTo(this.heard.x, this.heard.z, this.heard.y);
@@ -324,6 +341,12 @@ export class Bot extends Actor {
     const sideK = d.type === 'sniper' ? 0 : S.strafe * this.strafeDir;
     act.wishX = Math.cos(this.yaw) * sideK;
     act.wishZ = -Math.sin(this.yaw) * sideK;
+    if(this.coverPoint){
+      const distance=this.pos.distanceTo(this.coverPoint),dir=distance>1?this.steer():null;
+      act.wishX=dir?.[0]||0;act.wishZ=dir?.[1]||0;
+      if(distance<=1){act.crouch=true;if(w.canReload()&&(w.mag<Math.max(1,d.mag*.3)||this.hp<=35))this.startReload();}
+      return;
+    }
     // 10 m 外：沿路徑推進，橫移保留一部分
     if (flat >= 10 && d.type !== 'sniper') {
       const dir = this.steer();

@@ -15,6 +15,15 @@
 import * as THREE from 'three';
 import { buildGun } from './guns.js';
 
+const MOVING_PARTS=['mag','bolt','slide','pin','lever','pump'];
+export function restoreWeaponParts(gun){
+  if(!gun.userData.restParts){
+    gun.userData.restParts=[];
+    gun.traverse(o=>{if(MOVING_PARTS.includes(o.name))gun.userData.restParts.push({o,p:o.position.clone(),r:o.rotation.clone()});});
+  }
+  for(const {o,p,r} of gun.userData.restParts){o.position.copy(p);o.rotation.copy(r);o.visible=true;}
+}
+
 // 持槍基準姿勢（相機空間）：位置 [右, 上, 前(負)]、旋轉 [俯仰, 偏擺, 側傾]
 const HOLD = {
   rpg: { p: [0.22, -0.23, -0.38], r: [0.025, 0.12, 0.02], kick: [0.07, 0.12], flash: 1.5 },
@@ -206,6 +215,7 @@ export class ViewModel {
     }
     if (this.cur) this.holder.remove(this.cur);
     this.cur = this.guns[id];
+    restoreWeaponParts(this.cur);
     this.id = id;
     this.holder.add(this.cur);
     this.cur.visible = true;
@@ -223,6 +233,7 @@ export class ViewModel {
   }
 
   fire() {
+    if(this.id==='rpg'&&this.parts.mag){this.ammo=0;this.parts.mag.visible=false;}
     const h = HOLD[this.id] || HOLD.ak47, k = h.kick || [0.03, 0.05];
     this.kickZ.hit(k[0] * 38);
     this.kickR.hit(k[1] * 38);
@@ -329,6 +340,7 @@ export class ViewModel {
   }
 
   update(dt, st) {
+    this.ammo=st.ammo??this.ammo;
     this.t += dt;
     if (!this.cur) return;
     const id = this.id, h = HOLD[id] || HOLD.ak47;
@@ -426,6 +438,8 @@ export class ViewModel {
       if (s.life <= 0) s.mesh.visible = false;
     }
 
+    // Loaded warhead follows inventory; only the reload animation may show a new round.
+    if(id==='rpg'&&this.parts.mag&&this.anim?.type!=='reload')this.parts.mag.visible=(this.ammo??1)>0;
     // 光照跟著環境：室內、陰影下變暗
     if (st.sunDirCam) this.sun.position.copy(st.sunDirCam);
     this.sun.intensity = 2.6 * (st.light ?? 1);

@@ -417,7 +417,7 @@ export class Game {
     this.frame++;
     const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
     this.vm.setVisible(p.alive && !(p.scoped && p.weapon.def.type === 'sniper'));
-    this.vm.update(dt, { speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
+    this.vm.update(dt, { ammo:p.weapon.mag, speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
     R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
   }
 
