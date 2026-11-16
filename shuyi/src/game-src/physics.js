@@ -73,6 +73,21 @@ export class World {
     return c;
   }
 
+  remove(c) {
+    const index = this.colliders.indexOf(c);
+    if (index < 0) return;
+    this.colliders.splice(index, 1);
+    for (let x = cellOf(c.minX); x <= cellOf(c.maxX); x++) {
+      for (let z = cellOf(c.minZ); z <= cellOf(c.maxZ); z++) {
+        const key = cellKey(x, z), list = this.grid.get(key);
+        if (!list) continue;
+        const kept = list.filter(item => item !== c);
+        if (kept.length) this.grid.set(key, kept); else this.grid.delete(key);
+      }
+    }
+    c.solid = false; c.bullet = 'pass'; c.sight = false;
+  }
+
   build() {
     this.grid.clear();
     for (const c of this.colliders) {

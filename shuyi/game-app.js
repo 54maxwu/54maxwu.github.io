@@ -35118,6 +35118,23 @@ void main() {
       this.colliders.push(c);
       return c;
     }
+    remove(c) {
+      const index = this.colliders.indexOf(c);
+      if (index < 0) return;
+      this.colliders.splice(index, 1);
+      for (let x = cellOf(c.minX); x <= cellOf(c.maxX); x++) {
+        for (let z = cellOf(c.minZ); z <= cellOf(c.maxZ); z++) {
+          const key = cellKey(x, z), list = this.grid.get(key);
+          if (!list) continue;
+          const kept = list.filter((item) => item !== c);
+          if (kept.length) this.grid.set(key, kept);
+          else this.grid.delete(key);
+        }
+      }
+      c.solid = false;
+      c.bullet = "pass";
+      c.sight = false;
+    }
     build() {
       this.grid.clear();
       for (const c of this.colliders) {
@@ -36879,11 +36896,7 @@ void main() {
           if (o.geometry) o.geometry.dispose();
         });
         t.stump.geometry.dispose();
-        if (t.col) {
-          t.col.solid = false;
-          t.col.bullet = "pass";
-          t.col.sight = false;
-        }
+        if (t.col) this.world.remove(t.col);
       }
       this.falling = [];
       const touched = /* @__PURE__ */ new Set();
@@ -39137,10 +39150,13 @@ void main() {
   var STONY = /* @__PURE__ */ new Set(["brick", "granite", "plaster", "white", "beige", "concrete", "stone", "quarry", "terrazzo", "pebble", "roof"]);
   var RC = /* @__PURE__ */ new Set(["concrete", "granite", "stone", "white", "beige"]);
   var StaticSet = class {
-    constructor(scene, geo, mat, max, shadow) {
+    constructor(scene, geo, mat, max, shadow, lifetime = Infinity) {
       this.max = max;
       this.items = [];
       this.dirty = false;
+      this.lifetime = lifetime;
+      this.time = 0;
+      this.nextRefresh = 0;
       this.mesh = new InstancedMesh(geo, mat, max);
       this.mesh.count = 0;
       this.mesh.frustumCulled = false;
@@ -39152,6 +39168,7 @@ void main() {
     }
     add(it) {
       if (this.items.length >= this.max) this.items.shift();
+      it.born = this.time;
       this.items.push(it);
       this.dirty = true;
     }
@@ -39164,20 +39181,30 @@ void main() {
       this.items = [];
       this.dirty = true;
     }
-    flush() {
+    flush(camera, dt = 0) {
+      this.time += dt;
+      if (this.time >= this.nextRefresh) {
+        this.nextRefresh = this.time + 0.25;
+        this.items = this.items.filter((it) => this.time - it.born < this.lifetime);
+        this.dirty = true;
+      }
       if (!this.dirty) return;
       this.dirty = false;
       const D2 = this._d, M = this.mesh;
+      let count = 0;
       for (let i = 0; i < this.items.length; i++) {
         const it = this.items[i];
+        if (camera && it.p.distanceToSquared(camera.position) > 65 * 65) continue;
+        const fade2 = Math.min(1, (this.lifetime - (this.time - it.born)) / 5);
         D2.position.copy(it.p);
         D2.quaternion.copy(it.q);
-        D2.scale.copy(it.s);
+        D2.scale.copy(it.s).multiplyScalar(fade2);
         D2.updateMatrix();
-        M.setMatrixAt(i, D2.matrix);
-        if (it.col) M.setColorAt(i, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
+        M.setMatrixAt(count, D2.matrix);
+        if (it.col) M.setColorAt(count, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
+        count++;
       }
-      M.count = this.items.length;
+      M.count = count;
       M.instanceMatrix.needsUpdate = true;
       if (M.instanceColor) M.instanceColor.needsUpdate = true;
     }
@@ -39257,7 +39284,7 @@ void main() {
       this.chunkMesh.castShadow = true;
       scene.add(this.chunkMesh);
       this._col = new Color();
-      this.rubble = new StaticSet(scene, new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 2600, true);
+      this.rubble = new StaticSet(scene, new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 1200, false, 45);
       this.jag = new StaticSet(scene, new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 4e3, true);
       this.rebar = new StaticSet(scene, new CylinderGeometry(0.5, 0.5, 1, 5), new MeshStandardMaterial({ color: 5915702, roughness: 0.7, metalness: 0.55 }), 1400, false);
       this.caseMax = 260;
@@ -39680,9 +39707,9 @@ void main() {
       this.updateShards(dt);
       this.updateChunks(dt);
       this.updateCases(dt);
-      this.rubble.flush();
-      this.jag.flush();
-      this.rebar.flush();
+      this.rubble.flush(camera, dt);
+      this.jag.flush(camera, dt);
+      this.rebar.flush(camera, dt);
       this.add.update(dt);
       this.smoke.update(dt);
       const canvasH = document.getElementById("c")?.height || window.innerHeight;

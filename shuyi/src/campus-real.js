@@ -147,7 +147,7 @@ class Builder{
       t.g.quaternion.setFromAxisAngle(t.axis,Math.max(0,t.ang))}
   }
   resetParts(){this.world.structuralRevision=(this.world.structuralRevision||0)+1;this.resetMotion();
-    for(const t of this.falling){this.scene.remove(t.g);this.scene.remove(t.stump);t.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});t.stump.geometry.dispose();if(t.col){t.col.solid=false;t.col.bullet='pass';t.col.sight=false}}
+    for(const t of this.falling){this.scene.remove(t.g);this.scene.remove(t.stump);t.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});t.stump.geometry.dispose();if(t.col)this.world.remove(t.col)}
     this.falling=[];const touched=new Set();for(const p of this.parts){if(!p.dead){p.hp=p.max;continue}p.dead=false;p.hp=p.max;for(const o of p.objects||[])o.visible=true;if(p.c){p.c.solid=true;p.c.bullet=p.cb;p.c.sight=p.cs}
     for(const r of p.ranges){const a=this.meshByKey[r.k].geometry.attributes.position,s=r.start*3;a.array.set(this.origPos[r.k].subarray(s,s+r.count*3),s);a.addUpdateRange(s,r.count*3);touched.add(a)}}for(const a of touched)a.needsUpdate=true}
   // ---------- 結構支撐：失去支撐的部件整塊塌落 ----------

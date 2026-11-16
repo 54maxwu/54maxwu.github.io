@@ -211,25 +211,37 @@ const STONY = new Set(['brick', 'granite', 'plaster', 'white', 'beige', 'concret
 const RC = new Set(['concrete', 'granite', 'stone', 'white', 'beige']);
 
 // 靜態實例集合：只在內容變動時重建矩陣（地上殘骸、斷面殘塊、鋼筋）
-class StaticSet {
-  constructor(scene, geo, mat, max, shadow) {
+export class StaticSet {
+  constructor(scene, geo, mat, max, shadow, lifetime = Infinity) {
     this.max = max; this.items = []; this.dirty = false;
+    this.lifetime = lifetime; this.time = 0; this.nextRefresh = 0;
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.count = 0; this.mesh.frustumCulled = false; this.mesh.castShadow = !!shadow; this.mesh.receiveShadow = true;
     scene.add(this.mesh); this._d = new THREE.Object3D(); this._c = new THREE.Color();
   }
-  add(it) { if (this.items.length >= this.max) this.items.shift(); this.items.push(it); this.dirty = true; }
+  add(it) { if (this.items.length >= this.max) this.items.shift(); it.born = this.time; this.items.push(it); this.dirty = true; }
   remove(fn) { const n = this.items.length; this.items = this.items.filter((it) => !fn(it)); if (this.items.length !== n) this.dirty = true; }
   clear() { this.items = []; this.dirty = true; }
-  flush() {
+  flush(camera, dt = 0) {
+    this.time += dt;
+    // Refresh at 4 Hz even without new damage: distant detail returns when approached.
+    if (this.time >= this.nextRefresh) {
+      this.nextRefresh = this.time + 0.25;
+      this.items = this.items.filter(it => this.time - it.born < this.lifetime);
+      this.dirty = true;
+    }
     if (!this.dirty) return; this.dirty = false;
     const D = this._d, M = this.mesh;
+    let count = 0;
     for (let i = 0; i < this.items.length; i++) {
       const it = this.items[i];
-      D.position.copy(it.p); D.quaternion.copy(it.q); D.scale.copy(it.s); D.updateMatrix(); M.setMatrixAt(i, D.matrix);
-      if (it.col) M.setColorAt(i, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
+      if (camera && it.p.distanceToSquared(camera.position) > 65 * 65) continue;
+      const fade = Math.min(1, (this.lifetime - (this.time - it.born)) / 5);
+      D.position.copy(it.p); D.quaternion.copy(it.q); D.scale.copy(it.s).multiplyScalar(fade); D.updateMatrix(); M.setMatrixAt(count, D.matrix);
+      if (it.col) M.setColorAt(count, this._c.setRGB(it.col[0], it.col[1], it.col[2]));
+      count++;
     }
-    M.count = this.items.length; M.instanceMatrix.needsUpdate = true; if (M.instanceColor) M.instanceColor.needsUpdate = true;
+    M.count = count; M.instanceMatrix.needsUpdate = true; if (M.instanceColor) M.instanceColor.needsUpdate = true;
   }
 }
 
@@ -292,8 +304,8 @@ export class Effects {
     this.chunkMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 }), this.chunkMax);
     this.chunkMesh.count = 0; this.chunkMesh.frustumCulled = false; this.chunkMesh.castShadow = true; scene.add(this.chunkMesh);
     this._col = new THREE.Color();
-    // 落地後的碎塊轉成靜態殘骸，不再消失（新一局才清掉）
-    this.rubble = new StaticSet(scene, new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 2600, true);
+    // Cosmetic rubble sleeps after landing, then shrinks away; structural collision is unchanged.
+    this.rubble = new StaticSet(scene, new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 1200, false, 45);
     // 斷面殘塊：被打掉的牆/柱在相鄰結構上留下參差不齊的斷口
     this.jag = new StaticSet(scene, new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), 4000, true);
     // 外露鋼筋
@@ -605,7 +617,7 @@ export class Effects {
     this.updateShards(dt);
     this.updateChunks(dt);
     this.updateCases(dt);
-    this.rubble.flush(); this.jag.flush(); this.rebar.flush();
+    this.rubble.flush(camera, dt); this.jag.flush(camera, dt); this.rebar.flush(camera, dt);
 
     // 粒子：大小以「實際繪圖像素」換算，高解析度手機上不會變大一倍
     this.add.update(dt); this.smoke.update(dt);
