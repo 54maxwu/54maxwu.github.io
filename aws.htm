@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>加密文件</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.0.2/tailwind.min.css" rel="stylesheet" integrity="sha384-DoAj5Uf/2fkaJeZQi1AVQWJs8Rh2ivQL8UkrMZm84FzqdC+6seY4C99CWABJIRCv" crossorigin="anonymous">
+</head>
+
+<body class="h-screen bg-black overflow-hidden" onload="init()">
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js" integrity="sha384-0DrKBsfUuJe/vqjia1HviapRn4mR1BYfCpQ9gT7qjSKu8TrzTe2tlbK3cI9i9EwV" crossorigin="anonymous"></script>
+  <script type="text/javascript">
+
+    var key = ""
+
+    function showToast(msg) {
+      var t = document.createElement('div');
+      t.textContent = msg;
+      t.style.cssText = 'position:fixed;left:50%;top:24px;transform:translateX(-50%);background:#1f2937;color:#f87171;padding:10px 18px;border-radius:8px;font-size:14px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);opacity:0;transition:opacity .2s';
+      document.body.appendChild(t);
+      requestAnimationFrame(function(){ t.style.opacity = '1'; });
+      setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 250); }, 1800);
+    }
+
+    function initKey() {
+      key = CryptoJS.enc.Utf8.parse(btoa(document.getElementById('pass').value))
+      return true
+    }
+
+    function Decrypt() {
+      if (initKey()) {
+        encryptedHexStr = CryptoJS.enc.Hex.parse('ba74d529168a137bbc25497ef933d2cfa466c51467b559000a291a163085d859b1a103bd381c162eb487568dab8fbb3b475a506b63ec4c1fa54626b9bd32bbbe652f76887b47fabcaae78f5be050c98a168f7d6a98787069cb20e5635484ca2c28446cad78c9256b1a072fc637a865b6b64851f3aa59636c933692ee56098954c5d3faf76b7f5c7095d077e7d2e70317bdeeb14649abc00f4cde04f4662da15741ae162fbcc9ada9b184f0e1db3a5788a65506ce27e7cbb4075fbfc594de06a30f8bab646d25ccf71169150ff7948fcdfef2755896757672273c9d218b903166644cd86093c4366af4a4dddb72931bf72dd7ba979a04a70175bc6bd3868725045639b81f419b80f82c6233f030af426dfc9a88664d97eedee22055230c2b8a7ac518eabbf4aed1e4dd4b486194bb6268944478aa4a6aac035893d10ffd097847a2d3f7d63a036f4b8b7b054fa7cf739d1364af38fb052373d7a04d8bc01fd9c20fcb3d92e6afb7745a031c914acbd85c486623e8ab783e1d9b038fe96a8a47c2170a65d757e583abf1216bb8e37953f0ea4a54100a763d65c990f8cf2c0f875d252e5cd197da39bb659ceb7a07627302887a7dcccd18a7b87eb9e0f4da9469eb7424d4cce93340476b356f719441984fcbae56bcebbeb9ec7fbd6829d558c523744d2d5a0d219c21ade7beb8142f9a37')
+        encryptedBase64Str = CryptoJS.enc.Base64.stringify(encryptedHexStr)
+        var decryptedData = CryptoJS.AES.decrypt(encryptedBase64Str, key, {
+          mode: CryptoJS.mode.ECB,
+          padding: CryptoJS.pad.Pkcs7
+        })
+        try {
+          var html = decryptedData.toString(CryptoJS.enc.Utf8)
+          if (!html.trim()) {
+            showToast('解密失敗')
+            return
+          }
+          document.getElementById('output').srcdoc = html
+          document.getElementsByClassName('inputpw')[0].style.display = 'none'
+          document.getElementsByClassName('result')[0].style.display = 'block'
+        } catch (error) {
+          showToast('解密失敗')
+        }
+      }
+    }
+
+    function init() {
+      document.getElementById("pass").focus();
+    }
+
+    function handleKeyPress(event) {
+      if (event.key === "Enter") {
+        Decrypt();
+      }
+    }
+
+  </script>
+  <div class="inputpw flex h-screen items-center justify-center ">
+    <div class="mx-1 mt-4 p-2">
+      <input id="pass" type="password" class="border-b-2 ml-2 text-center" onkeydown="handleKeyPress(event)">
+    </div>
+  </div>
+  <div class="result flex flex-wrap h-full hidden">
+      <iframe class="w-full h-full border-0 bg-white" id="output" title="解密後的 HTML 內容" sandbox=""></iframe>
+  </div>
+</body>
+
+</html>
