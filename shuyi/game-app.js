@@ -33819,6 +33819,7 @@ void main() {
   // game-src/audio.js
   var clamp2 = (v, a, b) => Math.max(a, Math.min(b, v));
   var pick = (...names) => names[Math.floor(Math.random() * names.length)];
+  var finite3 = (v) => Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
   var CAL = {
     ak47: 4,
     m4a1: 0.8,
@@ -33899,6 +33900,7 @@ void main() {
       }
     }
     setListener(p, forward, up) {
+      if (p && !finite3(p) || forward && !finite3(forward) || up && !finite3(up)) return;
       if (p) this.listener = { x: p.x, y: p.y, z: p.z };
       if (!this.ctx) return;
       const l = this.ctx.listener;
@@ -33915,6 +33917,7 @@ void main() {
       if (!this.ctx) return;
       const sample = this.samples[name];
       if (!sample) return;
+      if (pos && !finite3(pos)) pos = null;
       gain *= Math.pow(10, (CAL[name] || 0) / 20);
       if (pos && Math.hypot(pos.x - this.listener.x, pos.y - this.listener.y, pos.z - this.listener.z) > 250) return;
       while (this.active.length >= 48) this.active.shift().stop();
@@ -43091,13 +43094,13 @@ void main() {
       const memory = b.lastSeen && now - b.lastSeenT < 5;
       if (memory && b.pos.distanceTo(b.lastSeen) < 2.5 && this.task !== "observe-search") {
         this.cancelRoute();
-        b.lookYaw = b.yaw;
+        this.searchYaw = b.lookYaw = b.yaw;
         this.change("observe-search", now, "search-location-reached", 1.1);
       }
       if (this.task === "observe-search") {
         act.wishX = act.wishZ = 0;
         act.fire = act.firePressed = false;
-        act.yaw = b.lookYaw + Math.sin((now - this.entered) * 3) * 0.6;
+        act.yaw = (Number.isFinite(this.searchYaw) ? this.searchYaw : b.yaw) + Math.sin((now - this.entered) * 3) * 0.6;
         act.pitch = 0;
         if (now >= this.until || !memory) {
           b.lastSeen = null;
@@ -43595,6 +43598,8 @@ void main() {
     }
     // 轉身有速度上限；沒在交戰時轉得慢一點
     turnToward(yaw, pitch, dt) {
+      if (!Number.isFinite(yaw)) yaw = this.yaw;
+      if (!Number.isFinite(pitch)) pitch = this.pitch;
       const max = this.skill.turnRate * dt * (this.visible ? 1 : 0.7);
       this.yaw = wrapAngle(this.yaw + MathUtils.clamp(wrapAngle(yaw - this.yaw), -max, max));
       this.pitch += MathUtils.clamp(pitch - this.pitch, -max * 0.6, max * 0.6);

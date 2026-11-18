@@ -107,11 +107,12 @@ export class BotSchedule {
     if(this.task==='reload')this.change('search',now,'reload-complete');
     const memory=b.lastSeen&&now-b.lastSeenT<5;
     if(memory&&b.pos.distanceTo(b.lastSeen)<2.5&&this.task!=='observe-search'){
-      this.cancelRoute();b.lookYaw=b.yaw;this.change('observe-search',now,'search-location-reached',1.1);
+      // travel() clears b.lookYaw once lookUntil passes, so keep this task's base heading here.
+      this.cancelRoute();this.searchYaw=b.lookYaw=b.yaw;this.change('observe-search',now,'search-location-reached',1.1);
     }
     if(this.task==='observe-search'){
       act.wishX=act.wishZ=0;act.fire=act.firePressed=false;
-      act.yaw=b.lookYaw+Math.sin((now-this.entered)*3)*.6;act.pitch=0;
+      act.yaw=(Number.isFinite(this.searchYaw)?this.searchYaw:b.yaw)+Math.sin((now-this.entered)*3)*.6;act.pitch=0;
       if(now>=this.until||!memory){b.lastSeen=null;b.huntFor=undefined;this.change('roam',now,'search-complete');b.newGoal();}
       return;
     }

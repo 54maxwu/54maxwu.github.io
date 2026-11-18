@@ -62,3 +62,17 @@ test('new path requests discard old paths and stale callbacks cannot overwrite a
 test('task trace stays bounded and scheduler reset drops commitments on respawn',()=>{
  const b=bot(),s=b.schedule;for(let i=0;i<100;i++)s.change(i%2?'roam':'search',i,'test');assert.equal(s.trace.length,24);s.reset();assert.equal(s.trace.length,0);assert.equal(s.holdsPlan(),false);
 });
+
+test('observe-search keeps a finite heading after travel() clears lookYaw',()=>{
+ const b=bot(),s=b.schedule;b.coverPoint=null;b.peekPoint=null;b.visible=false;b.yaw=1.25;b.lastSeenT=0;b.lastSeen=new THREE.Vector3(1,0,0);
+ const first=act();s.apply(first,.5);assert.equal(s.task,'observe-search');assert.ok(Number.isFinite(first.yaw));
+ b.lookYaw=undefined; // Bot.travel() clears this every update once lookUntil has passed.
+ for(const t of [.6,.9,1.3]){const a=act();s.apply(a,t);assert.ok(Number.isFinite(a.yaw),'yaw at '+t+' was '+a.yaw);assert.ok(Math.abs(a.yaw-1.25)<=.61);}
+});
+
+test('turnToward ignores a non-finite requested heading instead of keeping NaN forever',()=>{
+ const b={yaw:.4,pitch:.1,visible:true,skill:{turnRate:6}};
+ Bot.prototype.turnToward.call(b,NaN,undefined,1/60);
+ assert.equal(b.yaw,.4);assert.equal(b.pitch,.1);
+ Bot.prototype.turnToward.call(b,.5,.1,1/60);assert.ok(Number.isFinite(b.yaw)&&b.yaw>.4);
+});
