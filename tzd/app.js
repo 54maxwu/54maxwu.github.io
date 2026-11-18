@@ -65,9 +65,13 @@ $$(".mode-btn").forEach(b=>b.addEventListener("click",()=>{
   $("#result").classList.remove("show");
 }));
 
+/* 姓名會被放進 HTML 版面：去掉 HTML 特殊字元（正常姓名不會用到） */
+const cleanName=s=>String(s??"").replace(/[<>&"'`]/g,"").trim();
+const escHtml=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
 /* ---- 讀取一個人的輸入 → bazi 分析 ---- */
 function readPerson(n){
-  const name=$("#name"+n).value.trim();
+  const name=cleanName($("#name"+n).value);
   const sex=segVal["sex"+n];
   let y=+$("#y"+n).value, m=+$("#m"+n).value, d=+$("#d"+n).value;
   const known=segVal["hknown"+n]==="1";
@@ -222,7 +226,7 @@ function readPerson(n){
 /* ====== 收合 / 展開表單 ====== */
 function calLabel(n){return segVal["cal"+n]==="lunar"?"農":"國";}
 function personLabel(n){
-  const name=$("#name"+n).value.trim()||"未命名";
+  const name=cleanName($("#name"+n).value)||"未命名";
   const y=$("#y"+n).value,m=$("#m"+n).value,d=$("#d"+n).value;
   const known=segVal["hknown"+n]==="1";
   const t=known?` ${String($("#h"+n).value).padStart(2,"0")}:${String($("#min"+n).value).padStart(2,"0")}`:" 時辰不詳";
@@ -359,12 +363,12 @@ function renderSaves(){
   const box=$("#savedBox"), list=$("#savedList"); const arr=loadSaves();
   if(!arr.length){ box.style.display="none"; return; }
   box.style.display="block";
-  list.innerHTML=arr.map(rec=>`<div class="saved-item" data-id="${rec.id}">
-    <div class="si-main" data-act="load" data-id="${rec.id}">
-      <div class="si-name">${savedLabel(rec)}</div>
-      <div class="si-sub">${savedSub(rec)}</div>
+  list.innerHTML=arr.map(rec=>`<div class="saved-item" data-id="${escHtml(rec.id)}">
+    <div class="si-main" data-act="load" data-id="${escHtml(rec.id)}">
+      <div class="si-name">${escHtml(savedLabel(rec))}</div>
+      <div class="si-sub">${escHtml(savedSub(rec))}</div>
     </div>
-    <button class="si-del" data-act="del" data-id="${rec.id}" title="刪除">✕</button>
+    <button class="si-del" data-act="del" data-id="${escHtml(rec.id)}" title="刪除">✕</button>
   </div>`).join("");
 }
 $("#saveBtn").addEventListener("click",saveCurrent);

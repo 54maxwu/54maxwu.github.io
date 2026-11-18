@@ -2413,28 +2413,42 @@
     const OG_DEFAULT_PROXY = 'https://missing.54maxwu.workers.dev/';
     const getOgProxy = () => { try { return (localStorage.getItem(OG_PROXY_KEY) ?? OG_DEFAULT_PROXY).trim(); } catch { return OG_DEFAULT_PROXY; } };
     const OG_WORKER_CODE =
-`export default {
+`// 只允許下面列出的網站呼叫；要加網域就加進 SITES
+const SITES = [${JSON.stringify(location.origin)}];
+const MAX_BYTES = 5 * 1024 * 1024;
+
+export default {
   async fetch(request) {
+    const origin = request.headers.get('Origin');
+    if (!SITES.includes(origin)) return new Response('forbidden', { status: 403 });
     const CORS = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
+      'Vary': 'Origin',
     };
-    if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-    const target = new URL(request.url).searchParams.get('url');
-    if (!target) return new Response('missing ?url=', { status: 400, headers: CORS });
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+    let target;
+    try { target = new URL(new URL(request.url).searchParams.get('url')); }
+    catch { return new Response('missing or invalid ?url=', { status: 400, headers: CORS }); }
+    if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password)
+      return new Response('unsupported url', { status: 400, headers: CORS });
     try {
       const upstream = await fetch(target, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OGInspector/1.0)' },
         redirect: 'follow',
       });
+      if (Number(upstream.headers.get('content-length')) > MAX_BYTES)
+        return new Response('response too large', { status: 502, headers: CORS });
       const body = await upstream.text();
+      if (body.length > MAX_BYTES) return new Response('response too large', { status: 502, headers: CORS });
+      // 一律以純文字回傳，避免代理被拿來以你的網域散布 HTML 頁面
       return new Response(body, {
         status: upstream.status,
-        headers: { ...CORS, 'Content-Type': upstream.headers.get('content-type') || 'text/html; charset=utf-8' },
+        headers: { ...CORS, 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' },
       });
-    } catch (e) {
-      return new Response('proxy error: ' + e.message, { status: 502, headers: CORS });
+    } catch {
+      return new Response('proxy error', { status: 502, headers: CORS });
     }
   }
 };`;
