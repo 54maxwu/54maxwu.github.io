@@ -77,6 +77,7 @@ export class Actor {
   }
 
   spawn(sp) {
+    this.weaponAction = (this.weaponAction || 0) + 1;
     this.speed = 0; this.walk = false; this.aimPunch = 0;
     this.jumpCD = this.slideCD = this.mantleCD = this.stepDist = 0;
     this.scopeT = this.reScope = 0;
@@ -266,6 +267,7 @@ export class Actor {
   // ───────── 武器 ─────────
 
   weaponUpdate(dt, inp) {
+    if (!this.alive) return;
     const g = this.game, now = g.time;
     this.switchTo(inp.sw, now);
     const w = this.weapon, d = w.def;
@@ -285,6 +287,8 @@ export class Actor {
     if (slot === undefined || slot === null || slot === this.slot) return;
     const target = this.inv[slot];
     if (!target || (target.def.type === 'grenade' && target.mag <= 0)) return;
+    this.weaponAction = (this.weaponAction || 0) + 1;
+    this.reScope = 0; this.scopeT = 0; this.autoSwitchAt = 0;
     this.weapon.reloadUntil = 0;                // 換槍會中斷換彈
     this.grenadePrimed=false;this.grenadeReleased=false;this.pendingThrow=0;this.grenadeThrowing=false;this.grenadeReleaseT=0;
     this.lastSlot = this.slot; this.slot = slot;
@@ -325,8 +329,8 @@ export class Actor {
   useKnife(inp, w, now) {
     if (now < w.nextFire) return;
     const d = w.def;
-    if (inp.fire) { w.nextFire = now + d.rateLight; this.game.melee(this, false); }
-    else if (inp.alt) { w.nextFire = now + d.rateHeavy; this.game.melee(this, true); }
+    if (inp.fire) { this.protectT = 0; w.nextFire = now + d.rateLight; this.game.melee(this, false); }
+    else if (inp.alt) { this.protectT = 0; w.nextFire = now + d.rateHeavy; this.game.melee(this, true); }
   }
 
   // 手雷：拔銷 0.52 秒，放開後揮臂 0.2 秒才離手，再過 0.45 秒切回上一把。
@@ -337,7 +341,7 @@ export class Actor {
         this.grenadeReleaseT=Math.max(0,this.grenadeReleaseT-dt);
         if(this.grenadeReleaseT>1e-6)return;
         this.grenadePrimed=false;this.grenadeReleased=false;this.grenadeThrowing=false;
-        g.onGrenadeThrow?.(this);g.throwGrenade(this);w.mag=0;
+        this.protectT=0;g.onGrenadeThrow?.(this);g.throwGrenade(this);w.mag=0;
         this.readyAt=now+.4;this.autoSwitchAt=now+.45;return;
       }
       this.pendingThrow = Math.max(0,this.pendingThrow-dt);

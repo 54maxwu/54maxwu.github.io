@@ -35378,7 +35378,7 @@ void main() {
       p.z += ent.vel.z * h;
       for (let pass = 0; pass < 3; pass++) {
         let touched = false;
-        for (const c of this.query(p.x - r, p.z - r, p.x + r, p.z + r)) {
+        for (const c of this.query(p.x - r, p.z - r, p.x + r, p.z + r).slice()) {
           if (!c.solid || c.top <= p.y + 1e-3 || c.bottom >= p.y + ent.height - 1e-3) continue;
           if (!_World.circleOBB(c, p.x, p.z, r, _circle)) continue;
           const { nx, nz, pen } = _circle;
@@ -42197,6 +42197,7 @@ void main() {
       this.soldier.setWeapon(this.primary);
     }
     spawn(sp) {
+      this.weaponAction = (this.weaponAction || 0) + 1;
       this.speed = 0;
       this.walk = false;
       this.aimPunch = 0;
@@ -42414,6 +42415,7 @@ void main() {
     }
     // ───────── 武器 ─────────
     weaponUpdate(dt, inp) {
+      if (!this.alive) return;
       const g = this.game, now = g.time;
       this.switchTo(inp.sw, now);
       const w = this.weapon, d = w.def;
@@ -42434,6 +42436,10 @@ void main() {
       if (slot === void 0 || slot === null || slot === this.slot) return;
       const target = this.inv[slot];
       if (!target || target.def.type === "grenade" && target.mag <= 0) return;
+      this.weaponAction = (this.weaponAction || 0) + 1;
+      this.reScope = 0;
+      this.scopeT = 0;
+      this.autoSwitchAt = 0;
       this.weapon.reloadUntil = 0;
       this.grenadePrimed = false;
       this.grenadeReleased = false;
@@ -42484,9 +42490,11 @@ void main() {
       if (now < w.nextFire) return;
       const d = w.def;
       if (inp.fire) {
+        this.protectT = 0;
         w.nextFire = now + d.rateLight;
         this.game.melee(this, false);
       } else if (inp.alt) {
+        this.protectT = 0;
         w.nextFire = now + d.rateHeavy;
         this.game.melee(this, true);
       }
@@ -42501,6 +42509,7 @@ void main() {
           this.grenadePrimed = false;
           this.grenadeReleased = false;
           this.grenadeThrowing = false;
+          this.protectT = 0;
           g.onGrenadeThrow?.(this);
           g.throwGrenade(this);
           w.mag = 0;
@@ -42610,6 +42619,19 @@ void main() {
       const active = () => g.playing && !g.paused && !g.inLoadout ? g.player : null;
       const any = () => g.player;
       addEventListener("keydown", (e) => {
+        if (e.code === "Escape" && g.playing && !e.repeat) {
+          if (g.inLoadout) {
+            e.preventDefault();
+            g.closeLoadout();
+            return;
+          }
+          if (g.touchMode || g.qs.has("nolock")) {
+            e.preventDefault();
+            if (g.paused) g.resume();
+            else g.pause();
+            return;
+          }
+        }
         if (g.playing && !g.paused && g.inLoadout && e.code === "KeyB" && !e.repeat) {
           g.closeLoadout();
           return;
@@ -42694,7 +42716,7 @@ void main() {
         this.yaw -= dx * k;
         this.pitch = MathUtils.clamp(this.pitch - dy * k, -1.5, 1.5);
         this.readMovement(dt);
-        this.readWeapon(dt);
+        if (this.alive) this.readWeapon(dt);
         if (this.consumePressed("KeyF")) g.vm.inspect();
       } else {
         this.pressed.delete("KeyR");
@@ -43208,13 +43230,13 @@ void main() {
       const memory = b.lastSeen && now - b.lastSeenT < 5;
       if (memory && b.pos.distanceTo(b.lastSeen) < 2.5 && this.task !== "observe-search") {
         this.cancelRoute();
-        b.lookYaw = b.yaw;
+        this.searchYaw = b.yaw;
         this.change("observe-search", now, "search-location-reached", 1.1);
       }
       if (this.task === "observe-search") {
         act.wishX = act.wishZ = 0;
         act.fire = act.firePressed = false;
-        act.yaw = b.lookYaw + Math.sin((now - this.entered) * 3) * 0.6;
+        act.yaw = (this.searchYaw ?? b.yaw) + Math.sin((now - this.entered) * 3) * 0.6;
         act.pitch = 0;
         if (now >= this.until || !memory) {
           b.lastSeen = null;
@@ -44176,23 +44198,25 @@ void main() {
     melee(a, heavy) {
       const d = WEAPONS.knife;
       const range = heavy ? d.rangeHeavy : d.rangeLight;
-      const eye = a.eye(new Vector3());
-      const aim = a.forward(new Vector3());
+      const weapon = a.weapon, action = a.weaponAction;
       if (a.isPlayer) this.vm.melee(heavy);
-      this.hitQuery++;
-      let hit = null;
-      for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
-        const dir = aim.clone().applyAxisAngle(new Vector3(0, 1, 0), off);
-        for (const b of this.actors) {
-          if (!b.alive || b === a || b.team === a.team) continue;
-          const r = b.soldier.hitTest(eye, dir, range, this.hitQuery);
-          if (r && (!hit || r.t < hit.t)) hit = { actor: b, t: r.t, part: r.part, dir };
-        }
-        if (hit) break;
-      }
-      const style = heavy ? "heavy" : "light", from = a.isPlayer ? null : eye;
       this.after(this.time + (heavy ? 0.33 : 0.1), () => {
-        if (!a.alive) return;
+        if (!a.alive || a.weapon !== weapon || a.weaponAction !== action) return;
+        const eye = a.eye(new Vector3());
+        const aim = a.forward(new Vector3());
+        this.hitQuery++;
+        let hit = null;
+        for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
+          const dir = aim.clone().applyAxisAngle(new Vector3(0, 1, 0), off);
+          const wall = this.world.raycast(eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, range, "bullet");
+          for (const b of this.actors) {
+            if (!b.alive || b === a || b.team === a.team) continue;
+            const r = b.soldier.hitTest(eye, dir, wall ? wall.t : range, this.hitQuery);
+            if (r && (!hit || r.t < hit.t)) hit = { actor: b, t: r.t, part: r.part, dir };
+          }
+          if (hit) break;
+        }
+        const style = heavy ? "heavy" : "light", from = a.isPlayer ? null : eye;
         if (hit?.actor.alive) {
           const facing = hit.actor.forward(new Vector3()).setY(0).normalize();
           const behind = facing.dot(_v3.copy(hit.dir).setY(0).normalize()) > 0.5;
@@ -44251,7 +44275,9 @@ void main() {
     },
     // 手雷飛行：每幀分 3 小步，撞到面就沿法線反彈並損失速度；落地後滾動摩擦
     updateNades(dt) {
-      this.nades = this.nades.filter((n) => {
+      const active = this.nades;
+      this.nades = [];
+      const survivors = active.filter((n) => {
         n.fuse -= dt;
         const h = dt / 3;
         for (let s = 0; s < 3; s++) {
@@ -44289,6 +44315,7 @@ void main() {
         this.renderer.scene.remove(n.mesh);
         return false;
       });
+      this.nades = survivors.concat(this.nades);
     },
     explode(p, owner, weaponId = "he", context = {}) {
       const he = WEAPONS[weaponId];
@@ -44570,7 +44597,10 @@ void main() {
       if (!a.isPlayer) return;
       const d = a.weapon.def, t = this.time, id = d.id, dur = d.reload;
       this.vm.reload(dur, empty);
-      const at2 = (k, part) => this.after(t + dur * k, () => audio.playReload(id, part));
+      const weapon = a.weapon, until = weapon.reloadUntil;
+      const at2 = (k, part) => this.after(t + dur * k, () => {
+        if (a.alive && a.weapon === weapon && weapon.reloadUntil === until) audio.playReload(id, part);
+      });
       if (d.type === "launcher") {
         at2(0.4, "shell");
         at2(0.78, "magin");
@@ -44927,6 +44957,7 @@ void main() {
       } else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has("nolock")) this.pause();
     }
     pause() {
+      this.inLoadout = false;
       this.resetInput();
       this.fixedStep.reset();
       this.paused = true;
@@ -44982,10 +45013,17 @@ void main() {
     // 在出生點內立刻換上；否則下次復活生效
     chooseLoadout(id) {
       const p = this.player;
+      if (!this.playing || !p || !PRIMARIES.includes(id)) return;
       p.nextPrimary = id;
       this.opts.primary = id;
       this.hud.saveOpts();
       if (p.alive && this.map.isSpawn(p)) {
+        this.resetInput();
+        p.weaponAction = (p.weaponAction || 0) + 1;
+        p.weapon.reloadUntil = 0;
+        p.scoped = p.reScope = p.scopeT = p.autoSwitchAt = p.pendingThrow = p.grenadeReleaseT = 0;
+        p.scopeReady = p.grenadePrimed = p.grenadeReleased = p.grenadeThrowing = false;
+        if (p.slot !== 0) p.lastSlot = p.slot;
         p.primary = id;
         p.inv[0] = new p.inv[0].constructor(id);
         p.inv[0].patternSeed = Math.random() * 6;

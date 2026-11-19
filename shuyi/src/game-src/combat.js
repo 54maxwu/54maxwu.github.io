@@ -189,23 +189,25 @@ export const combat = {
   melee(a, heavy) {
     const d = WEAPONS.knife;
     const range = heavy ? d.rangeHeavy : d.rangeLight;
-    const eye = a.eye(new THREE.Vector3());
-    const aim = a.forward(new THREE.Vector3());
+    const weapon = a.weapon, action = a.weaponAction;
     if (a.isPlayer) this.vm.melee(heavy);
-    this.hitQuery++;
-    let hit = null;
-    for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
-      const dir = aim.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), off);
-      for (const b of this.actors) {
-        if (!b.alive || b === a || b.team === a.team) continue;
-        const r = b.soldier.hitTest(eye, dir, range, this.hitQuery);
-        if (r && (!hit || r.t < hit.t)) hit = { actor: b, t: r.t, part: r.part, dir };
-      }
-      if (hit) break;
-    }
-    const style = heavy ? 'heavy' : 'light', from = a.isPlayer ? null : eye;
     this.after(this.time + (heavy ? 0.33 : 0.1), () => {
-      if (!a.alive) return;
+      if (!a.alive || a.weapon !== weapon || a.weaponAction !== action) return;
+      const eye = a.eye(new THREE.Vector3());
+      const aim = a.forward(new THREE.Vector3());
+      this.hitQuery++;
+      let hit = null;
+      for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
+        const dir = aim.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), off);
+        const wall = this.world.raycast(eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, range, 'bullet');
+        for (const b of this.actors) {
+          if (!b.alive || b === a || b.team === a.team) continue;
+          const r = b.soldier.hitTest(eye, dir, wall ? wall.t : range, this.hitQuery);
+          if (r && (!hit || r.t < hit.t)) hit = { actor: b, t: r.t, part: r.part, dir };
+        }
+        if (hit) break;
+      }
+      const style = heavy ? 'heavy' : 'light', from = a.isPlayer ? null : eye;
       if (hit?.actor.alive) {
         // 從背後刺：傷害加倍（輕擊 1.6 倍）
         const facing = hit.actor.forward(new THREE.Vector3()).setY(0).normalize();
@@ -259,7 +261,9 @@ export const combat = {
 
   // 手雷飛行：每幀分 3 小步，撞到面就沿法線反彈並損失速度；落地後滾動摩擦
   updateNades(dt) {
-    this.nades = this.nades.filter((n) => {
+    const active = this.nades;
+    this.nades = [];
+    const survivors = active.filter((n) => {
       n.fuse -= dt;
       const h = dt / 3;
       for (let s = 0; s < 3; s++) {
@@ -287,6 +291,7 @@ export const combat = {
       this.renderer.scene.remove(n.mesh);
       return false;
     });
+    this.nades = survivors.concat(this.nades);
   },
 
   explode(p, owner, weaponId = 'he',context={}) {

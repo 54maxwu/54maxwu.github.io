@@ -231,7 +231,7 @@ export class World {
     p.z += ent.vel.z * h;
     for (let pass = 0; pass < 3; pass++) {
       let touched = false;
-      for (const c of this.query(p.x - r, p.z - r, p.x + r, p.z + r)) {
+      for (const c of this.query(p.x - r, p.z - r, p.x + r, p.z + r).slice()) {
         if (!c.solid || c.top <= p.y + 0.001 || c.bottom >= p.y + ent.height - 0.001) continue;
         if (!World.circleOBB(c, p.x, p.z, r, _circle)) continue;
         // blocked() 也會使用共用 _circle；先保存本次接觸法線，避免低矮障礙旁有牆時推錯方向。

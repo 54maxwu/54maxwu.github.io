@@ -44,6 +44,10 @@ export class Player extends Actor {
     const any = () => g.player;                           // 放開鍵、失焦一律處理，避免卡鍵
 
     addEventListener('keydown', (e) => {
+      if (e.code === 'Escape' && g.playing && !e.repeat) {
+        if (g.inLoadout) { e.preventDefault(); g.closeLoadout(); return; }
+        if (g.touchMode || g.qs.has('nolock')) { e.preventDefault(); if (g.paused) g.resume(); else g.pause(); return; }
+      }
       if (g.playing && !g.paused && g.inLoadout && e.code === 'KeyB' && !e.repeat) { g.closeLoadout(); return; }
       const p = active();
       if (!p) return;
@@ -118,7 +122,7 @@ export class Player extends Actor {
       this.pitch = THREE.MathUtils.clamp(this.pitch - dy * k, -1.5, 1.5);
 
       this.readMovement(dt);
-      this.readWeapon(dt);
+      if (this.alive) this.readWeapon(dt);
       if (this.consumePressed('KeyF')) g.vm.inspect();
     } else {
       this.pressed.delete('KeyR');

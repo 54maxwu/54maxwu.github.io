@@ -13,6 +13,14 @@ function bot(){
 }
 const act=()=>({wishX:0,wishZ:0,fire:true,firePressed:true});
 
+test('search observation retains its heading after travel clears look controls',()=>{
+ const b=bot();b.visible=false;b.coverPoint=null;b.lastSeen.copy(b.pos);b.yaw=.7;
+ const s=b.schedule;s.apply(act(),1);assert.equal(s.task,'observe-search');
+ b.lookYaw=undefined;b.lookPitch=undefined;
+ const a=act();s.apply(a,1.1);
+ assert.ok(Number.isFinite(a.yaw));assert.ok(Math.abs(a.yaw-(.7+Math.sin(.3)*.6))<1e-10);
+});
+
 test('cover schedule completes observation, peek, firing window, return without continuously replacing its route',()=>{
  const b=bot(),s=b.schedule;s.coverAction(act(),0);assert.equal(s.task,'take-cover');
  b.pos.copy(b.coverPoint);s.coverAction(act(),.5);assert.equal(s.task,'observe-cover');assert.ok(s.holdsPlan());

@@ -18,7 +18,7 @@ import { Effects } from './effects.js';
 import { ViewModel } from './viewmodel.js';
 import { HUD } from './hud.js';
 import { audio } from './audio.js';
-import { WEAPONS } from './weapons.js';
+import { WEAPONS, PRIMARIES } from './weapons.js';
 import { buildGunMerged } from './guns.js';
 import { Player } from './player.js';
 import { Bot, TEAM_PREFIX } from './bots.js';
@@ -292,7 +292,7 @@ export class Game {
     else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has('nolock')) this.pause();
   }
 
-  pause() { this.resetInput(); this.fixedStep.reset(); this.paused = true; this.hud.show('pause'); this.hud.scoreboard(false); }
+  pause() { this.inLoadout = false; this.resetInput(); this.fixedStep.reset(); this.paused = true; this.hud.show('pause'); this.hud.scoreboard(false); }
 
   resume(fromLock) { this.resetInput(); this.fixedStep.reset(); this.last = performance.now(); this.paused = false; this.hud.show(null); if (!fromLock) this.lock(); }
 
@@ -329,10 +329,17 @@ export class Game {
   // 在出生點內立刻換上；否則下次復活生效
   chooseLoadout(id) {
     const p = this.player;
+    if (!this.playing || !p || !PRIMARIES.includes(id)) return;
     p.nextPrimary = id;
     this.opts.primary = id;
     this.hud.saveOpts();
     if (p.alive && this.map.isSpawn(p)) {
+      this.resetInput();
+      p.weaponAction = (p.weaponAction || 0) + 1;
+      p.weapon.reloadUntil = 0;
+      p.scoped = p.reScope = p.scopeT = p.autoSwitchAt = p.pendingThrow = p.grenadeReleaseT = 0;
+      p.scopeReady = p.grenadePrimed = p.grenadeReleased = p.grenadeThrowing = false;
+      if (p.slot !== 0) p.lastSlot = p.slot;
       p.primary = id;
       p.inv[0] = new (p.inv[0].constructor)(id);
       p.inv[0].patternSeed = Math.random() * 6;

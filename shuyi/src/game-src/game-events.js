@@ -41,7 +41,10 @@ export const events = {
     if (!a.isPlayer) return;
     const d = a.weapon.def, t = this.time, id = d.id, dur = d.reload;
     this.vm.reload(dur, empty);
-    const at = (k, part) => this.after(t + dur * k, () => audio.playReload(id, part));
+    const weapon = a.weapon, until = weapon.reloadUntil;
+    const at = (k, part) => this.after(t + dur * k, () => {
+      if (a.alive && a.weapon === weapon && weapon.reloadUntil === until) audio.playReload(id, part);
+    });
     if (d.type === 'launcher') { at(0.4, 'shell'); at(0.78, 'magin'); return; }
     if (d.pump) {
       for (let i = 0; i < 4; i++) at(0.2 + i * 0.18, 'shell');
