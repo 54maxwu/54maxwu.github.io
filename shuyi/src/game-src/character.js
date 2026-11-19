@@ -299,6 +299,14 @@ export class Soldier {
     this.hitFrame = -1;
   }
 
+  // Geometry, cloth atlas and merged guns are shared caches; only release owned resources.
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.mesh.skeleton.dispose();
+    this.material.dispose();
+  }
+
   setWeapon(id) {
     if (this.gunId === id) return;
     if (this.gun) this.B.chest.remove(this.gun);

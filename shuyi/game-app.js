@@ -41787,6 +41787,13 @@ void main() {
       this.hitInv = HITBOXES.map(() => new Matrix4());
       this.hitFrame = -1;
     }
+    // Geometry, cloth atlas and merged guns are shared caches; only release owned resources.
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.mesh.skeleton.dispose();
+      this.material.dispose();
+    }
     setWeapon(id) {
       if (this.gunId === id) return;
       if (this.gun) this.B.chest.remove(this.gun);
@@ -44658,8 +44665,16 @@ void main() {
       this.hud.toast(`\u5718\u968A\u7AF6\u6280\u30FB\u7387\u5148\u9054\u5230 <b style="color:#ffe066">${this.goal}</b> \u64CA\u6BBA\u7684\u968A\u4F0D\u7372\u52DD`, 3.5);
     }
     clearActors() {
-      for (const a of this.actors) this.renderer.scene.remove(a.soldier.root);
-      for (const t of this.tags) this.renderer.scene.remove(t.sprite);
+      this.killReplay?.stop();
+      for (const a of this.actors) {
+        this.renderer.scene.remove(a.soldier.root);
+        a.soldier.dispose();
+      }
+      for (const t of this.tags) {
+        this.renderer.scene.remove(t.sprite);
+        t.sprite.material.map.dispose();
+        t.sprite.material.dispose();
+      }
       this.actors = [];
       this.tags = [];
     }
@@ -44883,10 +44898,13 @@ void main() {
         this.combatHistory?.prune(this.time);
       }
       if (this.timeLeft <= 0 && !this.ended) this.endMatch();
+      if (vis > 0) this.updateNameTags();
+    }
+    updateNameTags() {
       const cam = this.renderer.camera;
       for (const t of this.tags) {
         const a = t.actor;
-        t.sprite.visible = a.alive && a.pos.distanceTo(cam.position) < 45;
+        t.sprite.visible = a.alive && a.pos.distanceToSquared(cam.position) < 45 * 45;
         if (t.sprite.visible) {
           a.soldier.headWorld(t.sprite.position);
           t.sprite.position.y += 0.42;
@@ -44918,11 +44936,14 @@ void main() {
       const R = this.renderer, cam = R.camera, p = this.player;
       (this.distanceDetails ?? (this.distanceDetails = new DistanceDetails(this.map.meshes || []))).update(dt, cam);
       if (p && this.playing) this.updateViewModel(this.paused ? 0 : dt, p);
-      this.fx.update(dt, this.realTime, cam);
+      const physicsDt = this.paused ? 0 : dt;
+      this.fx.update(physicsDt, this.realTime, cam);
       this.env.update(dt, this.realTime, cam.position);
-      this.map.update(dt, this.realTime);
-      this.updateLanded();
-      if (this.playing) this.debrisHits();
+      this.map.update(physicsDt, this.realTime);
+      if (!this.paused) {
+        this.updateLanded();
+        if (this.playing) this.debrisHits();
+      }
       this.updateRadarLabel(dt);
       audio.setListener(cam.position, _v4.set(0, 0, -1).applyQuaternion(cam.quaternion), _u.set(0, 1, 0).applyQuaternion(cam.quaternion));
       audio.update(dt);
