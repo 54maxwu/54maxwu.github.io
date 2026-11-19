@@ -11,6 +11,14 @@ function game(wall = null, actor = null) {
     world: { raycast: () => wall }, firstActorHit: () => actor,
     fx: { tracer() {} }, explode: (...args) => blasts.push(args), blasts };
 }
+
+test('moving rockets invalidate cached actor poses on every physics step',()=>{
+  const g=game(),queries=[];g.hitQuery=10;
+  g.firstActorHit=()=>{queries.push(g.hitQuery);return null;};
+  g.launchRocket({},new THREE.Vector3(),new THREE.Vector3(0,0,-1),WEAPONS.rpg);
+  g.updateRockets(.01);g.updateRockets(.01);
+  assert.deepEqual(queries,[11,12]);
+});
 test('launcher is a selectable primary and reload consumes one reserve rocket', () => {
   assert.ok(PRIMARIES.includes('rpg'));
   const w = new WeaponState('rpg');

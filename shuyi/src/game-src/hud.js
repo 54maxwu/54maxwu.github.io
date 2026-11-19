@@ -1,3 +1,4 @@
+import {normalizeOptions} from './options.js';
 // 樹義國小校園對戰：畫面介面（HUD）與選單
 //
 // 對外介面（new HUD(game)）
@@ -159,9 +160,18 @@ export class HUD {
     this.hitT = 0; this.toastT = 0; this.slotsT = 0;
     this.radarCtx = this.el.radar.getContext('2d');
     const touch = matchMedia('(pointer:coarse)').matches;
-    this.opts = { team: 'BL', primary: 'ak47', size: 4, diff: 'normal', goal: 50, tod: 'day', quality: touch ? 'low' : 'high', sens: 1.0, fov: 78, vol: 0.8 };
-    try { Object.assign(this.opts, JSON.parse(localStorage.getItem(OPTS_KEY) || '{}')); } catch { /* 無痕模式等情況讀不到就用預設 */ }
+    this.opts = normalizeOptions(null, touch);
+    try { this.opts = normalizeOptions(JSON.parse(localStorage.getItem(OPTS_KEY) || '{}'), touch); } catch { /* 無痕模式等情況讀不到就用預設 */ }
     this.wireMenu(touch);
+  }
+
+  resetMatch() {
+    for (const item of [...this.feedItems, ...this.dmgDirs]) item.el.remove();
+    this.feedItems = []; this.dmgDirs = [];
+    this.hitT = this.toastT = this.slotsT = 0;
+    for (const key of ['hit','toast','slots']) this.el[key].style.opacity = 0;
+    this.el.badge.classList.remove('show');
+    this.el.nameTip.textContent = '';
   }
 
   saveOpts() {
@@ -396,7 +406,9 @@ export class HUD {
 
   drawRadar(me, actors = this.g.actors || []) {
     const ctx = this.radarCtx, cv = this.el.radar;
-    const W = (cv.width = Math.round(cv.clientWidth * 1.5)), H = (cv.height = Math.round(cv.clientHeight * 1.5));
+    const W = Math.round(cv.clientWidth * 1.5), H = Math.round(cv.clientHeight * 1.5);
+    if (cv.width !== W) cv.width = W;
+    if (cv.height !== H) cv.height = H;
     ctx.clearRect(0, 0, W, H);
     const R = this.radar;
     if (!R) return;

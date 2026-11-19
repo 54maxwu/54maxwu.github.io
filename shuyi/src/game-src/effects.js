@@ -546,6 +546,11 @@ export class Effects {
   }
   clearDecals() {
     this.clearRocketEffects();
+    this.tracers = []; this.tracerMesh.count = 0; this.shake = 0;
+    for (const f of this.flashes) { f.t = 0; f.s.visible = false; }
+    for (const light of this.lights) { light.t = 0; light.l.intensity = 0; }
+    this.chunkMesh.count = this.shardMesh.count = this.caseMesh.count = 0;
+    this.add.geo.setDrawRange(0, 0); this.smoke.geo.setDrawRange(0, 0);
     for (const d of Object.values(this.decals)) { d.mesh.count = 0; d.i = 0; }
     this.rubble.clear(); this.jag.clear(); this.rebar.clear(); this.chunks = []; this.shards = []; this.cases = [];
   }

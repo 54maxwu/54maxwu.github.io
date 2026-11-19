@@ -1,3 +1,4 @@
+import {ReplayBuffer} from './replay-buffer.js';
 import * as THREE from 'three';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {WEAPONS,CAUSES} from './weapons.js';
@@ -9,13 +10,12 @@ import {replayState} from './replay-state.js';
 //   一、擊殺者越肩鏡頭   二、子彈時間追蹤   三、命中定格   四、低角度環繞看身體倒下（慢動作漸快）
 
 const UP=new THREE.Vector3(0,1,0);
-const _v=new THREE.Vector3(),_w=new THREE.Vector3();
+const _v=new THREE.Vector3(),_w=new THREE.Vector3(),_poseQ=new THREE.Quaternion();
 
-function pose(actor){const root=actor.soldier.root;return {pos:root.position.toArray(),q:root.quaternion.toArray(),bones:Object.fromEntries(actor.soldier.bones.map(b=>[b.name,[...b.position.toArray(),...b.quaternion.toArray()]]))};}
-function apply(root,frame,next,t){root.position.fromArray(frame.pos).lerp(_v.fromArray(next.pos),t);root.quaternion.fromArray(frame.q).slerp(new THREE.Quaternion().fromArray(next.q),t);root.traverse(b=>{if(!b.isBone)return;const a=frame.bones[b.name],c=next.bones[b.name];if(!a||!c)return;b.position.fromArray(a).lerp(_v.fromArray(c),t);b.quaternion.fromArray(a,3).slerp(new THREE.Quaternion().fromArray(c,3),t);});}
+function apply(root,frame,next,t){root.position.fromArray(frame.pos).lerp(_v.fromArray(next.pos),t);root.quaternion.fromArray(frame.q).slerp(_poseQ.fromArray(next.q),t);root.traverse(b=>{if(!b.isBone)return;const a=frame.bones[b.name],c=next.bones[b.name];if(!a||!c)return;b.position.fromArray(a).lerp(_v.fromArray(c),t);b.quaternion.fromArray(a,3).slerp(_poseQ.fromArray(c,3),t);});}
 
 export class KillReplay {
-  constructor(game){this.game=game;this.frames=[];this.nextSample=0;this.active=false;this.cine=0;this.flash=0;
+  constructor(game){this.game=game;this.frames=new ReplayBuffer();this.nextSample=0;this.active=false;this.cine=0;this.flash=0;
     this.overlay=document.createElement('div');this.overlay.className='killReplay';this.overlay.hidden=true;
     const title=document.createElement('strong');title.textContent='致命一擊重現';this.title=title;
     this.detail=document.createElement('span');this.speed=document.createElement('small');
@@ -25,12 +25,12 @@ export class KillReplay {
   }
   // 30Hz 取樣；慢動作時兩格之間用插值補
   record(){const g=this.game;if(g.time<this.nextSample)return;this.nextSample=g.time+1/30;
-    const frame={time:g.time,actors:new Map(g.actors.map(a=>[a.id,pose(a)]))};this.frames.push(frame);while(this.frames.length>100)this.frames.shift();
-    if(this.active&&g.time<=this.deathTime+REPLAY_AFTER)this.clip.push(frame);
+    const frame=this.frames.record(g.time,g.actors);
+    if(this.active&&g.time<=this.deathTime+REPLAY_AFTER)this.clip.push(structuredClone(frame));
   }
-  reset(){this.stop();this.frames=[];this.nextSample=0;}
+  reset(){this.stop();this.frames=new ReplayBuffer();this.nextSample=0;}
   start(victim,attacker,cause,headshot,wallbang,hitInfo={}){
-    this.stop();const g=this.game;this.active=true;this.elapsed=0;this.deathTime=g.time;this.clip=this.frames.slice();this.victim=victim.id;this.attacker=attacker?.id;
+    this.stop();const g=this.game;this.active=true;this.elapsed=0;this.deathTime=g.time;this.clip=this.frames.snapshot();this.victim=victim.id;this.attacker=attacker?.id;
     this.impact=hitInfo.point?.clone()||(headshot?victim.soldier.headWorld(new THREE.Vector3()):victim.soldier.chestWorld(new THREE.Vector3())).clone();
     this.partName=({head:'頭部',chest:'軀幹',stomach:'腹部',arm:'手臂',leg:'腿部'})[hitInfo.part]||(headshot?'頭部':'軀幹');
     this.damageText=hitInfo.damage?` · 最後一擊 ${hitInfo.damage} 傷害`:'';victim.respawnT=.2;

@@ -1,3 +1,5 @@
+import {FixedStep} from './fixed-step.js';
+import {setCameraFov} from './camera-fov.js';
 // 樹義國小校園對戰：遊戲主體——載入、對局流程、主迴圈、畫面輸出
 //
 // 戰鬥判定在 combat.js、角色事件的音效反應在 game-events.js，兩者都掛到 Game 上。
@@ -24,8 +26,8 @@ import { TouchControls } from './touch.js';
 import { combat } from './combat.js';
 import { events } from './game-events.js';
 
+const _sun = new THREE.Vector3(), _cameraInverse = new THREE.Quaternion();
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
-const MAX_STEP = 1 / 100;    // 物理每步最多 10 ms，一幀最多 4 步
 const _v = new THREE.Vector3(), _u = new THREE.Vector3(), _d = new THREE.Vector3();
 
 // 電腦玩家的主武器分配：每隊固定有一把狙擊、一把霰彈，人多時再加衝鋒槍，其餘步槍
@@ -39,7 +41,8 @@ function botPrimary(team, slot, teamSize) {
 
 export class Game {
   constructor() {
-    this.time = 0; this.realTime = 0; this.frame = 0;
+    this.fixedStep = new FixedStep();
+    this.time = 0; this.realTime = 0; this.frame = 0; this.hitQuery = 0;
     this.playing = false; this.paused = false; this.ended = false; this.locked = false; this.inLoadout = false;
     this.actors = []; this.nades = []; this.rockets = []; this.timers = []; this.tags = [];
     this.score = { BL: 0, GR: 0 };
@@ -55,7 +58,7 @@ export class Game {
   async init() {
     this.hud = new HUD(this);
     this.opts = this.hud.opts;
-    if (this.qs.get('q')) this.opts.quality = this.qs.get('q');
+    if (['low','medium','high'].includes(this.qs.get('q'))) this.opts.quality = this.qs.get('q');
     const step = async (p, text) => { this.hud.loading(p, text); await nextFrame(); };
 
     this.hud.show('loading');
@@ -139,12 +142,17 @@ export class Game {
     r.setRenderTarget(null);
     r.setClearColor(prevColor, prevAlpha);
     target.dispose();
+    scene.overrideMaterial.dispose();
     return icons;
   }
 
   // ───────── 對局流程 ─────────
 
   startMatch() {
+    this.resetMatchState();
+    this.time = 0; this.last = performance.now();
+    this.hud.resetMatch();
+    this.renderer.perfSeconds = this.renderer.perfFrames = this.renderer.perfCooldown = 0;
     this.performanceStats=new PerformanceStats();
     this.map.resetGlass?.();
     this.map.resetDestruction?.();
@@ -188,8 +196,27 @@ export class Game {
     this.playing = true; this.paused = false; this.ended = false;
     this.hud.show(null);
     this.lock();
-    setTimeout(() => audio.announce('Go go go!'), 400);
+    this.after(this.time + .4, () => audio.announce('Go go go!'));
     this.hud.toast(`團隊競技・率先達到 <b style="color:#ffe066">${this.goal}</b> 擊殺的隊伍獲勝`, 3.5);
+  }
+
+  resetMatchState() {
+    this.resetInput();
+    this.timers = []; this.endPending = false;
+    this.fixedStep.reset();
+    this.inLoadout = false; this.aimTarget = null; this.boardShown = false;
+    this.killedBy = ''; this.lightK = this.indoorK = undefined;
+    this.fpsHinted = false;
+    this.dmgFlash = this.suppT = this.suppK = this.concT = this.concK = this.flash = 0;
+    this.hud.scoreboard(false);
+  }
+
+  resetInput() { this.touch?.releaseAll(); this.player?.resetInput(); }
+
+  scheduleEnd() {
+    if (this.endPending) return;
+    this.endPending = true;
+    this.after(this.time + 1.2, () => { if (this.playing) this.endMatch(); });
   }
 
   clearActors() {
@@ -225,7 +252,7 @@ export class Game {
 
   // 出生點：避開有人站著的點，偏好離敵人遠的點（加一點隨機）
   spawnActor(a, first) {
-    if(a.isPlayer)this.touch?.releaseAll();
+    if(a.isPlayer)this.resetInput();
     let best = null, bestScore = -Infinity;
     for (const p of this.map.spawns[a.team]) {
       let score = Math.random() * 3;
@@ -251,7 +278,7 @@ export class Game {
   lock() {
     if (this.touchMode || this.qs.has('nolock')) { this.locked = true; return; }
     const c = document.getElementById('c');
-    const plain = () => { try { c.requestPointerLock(); } catch { /* 拿不到鎖定就算了 */ } };
+    const plain = () => { if (!this.playing || this.inLoadout) return; try { c.requestPointerLock()?.catch?.(() => {}); } catch { /* 拿不到鎖定就算了 */ } };
     try {
       const p = c.requestPointerLock({ unadjustedMovement: true });   // 不受系統滑鼠加速影響
       p?.catch?.(plain);
@@ -265,11 +292,17 @@ export class Game {
     else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has('nolock')) this.pause();
   }
 
-  pause() { this.touch?.releaseAll(); this.paused = true; this.hud.show('pause'); this.hud.scoreboard(false); }
+  pause() { this.resetInput(); this.fixedStep.reset(); this.paused = true; this.hud.show('pause'); this.hud.scoreboard(false); }
 
-  resume(fromLock) { this.paused = false; this.hud.show(null); if (!fromLock) this.lock(); }
+  resume(fromLock) { this.resetInput(); this.fixedStep.reset(); this.last = performance.now(); this.paused = false; this.hud.show(null); if (!fromLock) this.lock(); }
 
   quitToMenu() {
+    this.resetMatchState();
+    this.clearRockets();
+    for (const n of this.nades) this.renderer.scene.remove(n.mesh);
+    this.nades = [];
+    this.nav.clearRequests?.();
+    this.wreckQueue = [];
     this.killReplay?.stop();
     this.playing = false; this.paused = false; this.ended = true;
     audio.stopAmbient(); audio.setLowHealth(false);
@@ -284,14 +317,14 @@ export class Game {
     if (!this.playing) return;
     if (this.inLoadout) { this.closeLoadout(); return; }
     this.inLoadout = true;
-    this.touch?.releaseAll();
+    this.resetInput();
     this.hud.show('loadout');
     const current = this.player.nextPrimary || this.player.primary;
     for (const card of document.querySelectorAll('#loadCards .card')) card.classList.toggle('on', card.dataset.w === current);
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
-  closeLoadout() { this.inLoadout = false; this.hud.show(null); this.lock(); }
+  closeLoadout() { this.resetInput(); this.inLoadout = false; this.hud.show(null); this.lock(); }
 
   // 在出生點內立刻換上；否則下次復活生效
   chooseLoadout(id) {
@@ -322,6 +355,9 @@ export class Game {
   }
 
   endMatch() {
+    if (this.ended) return;
+    this.resetMatchState();
+    this.killReplay?.stop();
     this.ended = true; this.playing = false;
     const mine = this.player.team, theirs = mine === 'BL' ? 'GR' : 'BL';
     const win = this.score[mine] === this.score[theirs] ? null : this.score[mine] > this.score[theirs];
@@ -340,19 +376,23 @@ export class Game {
     const frameMs=dt*1000,simulationStart=performance.now();
     this.last = now;
     if (dt <= 0) return;
+    this.frame++;
     if (this.playing && !this.paused && this.time > 3) this.renderer.samplePerformance(dt);
     dt = Math.min(dt, 0.1);   // 切回分頁時不要一次跳太多
     this.realTime += dt;
     if (this.playing && !this.paused) {
       if (this.player) this.player.lookDX = this.player.lookDY = 0;
       // 固定小步長模擬：手感不受幀率影響；最後一步才更新角色動畫
-      const steps = Math.min(4, Math.ceil(dt / MAX_STEP - 1e-6)), h = dt / steps;
-      for (let i = 0; i < steps; i++) this.simulate(h, i === steps - 1 ? dt : 0);
+      this.fixedStep.advance(dt, (h, vis) => {
+        if (!this.playing || this.paused) return false;
+        this.simulate(h, vis);
+        return this.playing && !this.paused;
+      });
     } else if (!this.playing) {
       // 選單背景：俯瞰校園
       const cam = this.renderer.camera, mc = this.map?.menuCam;
       if (mc) { cam.position.set(...mc.pos); cam.lookAt(...mc.look); } else { cam.position.set(123, 151, 159); cam.lookAt(0, 39, 0); }
-      cam.fov = 65; cam.updateProjectionMatrix();
+      setCameraFov(cam, 65);
     }
     const simulationMs=performance.now()-simulationStart,renderStart=performance.now();
     this.renderFrame(dt);
@@ -361,7 +401,14 @@ export class Game {
 
   // 除錯用：不渲染、直接快轉模擬
   fastForward(seconds, step = 1 / 30) {
-    for (let t = 0; t < seconds && this.playing; t += step) this.simulate(step);
+    if (!Number.isFinite(seconds) || seconds < 0 || !Number.isFinite(step) || step <= 0) {
+      throw new RangeError('快轉時間須為非負有限值，步長須為正有限值');
+    }
+    const h = Math.min(step, .01);
+    for (let t = 0; t < seconds && this.playing && !this.paused;) {
+      const dt = Math.min(h, seconds - t);
+      this.simulate(dt); t += dt;
+    }
     return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => `${a.name}:${a.stats.k}/${a.stats.d}`).join(' ') };
   }
 
@@ -374,6 +421,7 @@ export class Game {
       const { fn } = this.timers[i];
       this.timers.splice(i, 1);
       fn();
+      if (!this.playing) return;
     }
     this.player.update(dt);
     for (const a of this.actors) if (!a.isPlayer) a.update(dt);
@@ -426,15 +474,15 @@ export class Game {
     this.fx.update(physicsDt, this.realTime, cam);
     this.env.update(dt, this.realTime, cam.position);
     this.map.update(physicsDt, this.realTime);
-    if (!this.paused) {
+    if (this.playing && !this.paused) {
       this.updateLanded();
-      if (this.playing) this.debrisHits();
-    }
+      this.debrisHits();
+    } else if (!this.playing) this.map.takeLanded?.();
     this.updateRadarLabel(dt);
     audio.setListener(cam.position, _v.set(0, 0, -1).applyQuaternion(cam.quaternion), _u.set(0, 1, 0).applyQuaternion(cam.quaternion));
     audio.update(dt);
     if (p && (this.playing || this.ended)) this.updateHUD(dt);
-    this.updateScreenFx(dt);
+    this.updateScreenFx(this.paused ? 0 : dt);
     if(this.killReplay?.update(dt)){
       this.vm.setVisible(false);
       const u=R.fx.uniforms,kr=this.killReplay;u.uDeath.value=0;u.uDamage.value=0;u.uLowHP.value=0;u.uConc.value=0;u.uVignette.value=.15;u.uCine.value=kr.cine;u.uFlash.value=kr.flash;
@@ -445,8 +493,7 @@ export class Game {
   updateViewModel(dt, p) {
     const R = this.renderer, cam = R.camera;
     if (this.frame % 6 === 0 || this.lightK === undefined) this.probeLight();
-    this.frame++;
-    const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
+    const sunCam = _sun.copy(this.env.sunDir).applyQuaternion(_cameraInverse.copy(cam.quaternion).invert());
     this.vm.setVisible(p.alive && !(p.scoped && p.weapon.def.type === 'sniper'));
     this.vm.update(dt, { ammo:p.weapon.mag, speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
     R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
@@ -516,10 +563,10 @@ export class Game {
       const o = cam.position, d = _d.set(0, 0, -1).applyQuaternion(cam.quaternion);
       const wall = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, 'sight');
       let best = null, bestT = wall ? wall.t : 80;
-      this.frame++;
+      this.hitQuery++;
       for (const a of this.actors) {
         if (a === p || !a.alive) continue;
-        const r = a.soldier.hitTest(o, d, bestT, this.frame);
+        const r = a.soldier.hitTest(o, d, bestT, this.hitQuery);
         if (r) { best = a; bestT = r.t; }
       }
       this.aimTarget = best;

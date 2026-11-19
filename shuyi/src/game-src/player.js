@@ -1,3 +1,4 @@
+import {setCameraFov} from './camera-fov.js';
 // 樹義國小校園對戰：玩家（鍵盤滑鼠輸入、第一人稱鏡頭、陣亡鏡頭）
 //
 // 對外介面（其餘移動、射擊邏輯繼承自 Actor）
@@ -39,10 +40,11 @@ export class Player extends Actor {
     const g = this.game;
     if (g._inputBound) return;
     g._inputBound = true;
-    const active = () => (g.playing ? g.player : null);   // 遊戲中才接收
+    const active = () => (g.playing && !g.paused && !g.inLoadout ? g.player : null);   // 遊戲中才接收
     const any = () => g.player;                           // 放開鍵、失焦一律處理，避免卡鍵
 
     addEventListener('keydown', (e) => {
+      if (g.playing && !g.paused && g.inLoadout && e.code === 'KeyB' && !e.repeat) { g.closeLoadout(); return; }
       const p = active();
       if (!p) return;
       if (SWALLOW.has(e.code) || (e.ctrlKey && CTRL_SWALLOW.has(e.code))) e.preventDefault();
@@ -53,8 +55,10 @@ export class Player extends Actor {
     addEventListener('keyup', (e) => any()?.keys.delete(e.code));
     addEventListener('blur', () => {
       const p = any();
-      if (p) { p.keys.clear(); p.mouse.l = p.mouse.r = false; }
+      p?.resetInput();
     });
+
+    document.addEventListener('visibilitychange', () => { if (document.hidden) any()?.resetInput(); });
 
     canvas.addEventListener('mousedown', (e) => {
       const p = active();
@@ -82,6 +86,14 @@ export class Player extends Actor {
       const p = active();
       if (p && g.locked) p.mouse.wheel += Math.sign(e.deltaY);
     }, { passive: true });
+  }
+
+  resetInput() {
+    this.keys.clear(); this.pressed.clear();
+    Object.assign(this.mouse, {l:false,r:false,lp:false,rp:false,dx:0,dy:0,wheel:0});
+    Object.assign(this.touch, {mx:0,mz:0,fire:false,firePressed:false,jump:false,crouch:false});
+    if (this.touchLook) this.touchLook.x = this.touchLook.y = 0;
+    this.lookDX = this.lookDY = 0;
   }
 
   consumePressed(code) {
@@ -189,8 +201,7 @@ export class Player extends Actor {
         if (dc.killer?.alive) dc.look.lerp(dc.killer.soldier.headWorld(_head), Math.min(1, dt * 3));
         cam.lookAt(dc.look);
       }
-      cam.fov += (g.opts.fov - cam.fov) * Math.min(1, dt * 8);
-      cam.updateProjectionMatrix();
+      setCameraFov(cam, cam.fov + (g.opts.fov - cam.fov) * Math.min(1, dt * 8), g.opts.fov);
       return;
     }
 
@@ -229,8 +240,7 @@ export class Player extends Actor {
     // 視野：狙擊鏡兩段放大，開鏡瞬間切換、關鏡平滑還原
     const w = this.weapon;
     const fov = w && w.def.type === 'sniper' && this.scoped ? w.def.zoom[this.scoped - 1] : g.opts.fov;
-    cam.fov += (fov - cam.fov) * (this.scoped ? 1 : Math.min(1, dt * 10));
-    cam.updateProjectionMatrix();
+    setCameraFov(cam, cam.fov + (fov - cam.fov) * (this.scoped ? 1 : Math.min(1, dt * 10)), fov);
   }
 
   startDeathCam(killer) {

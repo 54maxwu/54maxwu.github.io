@@ -209,6 +209,8 @@ export class ViewModel {
   }
 
   equip(id, drawTime) {
+    this.flashT = 0; this.flash.visible = false;
+    for (const shell of this.shells) { shell.life = 0; shell.mesh.visible = false; }
     this.holdGrenade=false;
     this.grenadeDetached=false;
     if (!this.guns[id]) {

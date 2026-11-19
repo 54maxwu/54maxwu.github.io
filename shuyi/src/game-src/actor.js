@@ -77,6 +77,11 @@ export class Actor {
   }
 
   spawn(sp) {
+    this.speed = 0; this.walk = false; this.aimPunch = 0;
+    this.jumpCD = this.slideCD = this.mantleCD = this.stepDist = 0;
+    this.scopeT = this.reScope = 0;
+    this.landed = false; this.landSpeed = 0;
+    this.lastAttacker = null; this.lastHurt = -99; this.radarT = 0;
     this.pendingThrow = 0; this.autoSwitchAt = 0; this.grenadePrimed=false;this.grenadeReleased=false;this.grenadeThrowing=false;this.grenadeReleaseT=0;
     this.stepped = 0; this.stepOffset = 0;
     this.pos.set(sp.x, (sp.y ?? 0) + 0.02, sp.z);

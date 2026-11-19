@@ -119,7 +119,7 @@ export const combat = {
     const range = d.range;
     const walls = this.world.raycastAll(o.x, o.y, o.z, dir.x, dir.y, dir.z, range);
     let power = d.pen, keep = 1, wallbang = false, from = 0;
-    this.frame++;
+    this.hitQuery++;
     for (let i = 0; i <= walls.length; i++) {
       const h = walls[i];
       const victim = this.firstActorHit(shooter, o, dir, from, h ? h.t : range);
@@ -177,7 +177,7 @@ export const combat = {
     let best = null;
     for (const a of this.actors) {
       if (!a.alive || a === shooter || a.team === shooter.team) continue;
-      const r = a.soldier.hitTest(o, dir, best ? best.t : limit, this.frame);
+      const r = a.soldier.hitTest(o, dir, best ? best.t : limit, this.hitQuery);
       if (r && r.t > from - 0.01 && r.t < (best ? best.t : limit)) best = { actor: a, t: r.t, part: r.part };
     }
     return best;
@@ -192,13 +192,13 @@ export const combat = {
     const eye = a.eye(new THREE.Vector3());
     const aim = a.forward(new THREE.Vector3());
     if (a.isPlayer) this.vm.melee(heavy);
-    this.frame++;
+    this.hitQuery++;
     let hit = null;
     for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
       const dir = aim.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), off);
       for (const b of this.actors) {
         if (!b.alive || b === a || b.team === a.team) continue;
-        const r = b.soldier.hitTest(eye, dir, range, this.frame);
+        const r = b.soldier.hitTest(eye, dir, range, this.hitQuery);
         if (r && (!hit || r.t < hit.t)) hit = { actor: b, t: r.t, part: r.part, dir };
       }
       if (hit) break;
@@ -422,6 +422,7 @@ export const combat = {
 
   // 護甲：腿部以外的傷害有一部分由護甲吸收（依武器的穿甲比例），護甲也會被磨損
   damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint,context={}) {
+    if (this.ended || this.paused) return;
     if (!v.alive || v.protectT > 0) return;
     if (att && att !== v && att.team === v.team) return;          // 沒有友軍傷害
     const armorBefore = v.armor, armored = armorBefore > 0 && part !== 'leg';
@@ -492,7 +493,7 @@ export const combat = {
         : CAUSES[cause]?.death || '你陣亡了';
     }
     this.fx.bloodSplat(v.pos);
-    if (this.score.BL >= this.goal || this.score.GR >= this.goal) setTimeout(() => { if (this.playing) this.endMatch(); }, 1200);
+    if (this.score.BL >= this.goal || this.score.GR >= this.goal) this.scheduleEnd();
   },
 
   // 玩家擊殺：印章＋播報（連殺優先，其次爆頭、刀殺、手雷、穿牆）
@@ -504,7 +505,7 @@ export const combat = {
     else if (cause === 'knife') { [title, sub] = ['KNIFE KILL', `刀殺・${sub}`]; }
     else if (cause === 'he') { [title, sub] = ['GRENADE KILL', `手雷擊殺・${sub}`]; }
     else if (wallbang) { [title, sub] = ['WALLBANG', `穿牆擊殺・${sub}`]; }
-    if (call) setTimeout(() => audio.announce(call), 150);
+    if (call) this.after(this.time + .15, () => audio.announce(call));
     this.hud.badge(title, sub, headshot);
     audio.playKillConfirm(headshot);
   },

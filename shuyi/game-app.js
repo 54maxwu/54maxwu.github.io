@@ -15,6 +15,38 @@
     };
   })();
 
+  // game-src/fixed-step.js
+  var FixedStep = class {
+    constructor(step = 0.01, limit = 4) {
+      this.step = step;
+      this.limit = limit;
+      this.reset();
+    }
+    reset() {
+      this.remaining = 0;
+    }
+    advance(dt, run) {
+      this.remaining += Math.max(0, dt);
+      const available = Math.floor((this.remaining + 1e-9) / this.step);
+      const count = Math.min(this.limit, available);
+      this.remaining = Math.max(0, this.remaining - available * this.step);
+      for (let i = 0; i < count; i++) {
+        if (run(this.step, i === count - 1 ? count * this.step : 0) === false) {
+          this.reset();
+          break;
+        }
+      }
+    }
+  };
+
+  // game-src/camera-fov.js
+  function setCameraFov(camera, value, target = value) {
+    if (Math.abs(value - target) < 1e-4) value = target;
+    if (camera.fov === value) return;
+    camera.fov = value;
+    camera.updateProjectionMatrix();
+  }
+
   // node_modules/three/build/three.core.js
   var REVISION = "186";
   var CullFaceNone = 0;
@@ -29947,7 +29979,7 @@ void main() {
       let referenceSpaceType = "local-floor";
       let foveation = 1;
       let customReferenceSpace = null;
-      let pose2 = null;
+      let pose = null;
       let glBinding = null;
       let glProjLayer = null;
       let glBaseLayer = null;
@@ -30340,10 +30372,10 @@ void main() {
       };
       let onAnimationFrameCallback = null;
       function onAnimationFrame(time, frame) {
-        pose2 = frame.getViewerPose(customReferenceSpace || referenceSpace);
+        pose = frame.getViewerPose(customReferenceSpace || referenceSpace);
         xrFrame = frame;
-        if (pose2 !== null) {
-          const views = pose2.views;
+        if (pose !== null) {
+          const views = pose.views;
           if (glBaseLayer !== null) {
             renderer.setRenderTargetFramebuffer(newRenderTarget, glBaseLayer.framebuffer);
             renderer.setRenderTarget(newRenderTarget);
@@ -33380,6 +33412,52 @@ void main() {
     }
   };
 
+  // game-src/replay-buffer.js
+  var ReplayBuffer = class {
+    constructor(capacity = 100) {
+      this.capacity = capacity;
+      this.reset();
+    }
+    reset() {
+      this.slots = [];
+      this.next = 0;
+      this.length = 0;
+    }
+    record(time, actors) {
+      var _a3, _b3, _c2, _d5;
+      const frame = (_a3 = this.slots)[_b3 = this.next] ?? (_a3[_b3] = { time: 0, actors: /* @__PURE__ */ new Map() });
+      frame.time = time;
+      for (const actor of actors) {
+        const soldier = actor.soldier, root = soldier.root;
+        let pose = frame.actors.get(actor.id);
+        if (!pose) {
+          pose = { pos: new Float64Array(3), q: new Float64Array(4), bones: {} };
+          frame.actors.set(actor.id, pose);
+        }
+        root.position.toArray(pose.pos);
+        root.quaternion.toArray(pose.q);
+        for (const bone of soldier.bones) {
+          const values = (_c2 = pose.bones)[_d5 = bone.name] ?? (_c2[_d5] = new Float64Array(7));
+          bone.position.toArray(values);
+          bone.quaternion.toArray(values, 3);
+        }
+      }
+      if (frame.actors.size !== actors.length || actors.some((a) => !frame.actors.has(a.id))) {
+        const ids = new Set(actors.map((a) => a.id));
+        for (const id of frame.actors.keys()) if (!ids.has(id)) frame.actors.delete(id);
+      }
+      this.next = (this.next + 1) % this.capacity;
+      this.length = Math.min(this.length + 1, this.capacity);
+      return frame;
+    }
+    snapshot() {
+      const frames = [];
+      const start = (this.next - this.length + this.capacity) % this.capacity;
+      for (let i = 0; i < this.length; i++) frames.push(structuredClone(this.slots[(start + i) % this.capacity]));
+      return frames;
+    }
+  };
+
   // node_modules/three/examples/jsm/utils/SkeletonUtils.js
   function clone(source) {
     const sourceLookup = /* @__PURE__ */ new Map();
@@ -34099,25 +34177,22 @@ void main() {
   var UP = new Vector3(0, 1, 0);
   var _v = new Vector3();
   var _w = new Vector3();
-  function pose(actor) {
-    const root = actor.soldier.root;
-    return { pos: root.position.toArray(), q: root.quaternion.toArray(), bones: Object.fromEntries(actor.soldier.bones.map((b) => [b.name, [...b.position.toArray(), ...b.quaternion.toArray()]])) };
-  }
+  var _poseQ = new Quaternion();
   function apply(root, frame, next, t) {
     root.position.fromArray(frame.pos).lerp(_v.fromArray(next.pos), t);
-    root.quaternion.fromArray(frame.q).slerp(new Quaternion().fromArray(next.q), t);
+    root.quaternion.fromArray(frame.q).slerp(_poseQ.fromArray(next.q), t);
     root.traverse((b) => {
       if (!b.isBone) return;
       const a = frame.bones[b.name], c = next.bones[b.name];
       if (!a || !c) return;
       b.position.fromArray(a).lerp(_v.fromArray(c), t);
-      b.quaternion.fromArray(a, 3).slerp(new Quaternion().fromArray(c, 3), t);
+      b.quaternion.fromArray(a, 3).slerp(_poseQ.fromArray(c, 3), t);
     });
   }
   var KillReplay = class {
     constructor(game) {
       this.game = game;
-      this.frames = [];
+      this.frames = new ReplayBuffer();
       this.nextSample = 0;
       this.active = false;
       this.cine = 0;
@@ -34147,14 +34222,12 @@ void main() {
       const g = this.game;
       if (g.time < this.nextSample) return;
       this.nextSample = g.time + 1 / 30;
-      const frame = { time: g.time, actors: new Map(g.actors.map((a) => [a.id, pose(a)])) };
-      this.frames.push(frame);
-      while (this.frames.length > 100) this.frames.shift();
-      if (this.active && g.time <= this.deathTime + REPLAY_AFTER) this.clip.push(frame);
+      const frame = this.frames.record(g.time, g.actors);
+      if (this.active && g.time <= this.deathTime + REPLAY_AFTER) this.clip.push(structuredClone(frame));
     }
     reset() {
       this.stop();
-      this.frames = [];
+      this.frames = new ReplayBuffer();
       this.nextSample = 0;
     }
     start(victim, attacker, cause, headshot, wallbang, hitInfo = {}) {
@@ -34163,7 +34236,7 @@ void main() {
       this.active = true;
       this.elapsed = 0;
       this.deathTime = g.time;
-      this.clip = this.frames.slice();
+      this.clip = this.frames.snapshot();
       this.victim = victim.id;
       this.attacker = attacker?.id;
       this.impact = hitInfo.point?.clone() || (headshot ? victim.soldier.headWorld(new Vector3()) : victim.soldier.chestWorld(new Vector3())).clone();
@@ -34518,10 +34591,11 @@ void main() {
   var PerformanceStats = class {
     constructor() {
       this.samples = [];
+      this.next = 0;
     }
     add(sample) {
-      this.samples.push(sample);
-      if (this.samples.length > 300) this.samples.shift();
+      this.samples[this.next] = sample;
+      this.next = (this.next + 1) % 300;
     }
     report() {
       const out = { samples: this.samples.length };
@@ -39593,6 +39667,20 @@ void main() {
     }
     clearDecals() {
       this.clearRocketEffects();
+      this.tracers = [];
+      this.tracerMesh.count = 0;
+      this.shake = 0;
+      for (const f of this.flashes) {
+        f.t = 0;
+        f.s.visible = false;
+      }
+      for (const light of this.lights) {
+        light.t = 0;
+        light.l.intensity = 0;
+      }
+      this.chunkMesh.count = this.shardMesh.count = this.caseMesh.count = 0;
+      this.add.geo.setDrawRange(0, 0);
+      this.smoke.geo.setDrawRange(0, 0);
       for (const d of Object.values(this.decals)) {
         d.mesh.count = 0;
         d.i = 0;
@@ -40467,6 +40555,12 @@ void main() {
       this.sleeveMat.color.set(SLEEVE[team] ?? SLEEVE.BL);
     }
     equip(id, drawTime) {
+      this.flashT = 0;
+      this.flash.visible = false;
+      for (const shell of this.shells) {
+        shell.life = 0;
+        shell.mesh.visible = false;
+      }
       this.holdGrenade = false;
       this.grenadeDetached = false;
       if (!this.guns[id]) {
@@ -40753,6 +40847,18 @@ void main() {
     }
   };
 
+  // game-src/options.js
+  function normalizeOptions(raw, touch = false) {
+    const defaults = { team: "BL", primary: "ak47", size: 4, diff: "normal", goal: 50, tod: "day", quality: touch ? "low" : "high", sens: 1, fov: 78, vol: 0.8 };
+    const choices = { team: ["BL", "GR"], primary: PRIMARIES, size: [4, 6, 8], diff: ["easy", "normal", "hard", "hell"], goal: [30, 50, 100], tod: ["day", "dusk"], quality: ["low", "medium", "high"] };
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return defaults;
+    for (const [key, values] of Object.entries(choices)) if (values.includes(raw[key])) defaults[key] = raw[key];
+    for (const [key, min, max] of [["sens", 0.2, 3], ["fov", 65, 100], ["vol", 0, 1]]) {
+      if (typeof raw[key] === "number" && Number.isFinite(raw[key])) defaults[key] = Math.max(min, Math.min(max, raw[key]));
+    }
+    return defaults;
+  }
+
   // game-src/hud.js
   var TEAM_NAME = { BL: "\u5973\u751F\u968A", GR: "\u7537\u751F\u968A" };
   var OPTS_KEY = "sy_campus_opts";
@@ -40892,12 +40998,21 @@ void main() {
       this.slotsT = 0;
       this.radarCtx = this.el.radar.getContext("2d");
       const touch = matchMedia("(pointer:coarse)").matches;
-      this.opts = { team: "BL", primary: "ak47", size: 4, diff: "normal", goal: 50, tod: "day", quality: touch ? "low" : "high", sens: 1, fov: 78, vol: 0.8 };
+      this.opts = normalizeOptions(null, touch);
       try {
-        Object.assign(this.opts, JSON.parse(localStorage.getItem(OPTS_KEY) || "{}"));
+        this.opts = normalizeOptions(JSON.parse(localStorage.getItem(OPTS_KEY) || "{}"), touch);
       } catch {
       }
       this.wireMenu(touch);
+    }
+    resetMatch() {
+      for (const item of [...this.feedItems, ...this.dmgDirs]) item.el.remove();
+      this.feedItems = [];
+      this.dmgDirs = [];
+      this.hitT = this.toastT = this.slotsT = 0;
+      for (const key of ["hit", "toast", "slots"]) this.el[key].style.opacity = 0;
+      this.el.badge.classList.remove("show");
+      this.el.nameTip.textContent = "";
     }
     saveOpts() {
       try {
@@ -41115,7 +41230,9 @@ void main() {
     }
     drawRadar(me, actors = this.g.actors || []) {
       const ctx = this.radarCtx, cv = this.el.radar;
-      const W = cv.width = Math.round(cv.clientWidth * 1.5), H = cv.height = Math.round(cv.clientHeight * 1.5);
+      const W = Math.round(cv.clientWidth * 1.5), H = Math.round(cv.clientHeight * 1.5);
+      if (cv.width !== W) cv.width = W;
+      if (cv.height !== H) cv.height = H;
       ctx.clearRect(0, 0, W, H);
       const R = this.radar;
       if (!R) return;
@@ -42080,6 +42197,16 @@ void main() {
       this.soldier.setWeapon(this.primary);
     }
     spawn(sp) {
+      this.speed = 0;
+      this.walk = false;
+      this.aimPunch = 0;
+      this.jumpCD = this.slideCD = this.mantleCD = this.stepDist = 0;
+      this.scopeT = this.reScope = 0;
+      this.landed = false;
+      this.landSpeed = 0;
+      this.lastAttacker = null;
+      this.lastHurt = -99;
+      this.radarT = 0;
       this.pendingThrow = 0;
       this.autoSwitchAt = 0;
       this.grenadePrimed = false;
@@ -42480,9 +42607,13 @@ void main() {
       const g = this.game;
       if (g._inputBound) return;
       g._inputBound = true;
-      const active = () => g.playing ? g.player : null;
+      const active = () => g.playing && !g.paused && !g.inLoadout ? g.player : null;
       const any = () => g.player;
       addEventListener("keydown", (e) => {
+        if (g.playing && !g.paused && g.inLoadout && e.code === "KeyB" && !e.repeat) {
+          g.closeLoadout();
+          return;
+        }
         const p = active();
         if (!p) return;
         if (SWALLOW.has(e.code) || e.ctrlKey && CTRL_SWALLOW.has(e.code)) e.preventDefault();
@@ -42493,10 +42624,10 @@ void main() {
       addEventListener("keyup", (e) => any()?.keys.delete(e.code));
       addEventListener("blur", () => {
         const p = any();
-        if (p) {
-          p.keys.clear();
-          p.mouse.l = p.mouse.r = false;
-        }
+        p?.resetInput();
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) any()?.resetInput();
       });
       canvas2.addEventListener("mousedown", (e) => {
         const p = active();
@@ -42532,6 +42663,14 @@ void main() {
         const p = active();
         if (p && g.locked) p.mouse.wheel += Math.sign(e.deltaY);
       }, { passive: true });
+    }
+    resetInput() {
+      this.keys.clear();
+      this.pressed.clear();
+      Object.assign(this.mouse, { l: false, r: false, lp: false, rp: false, dx: 0, dy: 0, wheel: 0 });
+      Object.assign(this.touch, { mx: 0, mz: 0, fire: false, firePressed: false, jump: false, crouch: false });
+      if (this.touchLook) this.touchLook.x = this.touchLook.y = 0;
+      this.lookDX = this.lookDY = 0;
     }
     consumePressed(code) {
       const had = this.pressed.has(code);
@@ -42640,8 +42779,7 @@ void main() {
           if (dc.killer?.alive) dc.look.lerp(dc.killer.soldier.headWorld(_head), Math.min(1, dt * 3));
           cam.lookAt(dc.look);
         }
-        cam.fov += (g.opts.fov - cam.fov) * Math.min(1, dt * 8);
-        cam.updateProjectionMatrix();
+        setCameraFov(cam, cam.fov + (g.opts.fov - cam.fov) * Math.min(1, dt * 8), g.opts.fov);
         return;
       }
       const sp = this.onGround ? this.speed : 0;
@@ -42669,8 +42807,7 @@ void main() {
       cam.rotation.set(this.pitch + this.punchP * 0.75 + this.aimPunch, this.yaw + this.punchY * 0.75, this.camRoll);
       const w = this.weapon;
       const fov2 = w && w.def.type === "sniper" && this.scoped ? w.def.zoom[this.scoped - 1] : g.opts.fov;
-      cam.fov += (fov2 - cam.fov) * (this.scoped ? 1 : Math.min(1, dt * 10));
-      cam.updateProjectionMatrix();
+      setCameraFov(cam, cam.fov + (fov2 - cam.fov) * (this.scoped ? 1 : Math.min(1, dt * 10)), fov2);
     }
     startDeathCam(killer) {
       const cam = this.game.renderer.camera;
@@ -43830,6 +43967,7 @@ void main() {
       this.rockets.push({ mesh, owner, historyId, dir: dir.clone(), def, distance: 0, trailDistance: 0 });
     },
     updateRockets(dt) {
+      this.hitQuery = (this.hitQuery || 0) + 1;
       this.rockets = this.rockets.filter((r) => {
         const p = r.mesh.position, d = r.dir;
         const length = Math.min(r.def.projectileSpeed * dt, r.def.range - r.distance);
@@ -43963,7 +44101,7 @@ void main() {
       const range = d.range;
       const walls = this.world.raycastAll(o.x, o.y, o.z, dir.x, dir.y, dir.z, range);
       let power = d.pen, keep = 1, wallbang = false, from = 0;
-      this.frame++;
+      this.hitQuery++;
       for (let i = 0; i <= walls.length; i++) {
         const h = walls[i];
         const victim = this.firstActorHit(shooter, o, dir, from, h ? h.t : range);
@@ -44028,7 +44166,7 @@ void main() {
       let best = null;
       for (const a of this.actors) {
         if (!a.alive || a === shooter || a.team === shooter.team) continue;
-        const r = a.soldier.hitTest(o, dir, best ? best.t : limit, this.frame);
+        const r = a.soldier.hitTest(o, dir, best ? best.t : limit, this.hitQuery);
         if (r && r.t > from - 0.01 && r.t < (best ? best.t : limit)) best = { actor: a, t: r.t, part: r.part };
       }
       return best;
@@ -44041,13 +44179,13 @@ void main() {
       const eye = a.eye(new Vector3());
       const aim = a.forward(new Vector3());
       if (a.isPlayer) this.vm.melee(heavy);
-      this.frame++;
+      this.hitQuery++;
       let hit = null;
       for (const off of [0, 0.12, -0.12, 0.24, -0.24]) {
         const dir = aim.clone().applyAxisAngle(new Vector3(0, 1, 0), off);
         for (const b of this.actors) {
           if (!b.alive || b === a || b.team === a.team) continue;
-          const r = b.soldier.hitTest(eye, dir, range, this.frame);
+          const r = b.soldier.hitTest(eye, dir, range, this.hitQuery);
           if (r && (!hit || r.t < hit.t)) hit = { actor: b, t: r.t, part: r.part, dir };
         }
         if (hit) break;
@@ -44285,6 +44423,7 @@ void main() {
     // ───────── 傷害與擊殺 ─────────
     // 護甲：腿部以外的傷害有一部分由護甲吸收（依武器的穿甲比例），護甲也會被磨損
     damage(v, att, amt, part, cause, dir, wallbang, melee, hitPoint, context = {}) {
+      if (this.ended || this.paused) return;
       if (!v.alive || v.protectT > 0) return;
       if (att && att !== v && att.team === v.team) return;
       const armorBefore = v.armor, armored = armorBefore > 0 && part !== "leg";
@@ -44368,9 +44507,7 @@ void main() {
         this.killedBy = byOther ? `\u88AB <span style="color:${TEAM_TEXT[att.team]}">${att.name}</span> \u7528 ${weapon}${headshot ? ' <span style="color:#ff5040">\u7206\u982D</span>' : ""}\u64CA\u6BBA` : CAUSES[cause]?.death || "\u4F60\u9663\u4EA1\u4E86";
       }
       this.fx.bloodSplat(v.pos);
-      if (this.score.BL >= this.goal || this.score.GR >= this.goal) setTimeout(() => {
-        if (this.playing) this.endMatch();
-      }, 1200);
+      if (this.score.BL >= this.goal || this.score.GR >= this.goal) this.scheduleEnd();
     },
     // 玩家擊殺：印章＋播報（連殺優先，其次爆頭、刀殺、手雷、穿牆）
     celebrate(att, v, cause, headshot, wallbang) {
@@ -44388,7 +44525,7 @@ void main() {
       } else if (wallbang) {
         [title, sub] = ["WALLBANG", `\u7A7F\u7246\u64CA\u6BBA\u30FB${sub}`];
       }
-      if (call) setTimeout(() => audio.announce(call), 150);
+      if (call) this.after(this.time + 0.15, () => audio.announce(call));
       this.hud.badge(title, sub, headshot);
       audio.playKillConfirm(headshot);
     },
@@ -44479,8 +44616,9 @@ void main() {
   };
 
   // game-src/game.js
+  var _sun = new Vector3();
+  var _cameraInverse = new Quaternion();
   var nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
-  var MAX_STEP = 1 / 100;
   var _v4 = new Vector3();
   var _u = new Vector3();
   var _d4 = new Vector3();
@@ -44493,9 +44631,11 @@ void main() {
   }
   var Game = class {
     constructor() {
+      this.fixedStep = new FixedStep();
       this.time = 0;
       this.realTime = 0;
       this.frame = 0;
+      this.hitQuery = 0;
       this.playing = false;
       this.paused = false;
       this.ended = false;
@@ -44518,7 +44658,7 @@ void main() {
     async init() {
       this.hud = new HUD(this);
       this.opts = this.hud.opts;
-      if (this.qs.get("q")) this.opts.quality = this.qs.get("q");
+      if (["low", "medium", "high"].includes(this.qs.get("q"))) this.opts.quality = this.qs.get("q");
       const step = async (p, text) => {
         this.hud.loading(p, text);
         await nextFrame();
@@ -44608,10 +44748,16 @@ void main() {
       r.setRenderTarget(null);
       r.setClearColor(prevColor, prevAlpha);
       target.dispose();
+      scene.overrideMaterial.dispose();
       return icons;
     }
     // ───────── 對局流程 ─────────
     startMatch() {
+      this.resetMatchState();
+      this.time = 0;
+      this.last = performance.now();
+      this.hud.resetMatch();
+      this.renderer.perfSeconds = this.renderer.perfFrames = this.renderer.perfCooldown = 0;
       this.performanceStats = new PerformanceStats();
       this.map.resetGlass?.();
       this.map.resetDestruction?.();
@@ -44661,8 +44807,33 @@ void main() {
       this.ended = false;
       this.hud.show(null);
       this.lock();
-      setTimeout(() => audio.announce("Go go go!"), 400);
+      this.after(this.time + 0.4, () => audio.announce("Go go go!"));
       this.hud.toast(`\u5718\u968A\u7AF6\u6280\u30FB\u7387\u5148\u9054\u5230 <b style="color:#ffe066">${this.goal}</b> \u64CA\u6BBA\u7684\u968A\u4F0D\u7372\u52DD`, 3.5);
+    }
+    resetMatchState() {
+      this.resetInput();
+      this.timers = [];
+      this.endPending = false;
+      this.fixedStep.reset();
+      this.inLoadout = false;
+      this.aimTarget = null;
+      this.boardShown = false;
+      this.killedBy = "";
+      this.lightK = this.indoorK = void 0;
+      this.fpsHinted = false;
+      this.dmgFlash = this.suppT = this.suppK = this.concT = this.concK = this.flash = 0;
+      this.hud.scoreboard(false);
+    }
+    resetInput() {
+      this.touch?.releaseAll();
+      this.player?.resetInput();
+    }
+    scheduleEnd() {
+      if (this.endPending) return;
+      this.endPending = true;
+      this.after(this.time + 1.2, () => {
+        if (this.playing) this.endMatch();
+      });
     }
     clearActors() {
       this.killReplay?.stop();
@@ -44702,7 +44873,7 @@ void main() {
     }
     // 出生點：避開有人站著的點，偏好離敵人遠的點（加一點隨機）
     spawnActor(a, first) {
-      if (a.isPlayer) this.touch?.releaseAll();
+      if (a.isPlayer) this.resetInput();
       let best = null, bestScore = -Infinity;
       for (const p of this.map.spawns[a.team]) {
         let score = Math.random() * 3;
@@ -44734,8 +44905,10 @@ void main() {
       }
       const c = document.getElementById("c");
       const plain = () => {
+        if (!this.playing || this.inLoadout) return;
         try {
-          c.requestPointerLock();
+          c.requestPointerLock()?.catch?.(() => {
+          });
         } catch {
         }
       };
@@ -44754,17 +44927,27 @@ void main() {
       } else if (this.playing && !this.ended && !this.inLoadout && !this.qs.has("nolock")) this.pause();
     }
     pause() {
-      this.touch?.releaseAll();
+      this.resetInput();
+      this.fixedStep.reset();
       this.paused = true;
       this.hud.show("pause");
       this.hud.scoreboard(false);
     }
     resume(fromLock) {
+      this.resetInput();
+      this.fixedStep.reset();
+      this.last = performance.now();
       this.paused = false;
       this.hud.show(null);
       if (!fromLock) this.lock();
     }
     quitToMenu() {
+      this.resetMatchState();
+      this.clearRockets();
+      for (const n of this.nades) this.renderer.scene.remove(n.mesh);
+      this.nades = [];
+      this.nav.clearRequests?.();
+      this.wreckQueue = [];
       this.killReplay?.stop();
       this.playing = false;
       this.paused = false;
@@ -44784,13 +44967,14 @@ void main() {
         return;
       }
       this.inLoadout = true;
-      this.touch?.releaseAll();
+      this.resetInput();
       this.hud.show("loadout");
       const current = this.player.nextPrimary || this.player.primary;
       for (const card of document.querySelectorAll("#loadCards .card")) card.classList.toggle("on", card.dataset.w === current);
       if (document.pointerLockElement) document.exitPointerLock();
     }
     closeLoadout() {
+      this.resetInput();
       this.inLoadout = false;
       this.hud.show(null);
       this.lock();
@@ -44828,6 +45012,9 @@ void main() {
       if (k === "team" && this.vm) this.vm.setTeam(v);
     }
     endMatch() {
+      if (this.ended) return;
+      this.resetMatchState();
+      this.killReplay?.stop();
       this.ended = true;
       this.playing = false;
       const mine = this.player.team, theirs = mine === "BL" ? "GR" : "BL";
@@ -44846,13 +45033,17 @@ void main() {
       const frameMs = dt * 1e3, simulationStart = performance.now();
       this.last = now;
       if (dt <= 0) return;
+      this.frame++;
       if (this.playing && !this.paused && this.time > 3) this.renderer.samplePerformance(dt);
       dt = Math.min(dt, 0.1);
       this.realTime += dt;
       if (this.playing && !this.paused) {
         if (this.player) this.player.lookDX = this.player.lookDY = 0;
-        const steps = Math.min(4, Math.ceil(dt / MAX_STEP - 1e-6)), h = dt / steps;
-        for (let i = 0; i < steps; i++) this.simulate(h, i === steps - 1 ? dt : 0);
+        this.fixedStep.advance(dt, (h, vis) => {
+          if (!this.playing || this.paused) return false;
+          this.simulate(h, vis);
+          return this.playing && !this.paused;
+        });
       } else if (!this.playing) {
         const cam = this.renderer.camera, mc = this.map?.menuCam;
         if (mc) {
@@ -44862,8 +45053,7 @@ void main() {
           cam.position.set(123, 151, 159);
           cam.lookAt(0, 39, 0);
         }
-        cam.fov = 65;
-        cam.updateProjectionMatrix();
+        setCameraFov(cam, 65);
       }
       const simulationMs = performance.now() - simulationStart, renderStart = performance.now();
       this.renderFrame(dt);
@@ -44871,7 +45061,15 @@ void main() {
     }
     // 除錯用：不渲染、直接快轉模擬
     fastForward(seconds, step = 1 / 30) {
-      for (let t = 0; t < seconds && this.playing; t += step) this.simulate(step);
+      if (!Number.isFinite(seconds) || seconds < 0 || !Number.isFinite(step) || step <= 0) {
+        throw new RangeError("\u5FEB\u8F49\u6642\u9593\u9808\u70BA\u975E\u8CA0\u6709\u9650\u503C\uFF0C\u6B65\u9577\u9808\u70BA\u6B63\u6709\u9650\u503C");
+      }
+      const h = Math.min(step, 0.01);
+      for (let t = 0; t < seconds && this.playing && !this.paused; ) {
+        const dt = Math.min(h, seconds - t);
+        this.simulate(dt);
+        t += dt;
+      }
       return { score: this.score, time: this.time.toFixed(1), kills: this.actors.map((a) => `${a.name}:${a.stats.k}/${a.stats.d}`).join(" ") };
     }
     // vis：要更新角色動畫的時間量（同一幀的前幾個小步傳 0，省掉重複的骨架計算）
@@ -44883,6 +45081,7 @@ void main() {
         const { fn } = this.timers[i];
         this.timers.splice(i, 1);
         fn();
+        if (!this.playing) return;
       }
       this.player.update(dt);
       for (const a of this.actors) if (!a.isPlayer) a.update(dt);
@@ -44940,15 +45139,15 @@ void main() {
       this.fx.update(physicsDt, this.realTime, cam);
       this.env.update(dt, this.realTime, cam.position);
       this.map.update(physicsDt, this.realTime);
-      if (!this.paused) {
+      if (this.playing && !this.paused) {
         this.updateLanded();
-        if (this.playing) this.debrisHits();
-      }
+        this.debrisHits();
+      } else if (!this.playing) this.map.takeLanded?.();
       this.updateRadarLabel(dt);
       audio.setListener(cam.position, _v4.set(0, 0, -1).applyQuaternion(cam.quaternion), _u.set(0, 1, 0).applyQuaternion(cam.quaternion));
       audio.update(dt);
       if (p && (this.playing || this.ended)) this.updateHUD(dt);
-      this.updateScreenFx(dt);
+      this.updateScreenFx(this.paused ? 0 : dt);
       if (this.killReplay?.update(dt)) {
         this.vm.setVisible(false);
         const u = R.fx.uniforms, kr = this.killReplay;
@@ -44968,8 +45167,7 @@ void main() {
     updateViewModel(dt, p) {
       const R = this.renderer, cam = R.camera;
       if (this.frame % 6 === 0 || this.lightK === void 0) this.probeLight();
-      this.frame++;
-      const sunCam = this.env.sunDir.clone().applyQuaternion(cam.quaternion.clone().invert());
+      const sunCam = _sun.copy(this.env.sunDir).applyQuaternion(_cameraInverse.copy(cam.quaternion).invert());
       this.vm.setVisible(p.alive && !(p.scoped && p.weapon.def.type === "sniper"));
       this.vm.update(dt, { ammo: p.weapon.mag, speed: p.speed || 0, onGround: p.onGround, crouch: p.crouch, lookDX: p.lookDX, lookDY: p.lookDY, sunDirCam: sunCam, light: this.lightK, indoor: this.indoorK > 0.5 });
       R.vmScene.environmentIntensity = 0.75 * (0.35 + 0.65 * (1 - this.indoorK));
@@ -45036,10 +45234,10 @@ void main() {
         const o = cam.position, d = _d4.set(0, 0, -1).applyQuaternion(cam.quaternion);
         const wall = this.world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, 80, "sight");
         let best = null, bestT = wall ? wall.t : 80;
-        this.frame++;
+        this.hitQuery++;
         for (const a of this.actors) {
           if (a === p || !a.alive) continue;
-          const r = a.soldier.hitTest(o, d, bestT, this.frame);
+          const r = a.soldier.hitTest(o, d, bestT, this.hitQuery);
           if (r) {
             best = a;
             bestT = r.t;

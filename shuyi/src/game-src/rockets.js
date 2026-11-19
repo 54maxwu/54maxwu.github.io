@@ -27,6 +27,8 @@ export const rocketCombat = {
     this.rockets.push({ mesh, owner,historyId, dir: dir.clone(), def, distance: 0, trailDistance: 0 });
   },
   updateRockets(dt) {
+    // Actor poses can change between physics steps even when nobody fires a gun.
+    this.hitQuery = (this.hitQuery || 0) + 1;
     this.rockets = this.rockets.filter(r => {
       const p = r.mesh.position, d = r.dir;
       const length = Math.min(r.def.projectileSpeed * dt, r.def.range - r.distance);
