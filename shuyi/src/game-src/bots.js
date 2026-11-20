@@ -408,6 +408,9 @@ export class Bot extends Actor {
 
   // 轉身有速度上限；沒在交戰時轉得慢一點
   turnToward(yaw, pitch, dt) {
+    // A single non-finite heading would otherwise stick forever and spread to the pose, aim and camera.
+    if (!Number.isFinite(yaw)) yaw = this.yaw;
+    if (!Number.isFinite(pitch)) pitch = this.pitch;
     const max = this.skill.turnRate * dt * (this.visible ? 1 : 0.7);
     this.yaw = wrapAngle(this.yaw + THREE.MathUtils.clamp(wrapAngle(yaw - this.yaw), -max, max));
     this.pitch += THREE.MathUtils.clamp(pitch - this.pitch, -max * 0.6, max * 0.6);

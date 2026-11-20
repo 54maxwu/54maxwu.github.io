@@ -2,6 +2,7 @@ import { SFX } from './sfx.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = (...names) => names[Math.floor(Math.random() * names.length)];
+const finite3 = (v) => Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
 
 // 響度校正（dB）：以每段錄音最大 100 ms RMS 量測，拉到同類的共同基準；槍聲刻意保留層次（AWM、M870 較響，MP5 較輕）
 const CAL = {
@@ -47,6 +48,8 @@ export class AudioSystem {
     if(this.ctx){this.master.gain.value=this.vol.master;this.sfx.gain.value=this.vol.sfx;}
   }
   setListener(p, forward, up) {
+    // Web Audio throws on non-finite values; one bad camera frame must not abort rendering.
+    if((p&&!finite3(p))||(forward&&!finite3(forward))||(up&&!finite3(up)))return;
     if(p)this.listener={x:p.x,y:p.y,z:p.z}; if(!this.ctx)return;
     const l=this.ctx.listener;
     if(l.positionX){for(const a of ['x','y','z'])l['position'+a.toUpperCase()].value=this.listener[a];
@@ -57,6 +60,7 @@ export class AudioSystem {
   play(name, pos, {gain=1,rate=1,delay=0,duration,offset=0,ui=false}={}) {
     if(!this.ctx)return;
     const sample=this.samples[name]; if(!sample)return;
+    if(pos&&!finite3(pos))pos=null;   // play unpositioned rather than throw from PannerNode
     gain*=Math.pow(10,(CAL[name]||0)/20);   // 各段錄音響度不同，先拉到同類一致的基準
     if(pos && Math.hypot(pos.x-this.listener.x,pos.y-this.listener.y,pos.z-this.listener.z)>250)return;
     while(this.active.length>=48)this.active.shift().stop();
