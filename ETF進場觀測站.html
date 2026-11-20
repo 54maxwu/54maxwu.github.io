@@ -1,0 +1,187 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ETF 進場觀測站</title><style>
+:root{font-family:system-ui,"Microsoft JhengHei",sans-serif;color:#dbe3ec;background:#0c1017;color-scheme:dark;font-size:13px}*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0}main{height:100dvh;display:grid;grid-template-rows:48px 70px minmax(0,1fr) 192px 23px;gap:10px;padding:0 16px}button,select,.file{font:inherit;color:#c7d3e0;background:#171e28;border:1px solid #303c4c;border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap}button:hover,.file:hover{background:#243348}button:disabled{opacity:.35;cursor:default}.primary,button[aria-pressed="true"]{background:#183c57;border-color:#4eabff;color:#77c1ff}a{color:#68b6ff}h1{font-size:19px;margin:0;white-space:nowrap}h1:before{content:'';display:inline-block;width:9px;height:9px;background:#44ca79;border-radius:50%;margin-right:8px;box-shadow:0 0 10px #44ca7977}h2{font-size:14px;margin:0}header{display:flex;align-items:center;gap:14px;border-bottom:1px solid #252e3b}header .muted{margin-right:auto}.actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.muted,small{color:#8997a9}.accent{color:#6db7ff}.cards{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px}.card{display:flex;align-items:center;gap:18px;justify-content:space-between;padding:10px 16px;border:1px solid #252f3b;background:#161c25;border-radius:8px}.card small{font-size:12px}.value{color:#edb444;font-weight:700;font-size:clamp(18px,1.6vw,27px);font-variant-numeric:tabular-nums;white-space:nowrap}.card:first-child .value{color:#6ebaff}.workspace{display:grid;grid-template-columns:260px minmax(0,1fr);gap:10px;min-height:0}.panel{background:#121923;border:1px solid #26303e;border-radius:8px;min-height:0}.holdings{display:flex;flex-direction:column;padding:12px;gap:10px}.holdings h2{display:flex;justify-content:space-between;align-items:center}.holdings h2 span{font-weight:400;font-size:12px;color:#8997a9}#quotes{display:flex;flex:1;flex-direction:column;justify-content:space-evenly;gap:8px;min-height:0}.quote{display:block;color:inherit;text-decoration:none;padding:9px 11px;background:#0e141d;border:1px solid #1f2a38;border-left:3px solid #5aaeff;border-radius:5px;cursor:pointer;transition:background .15s,border-color .15s}.quote:hover{background:#172232}.quote[aria-current="true"]{background:#14263a;border-color:#4eabff;box-shadow:0 0 0 1px #4eabff55}.quote-heading strong{color:#77c1ff;text-decoration:underline;text-underline-offset:3px}.quote-heading strong:after{content:" 走勢 ›";font-size:11px;font-weight:400;text-decoration:none;display:inline-block;margin-left:4px;color:#8fb6da}.quote:nth-child(2){border-left-color:#bd91f7}.quote:nth-child(3){border-left-color:#e8b541}.quote-heading,.quote-line{display:flex;justify-content:space-between;align-items:center;gap:5px}.quote-heading strong{font-size:17px}.quote-heading span{font-size:11px;color:#97a6b9}.quote-line{margin:5px 0}.quote-line b{font-size:24px;color:#e9eff5}.quote-line span{font-size:13px;color:#b8c7d8}.quote small{font-size:11px}.holdings footer{color:#8795a8;font-size:11px}#dailyTrends{display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto auto;gap:5px;padding:12px;min-height:0}.trend-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.periods{display:flex;gap:5px;flex-wrap:wrap}.targets{display:flex;gap:4px;flex-wrap:wrap}.targets a{padding:5px 12px;border:1px solid #303c4c;border-radius:999px;color:#9fc6ea;text-decoration:none;font-weight:600}.targets a:hover{background:#243348;color:#cfe6ff}.targets a[aria-current="true"]{background:#59e4c0;border-color:#59e4c0;color:#08231c}.chart-wrap{position:relative;min-height:180px}#trendTip{position:absolute;pointer-events:none;background:#0b1320f2;border:1px solid #59e4c0;border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.5;white-space:nowrap;box-shadow:0 4px 14px #0009;z-index:2}#trendTip b{display:block;font-size:16px;color:#59e4c0;font-variant-numeric:tabular-nums}#trendTip i{font-style:normal;color:#9cacc1}#trendDot{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#fff;border:2px solid #59e4c0;pointer-events:none}.periods button{padding:5px 12px}#dailyChart{position:absolute;inset:0;display:block;width:100%;height:100%;min-height:0;touch-action:pan-y}#dailyChart text{font-family:system-ui,sans-serif}#trendCoverage,#trendTooltip,#trendStatus{margin:0;font-size:11px;min-height:16px}#trendTooltip{color:#73baff}.trend-footer{display:flex;align-items:center;justify-content:space-between;gap:12px}#trendStatus{color:#9caec3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.history{padding:8px 12px;display:grid;grid-template-rows:30px minmax(0,1fr);gap:2px}.history-head{display:flex;align-items:center;gap:8px}.history-head h2{margin-right:auto}.history-head button,.history-head .file{padding:4px 8px;font-size:11px}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;font-variant-numeric:tabular-nums}th,td{padding:4px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid #222d3c;height:25px}th{font-size:11px;color:#8899ad;font-weight:400}th:first-child,td:first-child{text-align:left;width:27%}.empty{text-align:center!important;color:#8497ac}.bottom{display:flex;align-items:center;justify-content:space-between;gap:15px;color:#7f8fa3;font-size:11px;min-width:0}#status{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;color:#b7a47a}.bottom span{white-space:nowrap}dialog{width:min(640px,95vw);max-height:90dvh;padding:22px;background:#151e2a;border:1px solid #3c506b;border-radius:10px;color:#dbe3ec}dialog::backdrop{background:#000a}.dialog-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}dialog p{line-height:1.7;color:#9eafc2}dialog input{font:inherit;padding:7px;width:120px;background:#0c131e;border:1px solid #3c506b;border-radius:5px;color:#fff}dialog label{display:flex;align-items:center;gap:8px}#manual{display:flex;flex-wrap:wrap;gap:12px}.help{line-height:1.8;font-size:13px}.help li{margin-bottom:10px}@media(min-width:1100px) and (min-height:680px){body{overflow:hidden}}@media(max-height:720px){main{grid-template-rows:42px 58px minmax(0,1fr) 174px 20px;gap:7px}.quote{padding:5px 9px}.quote-line{margin:2px 0}.quote-line b{font-size:20px}.history{padding:5px 10px}th,td{height:22px;padding:3px 8px}#dailyTrends{padding:8px}.card{padding:8px 12px}.value{font-size:20px}}@media(max-width:1099px){main{height:auto;min-height:100dvh;grid-template-rows:auto auto minmax(360px,1fr) 192px auto;padding:10px}header{flex-wrap:wrap;padding-bottom:10px}.cards{gap:6px}.card{flex-direction:column;align-items:start;gap:4px}.workspace{grid-template-columns:230px minmax(0,1fr)}.value{font-size:20px}.bottom{flex-wrap:wrap}}@media(max-width:650px){.workspace{grid-template-columns:1fr}.holdings{padding:8px}#quotes{flex-direction:row;gap:4px}.quote{flex:1;min-width:0;padding:6px}.quote-heading,.quote-line{display:block}.quote-heading span{display:block}.quote-line b{font-size:19px}.quote-line span{display:block;font-size:10px}.quote small{font-size:9px}.holdings footer{display:none}#dailyTrends{min-height:340px}.cards{grid-template-columns:1fr}.card{flex-direction:row}.history{min-height:190px}table{font-size:10px}th,td{padding:4px 2px}th:first-child,td:first-child{width:29%}.bottom span{white-space:normal}}
+</style><main>
+<header><h1>ETF 進場觀測站</h1><span class="muted">0056 · 00878 · 00919</span><button class="primary" id="refresh">更新報價</button><button id="toggleProxy">連線設定</button><button id="openHelp">說明／手動輸入</button></header>
+<div class="cards"><div class="card"><small>進場總成本</small><div class="value" id="total">—</div></div><div class="card"><small>較 425 萬預算</small><div class="value" id="delta">—</div></div><div class="card"><small>含手續費估算</small><div class="value" id="withFee">—</div></div></div>
+<div class="workspace"><aside class="panel holdings"><h2>買入組合 <span>共 115 張</span></h2><div id="quotes"><p class="muted">正在讀取報價…</p></div><footer>成交價與報價時間以各檔顯示為準</footer></aside>
+<section class="panel" id="dailyTrends"><div class="trend-heading"><h2>歷史走勢</h2><nav class="targets" aria-label="走勢標的"><a href="#" data-target="total" aria-current="true">合計</a><a href="#" data-target="0056">0056</a><a href="#" data-target="00878">00878</a><a href="#" data-target="00919">00919</a></nav></div><div class="periods"><button data-period="5y" aria-pressed="false">5 年</button><button data-period="2y" aria-pressed="false">2 年</button><button data-period="1y" aria-pressed="false">1 年</button><button data-period="3m" aria-pressed="false">3 個月</button><button data-period="1m" aria-pressed="true">1 個月</button><button data-period="15d" aria-pressed="false">半個月</button></div><p id="trendCoverage" class="muted"></p><div class="chart-wrap"><svg id="dailyChart" viewBox="0 0 1000 325" role="img" aria-label="歷史收盤價走勢"></svg><div id="trendDot" hidden></div><div id="trendTip" hidden></div></div><p id="trendTooltip"></p><div class="trend-footer"><p id="trendStatus" role="status">歷史日線將快取至本機</p><div class="actions"><button id="loadDaily">更新資料</button><button id="cancelDaily">停止</button></div></div></section></div>
+<section class="panel history"><div class="history-head"><h2>每小時紀錄</h2><span class="muted" id="count"></span><button id="historyPrev" aria-label="上一頁">‹</button><button id="historyNext" aria-label="下一頁">›</button><button id="export">匯出</button><label class="file">匯入<input id="import" type="file" accept="application/json,.json" hidden></label><button id="clear">清除</button></div><table><thead><tr><th>擷取時間（台北）</th><th>0056</th><th>00878</th><th>00919</th><th>總成本</th><th>預算差額</th></tr></thead><tbody id="history"></tbody></table></section>
+<footer class="bottom"><p id="status" role="status" title="可選取文字查看完整狀態">準備讀取報價…</p><span>每小時自動記錄 · localStorage 儲存 · 日線不含配息</span></footer></main>
+<dialog id="settingsDialog"><div class="dialog-heading"><h2>Proxy 連線設定</h2><button id="closeSettings">關閉</button></div><section id="proxyPanel"><p>依序嘗試：直連 → Cloudflare Worker → 公開 proxy。Worker 網址需以 <code>?url=</code> 結尾，目標網址會接在後面。</p><div class="actions"><label>Worker <input id="proxyInput" placeholder="https://xxx.workers.dev/?url=" autocomplete="off" style="width:280px"></label><button id="saveProxy">儲存</button><button id="testProxy">測試連線</button></div><p id="proxyStatus" role="status"></p></section></dialog>
+<dialog id="helpDialog"><div class="dialog-heading"><h2>資料說明與手動輸入</h2><button id="closeHelp">關閉</button></div><ul class="help"><li>組合：0056 30 張、00878 40 張、00919 45 張，每張 1,000 股。預算 425 萬元，手續費以 0.1425% 估算，實際依券商折扣與計費規則。</li><li>日線來源為<a href="https://www.twse.com.tw/zh/trading/historical/stock-day.html" target="_blank" rel="noopener">證交所</a>原始收盤價，不含配息再投入。合計只採三檔都有資料的交易日；00919 於 2022-10-20 上市，之前不補值。首次下載五年可能需數分鐘。</li><li>即時報價可能延遲或為較早交易日。開啟網頁時更新，之後每個整點記錄；同小時保留第一筆完整快照。關閉、休眠或背景暫停時無法採集，不補造紀錄。</li><li>歷史與日線存於 localStorage。固定使用同一瀏覽器與檔案位置，定期匯出備份；清除瀏覽資料會遺失紀錄。日線優先直連證交所；即時報價與 Yahoo 盤中資料因瀏覽器跨域限制，經自架 Cloudflare Worker 轉送，失敗時改試公開 proxy。</li></ul><h2>手動輸入成交價</h2><p>自動連線失敗時使用，紀錄會標示「手動」。請填入來源報價日期與時間。</p><form id="manual"><label>0056 <input id="price0056" type="number" min="0.01" step="0.01" required></label><label>00878 <input id="price00878" type="number" min="0.01" step="0.01" required></label><label>00919 <input id="price00919" type="number" min="0.01" step="0.01" required></label><label>日期 <input id="quoteDate" type="date" required></label><label>時間 <input id="quoteTime" type="time" required></label><button type="submit">儲存快照</button></form></dialog><script>
+
+let quoteSource='';
+let historyPage=0;const PAGE_SIZE=4;
+'use strict';
+const PORTFOLIO=[['0056',30],['00878',40],['00919',45]], BUDGET=4250000, KEY='etf-cost-history-v1';
+const $=id=>document.getElementById(id), money=n=>'NT$ '+Math.round(n).toLocaleString('zh-TW');
+const parts=d=>Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(d).map(p=>[p.type,p.value]));
+function stamp(d){const p=parts(d);return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;}
+const hour=d=>stamp(d).slice(0,13);
+let records=[],busy=false,lastAttempt='',storageOK=true;
+function valid(r){return r&&typeof r.capturedAt==='string'&&Number.isFinite(Date.parse(r.capturedAt))&&r.hour===hour(new Date(r.capturedAt))&&Array.isArray(r.quotes)&&r.quotes.length===3&&PORTFOLIO.every(([c,l],i)=>{const q=r.quotes[i];return q.code===c&&q.lots===l&&Number.isFinite(q.price)&&q.price>0&&typeof q.date==='string'&&/^\d{8}$/.test(q.date)&&typeof q.time==='string'&&/^\d{2}:\d{2}:\d{2}$/.test(q.time);});}
+const cost=r=>r.quotes.reduce((s,q)=>s+q.price*q.lots*1000,0);
+function normalize(list){if(!Array.isArray(list)||!list.every(valid))throw Error('歷史資料格式不正確');return [...new Map(list.map(r=>[r.hour,r])).values()].sort((a,b)=>a.hour.localeCompare(b.hour));}
+try{records=normalize(JSON.parse(localStorage.getItem(KEY)||'[]'));localStorage.setItem('etf-storage-check','1');localStorage.removeItem('etf-storage-check');}catch(e){storageOK=false;$('status').textContent='localStorage 無法讀寫或資料損毀；請先匯出備份，歷史資料暫不覆寫。';}
+function save(next){localStorage.setItem(KEY,JSON.stringify(next));records=next;}
+function cell(row,text){const td=document.createElement('td');td.textContent=text;row.append(td);}
+function renderHistory(){
+ const pages=Math.max(1,Math.ceil(records.length/PAGE_SIZE));historyPage=Math.min(historyPage,pages-1);
+ $('history').replaceChildren();$('count').textContent=records.length+' 筆 · '+(historyPage+1)+' / '+pages+' 頁';
+ const rows=[...records].reverse().slice(historyPage*PAGE_SIZE,(historyPage+1)*PAGE_SIZE);
+ for(const r of rows){const tr=document.createElement('tr');[stamp(new Date(r.capturedAt))+(r.source==='manual'?' 手動':''),...r.quotes.map(q=>q.price.toFixed(2)),money(cost(r)),money(cost(r)-BUDGET)].forEach(t=>cell(tr,t));$('history').append(tr);}
+ if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='尚無紀錄 · 每小時自動儲存第一筆完整報價';td.className='empty';tr.append(td);$('history').append(tr);}
+ $('historyPrev').disabled=historyPage===0;$('historyNext').disabled=historyPage>=pages-1;
+}
+function renderQuote(r){const total=cost(r);$('total').textContent=money(total);$('delta').textContent=(total>=BUDGET?'+':'−')+money(Math.abs(total-BUDGET))+' ('+((total-BUDGET)/BUDGET*100).toFixed(2)+'%)';$('withFee').textContent=money(total*1.001425);$('quotes').replaceChildren();for(const q of r.quotes){const card=document.createElement('a');card.className='quote';card.href='#';card.dataset.target=q.code;card.title='查看 '+q.code+' 歷史走勢';card.setAttribute('aria-current',String(document.querySelector('.targets [aria-current="true"]')?.dataset.target===q.code));const heading=document.createElement('div');heading.className='quote-heading';const code=document.createElement('strong');code.textContent=q.code;const lots=document.createElement('span');lots.textContent=q.lots+' 張 / '+(q.lots*1000).toLocaleString()+' 股';heading.append(code,lots);const line=document.createElement('div');line.className='quote-line';const price=document.createElement('b');price.textContent=q.price.toFixed(2);const amount=document.createElement('span');amount.textContent=money(q.price*q.lots*1000);line.append(price,amount);const time=document.createElement('small');time.textContent=q.date.slice(0,4)+'-'+q.date.slice(4,6)+'-'+q.date.slice(6)+' '+q.time;card.append(heading,line,time);$('quotes').append(card);}}
+async function refresh(){if(busy)return;busy=true;$('refresh').disabled=true;lastAttempt=hour(new Date());$('status').textContent='正在讀取證交所報價…';try{const data=await loadQuotes();const now=new Date();const r={capturedAt:now.toISOString(),hour:hour(now),source:quoteSource,quotes:PORTFOLIO.map(([code,lots])=>{const q=data.msgArray?.find(q=>q.c===code);if(!q||!Number.isFinite(Number(q.z))||Number(q.z)<=0)throw Error(`${code} 缺少有效成交價，本次不儲存完整快照`);return {code,lots,price:Number(q.z),date:q.d,time:q.t};})};if(!valid(r))throw Error('來源報價時間或格式異常');renderQuote(r);if(!storageOK)throw Error('已更新報價，但 localStorage 異常，未儲存');const exists=records.some(x=>x.hour===r.hour);if(!exists)save(normalize([...records,r]));renderHistory();$('status').textContent=`${quoteSource} · 擷取於 ${stamp(now)} · ${exists?'此小時已有紀錄，保留第一筆':'已儲存此小時快照'}。請核對下方報價時間，可能為延遲或較早交易日資料。`;}catch(e){$('status').textContent=`${e.message}。先前顯示與紀錄保留，不代表當前行情。`;}finally{busy=false;$('refresh').disabled=false;}}
+$('refresh').onclick=refresh;
+$('export').onclick=()=>{const blob=new Blob([JSON.stringify({version:1,records,dailyCache,rawStored:storageOK?undefined:localStorage.getItem(KEY)},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='etf-history-'+stamp(new Date()).slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('import').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;const data=JSON.parse(await file.text());if(data.version!==1)throw Error('不支援的備份版本');const incoming=normalize(data.records);if(data.dailyCache){const imported=data.dailyCache;if(typeof imported!=='object'||Array.isArray(imported)||!Object.entries(imported).every(([key,value])=>/^(0056|00878|00919)-\d{6}$/.test(key)&&cacheValid(value)))throw Error('日線快取格式不正確');dailyCache={...imported,...dailyCache};localStorage.setItem(DAILYKEY,JSON.stringify(dailyCache));renderTrend();}if(!storageOK)throw Error('請先備份並清除異常資料');save(normalize([...incoming,...records]));renderHistory();$('status').textContent='已合併匯入紀錄，相同小時保留原有資料。';}catch(e){$('status').textContent='匯入失敗：'+e.message;}finally{e.target.value='';}};
+$('clear').onclick=()=>{if(confirm('確定清除所有歷史紀錄？建議先匯出備份。')){try{save([]);storageOK=true;renderHistory();$('status').textContent='歷史紀錄已清除。';}catch(e){$('status').textContent='清除失敗：'+e.message;}}};
+renderHistory();if(records.length){renderQuote(records.at(-1));$('status').textContent='顯示先前紀錄，正在更新…';}
+function tick(){if(hour(new Date())!==lastAttempt)refresh();}
+setInterval(tick,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});window.addEventListener('storage',e=>{if(e.key===KEY){try{records=normalize(JSON.parse(e.newValue||'[]'));renderHistory();}catch{ $('status').textContent='其他分頁的歷史資料格式異常';}}});
+
+
+// Cross-origin data: direct first, then own Cloudflare Worker, then public proxies as last resort.
+const ETF_DEFAULT_PROXY='https://etf-proxy.54maxwu.workers.dev/?url=', PROXYKEY='etf-proxy-v1';
+const PUBLIC_PROXIES=['https://api.allorigins.win/raw?url=','https://api.codetabs.com/v1/proxy/?quest='];
+let customProxy='';try{customProxy=localStorage.getItem(PROXYKEY)||'';}catch{}
+let lastRoute='';const routeMemo={};
+function routes(){const worker=customProxy||ETF_DEFAULT_PROXY;return [{name:'直連',wrap:u=>u},...(worker?[{name:'CF Worker',wrap:u=>worker+encodeURIComponent(u)}]:[]),...PUBLIC_PROXIES.map(p=>({name:'公開 proxy',wrap:u=>p+encodeURIComponent(u)}))];}
+async function proxyGet(url){
+ const host=new URL(url).hostname,list=routes(),start=Math.min(routeMemo[host]??0,list.length-1),order=[...list.keys()].slice(start).concat([...list.keys()].slice(0,start));let lastError='';
+ for(const i of order){const route=list[i];try{const response=await fetch(route.wrap(url),{cache:'no-store',signal:AbortSignal.timeout(i===0?8000:20000)});if(!response.ok)throw Error('HTTP '+response.status);const data=JSON.parse(await response.text());routeMemo[host]=i;lastRoute=route.name;return data;}catch(e){lastError=route.name+'：'+(e.name==='TimeoutError'?'逾時':e.message);}}
+ throw Error('所有連線方式皆失敗（'+lastError+'）');
+}
+function showProxyPanel(show){const dialog=$('settingsDialog');if(show&&!dialog.open){$('proxyInput').value=customProxy||ETF_DEFAULT_PROXY;dialog.showModal();}if(!show&&dialog.open)dialog.close();}
+$('toggleProxy').hidden=!!ETF_DEFAULT_PROXY;$('toggleProxy').onclick=()=>showProxyPanel(true);
+$('saveProxy').onclick=()=>{const v=$('proxyInput').value.trim();if(v&&!/^https:\/\/\S+$/.test(v)){$('proxyStatus').textContent='請輸入 https:// 開頭的網址';return;}customProxy=v===ETF_DEFAULT_PROXY?'':v;try{customProxy?localStorage.setItem(PROXYKEY,customProxy):localStorage.removeItem(PROXYKEY);}catch{}for(const k in routeMemo)delete routeMemo[k];$('proxyStatus').textContent='已儲存';refresh();loadTrend();};
+$('testProxy').onclick=async()=>{$('proxyStatus').textContent='測試中…';try{await loadQuotes();$('proxyStatus').textContent='成功，經由：'+lastRoute;}catch(e){$('proxyStatus').textContent=e.message;}};
+async function loadQuotes(){
+ const url='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?'+new URLSearchParams({ex_ch:'tse_0056.tw|tse_00878.tw|tse_00919.tw',json:'1',delay:'0',_:String(Date.now())});
+ const data=await proxyGet(url);if(!Array.isArray(data.msgArray)||!data.msgArray.length)throw Error('證交所未提供報價');
+ for(const q of data.msgArray){if(Number(q.trade?.z)>0){q.z=q.trade.z;q.t=q.trade.t;}}
+ quoteSource='證交所／'+lastRoute;return data;
+}
+refresh();
+
+$('manual').onsubmit=e=>{e.preventDefault();try{
+ if(!storageOK)throw Error('localStorage 無法寫入');
+ const now=new Date(),d=$('quoteDate').value.replaceAll('-',''),t=$('quoteTime').value;
+ const r={capturedAt:now.toISOString(),hour:hour(now),source:'manual',quotes:PORTFOLIO.map(([code,lots])=>({code,lots,price:Number($('price'+code).value),date:d,time:t.length===5?t+':00':t}))};
+ if(!valid(r))throw Error('請確認全部價格與報價時間');
+ if(records.some(x=>x.hour===r.hour))throw Error('此小時已有紀錄，保留第一筆，不覆寫');
+ save(normalize([...records,r]));renderQuote(r);renderHistory();renderTrend();$('status').textContent='已儲存手動輸入快照（非自動報價）';
+ }catch(e){$('status').textContent=e.message;}};
+const initial=parts(new Date());$('quoteDate').value=initial.year+'-'+initial.month+'-'+initial.day;$('quoteTime').value=initial.hour+':'+initial.minute;
+
+// Monthly TWSE daily-close cache is separate from hourly observations.
+const DAILYKEY='etf-daily-close-v1', LISTED={'0056':'200712','00878':'202007','00919':'202210'};
+let dailyCache={},trendPeriod='1m',trendTarget='total',trendJob=0,trendLoading=false;
+try{const stored=JSON.parse(localStorage.getItem(DAILYKEY)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))dailyCache=stored;}catch{}
+function trendToday(){return stamp(new Date()).slice(0,10);}
+function periodStart(period,today=trendToday()){
+ const date=new Date(today+'T00:00:00Z');
+ if(period==='15d')date.setUTCDate(date.getUTCDate()-15);
+ else{const months={'1m':1,'3m':3,'1y':12,'2y':24,'5y':60}[period];const day=date.getUTCDate();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()-months);date.setUTCDate(Math.min(day,new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).getUTCDate()));}
+ return date.toISOString().slice(0,10);
+}
+function monthList(start,end){const result=[];const d=new Date(start.slice(0,7)+'-01T00:00:00Z');while(d.toISOString().slice(0,7)<=end.slice(0,7)){result.push(d.toISOString().slice(0,7).replace('-',''));d.setUTCMonth(d.getUTCMonth()+1);}return result;}
+function cacheValid(entry){return entry&&Array.isArray(entry.rows)&&entry.rows.every(r=>Array.isArray(r)&&/^\d{4}-\d{2}-\d{2}$/.test(r[0])&&Number.isFinite(r[1])&&r[1]>0);}
+function parseDaily(data){if(data.stat!=='OK'||!Array.isArray(data.data))throw Error(data.stat||'歷史資料格式異常');const index=data.fields?.indexOf('收盤價');if(index<0||index===undefined)throw Error('來源缺少收盤價欄位');return data.data.map(row=>{const match=/^(\d+)\/(\d{2})\/(\d{2})$/.exec(row[0]);const value=Number(String(row[index]).replaceAll(',',''));if(!match||!Number.isFinite(value)||value<=0)throw Error('歷史資料有無效日期或價格');return [`${Number(match[1])+1911}-${match[2]}-${match[3]}`,value];});}
+function dailySeries(start,end,target){
+ const maps=PORTFOLIO.map(([code])=>{const map=new Map();for(const month of monthList(start,end)){const entry=dailyCache[code+'-'+month];if(cacheValid(entry))for(const [date,price] of entry.rows)if(date>=start&&date<=end)map.set(date,price);}return map;});
+ if(target!=='total'){const index=PORTFOLIO.findIndex(([code])=>code===target);return [...maps[index]].sort((a,b)=>a[0].localeCompare(b[0]));}
+ return [...maps[0].keys()].filter(date=>maps.every(map=>map.has(date))).sort().map(date=>[date,PORTFOLIO.reduce((sum,[code,lots],i)=>sum+maps[i].get(date)*lots*1000,0)]);
+}
+function svgNode(tag,attributes={},text){const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));if(text!==undefined)node.textContent=text;return node;}
+const INTRAKEY='etf-intraday-v1',INTRADAY_PERIODS=new Set(['1m','15d']);let intraCache={};
+try{const stored=JSON.parse(localStorage.getItem(INTRAKEY)||'{}');if(stored&&typeof stored==='object'&&!Array.isArray(stored))intraCache=stored;}catch{}
+const tpe=t=>new Date(t+288e5).toISOString().replace('T',' ').slice(0,16);
+async function loadIntraday(codes,force,job){
+ const stale=codes.filter(code=>force||!intraCache[code]||Date.now()-intraCache[code].fetchedAt>10*60e3);
+ for(const code of stale){
+  $('trendStatus').textContent=`正在下載 ${code} 15 分鐘線（Yahoo 財經）…`;
+  const data=await proxyGet(`https://query1.finance.yahoo.com/v8/finance/chart/${code}.TW?interval=15m&range=1mo`);if(job!==trendJob)return;
+  const result=data.chart?.result?.[0],close=result?.indicators?.quote?.[0]?.close;if(!Array.isArray(result?.timestamp)||!Array.isArray(close))throw Error('Yahoo 盤中資料格式異常');
+  const rows=[];result.timestamp.forEach((t,i)=>{const v=close[i];if(Number.isFinite(v)&&v>0)rows.push([t*1000,Math.round(v*100)/100]);});if(!rows.length)throw Error('Yahoo 未提供盤中資料');
+  intraCache[code]={fetchedAt:Date.now(),rows};renderTrend();
+ }
+ try{localStorage.setItem(INTRAKEY,JSON.stringify(intraCache));}catch{}
+}
+function intradaySeries(start,target){
+ const codes=target==='total'?PORTFOLIO.map(([code])=>code):[target];if(!codes.every(code=>intraCache[code]))return null;
+ const startMs=Date.parse(start+'T00:00:00+08:00'),lots=Object.fromEntries(PORTFOLIO),maps=codes.map(code=>new Map(intraCache[code].rows.filter(r=>r[0]>=startMs)));
+ return [...maps[0].keys()].filter(t=>maps.every(m=>m.has(t))).sort((a,b)=>a-b).map(t=>[t,target==='total'?codes.reduce((s,code,i)=>s+maps[i].get(t)*lots[code]*1000,0):maps[0].get(t)]);
+}
+function renderTrend(){
+ const svg=$('dailyChart');svg.replaceChildren();$('trendTip').hidden=true;$('trendDot').hidden=true;document.querySelectorAll('[data-target]').forEach(a=>a.setAttribute('aria-current',String(a.dataset.target===trendTarget)));$('trendTooltip').textContent='移動游標到走勢線上，可查看時間與數值';
+ const W=Math.max(300,Math.round(svg.clientWidth||1000)),H=Math.max(160,Math.round(svg.clientHeight||325));svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ const start=periodStart(trendPeriod),end=trendToday();let intraday=false,series=null;
+ if(INTRADAY_PERIODS.has(trendPeriod)){const rows=intradaySeries(start,trendTarget);if(rows?.length){series=rows;intraday=true;}}
+ if(!series)series=dailySeries(start,end,trendTarget).map(([date,value])=>[Date.parse(date+'T13:30:00+08:00'),value]);
+ let live=null;const latest=records.reduce((a,b)=>!a||b.capturedAt>a.capturedAt?b:a,null);
+ if(latest){const d=latest.quotes[0].date,day=d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6),t=Date.parse(`${day}T${latest.quotes[0].time}+08:00`);if(latest.quotes.every(q=>q.date===d)&&day>=start&&day<=end&&(!series.length||t>series.at(-1)[0]+60e3)){const q=latest.quotes.find(q=>q.code===trendTarget);live=[t,trendTarget==='total'?cost(latest):q.price,true];series.push(live);}}
+ const label=trendTarget==='total'?'合計進場成本（未含手續費）':trendTarget+' 每股價格';
+ svg.setAttribute('aria-label',label+'，'+start+' 至 '+end);
+ const showTime=t=>intraday||live&&t===live[0]?tpe(t):tpe(t).slice(0,10);
+ $('trendCoverage').textContent=series.length?`${label} · ${intraday?'15 分鐘線（Yahoo 財經）':'日收盤價（證交所）'} · ${tpe(series[0][0]).slice(0,10)} ～ ${showTime(series.at(-1)[0])} · ${series.length} 個資料點`:'此期間尚無可繪製資料，請按「更新資料」。';
+ if(!series.length){svg.append(svgNode('text',{x:W/2,y:H/2,'text-anchor':'middle',fill:'#9cacc1'},'尚無資料'));return;}
+ const values=series.map(r=>r[1]),minimum=Math.min(...values),maximum=Math.max(...values),padding=Math.max((maximum-minimum)*.1,maximum*.002),low=minimum-padding,high=maximum+padding;
+ const format=value=>trendTarget==='total'?Math.round(value).toLocaleString('zh-TW'):value.toFixed(2);
+ const left=trendTarget==='total'?78:52,right=W-14,top=20,bottom=H-26,n=series.length;
+ const x=i=>n===1?(left+right)/2:left+i*(right-left)/(n-1),y=v=>bottom-(v-low)/(high-low)*(bottom-top);
+ for(let i=0;i<5;i++){const v=low+(high-low)*i/4;svg.append(svgNode('line',{x1:left,x2:right,y1:y(v),y2:y(v),stroke:'#223042','stroke-width':1}),svgNode('text',{x:left-8,y:y(v)+4,'text-anchor':'end',fill:'#8798ad','font-size':11},format(v)));}
+ const longRange=['1y','2y','5y'].includes(trendPeriod),ticks=[...new Set([0,1,2,3,4].map(i=>Math.round(i*(n-1)/4)))];
+ for(const [k,i] of ticks.entries()){const s=tpe(series[i][0]);svg.append(svgNode('text',{x:x(i),y:H-8,'text-anchor':k===0&&ticks.length>1?'start':k===ticks.length-1&&ticks.length>1?'end':'middle',fill:'#8798ad','font-size':11},longRange?s.slice(0,7).replace('-','/'):s.slice(5,10).replace('-','/')));}
+ const up=series.at(-1)[1]>=series[0][1],color=up?'#ff6b6b':'#59e4c0';
+ const defs=svgNode('defs'),grad=svgNode('linearGradient',{id:'trendFill',x1:0,y1:0,x2:0,y2:1});grad.append(svgNode('stop',{offset:'0%','stop-color':color,'stop-opacity':.28}),svgNode('stop',{offset:'100%','stop-color':color,'stop-opacity':0}));defs.append(grad);svg.append(defs);
+ const line=series.map((r,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(r[1]).toFixed(1)}`).join('');
+ svg.append(svgNode('path',{d:`${line}L${x(n-1).toFixed(1)},${bottom}L${x(0).toFixed(1)},${bottom}Z`,fill:'url(#trendFill)'}),svgNode('path',{d:line,fill:'none',stroke:color,'stroke-width':1.8,'stroke-linejoin':'round','stroke-linecap':'round'}));
+ svg.append(svgNode('line',{x1:left,x2:right,y1:y(series[0][1]),y2:y(series[0][1]),stroke:'#8798ad','stroke-width':1,'stroke-dasharray':'2 4',opacity:.6}));
+ if(n===1)svg.append(svgNode('circle',{cx:x(0),cy:y(series[0][1]),r:3.5,fill:color}));
+ const cursor=svgNode('line',{y1:top,y2:bottom,stroke:'#93b6d0','stroke-width':1,'stroke-dasharray':'3 3',visibility:'hidden'});svg.append(cursor);
+ const tip=$('trendTip'),dotEl=$('trendDot'),base=series[0][1];dotEl.style.borderColor=color;tip.style.borderColor=color;
+ svg.onpointermove=svg.onpointerdown=event=>{
+  const rect=svg.getBoundingClientRect(),mx=(event.clientX-rect.left)*W/rect.width,i=Math.max(0,Math.min(n-1,Math.round((mx-left)/Math.max(1,right-left)*(n-1)))),row=series[i];
+  cursor.setAttribute('x1',x(i));cursor.setAttribute('x2',x(i));cursor.setAttribute('visibility','visible');
+  const px=x(i)*rect.width/W,py=y(row[1])*rect.height/H;dotEl.style.left=px+'px';dotEl.style.top=py+'px';dotEl.hidden=false;
+  const change=(row[1]-base)/base*100;tip.replaceChildren();const d=document.createElement('i');d.textContent=showTime(row[0])+(row[2]?' 盤中':'');const v=document.createElement('b');v.textContent='NT$ '+format(row[1]);v.style.color=color;const c=document.createElement('i');c.textContent='較期初 '+(change>=0?'+':'')+change.toFixed(2)+'%';tip.append(d,v,c);tip.hidden=false;
+  const tw=tip.offsetWidth,th=tip.offsetHeight;let tl=px+14,tt=py-th-12;if(tl+tw>rect.width)tl=px-tw-14;if(tl<0)tl=0;if(tt<0)tt=py+14;if(tt+th>rect.height)tt=Math.max(0,rect.height-th);tip.style.left=tl+'px';tip.style.top=tt+'px';
+  $('trendTooltip').textContent=`${showTime(row[0])} · ${label}：NT$ ${format(row[1])}`;};
+ svg.onpointerleave=()=>{tip.hidden=true;dotEl.hidden=true;cursor.setAttribute('visibility','hidden');};
+}
+async function loadTrend(force=false){
+ const job=++trendJob;trendLoading=true;const nowHM=stamp(new Date()).slice(11,16),today=trendToday(),months=monthList(periodStart(trendPeriod),today),current=today.slice(0,7).replace('-','');const targets=trendTarget==='total'?PORTFOLIO.map(([code])=>code):[trendTarget];
+ const requests=[];for(const month of [...months].reverse())for(const code of targets){if(month<LISTED[code])continue;const entry=dailyCache[code+'-'+month];if(!cacheValid(entry)||(month===current&&(force||entry.fetchedAt!==today||(!entry.rows.some(r=>r[0]===today)&&nowHM>='14:00'&&(entry.fetchedTime||'00:00')<'14:00'))))requests.push([code,month]);}
+ let finished=0,failures=0,cacheWarning='',intraNote='';renderTrend();
+ if(INTRADAY_PERIODS.has(trendPeriod)){try{await loadIntraday(targets,force,job);if(job!==trendJob)return;trendLoading=false;renderTrend();$('trendStatus').textContent='已載入 15 分鐘線（Yahoo 財經），每 10 分鐘自動更新';return;}catch(e){if(job!==trendJob)return;intraNote='盤中資料讀取失敗（'+e.message+'），改用日收盤價；';}}
+ if(!requests.length){trendLoading=false;$('trendStatus').textContent=intraNote+'已使用 localStorage 中的歷史日線快取。';return;}
+ for(const [code,month] of requests){
+  if(job!==trendJob)return;
+  $('trendStatus').textContent=`正在下載歷史日線 ${finished+1} / ${requests.length} · ${code} ${month.slice(0,4)}-${month.slice(4)}（可切換期間或取消）`;
+  try{const data=await proxyGet('https://www.twse.com.tw/exchangeReport/STOCK_DAY?'+new URLSearchParams({response:'json',date:month+'01',stockNo:code}));if(job!==trendJob)return;const rows=parseDaily(data);dailyCache[code+'-'+month]={rows,fetchedAt:today,fetchedTime:stamp(new Date()).slice(11,16)};try{localStorage.setItem(DAILYKEY,JSON.stringify(dailyCache));}catch{cacheWarning='；localStorage 空間不足，部分快取只保留在本次畫面';}}
+  catch(e){failures++;}
+  finished++;renderTrend();if(finished<requests.length)await new Promise(resolve=>setTimeout(resolve,450));
+ }
+ if(job!==trendJob)return;trendLoading=false;$('trendStatus').textContent=failures?`已完成，${failures} 個月份／ETF 讀取失敗，圖中可能缺資料；可按更新重試${cacheWarning}`:`${intraNote}歷史日線載入完成，已快取至 localStorage${cacheWarning}`;
+}
+document.querySelectorAll('[data-period]').forEach(button=>button.onclick=()=>{trendPeriod=button.dataset.period;document.querySelectorAll('[data-period]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));loadTrend();});
+document.addEventListener('click',event=>{const link=event.target.closest('[data-target]');if(!link)return;event.preventDefault();const next=link.dataset.target;if(next===trendTarget)return;trendTarget=next;renderTrend();loadTrend();});
+$('loadDaily').onclick=()=>loadTrend(true);
+$('cancelDaily').onclick=()=>{trendJob++;trendLoading=false;$('trendStatus').textContent='已取消後續下載，保留目前已取得的快取。';renderTrend();};
+renderTrend();
+// Load a small default range automatically.
+loadTrend();
+let resizeFrame=0;new ResizeObserver(()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(renderTrend);}).observe($('dailyChart'));
+setInterval(()=>{if(!trendLoading&&INTRADAY_PERIODS.has(trendPeriod)&&!document.hidden)loadTrend();},10*60e3);
+
+
+$('historyPrev').onclick=()=>{historyPage=Math.max(0,historyPage-1);renderHistory();};$('historyNext').onclick=()=>{historyPage++;renderHistory();};
+$('closeSettings').onclick=()=>showProxyPanel(false);
+$('openHelp').onclick=()=>$('helpDialog').showModal();$('closeHelp').onclick=()=>$('helpDialog').close();
+for(const dialog of document.querySelectorAll('dialog'))dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+
+</script></html>
