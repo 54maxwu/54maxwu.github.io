@@ -43260,21 +43260,13 @@ void main() {
       const memory = b.lastSeen && now - b.lastSeenT < 5;
       if (memory && b.pos.distanceTo(b.lastSeen) < 2.5 && this.task !== "observe-search") {
         this.cancelRoute();
-<<<<<<< HEAD
-        this.searchYaw = b.yaw;
-=======
         this.searchYaw = b.lookYaw = b.yaw;
->>>>>>> a543b7e537d67c220d5c7075d907987cdb60c6d2
         this.change("observe-search", now, "search-location-reached", 1.1);
       }
       if (this.task === "observe-search") {
         act.wishX = act.wishZ = 0;
         act.fire = act.firePressed = false;
-<<<<<<< HEAD
-        act.yaw = (this.searchYaw ?? b.yaw) + Math.sin((now - this.entered) * 3) * 0.6;
-=======
         act.yaw = (Number.isFinite(this.searchYaw) ? this.searchYaw : b.yaw) + Math.sin((now - this.entered) * 3) * 0.6;
->>>>>>> a543b7e537d67c220d5c7075d907987cdb60c6d2
         act.pitch = 0;
         if (now >= this.until || !memory) {
           b.lastSeen = null;
