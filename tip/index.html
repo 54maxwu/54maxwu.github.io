@@ -125,6 +125,7 @@
       align-items: center;
       gap: 10px;
     }
+    #resetPasswordBtn,
     #stegBtn {
       display: inline-flex;
       align-items: center;
@@ -143,11 +144,13 @@
       white-space: nowrap;
       max-width: 280px;
     }
+    #resetPasswordBtn:hover,
     #stegBtn:hover {
       background: #162130;
       border-color: #3b82f6;
       color: #4d80ef;
     }
+    #resetPasswordBtn:active,
     #stegBtn:active { transform: scale(.97); }
     #stegBtn.armed {
       background: #163225;
@@ -189,6 +192,17 @@
       background: #047857;
       color: #fff;
     }
+
+    /* SVG icons without a fill otherwise default to black in the dark toolbar. */
+    .el-tiptap-editor__command-button svg {
+      fill: currentColor;
+    }
+    #resetPasswordBtn:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 3px;
+    }
+    .app-header .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+    .app-header .file-action-bar { flex-wrap: wrap; justify-content: flex-end; }
 
     /* ── File action bar moved into the page header ──
        JS (below) lifts <div id="main"> > :last-child into .app-header.
@@ -247,6 +261,7 @@
     <div class="app-header">
       <h1>文件加密</h1>
       <div class="header-actions">
+        <button id="resetPasswordBtn" type="button" title="清空目前密碼並重新輸入，保留編輯內容">重新輸入密碼</button>
         <button id="stegBtn" type="button" title="把任意檔案藏進一張圖片裡">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2"></rect>
@@ -352,6 +367,15 @@
         const pw = bar.querySelector('input[type="password"]');
         return pw ? pw.value : '';
       }
+
+      document.getElementById('resetPasswordBtn').addEventListener('click', () => {
+        const input = document.querySelector('.file-action-bar input[type="password"]');
+        if (!input) return;
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(input, '');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
+      });
 
       // ── AES 加 / 解 (跟 bundle 同款:AES-ECB / Pkcs7 / key=btoa(password)) ──
       // 輸出 hex 字串,跟 bundle 原本下載的 .txt 內容一致 — 改天把 steg 圖
