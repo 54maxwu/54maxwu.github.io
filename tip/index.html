@@ -193,41 +193,6 @@
       color: #fff;
     }
 
-    #passwordDialog {
-      width: min(360px, calc(100vw - 64px));
-      padding: 24px;
-      border: 1px solid #374151;
-      border-radius: 10px;
-      background: #151b26;
-      color: #d9dce2;
-    }
-    #passwordDialog::backdrop { background: rgba(0, 0, 0, .65); }
-    #passwordDialog h2 { margin: 0 0 16px; font-size: 18px; }
-    #passwordDialog label { display: block; margin-bottom: 8px; }
-    #passwordDialog input {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #475569;
-      border-radius: 6px;
-      background: #10131a;
-      color: #d9dce2;
-      font: inherit;
-    }
-    #passwordDialog input:focus-visible { outline: 2px solid #3b82f6; }
-    #passwordDialog p { color: #94a3b8; font-size: 13px; }
-    #passwordDialog .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
-    #passwordDialog button {
-      padding: 8px 16px;
-      border: 1px solid #475569;
-      border-radius: 6px;
-      background: #151b26;
-      color: #d9dce2;
-      font: inherit;
-      cursor: pointer;
-    }
-    #passwordDialog button[type="submit"] { background: #2563eb; border-color: #2563eb; color: #fff; }
-
     /* SVG icons without a fill otherwise default to black in the dark toolbar. */
     .el-tiptap-editor__command-button svg {
       fill: currentColor;
@@ -312,18 +277,6 @@
         </button>
       </div>
     </div>
-    <dialog id="passwordDialog" aria-labelledby="passwordDialogTitle">
-      <form id="passwordForm" autocomplete="off" data-bwignore="true" data-lpignore="true" data-1p-ignore>
-        <h2 id="passwordDialogTitle">重新輸入密碼</h2>
-        <label for="replacementPassword">新密碼</label>
-        <input id="replacementPassword" type="password" required autocomplete="off" data-bwignore="true" data-lpignore="true" data-1p-ignore aria-describedby="passwordHelp">
-        <p id="passwordHelp">確認後，後續加密與解密會使用此密碼，編輯內容不變。</p>
-        <div class="dialog-actions">
-          <button id="cancelPasswordBtn" type="button">取消</button>
-          <button type="submit">確認</button>
-        </div>
-      </form>
-    </dialog>
     <div class="page-content">
       <div id="app"></div>
     </div>
@@ -419,32 +372,35 @@
         return pw ? pw.value : '';
       }
 
-      const passwordDialog = document.getElementById('passwordDialog');
-      const passwordForm = document.getElementById('passwordForm');
-      const replacementPassword = document.getElementById('replacementPassword');
-
-      document.getElementById('resetPasswordBtn').addEventListener('click', () => {
-        passwordForm.reset();
-        replacementPassword.setCustomValidity('');
-        passwordDialog.showModal();
-        replacementPassword.focus();
-      });
-      document.getElementById('cancelPasswordBtn').addEventListener('click', () => passwordDialog.close());
-      passwordDialog.addEventListener('close', () => passwordForm.reset());
-      replacementPassword.addEventListener('input', () => replacementPassword.setCustomValidity(''));
-      passwordForm.addEventListener('submit', e => {
-        e.preventDefault();
-        if (!passwordForm.reportValidity()) return;
+      // Reuse the same Element Plus prompt as the initial password entry.
+      document.getElementById('resetPasswordBtn').addEventListener('click', async () => {
+        const button = document.getElementById('resetPasswordBtn');
+        const prompt = document.getElementById('app').__vue_app__?.config.globalProperties.$prompt;
         const input = document.querySelector('.file-action-bar input[type="password"]');
-        if (!input) {
-          replacementPassword.setCustomValidity('編輯器尚未就緒，請稍後再試');
-          replacementPassword.reportValidity();
+        if (!prompt || !input) {
+          alert('編輯器尚未就緒，請稍後再試');
           return;
         }
-        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-        setter.call(input, replacementPassword.value);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        passwordDialog.close();
+        button.disabled = true;
+        try {
+          const { value } = await prompt('請輸入新密碼，確認後文件都使用該密碼', '重新輸入密碼', {
+            confirmButtonText: '確認',
+            cancelButtonText: '取消',
+            inputType: 'password',
+            inputValue: '',
+            inputValidator: value => !!value || '密碼不得為空',
+            showCancelButton: true,
+            showClose: false,
+            closeOnClickModal: false
+          });
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          setter.call(input, value);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        } catch (reason) {
+          if (reason !== 'cancel' && reason !== 'close') alert('設定密碼失敗，請再試一次');
+        } finally {
+          button.disabled = false;
+        }
       });
 
       // ── AES 加 / 解 (跟 bundle 同款:AES-ECB / Pkcs7 / key=btoa(password)) ──
