@@ -313,10 +313,10 @@
       </div>
     </div>
     <dialog id="passwordDialog" aria-labelledby="passwordDialogTitle">
-      <form id="passwordForm">
+      <form id="passwordForm" autocomplete="off" data-bwignore="true" data-lpignore="true" data-1p-ignore>
         <h2 id="passwordDialogTitle">重新輸入密碼</h2>
         <label for="replacementPassword">新密碼</label>
-        <input id="replacementPassword" type="password" required autocomplete="new-password" aria-describedby="passwordHelp">
+        <input id="replacementPassword" type="password" required autocomplete="off" data-bwignore="true" data-lpignore="true" data-1p-ignore aria-describedby="passwordHelp">
         <p id="passwordHelp">確認後，後續加密與解密會使用此密碼，編輯內容不變。</p>
         <div class="dialog-actions">
           <button id="cancelPasswordBtn" type="button">取消</button>
